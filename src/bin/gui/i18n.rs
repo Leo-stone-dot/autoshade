@@ -167,11 +167,24 @@ pub fn trf(lang: Lang, en: &'static str, args: &[(&str, &str)]) -> String {
 /// sentence the user reads — through the same `tr`/`trf` catalogue every view
 /// string uses, so one string cannot have two spellings.
 pub fn text(lang: Lang, text: &crate::logic::UiText) -> String {
+    use crate::logic::Arg;
     if text.args.is_empty() {
         return tr(lang, text.key).to_owned();
     }
-    let args: Vec<(&str, &str)> =
-        text.args.iter().map(|(name, value)| (*name, value.as_str())).collect();
+    // A `Key` argument is a catalogue key in its own right (a verdict word);
+    // translate it here, at the one place that renders.
+    let rendered: Vec<(&str, String)> = text
+        .args
+        .iter()
+        .map(|(name, value)| {
+            let value = match value {
+                Arg::Key(key) => tr(lang, key).to_owned(),
+                Arg::Text(text) => text.clone(),
+            };
+            (*name, value)
+        })
+        .collect();
+    let args: Vec<(&str, &str)> = rendered.iter().map(|(name, value)| (*name, value.as_str())).collect();
     trf(lang, text.key, &args)
 }
 
@@ -3248,5 +3261,24 @@ mod tests {
         // DELIBERATE NON-CHECK: an all-ASCII value is not an error. "AI" is
         // "AI" in the Chinese UI, and a rule demanding a hanzi in every value
         // would force a worse translation of an acronym.
+    }
+
+    /// A logic-authored line can carry a catalogue KEY as an argument (a
+    /// verdict word). The renderer translates it in the live language — the
+    /// logic layer never renders.
+    #[test]
+    fn a_key_argument_is_translated_by_the_one_renderer() {
+        let line = crate::logic::UiText::with_args(
+            "AI develop — the self-check said: {v}",
+            &[("v", crate::logic::Arg::Key("Revise"))],
+        );
+        assert_eq!(
+            text(Lang::Zh, &line),
+            format!("AI develop — the self-check said: {}", tr(Lang::Zh, "Revise")),
+        );
+        assert_eq!(
+            text(Lang::En, &line),
+            format!("AI develop — the self-check said: {}", tr(Lang::En, "Revise")),
+        );
     }
 }

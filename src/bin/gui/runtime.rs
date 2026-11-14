@@ -212,6 +212,22 @@ impl AutoShadeApp {
         }
     }
 
+
+    /// Render one landing outcome's words: the one place a logic-authored
+    /// status line and toast become the view's strings.
+    pub(crate) fn show_words(&mut self, lang: Lang, words: logic::analysis_landing::Words) -> String {
+        let status = crate::i18n::text(lang, &words.status);
+        self.status = status.clone();
+        if let Some((tone, text)) = words.toast {
+            let kind = match tone {
+                logic::analysis_landing::Tone::Error => ToastKind::Error,
+                logic::analysis_landing::Tone::Success => ToastKind::Success,
+            };
+            self.toast(kind, crate::i18n::text(lang, &text));
+        }
+        status
+    }
+
     fn spawn_depth_worker(
         &mut self,
         photo: std::path::PathBuf,

@@ -7531,7 +7531,11 @@ it. The Lens Blur pilot ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.r
 four AI-look verbs share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
 `plan`, `claim`, `restore`, `landed` — one epoch a result can win), with all
 three starters (AI Analyze / adjust, Normal's one-click and reference folder, the
-Portraits look) routed through it;
+Portraits look) routed through it; Portraits look) routed through it. The analysis LANDING's decisions and
+words live beside it in `logic::analysis_landing`: `accepted`, `shape` (the
+canvas copy a generated card needs vs the store's own recipe), and one
+`SaveReport`/`words` pair per persistence outcome, so the worker reports what
+happened instead of composing the sentence.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 

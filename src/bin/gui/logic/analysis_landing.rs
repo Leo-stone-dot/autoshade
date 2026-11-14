@@ -1,0 +1,202 @@
+//! The analysis LANDING's decisions and words, headless.
+//!
+//! An analyzed result arrives as recipe + verdict + rationale notes. What
+//! happens to that recipe (and what the user is told) is decided here; the
+//! persistence itself (backup gate, one develop commit, XMP half) stays the
+//! runtime's, which is why it reports back as a [`SaveReport`] instead of this
+//! layer reaching for a lock or a file.
+
+use super::{Arg, UiText};
+use autoshade::advisor::{Decision, Verdict};
+use autoshade::recipe::EditRecipe;
+
+/// Does this verdict let the app SAVE the result? Only `Accept` may auto-save;
+/// a result the verifier judged not ready stays on the canvas as an unsaved
+/// edit and the user decides (Ctrl+S / Ctrl+Z).
+pub(crate) fn accepted(verdict: &Verdict) -> bool {
+    verdict.decision == Decision::Accept
+}
+
+/// The landing's two recipes: `canvas` is what the frame shows (a GENERATED
+/// card strips the camera look and lens profile — they are already IN its
+/// pixels), `stamped` is what the develop store writes (the RAW's own develop,
+/// which keeps its curve).
+pub(crate) struct Shaped {
+    pub(crate) canvas: EditRecipe,
+    pub(crate) stamped: EditRecipe,
+}
+
+/// Shape a landed recipe for the canvas and for the store.
+///
+/// "Keep skin natural" holds where the landing is WRITTEN: the store write
+/// happens before the frame's own guard reaches the canvas, so the clamp is
+/// applied here to the recipe that is saved.
+pub(crate) fn shape(recipe: EditRecipe, skin_held: bool, ai_pixels: bool) -> Shaped {
+    let mut stamped = recipe;
+    if skin_held {
+        autoshade::face::keep_skin_natural_in(&mut stamped);
+    }
+    let mut canvas = stamped.clone();
+    if ai_pixels {
+        canvas.strip_baked_start();
+        // Anchor follows the strip rule (baked WB).
+        canvas.as_shot_k = None;
+        canvas.as_shot_tint = None;
+    }
+    Shaped { canvas, stamped }
+}
+
+/// How the persistence half went, as data the wording below can consume.
+pub(crate) enum SaveReport {
+    /// The verifier did not accept: nothing is persisted.
+    NotAccepted { decision: &'static str },
+    Saved { backed_up: Option<u32> },
+    BackupFailed { err: String },
+    SidecarFailed { err: String },
+    NoPhoto,
+}
+
+/// The tone of a toast the caller should raise.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Tone {
+    Error,
+    Success,
+}
+
+/// One landing's user-facing outcome: the status line, and a toast when the
+/// outcome needs to interrupt (a quiet success, or a failed write).
+pub(crate) struct Words {
+    pub(crate) status: UiText,
+    pub(crate) toast: Option<(Tone, UiText)>,
+}
+
+/// The words for one landing outcome. The decision word travels as a
+/// catalogue KEY (`Arg::Key`), translated where the line is rendered.
+pub(crate) fn words(report: &SaveReport) -> Words {
+    match report {
+        SaveReport::NotAccepted { decision } => {
+            let text = UiText::with_args(
+                "AI edit applied — the AI's self-check said: {v}. Not saved yet (Ctrl+S saves, Ctrl+Z undoes)",
+                &[("v", Arg::Key(decision))],
+            );
+            Words { status: text.clone(), toast: Some((Tone::Success, text)) }
+        }
+        SaveReport::Saved { backed_up: Some(n) } => Words {
+            status: UiText::with(
+                "AI develop applied · saved (previous save backed up as v{n})",
+                &[("n", &n.to_string())],
+            ),
+            toast: None,
+        },
+        SaveReport::Saved { backed_up: None } => Words {
+            status: UiText::of("AI develop applied · saved to recipe.json"),
+            toast: None,
+        },
+        SaveReport::BackupFailed { err } => {
+            let text = UiText::with(
+                "AI develop applied — but NOT saved: backing up your existing save failed ({err}); Ctrl+S overwrites explicitly",
+                &[("err", err)],
+            );
+            Words { status: text.clone(), toast: Some((Tone::Error, text)) }
+        }
+        SaveReport::SidecarFailed { err } => {
+            let text = UiText::with(
+                "AI develop applied — but saving the sidecar failed: {err}",
+                &[("err", err)],
+            );
+            Words { status: text.clone(), toast: Some((Tone::Error, text)) }
+        }
+        SaveReport::NoPhoto => Words { status: UiText::of("AI develop applied"), toast: None },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use autoshade::advisor::Verdict;
+    use autoshade::recipe::MaskRole;
+
+    fn verdict(decision: Decision) -> Verdict {
+        Verdict { decision, reasons: Vec::new(), revised_hint: None }
+    }
+
+    /// Only an Accept may auto-save; the other two decisions keep the result
+    /// on the canvas as an unsaved edit.
+    #[test]
+    fn only_accept_may_save() {
+        assert!(accepted(&verdict(Decision::Accept)));
+        assert!(!accepted(&verdict(Decision::Revise)));
+        assert!(!accepted(&verdict(Decision::Reject)));
+    }
+
+    /// The canvas copy of a GENERATED card drops the baked start and the WB
+    /// anchor (they are in its pixels); the recipe written to the store keeps
+    /// them. A card on the photo itself keeps both copies identical.
+    #[test]
+    fn a_generated_cards_canvas_copy_strips_the_baked_start() {
+        let recipe = EditRecipe {
+            base_curve: vec![[0.0, 0.25]],
+            as_shot_k: Some(5200.0),
+            as_shot_tint: Some(4.0),
+            ..Default::default()
+        };
+        let shaped = shape(recipe.clone(), false, true);
+        assert!(shaped.canvas.base_curve.is_empty(), "the canvas copy drops the camera curve");
+        assert_eq!((shaped.canvas.as_shot_k, shaped.canvas.as_shot_tint), (None, None));
+        assert_eq!(shaped.stamped, recipe, "the store keeps the RAW's own develop");
+
+        let plain = shape(recipe.clone(), false, false);
+        assert_eq!(plain.canvas, recipe);
+        assert_eq!(plain.stamped, recipe);
+    }
+
+    /// "Keep skin natural" clamps the recipe that is SAVED (the frame's own
+    /// guard runs a frame later, after the file exists).
+    #[test]
+    fn keep_skin_natural_clamps_the_saved_recipe() {
+        let mut skin = autoshade::face::skin_adjustment("mask-face.png".into(), [0.8, 0.6, 0.5], [0.4, 0.3]);
+        skin.saturation = 100.0;
+        let recipe = EditRecipe { masks: vec![skin], ..Default::default() };
+        let held = shape(recipe.clone(), true, false);
+        assert!(held.stamped.masks[0].saturation < 100.0, "the saved recipe is clamped");
+        let free = shape(recipe, false, false);
+        assert_eq!(free.stamped.masks[0].saturation, 100.0, "switched off, nothing is clamped");
+        assert_eq!(MaskRole::Skin, held.stamped.masks[0].role);
+    }
+
+    /// Each outcome's words: what is said, and whether it interrupts. The
+    /// decision word is a KEY, translated only when the line is rendered.
+    #[test]
+    fn every_outcome_has_its_words_and_its_tone() {
+        let not_accepted = words(&SaveReport::NotAccepted { decision: autoshade::advisor::decision_key(&Decision::Revise) });
+        assert_eq!(
+            not_accepted.status.key,
+            "AI edit applied — the AI's self-check said: {v}. Not saved yet (Ctrl+S saves, Ctrl+Z undoes)"
+        );
+        assert_eq!(
+            not_accepted.status.args,
+            vec![("v", Arg::Key("Revise"))],
+            "the verdict word travels as a KEY — the renderer translates it"
+        );
+        assert!(matches!(not_accepted.toast, Some((Tone::Success, _))));
+
+        let saved = words(&SaveReport::Saved { backed_up: Some(3) });
+        assert_eq!(saved.status.key, "AI develop applied · saved (previous save backed up as v{n})");
+        assert!(saved.toast.is_none(), "a saved landing does not raise a toast");
+
+        let unsaved = words(&SaveReport::Saved { backed_up: None });
+        assert_eq!(unsaved.status.key, "AI develop applied · saved to recipe.json");
+
+        for report in [
+            SaveReport::BackupFailed { err: "disk full".into() },
+            SaveReport::SidecarFailed { err: "lock held".into() },
+        ] {
+            let w = words(&report);
+            assert!(matches!(w.toast, Some((Tone::Error, _))), "a failed write interrupts");
+        }
+
+        let no_photo = words(&SaveReport::NoPhoto);
+        assert_eq!(no_photo.status.key, "AI develop applied");
+        assert!(no_photo.toast.is_none());
+    }
+}
