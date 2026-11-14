@@ -1062,7 +1062,7 @@
             None
         );
         assert!(
-            include_str!("../workers.rs").contains("if let Some(owner) = note.consumed_area()"),
+            include_str!("../landing_worker.rs").contains("if let Some(owner) = note.consumed_area()"),
             "the landing clears through consumed_area"
         );
 

@@ -7627,7 +7627,11 @@ under one no-wait lock; `workers::on_analyzed` keeps the epoch guard, the shape
 and the state install. The canvas's own landings split the same way:
 ([`src/bin/gui/landing_canvas.rs`](../src/bin/gui/landing_canvas.rs)) holds
 the photo-open landing, the camera-profile re-develop and the thumbnail
-landing, leaving `workers.rs` as the message pump plus the worker starts. Every dialog a panel asks for is now such an action
+landing, leaving `workers.rs` as the message pump plus the worker starts. The remaining worker landings split likewise
+([`src/bin/gui/landing_worker.rs`](../src/bin/gui/landing_worker.rs)): style
+build, segmentation, mask refine, folder scan, master load, retouch, paste,
+models and the reverse-fit, so `workers.rs` is down to the pump, the worker
+spawns and the base/source helpers. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.
