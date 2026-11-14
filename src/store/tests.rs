@@ -3911,3 +3911,16 @@ fn a_version_snapshot_freezes_depth_protect_and_layer_rasters() {
     }
     let _ = std::fs::remove_dir_all(&dev);
 }
+
+/// A claimed raster's FAMILY strips the extension and the claim counter,
+/// keeps a version prefix out of the comparison, and leaves an un-numbered
+/// name alone — the rule the segmentation landing uses to re-point a rerun.
+#[test]
+fn a_rasters_family_is_its_name_without_the_claim_counter() {
+    assert_eq!(crate::store::mask_family("mask-sky.png"), "mask-sky");
+    assert_eq!(crate::store::mask_family("mask-sky-3.png"), "mask-sky");
+    assert_eq!(crate::store::mask_family("v3.mask-sky-2.png"), "mask-sky");
+    assert_eq!(crate::store::mask_family("mask-sky"), "mask-sky");
+    // A dash-number that is not a claim counter stays part of the name.
+    assert_eq!(crate::store::mask_family("mask-sky-3x.png"), "mask-sky-3x");
+}

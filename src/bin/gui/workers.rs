@@ -2219,137 +2219,34 @@ impl AutoShadeApp {
     /// `Msg::Segmented` landing — body extracted verbatim from the
     /// poll_workers pump (round-12 decomposition; indentation kept).
     fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, PathBuf, String)>) {
-                match res {
-                    Ok((label, path, backend)) => {
-                        let path_s = path.to_string_lossy().into_owned();
-                        // One raster per (photo, target): a re-run refreshed the
-                        // SAME file, so re-select the mask that already
-                        // references it instead of stacking a duplicate (whose
-                        // sliders would all be 0 — an inert-looking copy).
-                        // Compare by RASTER NAME, not full string: the stored
-                        // reference may be bare ("mask-sky.png"), legacy
-                        // ("out/<stem>.mask-sky.png") or absolute, while
-                        // `path` is the absolute target — the kind-name is
-                        // unique per photo per target by construction. On a
-                        // hit, re-point the stored path at the freshly written
-                        // raster so a stale reference is revived instead of
-                        // stranding the user's sliders on a dead mask.
-                        let new_name = path
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or_default()
-                            .to_string();
-                        let stem_prefix = self
-                            .src_path
-                            .as_deref()
-                            .map(|p| format!("{}.", autoshade::pipeline::stem(p)));
-                        let existing = self.recipe.masks.iter_mut().enumerate().find_map(
-                            |(i, m)| match &mut m.mask {
-                                autoshade::recipe::MaskGeometry::Bitmap { path: p } => {
-                                    let stored = std::path::Path::new(p.as_str())
-                                        .file_name()
-                                        .and_then(|n| n.to_str())
-                                        .unwrap_or_default();
-                                    let bare = stem_prefix
-                                        .as_deref()
-                                        .and_then(|sp| stored.strip_prefix(sp))
-                                        .unwrap_or(stored);
-                                    // Strip the NEW name symmetrically: a
-                                    // legacy-out target carries the stem
-                                    // prefix that a central bare name lacks —
-                                    // one-sided stripping missed the match
-                                    // and stacked an inert duplicate.
-                                    let new_bare = stem_prefix
-                                        .as_deref()
-                                        .and_then(|sp| new_name.strip_prefix(sp))
-                                        .unwrap_or(&new_name);
-                                    // Compare by name FAMILY ("mask-sky-3.png"
-                                    // → "mask-sky"): rasters are claim_raster
-                                    // uniques now, so a rerun's new name must
-                                    // still REPOINT the existing entry.
-                                    (mask_family(bare) == mask_family(new_bare)).then(|| {
-                                        *p = path_s.clone();
-                                        i
-                                    })
-                                }
-                                _ => None,
-                            },
-                        );
-                        let reused = existing.is_some();
-                        match existing {
-                            Some(i) => self.sel_mask = Some(i),
-                            None => {
-                                self.recipe.masks.push(autoshade::recipe::LocalAdjustment {
-                                    mask: autoshade::recipe::MaskGeometry::Bitmap {
-                                        path: path_s,
-                                    },
-                                    name: label.clone(),
-                                    ..Default::default()
-                                });
-                                self.sel_mask = Some(self.recipe.masks.len() - 1);
-                            }
-                        }
-                        // The landing MOVED the selection — index-armed tools
-                        // bound to another row die with it, exactly like the
-                        // row-click sites (Codex L06-1: this async door was
-                        // missed and a stranded brush baked into the old mask).
-                        if self.disarm_selection_bound_tools(self.sel_mask) {
-                            let t = tr(
-                                lang,
-                                "the AI result took the selection — a brush session on another mask ended; its unbaked strokes were discarded",
-                            );
-                            self.toast(ToastKind::Error, t.to_string());
-                        }
-                        self.overlay_stale = true; // fresh raster ⇒ fresh coverage
-                        self.dirty = true; // committed-snapshot makes this one undo step
-                        self.busy = false;
-                        // A rerun REFRESHES the existing mask's raster — its
-                        // sliders may already apply; claiming "added, adjust
-                        // sliders" there was false on both counts.
-                        self.status = if reused {
-                            trf(
-                                lang,
-                                "AI「{what}」mask refreshed — the existing mask now uses the new selection (its sliders still apply)",
-                                &[("what", &label)],
-                            )
-                        } else {
-                            trf(
-                                lang,
-                                "AI「{what}」mask added — adjust its sliders (exposure / contrast / saturation…) to take effect",
-                                &[("what", &label)],
-                            )
-                        };
-                        // WHICH MODEL DREW IT, and the two tiers get two
-                        // different surfaces (R29 B4's own registration, closed
-                        // in R29 C3/C4). `--target subject` answers with either
-                        // the pinned BiRefNet or the U²-Net fallback, and until
-                        // now this landing showed one sentence for both — so a
-                        // machine that had quietly degraded looked exactly like
-                        // one that had not, while the mask's edges were
-                        // materially different. The backend NAME goes in the
-                        // status line for every run; a FALLBACK also raises an
-                        // error toast, because a status line the user is not
-                        // looking at is not a disclosure.
-                        if !backend.is_empty() {
-                            self.status.push_str(&trf(
-                                lang,
-                                " · drawn by {backend}",
-                                &[("backend", &backend)],
-                            ));
-                        }
-                        if autoshade::segment::backend_is_fallback(&backend) {
-                            let t = trf(
-                                lang,
-                                "「{what}」was drawn by the U^2-Net FALLBACK, not the pinned BiRefNet — its edges are materially softer and it can invent a subject where there is none. Install torchvision + timm + einops matching your torch to get the pinned model.",
-                                &[("what", &label)],
-                            );
-                            self.toast(ToastKind::Error, t);
-                        }
-                    }
-                    Err(e) => {
-                        self.fail(tr(lang, "AI segmentation failed"), e);
-                    }
+        match res {
+            Ok((label, path, backend)) => {
+                // The mask choice, the words and the fallback disclosure are
+                // the logic layer's (`logic/segmented.rs`).
+                let photo_stem = self.src_path.clone().map(|p| autoshade::pipeline::stem(&p).to_owned());
+                let landed =
+                    logic::segmented::apply(&mut self.recipe, &label, &path, &backend, photo_stem.as_deref());
+                self.sel_mask = Some(landed.selection);
+                // The landing MOVED the selection — index-armed tools bound to
+                // another row die with it, exactly like the row-click sites
+                // (Codex L06-1: this async door was missed and a stranded brush
+                // baked into the old mask).
+                if self.disarm_selection_bound_tools(self.sel_mask) {
+                    let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
+                    self.toast(ToastKind::Error, t);
                 }
+                self.overlay_stale = true; // fresh raster ⇒ fresh coverage
+                self.busy = false;
+                // MarkDirty + the status line (+ the fallback toast).
+                self.run_effects(landed.effects);
+                if let Some(note) = landed.backend_note {
+                    self.status = format!("{}{}", self.status, crate::i18n::text(lang, &note));
+                }
+            }
+            Err(e) => {
+                self.fail(tr(lang, "AI segmentation failed"), e);
+            }
+        }
     }
 
     /// `Msg::MaskRefined` landing — body extracted verbatim from the

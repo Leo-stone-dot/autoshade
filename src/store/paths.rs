@@ -308,6 +308,29 @@ pub fn claim_raster(src: &Path, prefix: &str) -> std::io::Result<PathBuf> {
     )))
 }
 
+/// A claimed raster name's FAMILY: "mask-sky-3.png" → "mask-sky" (strip the
+/// extension, then a trailing "-<digits>" claim counter). Lets a re-run's
+/// fresh unique name still match — and repoint — the mask entry its previous
+/// run created.
+pub fn mask_family(bare: &str) -> &str {
+    let stem = bare.strip_suffix(".png").unwrap_or(bare);
+    // A version-frozen raster ("v3.mask-sky") is the same family — a recipe
+    // loaded from a version snapshot references frozen names, and a rerun
+    // must still repoint that mask instead of appending a duplicate.
+    let stem = match stem.split_once('.') {
+        Some((v, rest))
+            if v.len() > 1 && v.starts_with('v') && v[1..].bytes().all(|b| b.is_ascii_digit()) =>
+        {
+            rest
+        }
+        _ => stem,
+    };
+    match stem.rsplit_once('-') {
+        Some((head, tail)) if !tail.is_empty() && tail.bytes().all(|b| b.is_ascii_digit()) => head,
+        _ => stem,
+    }
+}
+
 /// A raster path whose FILE the holder OWNS and may delete.
 ///
 /// The zoned reverse-fit removes its mask when no zone survives, so that file

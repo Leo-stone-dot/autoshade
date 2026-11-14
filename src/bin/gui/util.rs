@@ -1883,31 +1883,6 @@ pub(crate) fn ui_press_origin(resp: &egui::Response) -> Option<egui::Pos2> {
     resp.ctx.input(|i| i.pointer.press_origin())
 }
 
-/// A claimed raster name's FAMILY: "mask-sky-3.png" → "mask-sky" (strip the
-/// extension, then a trailing "-<digits>" claim counter). Lets a re-run's
-/// fresh unique name still match — and repoint — the mask entry its previous
-/// run created.
-pub(crate) fn mask_family(bare: &str) -> &str {
-    let stem = bare.strip_suffix(".png").unwrap_or(bare);
-    // A version-frozen raster ("v3.mask-sky") is the same family — a recipe
-    // loaded from a version snapshot references frozen names, and a rerun
-    // must still repoint that mask instead of appending a duplicate.
-    let stem = match stem.split_once('.') {
-        Some((v, rest))
-            if v.len() > 1
-                && v.starts_with('v')
-                && v[1..].bytes().all(|b| b.is_ascii_digit()) =>
-        {
-            rest
-        }
-        _ => stem,
-    };
-    match stem.rsplit_once('-') {
-        Some((head, tail)) if !tail.is_empty() && tail.bytes().all(|b| b.is_ascii_digit()) => head,
-        _ => stem,
-    }
-}
-
 /// One frame of the zoom glide (阶段5 手感): exponential approach with a
 /// ~45 ms time constant — visually ~120 ms to settle, frame-rate
 /// independent (dt-driven, clamped so a hitch cannot overshoot a frame's
