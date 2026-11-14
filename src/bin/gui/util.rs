@@ -406,22 +406,12 @@ pub(crate) fn mask_active(m: &autoshade::recipe::LocalAdjustment) -> bool {
 /// a tilt that rounds away — and 「Rotation 0°」 would be a sentence that is
 /// wrong about the file. The caller falls back to its plain phrasing.
 fn rotation_degrees(lang: Lang, degs: impl Iterator<Item = i32>) -> Option<String> {
-    let mut seen: Vec<i32> = Vec::new();
-    for d in degs {
-        if d != 0 && !seen.contains(&d) {
-            seen.push(d);
-        }
+    let list = crate::logic::xmp_disclosure::rotation_list(degs)?;
+    let mut shown = list.shown.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", ");
+    if list.more > 0 {
+        shown = format!("{shown}, {}", trf(lang, "+{n} more", &[("n", &list.more.to_string())]));
     }
-    if seen.is_empty() {
-        return None;
-    }
-    let shown = seen.len().min(4);
-    let mut list = seen[..shown].iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", ");
-    let more = seen.len() - shown;
-    if more > 0 {
-        list.push_str(&format!(", {}", trf(lang, "+{n} more", &[("n", &more.to_string())])));
-    }
-    Some(list)
+    Some(shown)
 }
 
 /// The export-side lossy-projection disclosure (M6a, widened by R24-5 M0), in
@@ -566,48 +556,8 @@ pub(crate) fn xmp_loss_line(
     ))
 }
 
-/// Does the loss line [`xmp_loss_line`] just produced deserve to INTERRUPT the
-/// save — an Error toast plus a ⚠ on the status line — or is it a note that
-/// belongs in the quiet channel beside it (R24 round-end MED-2)?
-///
-/// The rule the disclosure broke: "a save that lost nothing must not
-/// interrupt". `base_curve` is stamped onto the canvas by every RAW OPEN
-/// (`persist::stamp_calibration`), so `RenderedNotExported` is active on
-/// essentially every RAW — and every single Ctrl+S therefore raised an error
-/// toast about a loss that is real, universal and impossible to act on. Alarm
-/// on every save is alarm the user learns to ignore, and the mask half (which
-/// they CAN act on) went with it.
-///
-/// The judgement comes from the registry, not from a list kept here:
-/// `catalogue::STAMPED_CALIBRATION` is the engine's own per-photo measurement
-/// (the camera base curve, the in-camera lens profile and the two as-shot
-/// anchors) — nothing the user chose, so nothing they can undo. When every
-/// global loss is one of those, the sentence still gets said, quietly. One
-/// member that is a user's own choice puts the toast back for the whole line.
-///
-/// It asked `engine_only` until R33 §G, which was the same answer for the
-/// wrong reason: `engine_only` means the ADVISOR cannot state the value, and
-/// every engine-only global that could be lost happened to be calibration.
-/// `colour_field` broke the coincidence — the model cannot state ninety-six
-/// vertices, but the photographer asked for the field by raising Strength and
-/// removes it in one click, so it is exactly the actionable loss this arm
-/// exists to raise. It is also not universal, unlike a stamped base curve: it
-/// appears only on a fit that attached one, so saying so out loud is not the
-/// alarm-on-every-save this rule was written against.
-///
-/// Actual MASK losses always interrupt. Native tiles and component bands
-/// owe no geometry loss; Bitmap extras still interrupt through the writer
-/// verdict, so this path never re-derives portability from a geometry kind.
-pub(crate) fn xmp_loss_interrupts(
-    losses: &[autoshade::xmp::MaskLoss],
-    globals: &[&'static str],
-) -> bool {
-    use autoshade::advisor::catalogue::STAMPED_CALIBRATION;
-    // A name with no registry row is not something this can vouch for as
-    // engine calibration — an unknown falls to the interrupting side, and so
-    // does every known control that is not one of the stamped four.
-    !losses.is_empty() || globals.iter().any(|g| !STAMPED_CALIBRATION.contains(g))
-}
+pub(crate) use crate::logic::xmp_disclosure::loss_interrupts as xmp_loss_interrupts;
+
 
 /// The OTHER corner of the disclosure square (R25 B4): the settings this
 /// photo carries that LIGHTROOM renders and this canvas does not.
@@ -639,25 +589,23 @@ pub(crate) fn xmp_loss_interrupts(
 /// name themselves on every Lightroom photo. They disclose through the
 /// develop panel's own read-only Transform / camera-profile section instead.
 pub(crate) fn render_gap_line(lang: Lang, gaps: &[&'static str]) -> Option<String> {
-    use autoshade::advisor::catalogue::CONTROL_FAMILIES;
-    if gaps.is_empty() {
+    use crate::logic::xmp_disclosure::GapSection;
+    let sections = crate::logic::xmp_disclosure::gap_sections(gaps);
+    if sections.is_empty() {
         return None;
     }
-    let mut sections: Vec<String> = Vec::new();
-    for g in gaps {
-        let label = match CONTROL_FAMILIES.iter().find(|f| f.members.contains(g)).map(|f| f.name) {
-            Some("effects") => tr(lang, "Effects").to_string(),
-            Some("lens_effects") => tr(lang, "Lens").to_string(),
-            _ => (*g).to_string(),
-        };
-        if !sections.contains(&label) {
-            sections.push(label);
-        }
-    }
+    let labels: Vec<String> = sections
+        .into_iter()
+        .map(|section| match section {
+            GapSection::Effects => tr(lang, "Effects").to_string(),
+            GapSection::Lens => tr(lang, "Lens").to_string(),
+            GapSection::Raw(name) => name.to_string(),
+        })
+        .collect();
     Some(format!(
         "{}: {}",
         tr(lang, "Carried to Lightroom, not rendered here"),
-        sections.join(", ")
+        labels.join(", ")
     ))
 }
 

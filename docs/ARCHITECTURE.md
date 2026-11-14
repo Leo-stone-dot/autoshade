@@ -7614,7 +7614,12 @@ panel draws and emits `PortraitAction`s (`FindPeople`, `RemoveBlemishes`,
 shared from `logic::portrait`. Normal closes the panel pass: its Save group's batch hand-off and
 landing words and the noise switch's card dance (the ◈ card, its look history,
 the undo baseline) live in `normal_actions.rs`; the panel emits
-`NormalAction::SetDenoise` and keeps the plain-words lines it draws. Every dialog a panel asks for is now such an action
+`NormalAction::SetDenoise` and keeps the plain-words lines it draws. The sidecar disclosure's RULES are headless too
+([`logic/xmp_disclosure.rs`](../src/bin/gui/logic/xmp_disclosure.rs)): which
+losses interrupt a save (stamped calibration is quiet, anything the
+photographer chose or an unregistered control is not), which rotation angles
+are named and counted, and which carried-only gaps collapse into which
+section; `util.rs` renders those rules into the sentences. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.
