@@ -1300,7 +1300,36 @@ pub struct CreativeLook {
     pub unrendered: Vec<String>,
 }
 
+/// The warmth scale's octave: ±100 is a factor of 2^±1 on the white balance.
+const WARMTH_OCTAVES: f32 = 1.0;
+
 impl EditRecipe {
+    /// The colour temperature on the warm/cool scale the Normal panel shows:
+    /// −100 (cool) … +100 (warm), in hundredths of an octave around the
+    /// anchor — the photo's stamped as-shot Kelvin, or the historical 5500 K
+    /// for a recipe without one. No custom white balance reads 0.
+    pub fn warmth(&self) -> f32 {
+        match self.temperature_k {
+            Some(k) if k > 0.0 => (100.0 / WARMTH_OCTAVES * (k / self.warmth_anchor()).log2())
+                .clamp(-100.0, 100.0),
+            _ => 0.0,
+        }
+    }
+
+    /// The Kelvin a warmth writes: the anchor times 2^(warmth/100), inside the
+    /// develop track's 2000–50000 K. A higher temperature renders warmer, as
+    /// Lightroom's Temp slider does.
+    pub fn kelvin_at_warmth(&self, warmth: f32) -> f32 {
+        (self.warmth_anchor() * (warmth.clamp(-100.0, 100.0) / 100.0 * WARMTH_OCTAVES).exp2())
+            .clamp(2000.0, 50000.0)
+    }
+
+    /// The Kelvin the warmth scale is anchored at: the camera's as-shot value
+    /// when the recipe carries one, the develop panel's 5500 K otherwise.
+    fn warmth_anchor(&self) -> f32 {
+        self.as_shot_k.unwrap_or(5500.0)
+    }
+
     /// The Adobe profile a Lightroom sidecar of this recipe has to NAME, or
     /// `None` when it need not or cannot.
     ///
@@ -6838,5 +6867,37 @@ mod tests {
         for role in [MaskRole::Custom, MaskRole::ZoneSky, MaskRole::ZoneLand] {
             assert!(serde_json::from_str::<OldMaskRole>(&serde_json::to_string(&role).unwrap()).is_ok());
         }
+    }
+}
+
+/// The warm/cool scale the Normal panel's slider uses: an octave either side of
+/// the photo's own white balance. Moved here from the panel — it is a property
+/// of the recipe, not of the widget that draws it.
+#[cfg(test)]
+mod warmth_tests {
+    use super::*;
+
+    /// 「Warmth」 is the colour temperature as an offset from the camera's own,
+    /// in hundredths of an octave: 0 is the as-shot value, ±100 halve or double
+    /// it, and the round trip is exact inside the track.
+    ///
+    /// MUTATION: change the octave, the anchor or the track and this fails.
+    #[test]
+    fn warmth_is_an_octave_either_side_of_the_as_shot_temperature() {
+        let shot = EditRecipe { as_shot_k: Some(5000.0), ..Default::default() };
+        assert_eq!(shot.warmth(), 0.0, "no custom white balance reads 0");
+        assert_eq!(shot.kelvin_at_warmth(0.0), 5000.0);
+        assert_eq!(shot.kelvin_at_warmth(100.0), 10000.0);
+        assert_eq!(shot.kelvin_at_warmth(-100.0), 2500.0);
+        for w in [-80.0, -33.0, 0.0, 12.0, 64.0] {
+            let r = EditRecipe { temperature_k: Some(shot.kelvin_at_warmth(w)), ..shot.clone() };
+            assert!((r.warmth() - w).abs() < 1e-3, "{w}: {}", r.warmth());
+        }
+        // A rendered image carries no as-shot value: the develop panel's 5500 K.
+        assert_eq!(EditRecipe::default().kelvin_at_warmth(0.0), 5500.0);
+        // The track's ends hold.
+        let cold = EditRecipe { as_shot_k: Some(3000.0), ..Default::default() };
+        assert_eq!(cold.kelvin_at_warmth(-100.0), 2000.0);
+        assert_eq!(EditRecipe { temperature_k: Some(40000.0), ..shot }.warmth(), 100.0);
     }
 }

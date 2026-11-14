@@ -357,29 +357,6 @@
         assert_eq!(app.recipe.exposure_ev, 0.0, "Ctrl+Z goes back");
     }
 
-    /// 「Warmth」 is the colour temperature as an offset from the camera's own,
-    /// in hundredths of an octave: 0 is the as-shot value, ±100 halve or
-    /// double it, and the round trip is exact inside the track.
-    #[test]
-    fn warmth_is_an_octave_either_side_of_the_as_shot_temperature() {
-        use crate::panels::normal::{kelvin_for_warmth, warmth_of};
-        let shot = EditRecipe { as_shot_k: Some(5000.0), ..Default::default() };
-        assert_eq!(warmth_of(&shot), 0.0, "no custom white balance reads 0");
-        assert_eq!(kelvin_for_warmth(&shot, 0.0), 5000.0);
-        assert_eq!(kelvin_for_warmth(&shot, 100.0), 10000.0);
-        assert_eq!(kelvin_for_warmth(&shot, -100.0), 2500.0);
-        for w in [-80.0, -33.0, 0.0, 12.0, 64.0] {
-            let r = EditRecipe { temperature_k: Some(kelvin_for_warmth(&shot, w)), ..shot.clone() };
-            assert!((warmth_of(&r) - w).abs() < 1e-3, "{w}: {}", warmth_of(&r));
-        }
-        // A rendered image carries no as-shot value: the develop panel's 5500 K.
-        assert_eq!(kelvin_for_warmth(&EditRecipe::default(), 0.0), 5500.0);
-        // The track's ends hold.
-        let cold = EditRecipe { as_shot_k: Some(3000.0), ..Default::default() };
-        assert_eq!(kelvin_for_warmth(&cold, -100.0), 2000.0);
-        assert_eq!(warmth_of(&EditRecipe { temperature_k: Some(40000.0), ..shot }), 100.0);
-    }
-
     /// The first-download size the noise switch names is the rendered-image
     /// denoiser's own: its weight plus its network file, as the sidecar pins
     /// them.

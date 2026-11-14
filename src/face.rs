@@ -669,6 +669,118 @@ pub fn save_mask(mask: &GrayImage, src: &Path, prefix: &str) -> Result<PathBuf> 
     Ok(path)
 }
 
+// ── The four roles, and the panel sliders that write them ──────────────────
+//
+// The recipe-side half of the Portraits feature: which mask a control writes,
+// what a fresh AI look keeps, and the slider→field mappings. These live in the
+// library, not the panel: the GUI must not own a second copy of a rule about
+// the recipe.
+
+/// The four masks the find step makes.
+pub const PORTRAIT_ROLES: [MaskRole; 4] =
+    [MaskRole::Face, MaskRole::Eyes, MaskRole::Skin, MaskRole::Background];
+
+/// How much the skin and eyes sliders move their fields. Softening is texture
+/// down by the slider and clarity down by half of it — the guardrail's two
+/// floors (−60 / −40) meet at the same slider position. The eyes' "Crisp" is
+/// sharpness by the slider, clarity by half. The background's "Darken" is
+/// exposure down, 100 = two stops.
+const SOFTEN_CLARITY_SHARE: f32 = 0.5;
+const CRISP_CLARITY_SHARE: f32 = 0.5;
+const DARKEN_EV_AT_FULL: f32 = 2.0;
+
+/// The first mask with `role`.
+pub fn role_mask(r: &mut crate::recipe::EditRecipe, role: MaskRole) -> Option<&mut LocalAdjustment> {
+    r.masks.iter_mut().find(|m| m.role == role)
+}
+
+/// The mask the skin group writes: the skin mask, or — when only an AI portrait
+/// look's face mask is there — the face mask.
+pub fn skin_target(r: &mut crate::recipe::EditRecipe) -> Option<&mut LocalAdjustment> {
+    let i = r
+        .masks
+        .iter()
+        .position(|m| m.role == MaskRole::Skin)
+        .or_else(|| r.masks.iter().position(|m| m.role == MaskRole::Face))?;
+    r.masks.get_mut(i)
+}
+
+/// The subject matte a "keep the person sharp" blur protects with: the
+/// background mask's own raster (the subject, before its inversion).
+pub fn subject_raster(r: &crate::recipe::EditRecipe) -> Option<String> {
+    r.masks.iter().filter(|m| m.role == MaskRole::Background).find_map(|m| match &m.mask {
+        MaskGeometry::Bitmap { path } if !path.is_empty() => Some(path.clone()),
+        MaskGeometry::AiMask { raster: Some(path), .. } => Some(path.clone()),
+        _ => None,
+    })
+}
+
+/// The raster of the first face mask — what 🤖 Remove blemishes holds the heal
+/// to — or `None` when there is no face mask with one.
+pub fn face_raster(r: &crate::recipe::EditRecipe) -> Option<PathBuf> {
+    r.masks
+        .iter()
+        .filter(|m| m.role == MaskRole::Face)
+        .find_map(|m| crate::render::geometry_raster_path(&m.mask).filter(|p| !p.is_empty()).map(PathBuf::from))
+}
+
+/// An AI portrait look replaces the recipe whole: the masks the photo had come
+/// back under it — with their sliders at rest, the look is the AI's — wherever
+/// the look has no mask of that role, and the lens blur where the look carries
+/// none. Done on the landed recipe BEFORE it is written, so the saved file is
+/// the look the panel shows.
+pub fn restore_portrait_masks(
+    recipe: &mut crate::recipe::EditRecipe,
+    kept: Vec<LocalAdjustment>,
+    blur: Option<crate::render::LensBlur>,
+) {
+    for m in kept {
+        if recipe.masks.iter().any(|n| n.role == m.role) {
+            continue;
+        }
+        recipe.masks.push(LocalAdjustment {
+            mask: m.mask,
+            range: m.range,
+            inverted: m.inverted,
+            name: m.name,
+            role: m.role,
+            ..Default::default()
+        });
+    }
+    if recipe.lens_blur.is_none() {
+        recipe.lens_blur = blur;
+    }
+}
+
+// The Portraits panel's slider read/write pairs. A read returns what the
+// control shows; a write sets the field(s) that control owns.
+pub fn soften_of(m: &LocalAdjustment) -> f32 {
+    (-m.texture).max(0.0)
+}
+pub fn set_soften(m: &mut LocalAdjustment, s: f32) {
+    m.texture = -s;
+    m.clarity = -s * SOFTEN_CLARITY_SHARE;
+}
+pub fn crisp_of(m: &LocalAdjustment) -> f32 {
+    m.sharpness.max(0.0)
+}
+pub fn set_crisp(m: &mut LocalAdjustment, c: f32) {
+    m.sharpness = c;
+    m.clarity = c * CRISP_CLARITY_SHARE;
+}
+pub fn darken_of(m: &LocalAdjustment) -> f32 {
+    (-m.exposure_ev / DARKEN_EV_AT_FULL * 100.0).max(0.0)
+}
+pub fn set_darken(m: &mut LocalAdjustment, d: f32) {
+    m.exposure_ev = -d / 100.0 * DARKEN_EV_AT_FULL;
+}
+pub fn fade_of(m: &LocalAdjustment) -> f32 {
+    (-m.saturation).max(0.0)
+}
+pub fn set_fade(m: &mut LocalAdjustment, f: f32) {
+    m.saturation = -f;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1080,5 +1192,98 @@ mod tests {
         assert_ne!(px, raw_seed, "which the recipe moved off the undeveloped colour");
         let seeded = RangeMask::Color { r: cr, g, b, amount: SKIN_RANGE_AMOUNT, px: 0.0, py: 0.0 };
         assert!(crate::render::range_weight(&seeded, &px) > 0.99, "the developed skin keeps full weight");
+    }
+}
+
+/// The Portraits sliders and the role lookups: field mappings that used to live
+/// in the panel (they are recipe rules) and now sit beside the masks they write.
+#[cfg(test)]
+mod portrait_rule_tests {
+    use super::*;
+    use crate::recipe::EditRecipe;
+
+    fn masks() -> Vec<LocalAdjustment> {
+        vec![
+            portrait_adjustment(MaskRole::Face, "mask-face.png".into()),
+            portrait_adjustment(MaskRole::Eyes, "mask-eyes.png".into()),
+            skin_adjustment("mask-face.png".into(), [0.8, 0.6, 0.5], [0.4, 0.3]),
+            background_adjustment("mask-subject.png".into()),
+        ]
+    }
+
+    /// Each control writes the field the design names, on the mask with its
+    /// role — and nothing else.
+    ///
+    /// MUTATION: change a share, a sign or a field and this fails.
+    #[test]
+    fn every_slider_writes_its_field_on_its_role() {
+        let mut recipe = EditRecipe { masks: masks(), ..Default::default() };
+        let skin = skin_target(&mut recipe).unwrap();
+        assert_eq!(skin.role, MaskRole::Skin, "the skin group writes the skin mask");
+        set_soften(skin, 40.0);
+        assert_eq!((skin.texture, skin.clarity), (-40.0, -20.0));
+        assert_eq!(soften_of(skin), 40.0);
+        let eyes = role_mask(&mut recipe, MaskRole::Eyes).unwrap();
+        set_crisp(eyes, 30.0);
+        assert_eq!((eyes.sharpness, eyes.clarity), (30.0, 15.0));
+        assert_eq!(crisp_of(eyes), 30.0);
+        let bg = role_mask(&mut recipe, MaskRole::Background).unwrap();
+        set_darken(bg, 50.0);
+        assert_eq!(bg.exposure_ev, -1.0, "100 = two stops down");
+        assert_eq!(darken_of(bg), 50.0);
+        set_fade(bg, 25.0);
+        assert_eq!(bg.saturation, -25.0);
+        assert_eq!(fade_of(bg), 25.0);
+        // Only the four fields moved; the face mask was not touched.
+        let face = role_mask(&mut recipe, MaskRole::Face).unwrap();
+        assert_eq!(*face, portrait_adjustment(MaskRole::Face, "mask-face.png".into()));
+        // Without a skin mask (an AI look's face mask alone) the skin group
+        // writes the face mask.
+        let mut only_face = EditRecipe {
+            masks: vec![portrait_adjustment(MaskRole::Face, "f.png".into())],
+            ..Default::default()
+        };
+        assert_eq!(skin_target(&mut only_face).unwrap().role, MaskRole::Face);
+    }
+
+    /// The role lookups read one fact each: the background's subject raster,
+    /// the first face raster, and "the four roles the finder makes".
+    #[test]
+    fn the_role_lookups_find_what_the_panel_acts_on() {
+        let recipe = EditRecipe { masks: masks(), ..Default::default() };
+        assert_eq!(subject_raster(&recipe), Some("mask-subject.png".into()));
+        assert_eq!(face_raster(&recipe), Some(PathBuf::from("mask-face.png")));
+        assert_eq!(PORTRAIT_ROLES.len(), 4);
+        let empty = EditRecipe::default();
+        assert_eq!(subject_raster(&empty), None);
+        assert_eq!(face_raster(&empty), None);
+    }
+
+    /// A fresh AI look: the photo's masks come back wherever the look has no
+    /// mask of that role (with their sliders at rest), and the blur where the
+    /// look carries none; what the look DID carry wins.
+    #[test]
+    fn a_landed_look_keeps_the_masks_and_blur_it_did_not_replace() {
+        let kept = masks();
+        let mut recipe = EditRecipe {
+            masks: vec![portrait_adjustment(MaskRole::Face, "look-face.png".into())],
+            lens_blur: None,
+            ..Default::default()
+        };
+        let blur = crate::render::LensBlur { depth_map: "depth.png".into(), ..Default::default() };
+        restore_portrait_masks(&mut recipe, kept.clone(), Some(blur.clone()));
+        assert_eq!(recipe.masks.iter().filter(|m| m.role == MaskRole::Face).count(), 1, "the look's own face mask wins");
+        for role in [MaskRole::Eyes, MaskRole::Skin, MaskRole::Background] {
+            assert!(recipe.masks.iter().any(|m| m.role == role), "{role:?} came back");
+        }
+        assert_eq!(recipe.lens_blur.as_ref().map(|l| l.depth_map.as_str()), Some("depth.png"));
+
+        // A look that carries its own blur keeps it.
+        let mut recipe = EditRecipe {
+            lens_blur: Some(crate::render::LensBlur { depth_map: "look-depth.png".into(), ..Default::default() }),
+            ..Default::default()
+        };
+        restore_portrait_masks(&mut recipe, kept, Some(blur));
+        assert_eq!(recipe.lens_blur.as_ref().map(|l| l.depth_map.as_str()), Some("look-depth.png"));
     }
 }

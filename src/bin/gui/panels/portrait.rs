@@ -23,16 +23,12 @@
 //! (`skin_held` / `skin_held_for`), before the file.
 
 use crate::*;
-use autoshade::recipe::{LocalAdjustment, MaskGeometry, MaskRole};
+use autoshade::face::{
+    PORTRAIT_ROLES, crisp_of, darken_of, face_raster, fade_of, role_mask, set_crisp, set_darken,
+    set_fade, set_soften, skin_target, soften_of, subject_raster,
+};
+use autoshade::recipe::{LocalAdjustment, MaskRole};
 
-/// How much the skin and eyes sliders move their fields. Softening is
-/// texture down by the slider and clarity down by half of it — the
-/// guardrail's two floors (−60 / −40) meet at the same slider position.
-const SOFTEN_CLARITY_SHARE: f32 = 0.5;
-/// The eyes' "Crisp" slider: sharpness by the slider, clarity by half.
-const CRISP_CLARITY_SHARE: f32 = 0.5;
-/// The background's "Darken" slider: 100 is two stops down.
-const DARKEN_EV_AT_FULL: f32 = 2.0;
 /// The eyes' "Brighten" slider's reach, in stops.
 const EYES_BRIGHTEN_MAX_EV: f32 = 1.5;
 
@@ -127,9 +123,6 @@ impl Default for PortraitState {
     }
 }
 
-/// The four roles the find step makes.
-const PORTRAIT_ROLES: [MaskRole; 4] = [MaskRole::Face, MaskRole::Eyes, MaskRole::Skin, MaskRole::Background];
-
 /// The find step itself, off the UI thread: the subject matte and the faces
 /// on the original-frame preview (`original`), every raster under a freshly
 /// claimed name beside the photo's develop. The skin seed is sampled from the
@@ -207,92 +200,6 @@ pub(crate) fn panel_skin_seed(
         }
         None => autoshade::face::skin_seed(&reference, face_mask),
     }
-}
-
-/// The first mask with `role`.
-pub(crate) fn role_mask(r: &mut EditRecipe, role: MaskRole) -> Option<&mut LocalAdjustment> {
-    r.masks.iter_mut().find(|m| m.role == role)
-}
-
-/// The mask the skin group writes: the skin mask, or — when only an AI
-/// portrait look's face mask is there — the face mask.
-pub(crate) fn skin_target(r: &mut EditRecipe) -> Option<&mut LocalAdjustment> {
-    let i = r.masks.iter().position(|m| m.role == MaskRole::Skin).or_else(|| r.masks.iter().position(|m| m.role == MaskRole::Face))?;
-    r.masks.get_mut(i)
-}
-
-/// The subject matte a "keep the person sharp" blur protects with: the
-/// background mask's own raster (the subject, before its inversion).
-pub(crate) fn subject_raster(r: &EditRecipe) -> Option<String> {
-    r.masks.iter().filter(|m| m.role == MaskRole::Background).find_map(|m| match &m.mask {
-        MaskGeometry::Bitmap { path } if !path.is_empty() => Some(path.clone()),
-        MaskGeometry::AiMask { raster: Some(path), .. } => Some(path.clone()),
-        _ => None,
-    })
-}
-
-/// The raster of the first face mask — what 🤖 Remove blemishes holds the
-/// heal to — or `None` when there is no face mask with one.
-pub(crate) fn face_raster(r: &EditRecipe) -> Option<PathBuf> {
-    r.masks
-        .iter()
-        .filter(|m| m.role == MaskRole::Face)
-        .find_map(|m| autoshade::render::geometry_raster_path(&m.mask).filter(|p| !p.is_empty()).map(PathBuf::from))
-}
-
-/// An AI portrait look replaces the recipe whole: the masks the photo had
-/// come back under it — with their sliders at rest, the look is the AI's —
-/// wherever the look has no mask of that role, and the lens blur where the
-/// look carries none. Done on the landed recipe BEFORE `on_analyzed` writes
-/// it, so the saved file is the look the panel shows.
-pub(crate) fn restore_portrait_masks(recipe: &mut EditRecipe, kept: Vec<LocalAdjustment>, blur: Option<autoshade::render::LensBlur>) {
-    for m in kept {
-        if recipe.masks.iter().any(|n| n.role == m.role) {
-            continue;
-        }
-        recipe.masks.push(LocalAdjustment {
-            mask: m.mask,
-            range: m.range,
-            inverted: m.inverted,
-            name: m.name,
-            role: m.role,
-            ..Default::default()
-        });
-    }
-    if recipe.lens_blur.is_none() {
-        recipe.lens_blur = blur;
-    }
-}
-
-/// The soften slider (0..=100) a skin mask shows, and what it writes.
-pub(crate) fn soften_of(m: &LocalAdjustment) -> f32 {
-    (-m.texture).max(0.0)
-}
-pub(crate) fn set_soften(m: &mut LocalAdjustment, s: f32) {
-    m.texture = -s;
-    m.clarity = -s * SOFTEN_CLARITY_SHARE;
-}
-/// The eyes' "Crisp" slider (0..=100): sharpness, and clarity by half.
-pub(crate) fn crisp_of(m: &LocalAdjustment) -> f32 {
-    m.sharpness.max(0.0)
-}
-pub(crate) fn set_crisp(m: &mut LocalAdjustment, c: f32) {
-    m.sharpness = c;
-    m.clarity = c * CRISP_CLARITY_SHARE;
-}
-/// The background's "Darken" slider (0..=100): exposure down, 100 = −2 EV.
-pub(crate) fn darken_of(m: &LocalAdjustment) -> f32 {
-    (-m.exposure_ev / DARKEN_EV_AT_FULL * 100.0).max(0.0)
-}
-pub(crate) fn set_darken(m: &mut LocalAdjustment, d: f32) {
-    m.exposure_ev = -d / 100.0 * DARKEN_EV_AT_FULL;
-}
-/// The background's "Fade colour" slider (0..=100): saturation down.
-pub(crate) fn fade_of(m: &LocalAdjustment) -> f32 {
-    (-m.saturation).max(0.0)
-}
-pub(crate) fn set_fade(m: &mut LocalAdjustment, f: f32) {
-    m.saturation = -f;
 }
 
 /// A slider's reach: the guardrail's limit while the switch is on, the

@@ -26,8 +26,8 @@ pub(crate) fn apply(
 ) -> Vec<Effect> {
     match action {
         Action::ToggleLensBlur(on) => with_blur(recipe, |lb| lb.enabled = on),
-        Action::SetBlurAmount(value) => with_blur(recipe, |lb| lb.amount = value.clamp(0.0, 100.0)),
-        Action::SetFocusRange(value) => with_blur(recipe, |lb| lb.range = value.clamp(0.0, 100.0)),
+        Action::SetBlurAmount(value) => with_blur(recipe, |lb| lb.amount = value),
+        Action::SetFocusRange(value) => with_blur(recipe, |lb| lb.range = value),
         Action::RemoveLensBlur => match recipe.lens_blur.take() {
             Some(_) => vec![Effect::ArmFocusPick(false), Effect::MarkDirty],
             None => Vec::new(),
@@ -182,7 +182,12 @@ mod tests {
         landed(&mut recipe, Ok(depth("a.png")));
         let effects = apply(&mut recipe, Action::SetBlurAmount(250.0), None, false);
         assert!(matches!(effects.as_slice(), [Effect::MarkDirty]));
-        assert_eq!(recipe.lens_blur.as_ref().unwrap().amount, 100.0, "the dial clamps");
+        // The reflection layer assigns; the RANGE is the library's rule, applied
+        // by `EditRecipe::clamp` (the same call the develop panel makes after
+        // an edit and every save makes).
+        assert_eq!(recipe.lens_blur.as_ref().unwrap().amount, 250.0);
+        recipe.clamp();
+        assert_eq!(recipe.lens_blur.as_ref().unwrap().amount, 100.0, "the library clamps the dial");
 
         let effects = apply(&mut recipe, Action::SetFocusPicking(true), None, false);
         assert!(effects.iter().any(|e| matches!(e, Effect::ArmFocusPick(true))));
