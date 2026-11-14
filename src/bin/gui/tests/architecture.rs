@@ -186,5 +186,30 @@
                 "panels/develop.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
         }
+        // `recipes.rs` — the library's business (list/save/apply/rename/delete)
+        // lives in `recipe_actions.rs`; the window draws and emits verbs. The
+        // preview/details panes still READ an entry to draw it — a read is not
+        // a mutation — but nothing here writes the library.
+        let recipes = std::fs::read_to_string(root.join("recipes.rs")).expect("the panel source is readable");
+        for needle in [
+            concat!("spawn_worker", "("),
+            "Msg::",
+            "rfd::",
+            concat!("crate::budget::heavy_permit", "("),
+            "recipe_library::create(",
+            "recipe_library::remove(",
+            "save_current_recipe(",
+            "apply_recipe_to_open(",
+            "apply_recipe_to_selection(",
+            "update_recipe_from_open(",
+            "rename_recipe(",
+            "delete_recipe(",
+            "ToastKind",
+        ] {
+            assert!(
+                !recipes.contains(needle),
+                "panels/recipes.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
         }
     }

@@ -69,6 +69,17 @@ impl AutoShadeApp {
                 },
                 Action::Recipe(action) => match action {
                     logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
+                    logic::recipes::RecipeAction::Refresh => self.refresh_recipes(),
+                    logic::recipes::RecipeAction::SaveCurrent => self.save_current_recipe(),
+                    logic::recipes::RecipeAction::ApplyToOpen(name) => self.apply_recipe_to_open(&name),
+                    logic::recipes::RecipeAction::ApplyToSelection(name) => {
+                        self.apply_recipe_to_selection(&name)
+                    }
+                    logic::recipes::RecipeAction::UpdateFromOpen(name) => {
+                        self.update_recipe_from_open(&name)
+                    }
+                    logic::recipes::RecipeAction::Rename { from, to } => self.rename_recipe(&from, &to),
+                    logic::recipes::RecipeAction::Delete(name) => self.delete_recipe(&name),
                 },
                 Action::Ai(action) => match action {
                     logic::ai::AiAction::PickRawFolder => {
