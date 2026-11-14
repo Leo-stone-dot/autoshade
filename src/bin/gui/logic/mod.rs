@@ -19,6 +19,7 @@ pub(crate) mod folder;
 pub(crate) mod gallery;
 pub(crate) mod lens_blur;
 pub(crate) mod mask_edit;
+pub(crate) mod models;
 pub(crate) mod normal;
 pub(crate) mod paste;
 pub(crate) mod mask_place;

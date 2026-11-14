@@ -3077,55 +3077,23 @@ impl AutoShadeApp {
         // installing this completion would resurrect the ids the OLD
         // credential could see and offer them under the new one's name.
         if generation != self.catalogue_mut(role).generation {
-            self.settings.status =
-                tr(lang, "model list discarded — settings changed while it was being fetched")
-                    .into();
+            self.settings.status = crate::i18n::text(lang, &logic::models::discarded_words());
             return;
         }
         match res {
             Ok(models) => {
-                let chat: Vec<String> = models
-                    .iter()
-                    .filter(|m| autoshade::openai_models::is_chat_model(&m.id))
-                    .map(|m| m.id.clone())
-                    .collect();
-                let imgs: Vec<String> = models
-                    .iter()
-                    .filter(|m| autoshade::openai_models::is_image_model(&m.id))
-                    .map(|m| m.id.clone())
-                    .collect();
-                self.settings.status = trf(
-                    lang,
-                    "fetched {n} models ({chat} chat · {img} image)",
-                    &[
-                        ("n", &models.len().to_string()),
-                        ("chat", &chat.len().to_string()),
-                        ("img", &imgs.len().to_string()),
-                    ],
-                );
-                let cat = self.catalogue_mut(role);
-                cat.chat = chat;
-                // Only the image role generates images; keeping an image list
-                // on the analysis catalogue would let a picker offer ids from
-                // the wrong endpoint.
-                cat.image_gen = if role == ModelRole::Image { imgs } else { Vec::new() };
-                // What the listing SAID about each id, kept only where it
-                // said: the effort picker offers a model's own tiers and the
-                // vision picker warns about a model that takes no image.
-                cat.efforts.clear();
-                cat.vision.clear();
-                for m in models {
-                    if let Some(tiers) = m.effort_options {
-                        cat.efforts.insert(m.id.clone(), tiers);
-                    }
-                    if let Some(v) = m.vision {
-                        cat.vision.insert(m.id, v);
-                    }
-                }
+                // The classification and the line are the logic layer's.
+                let cat = logic::models::catalogue(&models, role == ModelRole::Image);
+                self.settings.status = crate::i18n::text(lang, &logic::models::installed_words(&cat));
+                let slot = self.catalogue_mut(role);
+                slot.chat = cat.chat;
+                slot.image_gen = cat.image;
+                slot.efforts = cat.efforts;
+                slot.vision = cat.vision;
             }
             Err(e) => {
                 self.settings.status =
-                    trf(lang, "fetch failed: {err}", &[("err", &e.to_string())]);
+                    crate::i18n::text(lang, &logic::models::failed_words(&e.to_string()));
             }
         }
     }
