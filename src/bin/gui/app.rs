@@ -708,11 +708,11 @@ impl AutoShadeApp {
                 if i.consume_key(egui::Modifiers::COMMAND, egui::Key::E) { do_export = true; }
                 if i.consume_key(egui::Modifiers::COMMAND, egui::Key::S) { do_xmp = true; }
             });
-            if do_open && !self.busy
-                && let Some(path) = open_photo_dialog()
-            {
+            if do_open && !self.busy {
                 self.selected = None;
-                self.open_path(path);
+                self.apply_actions(vec![logic::Action::Gallery(
+                    logic::gallery::GalleryAction::OpenPhotoFile,
+                )]);
             }
             if do_export && self.src_path.is_some() && !self.busy {
                 self.start_export();
@@ -1161,10 +1161,11 @@ impl AutoShadeApp {
                     if action(ui, !self.busy, tr(lang, "Open photo…"))
                         .on_hover_text(tr(lang, "Ctrl+O · or drag a file into the window"))
                         .clicked()
-                        && let Some(path) = open_photo_dialog()
                     {
                         self.selected = None; // a one-off file isn't a gallery selection
-                        self.open_path(path);
+                        self.apply_actions(vec![logic::Action::Gallery(
+                            logic::gallery::GalleryAction::OpenPhotoFile,
+                        )]);
                     }
                     if action(ui, ready, tr(lang, "Reset"))
                         .on_hover_text(tr(lang, "Back to this photo's fresh-open look: sliders neutral on the camera's own default colour and tone, like the in-camera JPEG (one undo brings it back)"))
@@ -1548,15 +1549,15 @@ impl AutoShadeApp {
                         // Center the button pair by padding half the leftover width.
                         let w = 300.0;
                         ui.add_space((ui.available_width() - w).max(0.0) * 0.5);
-                        if primary(ui, true, tr(self.lang, "Open photo…  (Ctrl+O)")).clicked()
-                            && let Some(p) = open_photo_dialog()
-                        {
-                            self.open_path(p);
+                        if primary(ui, true, tr(self.lang, "Open photo…  (Ctrl+O)")).clicked() {
+                            self.apply_actions(vec![logic::Action::Gallery(
+                                logic::gallery::GalleryAction::OpenPhotoFile,
+                            )]);
                         }
-                        if action(ui, true, tr(self.lang, "🗂 Open folder…")).clicked()
-                            && let Some(d) = rfd::FileDialog::new().pick_folder()
-                        {
-                            self.open_folder(d);
+                        if action(ui, true, tr(self.lang, "🗂 Open folder…")).clicked() {
+                            self.apply_actions(vec![logic::Action::Gallery(
+                                logic::gallery::GalleryAction::OpenFolder,
+                            )]);
                         }
                     });
                     ui.add_space(8.0);

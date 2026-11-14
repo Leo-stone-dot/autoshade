@@ -24,6 +24,8 @@ const TRIM_MARGIN: usize = 600;
 pub(crate) enum GalleryAction {
     /// Pick the working folder with the system dialog, then open it.
     OpenFolder,
+    /// Pick one photo file and open it (the empty canvas's other way in).
+    OpenPhotoFile,
     /// A row was clicked; `multi` is the command/ctrl modifier held then.
     Click { index: usize, multi: bool },
     /// Copy the open photo's whole develop as the paste source.
