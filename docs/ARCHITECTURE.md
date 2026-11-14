@@ -7519,6 +7519,18 @@ Normal's four groups
 ([`src/bin/gui/panels/normal.rs`](../src/bin/gui/panels/normal.rs)), then the
 shared AI / Develop / Retouch panels.
 
+**View, logic and runtime are three layers.** A frame is drawn by the view
+(`panels/`, `canvas.rs`, `app.rs`): it reads state and emits `logic::Action`s —
+it does not mutate a recipe, spawn a worker, open a dialog or write the develop
+store. `runtime.rs` is the only crossing: `apply_actions` routes the actions to
+`logic::*`, `run_effects` executes what comes back (a worker, a status line, a
+view flag), and `i18n::text` renders the `logic::UiText` key. `logic/` is
+headless — no widget code, no rendered text — so a domain is tested by calling
+it. The Lens Blur pilot ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs):
+`estimate_depth` and `landed`) is the shape the other panels migrate to;
+[`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
+logic files stay headless and a migrated panel stays behind the seam.
+
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
 the shared panels. Every verb on the panel is an existing door. A one-click look is `pipeline::produce_recipe`
@@ -7580,8 +7592,10 @@ and half as much clarity, crisp = sharpness and half as much clarity, darken =
 exposure, fade = saturation), and the background group's blur is the card's
 `LensBlur`, its "keep the person sharp" switch the blur's `protect` raster
 (the background mask's own subject matte); "prepare the blur" is the Lens Blur
-section's `start_depth`, whose landing (`after_portrait_depth`) aims the focus
-at the skin range's sample point. The AI portrait look is the Normal preset
+section's `Action::EstimateDepth`, whose logic (`logic::lens_blur::estimate_depth`
+for the worker and `landed` for the landing) lives outside the view; the
+panel's own hook (`after_portrait_depth`) aims the focus at the skin range's
+sample point. The AI portrait look is the Normal preset
 door with `advisor::presets::PORTRAIT`, whose text asks for `kind=ai` masks
 on the three portrait targets `AI_MASK_TARGETS` gained: `openai::expand_ai_mask_intents`
 turns `face` / `eyes` into a role-carrying bitmap mask that names no raster

@@ -291,29 +291,35 @@ def skip_call(src: str, i: int) -> int:
 
 
 def tr_keys(src: str) -> tuple[set[str], list[tuple[int, str]]]:
-    """Literal keys + (line, argument-expression) for every dynamic site."""
+    """Literal keys + (line, argument-expression) for every dynamic site.
+
+    Two spellings reach the catalogue: the view's `tr`/`trf`, and the headless
+    logic layer's `UiText::of`/`UiText::with` — the logic hands back the key as
+    DATA and `i18n::text` renders it, so both are call sites and both must be
+    translated."""
     keys: set[str] = set()
     dynamic: list[tuple[int, str]] = []
-    for m in re.finditer(r"\btrf?\(", src):
+    for m in re.finditer(r"\btrf?\(|\bUiText::(?:of|with)\(", src):
         s = m.start()
         if s > 0 and (src[s - 1].isalnum() or src[s - 1] == "_"):
             continue
         i = m.end()
-        depth = 0  # skip the lang argument to its comma at depth 0
-        while i < len(src):
-            c = src[i]
-            if c == "(":
-                depth += 1
-            elif c == ")":
-                if depth == 0:
+        if "UiText" not in m.group():
+            depth = 0  # skip the lang argument to its comma at depth 0
+            while i < len(src):
+                c = src[i]
+                if c == "(":
+                    depth += 1
+                elif c == ")":
+                    if depth == 0:
+                        break
+                    depth -= 1
+                elif c == "," and depth == 0:
                     break
-                depth -= 1
-            elif c == "," and depth == 0:
-                break
+                i += 1
+            if i >= len(src) or src[i] != ",":
+                continue
             i += 1
-        if i >= len(src) or src[i] != ",":
-            continue
-        i += 1
         while i < len(src) and src[i] in " \n\r\t":
             i += 1
         if i < len(src) and src[i] == '"':

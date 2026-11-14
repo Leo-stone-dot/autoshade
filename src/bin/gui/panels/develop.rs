@@ -444,7 +444,13 @@ impl AutoShadeApp {
         changed |= self.dev_calibration(ui, calibration_active);
         changed |= self.dev_detail(ui, detail_active);
         changed |= self.dev_effects(ui, effects_active);
-        changed |= self.dev_lens_blur(ui);
+        // A migrated panel returns what the user did instead of mutating the
+        // recipe; the facade applies it (and the clamp below still runs once).
+        let lens_actions = self.dev_lens_blur(ui);
+        if !lens_actions.is_empty() {
+            self.apply_actions(lens_actions);
+            changed = true;
+        }
         changed |= self.dev_lens(ui);
         // In Lightroom's own panel order (Transform follows Lens Corrections).
         // R25 B4 drew this section read-only because nothing here moved a pixel;
