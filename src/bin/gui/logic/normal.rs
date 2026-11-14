@@ -11,4 +11,6 @@ pub(crate) enum NormalAction {
     ApplyToFolder,
     /// Pick the reference-photo folder, then read it and start the look.
     PickReferencesFolder,
+    /// Flip the noise switch (the ◈ card's denoise, on or off).
+    SetDenoise(bool),
 }
