@@ -5,6 +5,7 @@
 //! view mutates a recipe, spawns a worker or renders a logic-authored line —
 //! those three crossings live here, on purpose.
 
+use crate::logic::look::{LookKind, LookLine, OneClick};
 use crate::logic::{self, Action, Effect};
 use crate::*;
 
@@ -52,6 +53,10 @@ impl AutoShadeApp {
                 Effect::ToastError(text) => {
                     self.toast(ToastKind::Error, crate::i18n::text(self.lang, &text));
                 }
+                Effect::LookLine { kind, line } => self.apply_look_line(kind, line),
+                Effect::RememberOneClick { photo, fine } => {
+                    self.normal.result = Some((photo, fine));
+                }
                 Effect::ArmFocusPick(on) => self.lens_focus_picking = on,
                 Effect::DisarmTools => self.disarm_tools(),
                 Effect::MarkDirty => self.dirty = true,
@@ -66,6 +71,36 @@ impl AutoShadeApp {
         self.busy = false;
         let effects = logic::lens_blur::landed(&mut self.recipe, res);
         self.run_effects(effects);
+    }
+
+
+    /// Map a look's presentation line onto the panel that owns it. The wording
+    /// for a failure is the status the shared landing already wrote; the line
+    /// only carries the fact.
+    fn apply_look_line(&mut self, kind: LookKind, line: LookLine) {
+        match kind {
+            LookKind::OneClick(OneClick::Preset(_)) | LookKind::OneClick(OneClick::References) => {
+                self.normal.line = match line {
+                    LookLine::Working => crate::panels::normal::NormalLine::Working,
+                    LookLine::Done => crate::panels::normal::NormalLine::Done,
+                    LookLine::BuiltIn => {
+                        self.normal.key_present = Some(false);
+                        crate::panels::normal::NormalLine::BuiltIn
+                    }
+                    LookLine::Failed => crate::panels::normal::NormalLine::Failed(self.status.clone()),
+                    LookLine::Looked => return,
+                };
+            }
+            LookKind::Portrait => {
+                self.portrait.line = match line {
+                    LookLine::Working => crate::panels::portrait::PortraitLine::Looking,
+                    LookLine::Looked => crate::panels::portrait::PortraitLine::Looked,
+                    LookLine::Failed => crate::panels::portrait::PortraitLine::Failed(self.status.clone()),
+                    LookLine::Done | LookLine::BuiltIn => return,
+                };
+            }
+            LookKind::Analyze | LookKind::Adjust => {}
+        }
     }
 
     fn spawn_depth_worker(

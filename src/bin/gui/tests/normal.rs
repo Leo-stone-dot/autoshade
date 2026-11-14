@@ -340,7 +340,7 @@
         let (mut app, _src, _scrub) = normal_photo("nokey");
         let ctx = egui::Context::default();
         assert_eq!(app.recipe.exposure_ev, 0.0);
-        app.start_one_click(crate::panels::normal::OneClick::Preset("natural"));
+        app.start_one_click(crate::logic::look::OneClick::Preset("natural"));
         assert!(app.busy && app.analyze_inflight);
         land_analysis(&mut app, &ctx);
         assert!(!app.busy);
