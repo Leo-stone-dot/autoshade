@@ -567,12 +567,15 @@ pub(crate) struct AutoShadeApp {
     ///
     /// Cancelling an analyze is ABANDON-only — `produce_recipe` takes no
     /// cancel flag, so nothing stops the HTTP call — and ✕ clears `busy`,
-    /// whose only other job was to gate `start_analyze`. Without this the ✕
+    /// whose only other job was to gate `logic::look::plan`. Without this the ✕
     /// became a "start another one" button: each press spawned a fresh
     /// high-detail vision request that ran to its stall deadline and was
     /// BILLED, N deep. The flag is cleared when the worker's message lands,
     /// whatever its epoch.
     pub(crate) analyze_inflight: bool,
+    /// The one AI look in flight, with the epoch/keep facts the landing needs
+    /// (`logic::look`).
+    pub(crate) look: crate::logic::look::LookState,
     // --- variants (版本/变体): parallel renditions of the open photo ---
     // Original + any AI-generated / reverse-fitted versions. The active one
     // drives the sliders, histogram and canvas; switching is lossless (each
@@ -1975,6 +1978,7 @@ impl Default for AutoShadeApp {
             gen_epoch: 0,
             gen_cancel: None,
             analyze_inflight: false,
+            look: Default::default(),
             variants: Vec::new(),
             discard_requested: false,
             active: 0,

@@ -1651,7 +1651,7 @@ this trait.)
 > auto develop」 (Analysis, Adjust the selected variant, Reference library — a
 > vision model proposes or adjusts the recipe). 「AI Refine」 is retired; its
 > replacement, 「AI adjust」, has its own request box and goes through
-> `start_analyze(Some(request))`: the request is the only guidance, the
+> the look protocol (`logic::look`'s adjust verb): the request is the only guidance, the
 > current recipe is the base, and a card on AI-generated pixels passes its own
 > raster as `produce_recipe`'s `pixels` so the model answers about the picture
 > on screen. The proposer may ask for a `kind=ai` mask (sky / subject / object
@@ -7529,7 +7529,9 @@ headless — no widget code, no rendered text — so a domain is tested by calli
 it. The Lens Blur pilot ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs):
 `estimate_depth` and `landed`) is the shape the other panels migrate to, and the
 four AI-look verbs share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
-`plan`, `claim`, `restore`, `landed` — one epoch a result can win);
+`plan`, `claim`, `restore`, `landed` — one epoch a result can win), with all
+three starters (AI Analyze / adjust, Normal's one-click and reference folder, the
+Portraits look) routed through it;
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 

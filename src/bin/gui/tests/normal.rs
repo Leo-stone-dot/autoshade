@@ -258,7 +258,7 @@
     /// preset's text, firm adherence, no library, no reference photos, no
     /// deep thinking, at the look strength — every field the design fixes.
     ///
-    /// MUTATION THIS CATCHES: any field of `one_click_request`'s preset arm
+    /// MUTATION THIS CATCHES: any field of `logic::look::plan`'s preset arm
     /// changed (the guide, the text, the adherence, the embed switch, the
     /// reference photos, the strength's source) fails an assert below.
     #[test]
@@ -284,7 +284,7 @@
         assert_eq!(req.guide, autoshade::pipeline::Guide::Direction);
         assert_eq!(text.as_deref(), autoshade::advisor::presets::preset_guidance("mono"));
         assert!(text.unwrap().contains("set convert_to_grayscale to true"));
-        assert_eq!(req.adherence.get(), crate::panels::normal::PRESET_ADHERENCE);
+        assert_eq!(req.adherence.get(), crate::logic::look::PRESET_ADHERENCE);
         assert!(req.adherence.get() > 0.7, "a firm brief");
         assert!(!req.send_reference_image && !req.think && !req.embed.on());
         assert_eq!(req.library_style(), 0.0, "the library is not read");
@@ -306,7 +306,7 @@
     fn the_folder_chain_builds_the_library_request() {
         let (mut app, src, _scrub) = normal_photo("folder");
         let ctx = egui::Context::default();
-        // What `start_one_click_folder` leaves while the folder is read.
+        // What the reference-build action leaves while the folder is read.
         let building = |app: &mut AutoShadeApp| {
             app.normal.building = true;
             app.normal.build_photo = Some(src.clone());
@@ -340,7 +340,9 @@
         let (mut app, _src, _scrub) = normal_photo("nokey");
         let ctx = egui::Context::default();
         assert_eq!(app.recipe.exposure_ev, 0.0);
-        app.start_one_click(crate::logic::look::OneClick::Preset("natural"));
+        app.apply_actions(vec![logic::Action::Look(logic::look::LookIntent::of(
+            logic::look::LookKind::OneClick(crate::logic::look::OneClick::Preset("natural")),
+        ))]);
         assert!(app.busy && app.analyze_inflight);
         land_analysis(&mut app, &ctx);
         assert!(!app.busy);
@@ -861,7 +863,7 @@
         app.gallery = vec![src.clone()];
         app.exp_dest = ExportDest::LastUsed;
         app.last_export_dir = Some(refs.clone());
-        app.start_one_click_folder(refs.clone());
+        app.apply_actions(vec![logic::Action::References(refs.clone())]);
         assert!(app.normal.building);
         assert!(app.busy, "the build is work: the buttons that start work wait for it");
         app.start_normal_save();

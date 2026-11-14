@@ -316,6 +316,8 @@ impl AutoShadeApp {
     /// unblocks NOW; the worker sees the flag at its next checkpoint and its
     /// late result arrives under a stale epoch — discarded, never applied.
     pub(crate) fn cancel_generative(&mut self) {
+        // The cancelled analysis' late result has no claim to win.
+        logic::look::cancel(&mut self.look);
         if let Some(flag) = self.gen_cancel.take() {
             flag.store(true, std::sync::atomic::Ordering::Relaxed);
             self.gen_epoch = self.gen_epoch.wrapping_add(1);
@@ -3472,91 +3474,6 @@ impl AutoShadeApp {
             },
             |e| Msg::StyleBuilt(Box::new(StyleBuildOutcome::Failed { err: e.to_string() })),
         );
-    }
-
-    /// `adjust`: `None` is a fresh analysis (「AI Analyze」); `Some(request)`
-    /// adjusts the SELECTED card's develop as the request says (「AI adjust」,
-    /// 2026-10-21): the current recipe is the base, the request guides alone
-    /// (the library is not read), and a card on AI-generated pixels sends its
-    /// own raster as the frame — the old Refine sent the RAW's preview under
-    /// a generated card, so the model answered about a picture nobody was
-    /// looking at.
-    pub(crate) fn start_analyze(&mut self, adjust: Option<String>) {
-        let Some(path) = self.src_path.clone() else { return };
-        // `busy` alone stopped guarding this the moment Analyze became
-        // cancellable: ✕ clears it while the request is still on the wire and
-        // still billing. See `analyze_inflight`.
-        if self.busy || self.analyze_inflight {
-            return;
-        }
-        let lang = self.lang;
-        self.busy = true;
-        let adjusting = adjust.is_some();
-        self.status = if adjusting {
-            tr(lang, "adjusting the selected variant with AI…").into()
-        } else {
-            tr(lang, "analyzing with the configured AI service…").into()
-        };
-        // Both style inputs travel as one request (R23-2): the strength, and
-        // whether the reference photos go along as images. Read
-        // HERE, on the UI thread, so the worker cannot pick up a toggle the
-        // user flipped after starting the call.
-        // A box-selected region is a local DIRECTION, so it guides by the
-        // direction whatever the switch says (the web page does the same);
-        // an adjust is guided by its request alone.
-        let guide = if adjusting || self.region.is_some() {
-            autoshade::pipeline::Guide::Direction
-        } else {
-            self.guide
-        };
-        let req = autoshade::pipeline::GradeRequest {
-            guide,
-            style: self.style_strength,
-            send_reference_image: self.send_style_ref_image,
-            // R23-3: the OTHER axis — how committed the grade should be. Read
-            // here for the same reason, and separate from `style` on purpose
-            // (「像不像我」 vs 「下手多重」).
-            strength: self.analysis_strength(),
-            // R23-4: read on the UI thread with the rest of the request, for
-            // the same reason — a checkbox flipped mid-call must not change
-            // what this call is paying for.
-            think: self.deep_think,
-            adherence: autoshade::recipe::DirectionAdherence::new(self.direction_adherence),
-            // The GUI's own 「search the library」 preference, read on the UI
-            // thread like every other field above.
-            embed: autoshade::library::EmbeddingSwitch::resolve(None, self.style_embed),
-        };
-        // Free-text direction ("warmer, moodier") steers the proposal — only
-        // when the direction guides (library OR direction); an adjust's
-        // request is the direction, and the AI ADJUSTS the current recipe
-        // instead of starting from scratch. A box-selected region (if any)
-        // folds into the text so the AI masks exactly there — same prompt the
-        // web UI sends.
-        let typed: String = match &adjust {
-            Some(request) => request.trim().to_string(),
-            None => self.guidance.trim().to_string(),
-        };
-        let guidance = match self.region {
-            Some([l, t, r, b]) => {
-                Some(autoshade::pipeline::region_guidance(l, t, r, b, &typed))
-            }
-            None => (guide == autoshade::pipeline::Guide::Direction && !typed.is_empty()).then(|| typed.clone()),
-        };
-        let base = adjusting.then(|| {
-            // UNSTRIPPED: produce_recipe strips the base look + lens profile
-            // from its PROMPT copy itself now, and carry_over_unrepresentable
-            // needs the user's REAL profile to preserve unsaved lens toggles
-            // — the pre-strip here made Refine revert them to the saved
-            // profile (the same defect the web caller had, fixed in B48).
-            self.recipe.clone()
-        });
-        // The frame the model sees and the render uses: a card on
-        // AI-generated pixels adjusts ITS raster (the look is baked into it),
-        // every other card the photo itself (`None`).
-        let pixels: Option<PathBuf> = (adjusting && self.active_on_ai_pixels())
-            .then(|| self.active_variant().and_then(|v| v.origin.clone()))
-            .flatten();
-        self.spawn_analyze(path, pixels, guidance, base, req, autoshade::library::DEFAULT_NAME);
     }
 
     /// The analyze worker every analysis starter shares — 「AI Analyze」,

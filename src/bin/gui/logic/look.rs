@@ -95,7 +95,7 @@ pub(crate) struct LookPrefs {
 /// What the user asked for, as facts: which verb, the typed direction, a
 /// box-selected region, and (for adjust / portrait) the payload the worker
 /// needs.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LookIntent {
     pub(crate) kind: Option<LookKind>,
     pub(crate) typed: String,
@@ -156,6 +156,7 @@ pub(crate) struct Started {
 /// enums; the words are rendered there.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum LookLine {
+    Idle,
     Working,
     Done,
     /// No image key: the built-in look stood in.
@@ -370,6 +371,59 @@ pub(crate) fn landed(claim: &Claim, recipe: &EditRecipe, ok: bool) -> Vec<Effect
         }
     }
     effects
+}
+
+/// 「Match my reference photos…」: read the picked folder into Normal's own
+/// library, then hand over to the reference look. Refused while another build
+/// or analysis runs, or with no photo open.
+pub(crate) fn references_start(
+    photo: Option<&Path>,
+    dir: PathBuf,
+    busy: bool,
+    inflight: bool,
+    building: bool,
+) -> Vec<Effect> {
+    if busy || inflight || building {
+        return Vec::new();
+    }
+    let Some(photo) = photo else { return Vec::new() };
+    vec![
+        Effect::Status(UiText::of("Reading your reference photos…")),
+        Effect::LookLine { kind: LookKind::OneClick(OneClick::References), line: LookLine::Idle },
+        Effect::ReferenceBuild { photo: photo.to_path_buf(), dir },
+    ]
+}
+
+/// The folder build's landing: a built library hands straight over to the
+/// reference look for the photo it was started for; anything else is said on
+/// the line (and, for a read failure, as an error toast) instead of dropped.
+pub(crate) fn references_built(
+    res: &Result<usize, String>,
+    built_photo: Option<&Path>,
+    current_photo: Option<&Path>,
+    inflight: bool,
+) -> Vec<Effect> {
+    let kind = LookKind::OneClick(OneClick::References);
+    match res {
+        Ok(_) if built_photo.is_some() && built_photo == current_photo && !inflight => {
+            vec![Effect::StartLook(LookIntent::of(kind))]
+        }
+        Ok(_) => vec![
+            // Status FIRST: the failure line shows the status the landing wrote.
+            Effect::Status(UiText::of(
+                "Your reference photos are read, but the look could not start. Click 「Match my reference photos…」 again.",
+            )),
+            Effect::LookLine { kind, line: LookLine::Failed },
+        ],
+        Err(err) => {
+            let text = UiText::with("Could not read your reference photos: {err}", &[("err", err)]);
+            vec![
+                Effect::Status(text.clone()),
+                Effect::LookLine { kind, line: LookLine::Failed },
+                Effect::ToastError(text),
+            ]
+        }
+    }
 }
 
 /// The ✕ or a cancelled start lets go of the pending look; a late result then
@@ -662,5 +716,52 @@ mod tests {
         assert!(state.pending.is_none());
         let claim = Claim { kind: LookKind::Analyze, photo: PathBuf::from("p"), keep: Keep::None, built_in: false };
         assert!(landed(&claim, &EditRecipe::default(), true).is_empty());
+    }
+
+    fn photo() -> PathBuf {
+        PathBuf::from("photo.arw")
+    }
+
+    /// The reference folder build: refused while work runs, otherwise status +
+    /// the folder job for the photo that was open when it was picked.
+    #[test]
+    fn the_reference_build_starts_for_the_photo_it_was_picked_on() {
+        let dir = PathBuf::from("refs");
+        assert!(references_start(None, dir.clone(), false, false, false).is_empty(), "no photo, no build");
+        assert!(references_start(Some(Path::new("p.arw")), dir.clone(), true, false, false).is_empty());
+        assert!(references_start(Some(Path::new("p.arw")), dir.clone(), false, true, false).is_empty());
+        assert!(references_start(Some(Path::new("p.arw")), dir.clone(), false, false, true).is_empty());
+        let effects = references_start(Some(Path::new("p.arw")), dir.clone(), false, false, false);
+        assert!(matches!(effects[0], Effect::Status(_)));
+        assert!(matches!(effects[1], Effect::LookLine { line: LookLine::Idle, .. }));
+        match &effects[2] {
+            Effect::ReferenceBuild { photo, dir: d } => {
+                assert_eq!(photo, &PathBuf::from("p.arw"));
+                assert_eq!(d, &dir);
+            }
+            other => panic!("expected the build job, got {other:?}"),
+        }
+    }
+
+    /// A built library hands over ONLY to the photo it was started for; a
+    /// different open photo, work in flight, or a failed read is said instead
+    /// of silently dropping the look.
+    #[test]
+    fn a_built_library_hands_over_only_to_the_photo_it_was_read_for() {
+        let built = photo();
+        let hand_off = references_built(&Ok(3), Some(&built), Some(Path::new("photo.arw")), false);
+        assert!(matches!(hand_off.as_slice(), [Effect::StartLook(_)]), "{hand_off:?}");
+
+        let elsewhere = references_built(&Ok(3), Some(&built), Some(Path::new("other.arw")), false);
+        assert!(matches!(elsewhere[0], Effect::Status(_)));
+        assert!(matches!(elsewhere[1], Effect::LookLine { line: LookLine::Failed, .. }));
+
+        let busy = references_built(&Ok(3), Some(&built), Some(Path::new("photo.arw")), true);
+        assert!(matches!(busy[1], Effect::LookLine { line: LookLine::Failed, .. }));
+
+        let failed = references_built(&Err("no photos in that folder".into()), Some(&built), Some(Path::new("photo.arw")), false);
+        assert!(matches!(failed[0], Effect::Status(_)));
+        assert!(matches!(failed[1], Effect::LookLine { line: LookLine::Failed, .. }));
+        assert!(matches!(failed[2], Effect::ToastError(_)));
     }
 }

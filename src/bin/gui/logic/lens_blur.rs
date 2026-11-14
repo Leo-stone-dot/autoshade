@@ -52,6 +52,9 @@ pub(crate) fn apply(
             )));
             effects
         }
+        // The facade routes the look domain itself; this function is only
+        // reached with a lens-blur action.
+        Action::Look(_) | Action::References(_) => Vec::new(),
         Action::EstimateDepth => {
             if busy {
                 return Vec::new();

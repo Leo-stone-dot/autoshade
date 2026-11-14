@@ -348,11 +348,11 @@
             1,
             "exactly one read of the request's switch"
         );
-        let actions = include_str!("../actions.rs");
+        let runtime = include_str!("../runtime.rs");
         assert_eq!(
-            actions.matches("EmbeddingSwitch::resolve(None, self.style_embed)").count(),
+            runtime.matches("EmbeddingSwitch::resolve(None, self.style_embed)").count(),
             1,
-            "the develop request reads the preference"
+            "the look start snapshots the preference into the request"
         );
     }
 

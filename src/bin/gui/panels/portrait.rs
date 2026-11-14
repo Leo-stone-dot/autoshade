@@ -85,10 +85,6 @@ pub(crate) struct PortraitState {
     /// app's own writes meet the limits; a fork inherits its parent's switch
     /// (`inherit_keep_skin`).
     pub(crate) keep_skin: std::collections::HashMap<(PathBuf, String), bool>,
-    /// The analysis epoch an AI portrait look started under, and the
-    /// portrait masks and lens blur the photo had before it: a fresh look
-    /// replaces the recipe whole, and these come back on top of it.
-    pub(crate) look: Option<(u64, Vec<LocalAdjustment>, Option<autoshade::render::LensBlur>)>,
     /// A depth estimate was started from the Background group: its landing
     /// aims the focus at the face and keeps the person sharp.
     pub(crate) blur_from_panel: bool,
@@ -113,7 +109,6 @@ impl Default for PortraitState {
             line: PortraitLine::Idle,
             found: None,
             keep_skin: Default::default(),
-            look: None,
             blur_from_panel: false,
             #[cfg(test)]
             heal_asked: None,
@@ -303,22 +298,16 @@ impl AutoShadeApp {
         }
     }
 
-    /// ✨ AI portrait look: the portrait direction through the analysis door
-    /// (`normal::one_click_request`'s preset arm — the same request a Normal
-    /// preset card sends), a fresh look at the look strength.
+    /// ✨ AI portrait look: the portrait preset through the one analysis door,
+    /// a fresh look at the look strength. The masks and blur the photo has now
+    /// are remembered by the look protocol and put back on the landed recipe.
     pub(crate) fn start_portrait_look(&mut self) {
-        let Some(path) = self.src_path.clone() else { return };
-        if self.busy || self.analyze_inflight {
-            return;
-        }
-        let (req, guidance) = self.one_click_request(crate::logic::look::OneClick::Preset("portrait"));
-        let kept: Vec<LocalAdjustment> = self.recipe.masks.iter().filter(|m| PORTRAIT_ROLES.contains(&m.role)).cloned().collect();
-        let blur = self.recipe.lens_blur.clone();
-        self.busy = true;
-        self.portrait.line = PortraitLine::Looking;
-        self.status = tr(self.lang, "Making the portrait look…").into();
-        let epoch = self.spawn_analyze(path, None, guidance, None, req, autoshade::library::DEFAULT_NAME);
-        self.portrait.look = Some((epoch, kept, blur));
+        let kept: Vec<LocalAdjustment> =
+            self.recipe.masks.iter().filter(|m| PORTRAIT_ROLES.contains(&m.role)).cloned().collect();
+        let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Portrait);
+        intent.kept_masks = kept;
+        intent.kept_blur = self.recipe.lens_blur.clone();
+        self.apply_actions(vec![logic::Action::Look(intent)]);
     }
 
     /// 🤖 Remove blemishes: the Retouch panel's AI heal, held to the face
@@ -327,23 +316,6 @@ impl AutoShadeApp {
         if let Some(face) = face_raster(&self.recipe) {
             self.start_heal(false, Some(face));
         }
-    }
-
-    /// Before `on_analyzed` consumes a result: is it this panel's look?
-    pub(crate) fn portrait_look_landing(&mut self, epoch: u64) -> Option<(Vec<LocalAdjustment>, Option<autoshade::render::LensBlur>)> {
-        match self.portrait.look.take() {
-            Some((e, kept, blur)) if e == epoch && epoch == self.gen_epoch => Some((kept, blur)),
-            other => {
-                self.portrait.look = other.filter(|(e, _, _)| *e != epoch);
-                None
-            }
-        }
-    }
-
-    /// After the portrait look landed through `on_analyzed` (its masks and
-    /// blur were put back before it was written — `restore_portrait_masks`).
-    pub(crate) fn after_portrait_look(&mut self, landed: bool) {
-        self.portrait.line = if landed { PortraitLine::Looked } else { PortraitLine::Failed(self.status.clone()) };
     }
 
     /// The frame's one place for "Keep skin natural": run after the panels

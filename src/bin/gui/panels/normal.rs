@@ -18,16 +18,8 @@
 
 use crate::*;
 use crate::logic::look::{FineTune, OneClick};
-use autoshade::pipeline::{GradeRequest, Guide};
-
-/// The adherence a preset's direction is followed with: above 70 %, a firm
-/// brief (design-normal-oneclick.md §2b, 「adherence: 紧」).
-pub(crate) const PRESET_ADHERENCE: f32 = 0.8;
-
-/// The Style a reference-folder look is asked at: at or above
-/// `library::STYLE_TARGET_MIN` the references are the look to reproduce, not
-/// a ceiling (design-normal-oneclick.md §2a).
-pub(crate) const REFERENCE_STYLE: f32 = 1.0;
+#[cfg(test)]
+use autoshade::pipeline::GradeRequest;
 
 /// What the first AI denoise of a rendered image downloads: the SCUNet weight
 /// plus its network file (`python/denoise.py` `WEIGHT_BYTES["color_real_psnr"]` +
@@ -100,8 +92,6 @@ pub(crate) struct NormalState {
     /// to is made for this photo only (`on_one_click_built`).
     pub(crate) build_photo: Option<PathBuf>,
     pub(crate) build_progress: Option<(usize, usize)>,
-    /// The analysis epoch a one-click started under.
-    pub(crate) analyze_epoch: Option<u64>,
     /// The photo a one-click last landed on, and its four fine-tune values.
     pub(crate) result: Option<(PathBuf, FineTune)>,
     /// The noise switch's cards (`set_normal_denoise`); the switch itself
@@ -147,171 +137,6 @@ fn folder_name(p: &std::path::Path) -> String {
 }
 
 impl AutoShadeApp {
-    /// The request and direction a one-click sends — read on the UI thread,
-    /// like `start_analyze`'s. Fixed in Normal (design §3): the style, the
-    /// adherence, deep thinking and the guide are not drawn; only the look
-    /// strength is the user's.
-    pub(crate) fn one_click_request(&self, ask: OneClick) -> (GradeRequest, Option<String>) {
-        let strength = self.analysis_strength();
-        match ask {
-            OneClick::Preset(id) => (
-                GradeRequest {
-                    guide: Guide::Direction,
-                    style: 0.0,
-                    send_reference_image: false,
-                    strength,
-                    think: false,
-                    adherence: autoshade::recipe::DirectionAdherence::new(PRESET_ADHERENCE),
-                    embed: autoshade::library::EmbeddingSwitch::OFF,
-                },
-                autoshade::advisor::presets::preset_guidance(id).map(str::to_owned),
-            ),
-            OneClick::References => (
-                GradeRequest {
-                    guide: Guide::Library,
-                    style: REFERENCE_STYLE,
-                    send_reference_image: true,
-                    strength,
-                    think: false,
-                    adherence: autoshade::recipe::DirectionAdherence::default(),
-                    // The folder was just read by the same model, so its
-                    // download is done; the environment override still wins.
-                    embed: autoshade::library::EmbeddingSwitch::resolve(None, true),
-                },
-                None,
-            ),
-        }
-    }
-
-    /// Run a one-click look on the open photo: the analysis worker, Normal's
-    /// library, no base (a fresh look), landing in the sliders like any
-    /// analysis (undoable).
-    pub(crate) fn start_one_click(&mut self, ask: OneClick) {
-        let Some(path) = self.src_path.clone() else { return };
-        if self.busy || self.analyze_inflight {
-            return;
-        }
-        let (req, guidance) = self.one_click_request(ask);
-        self.busy = true;
-        self.status = tr(self.lang, "Making the look…").into();
-        self.normal.line = NormalLine::Working;
-        let epoch = self.spawn_analyze(path, None, guidance, None, req, autoshade::library::NORMAL_NAME);
-        self.normal.analyze_epoch = Some(epoch);
-    }
-
-    /// 「Match my reference photos…」 after the folder is picked: read it into
-    /// Normal's own library (no look phrases — the photos themselves go to
-    /// the model), then hand over to the analysis (`on_one_click_built`).
-    /// The reading is work like any other (minutes; the first time it
-    /// downloads a model): `busy` holds the buttons that start work until it
-    /// lands, and the look it hands over to is for the photo it was started
-    /// for.
-    pub(crate) fn start_one_click_folder(&mut self, dir: PathBuf) {
-        if self.normal.building || self.busy || self.analyze_inflight || self.src_path.is_none() {
-            return;
-        }
-        self.busy = true;
-        self.normal.build_photo = self.src_path.clone();
-        self.normal.building = true;
-        self.normal.build_progress = None;
-        self.normal.ref_dir = Some(dir.clone());
-        self.normal.line = NormalLine::Idle;
-        self.status = tr(self.lang, "Reading your reference photos…").into();
-        let tx = self.tx.clone();
-        let ctx = self.egui_ctx.clone();
-        self.spawn_worker(
-            move || {
-                let progress = |p: autoshade::library::BuildProgress| {
-                    let _ = tx.send(Msg::OneClickBuildProgress { done: p.done, total: p.total });
-                    ctx.request_repaint();
-                };
-                let sidecars = autoshade::library::Sidecars::from_config(&autoshade::config::Config::load());
-                let built = autoshade::library::rebuild_named(
-                    autoshade::library::NORMAL_NAME,
-                    &dir,
-                    &sidecars,
-                    autoshade::library::DescribeSwitch::OFF,
-                    None,
-                    &progress,
-                );
-                Msg::OneClickBuilt(built.map(|lib| lib.entries.len()).map_err(|e| format!("{e:#}")))
-            },
-            |e| Msg::OneClickBuilt(Err(e.to_string())),
-        );
-    }
-
-    /// `Msg::OneClickBuilt` landing: the folder chain's hand-off — a built
-    /// library goes straight into the reference-folder analysis.
-    pub(crate) fn on_one_click_built(&mut self, lang: Lang, res: Result<usize, String>) {
-        self.normal.building = false;
-        self.normal.build_progress = None;
-        self.busy = false;
-        let for_photo = self.normal.build_photo.take();
-        match res {
-            Ok(_) => {
-                let started = for_photo.is_some() && for_photo == self.src_path && !self.analyze_inflight && {
-                    self.start_one_click(OneClick::References);
-                    self.analyze_inflight
-                };
-                // Not started (another photo is open, or other work runs):
-                // said, never dropped with the line showing nothing.
-                if !started {
-                    let t = tr(lang, "Your reference photos are read, but the look could not start. Click 「Match my reference photos…」 again.");
-                    self.normal.line = NormalLine::Failed(t.into());
-                    self.status = t.into();
-                }
-            }
-            Err(err) => {
-                let t = trf(lang, "Could not read your reference photos: {err}", &[("err", &err)]);
-                self.normal.line = NormalLine::Failed(t.clone());
-                self.status = t.clone();
-                self.toast(ToastKind::Error, t);
-            }
-        }
-    }
-
-    /// Before `on_analyzed` consumes a result: is it a one-click's (`Some`),
-    /// and did it land — `Ok(true)` when the built-in look stood in for the
-    /// AI.
-    pub(crate) fn one_click_landing(
-        &self,
-        epoch: u64,
-        res: &anyhow::Result<(EditRecipe, autoshade::advisor::Verdict, Vec<autoshade::rationale::Note>)>,
-    ) -> Option<Result<bool, ()>> {
-        (self.normal.analyze_epoch == Some(epoch) && epoch == self.gen_epoch).then(|| {
-            res.as_ref().map(|(_, _, notes)| {
-                notes.iter().any(|n| {
-                    matches!(
-                        n.key,
-                        autoshade::rationale::keys::HEURISTIC_NO_KEY | autoshade::rationale::keys::HEURISTIC_UNAVAILABLE
-                    )
-                })
-            })
-            .map_err(|_| ())
-        })
-    }
-
-    /// After a one-click landed through `on_analyzed`: the plain line, and
-    /// the four fine-tune values remembered for 「back to the one-click
-    /// result」.
-    pub(crate) fn after_one_click(&mut self, lang: Lang, landed: Result<bool, ()>) {
-        self.normal.analyze_epoch = None;
-        match landed {
-            Ok(built_in) => {
-                if let Some(p) = self.src_path.clone() {
-                    self.normal.result = Some((p, FineTune::of(&self.recipe)));
-                }
-                self.normal.line = if built_in { NormalLine::BuiltIn } else { NormalLine::Done };
-                if built_in {
-                    self.normal.key_present = Some(false);
-                }
-                let plain = self.normal_line_text(lang).to_string();
-                self.reword_landing(plain);
-            }
-            Err(()) => self.normal.line = NormalLine::Failed(self.status.clone()),
-        }
-    }
-
     /// Put a plain sentence in place of the status a shared landing just
     /// wrote — and in its toast, when it raised one.
     pub(crate) fn reword_landing(&mut self, plain: String) {
@@ -679,7 +504,9 @@ impl AutoShadeApp {
             );
         }
         if let Some(ask) = asked {
-            self.start_one_click(ask);
+            self.apply_actions(vec![logic::Action::Look(logic::look::LookIntent::of(
+                logic::look::LookKind::OneClick(ask),
+            ))]);
         }
         // The dialog after the group is laid out: it is modal and blocks.
         if pick {
@@ -688,7 +515,7 @@ impl AutoShadeApp {
                 dialog = dialog.set_directory(d);
             }
             if let Some(dir) = dialog.pick_folder() {
-                self.start_one_click_folder(dir);
+                self.apply_actions(vec![logic::Action::References(dir)]);
             }
         }
     }

@@ -364,7 +364,7 @@ impl AutoShadeApp {
             // fold with its own request box — `ai_adjust_edit` below.
             //
             // `analyze_inflight` too, or ✕ leaves this ENABLED while
-            // `start_analyze` silently refuses (it must refuse — the
+            // `logic::look::plan` silently refuses (it must refuse — the
             // cancelled call is still on the wire and still billing).
             // A button that looks live and does nothing, for up to the
             // 600 s stall budget, with the status line saying the app
@@ -393,7 +393,10 @@ impl AutoShadeApp {
                 )))
                 .clicked()
             {
-                self.start_analyze(None);
+                let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Analyze);
+                intent.typed = self.guidance.clone();
+                intent.region = self.region;
+                self.apply_actions(vec![logic::Action::Look(intent)]);
             }
             // The two TASTE DIALS get their own lines, below the verbs (R23-3).
             //
@@ -535,8 +538,15 @@ impl AutoShadeApp {
                     self.adjust_edit_btn_enabled = Some(resp.enabled());
                 }
                 if resp.clicked() {
-                    let request = self.adjust_edit_prompt.clone();
-                    self.start_analyze(Some(request));
+                    let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Adjust);
+                    intent.typed = self.adjust_edit_prompt.clone();
+                    intent.region = self.region;
+                    intent.base = Some(self.recipe.clone());
+                    intent.pixels = self
+                        .active_on_ai_pixels()
+                        .then(|| self.active_variant().and_then(|v| v.origin.clone()))
+                        .flatten();
+                    self.apply_actions(vec![logic::Action::Look(intent)]);
                 }
             });
     }
