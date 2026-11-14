@@ -42,6 +42,9 @@ impl AutoShadeApp {
                 Action::Pick(action) => {
                     effects.extend(logic::pick::apply(&mut self.recipe, action));
                 }
+                Action::Crop(action) => {
+                    effects.extend(logic::crop::apply(&mut self.recipe, action));
+                }
             }
         }
         self.run_effects(effects);

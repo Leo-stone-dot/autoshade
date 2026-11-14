@@ -7548,7 +7548,11 @@ the tool drops — while the canvas keeps the sampling itself. A dragged mask's 
 ([`logic/mask_place.rs`](../src/bin/gui/logic/mask_place.rs): `commit`) is the
 same split: redraw keeps the tuned radial state and replaces only the area, a
 component joins its mask, a fresh drag is named and selected — the drag and the
-transform stay in the canvas.
+transform stay in the canvas. The crop box's geometry
+([`logic/crop.rs`](../src/bin/gui/logic/crop.rs): `apply`) is the same split at
+its largest: the preset's same-centre fit, the eight handles with the pixel
+ratio, and the rotate-straighten wrap/clamp are pure mappings; the pointer, the
+hit-testing and the overlay stay in `handle_crop`.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 
