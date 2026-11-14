@@ -273,17 +273,16 @@
         restored.restore_prefs(back);
         assert_eq!(restored.guide, Guide::Direction, "the switch must survive a restart");
 
-        // The request half: the worker reads `guide` and sends the direction
-        // only under it (source guard: the request is built inside a worker
-        // spawn no unit test can drive).
-        let actions = include_str!("../actions.rs");
+        // The request half lives in the reflection layer, whose own tests drive
+        // it; this guard pins the two rules the switch depends on.
+        let look = include_str!("../logic/look.rs");
         for needle in [
             // An adjust (2026-10-21) is guided by its request alone, a box
             // region by the direction; otherwise the switch decides.
-            concat!("let guide = if adjusting || self.region.is_some() ", "{"),
-            concat!("guide == autoshade::pipeline::Guide::Direction ", "&& !typed.is_empty()"),
+            concat!("let guide = if adjusting || region_guided { Guide::Direction } else { prefs.guide }"),
+            concat!("guide == Guide::Direction && !typed.is_empty()"),
         ] {
-            assert!(actions.contains(needle), "start_analyze must apply the guide: {needle}");
+            assert!(look.contains(needle), "the look plan must apply the guide: {needle}");
         }
     }
 

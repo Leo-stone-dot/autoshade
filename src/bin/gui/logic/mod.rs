@@ -21,6 +21,11 @@ use std::sync::Arc;
 /// What the user did. Emitted by the view, applied by the facade.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Action {
+    /// Start the AI-look protocol for this verb (`logic::look::plan`).
+    Look(look::LookIntent),
+    /// Read this folder as the reference library, then look at the photo that
+    /// was open when it was picked.
+    References(PathBuf),
     /// Lens blur: mute/unmute without losing the settings.
     ToggleLensBlur(bool),
     SetBlurAmount(f32),
@@ -67,6 +72,11 @@ pub(crate) enum Effect {
     /// A one-click landed: remember the values 「back to the one-click result」
     /// restores for this photo.
     RememberOneClick { photo: PathBuf, fine: look::FineTune },
+    /// Hand a started verb over to the look protocol (the reference-folder
+    /// build's landing starts the look it built for).
+    StartLook(look::LookIntent),
+    /// Read this folder into Normal's reference library, for this photo.
+    ReferenceBuild { photo: PathBuf, dir: PathBuf },
     /// Run the depth sidecar over this photo's original-frame base.
     EstimateDepth { photo: PathBuf, base: Arc<image::DynamicImage> },
     Status(UiText),

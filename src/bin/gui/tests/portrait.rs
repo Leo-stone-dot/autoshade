@@ -386,7 +386,7 @@
     /// and the held skin, and the saved mark is the look on screen.
     ///
     /// MUTATION THIS CATCHES: put the masks back after `on_analyzed` (the old
-    /// `after_portrait_look`) or hold the skin only on the next frame, and
+    /// the claimed look's `landed`) or hold the skin only on the next frame, and
     /// the file on disk is mask-less and past the limits.
     #[test]
     fn the_ai_portrait_look_asks_for_the_portrait_direction_and_lands_under_the_guardrail() {

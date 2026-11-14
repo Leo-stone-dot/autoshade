@@ -566,25 +566,22 @@ impl AutoShadeApp {
                 Msg::AiMasksResolved(boxed) => self.on_ai_masks_resolved(lang, *boxed),
                 Msg::Developed(boxed) => self.finish_redevelop(ctx, *boxed),
                 Msg::Analyzed(epoch, mut boxed) => {
-                    // Normal's one-click look lands through the same door,
-                    // then says what happened in plain words (`normal.rs`).
-                    let one_click = self.one_click_landing(epoch, &boxed);
-                    // …and so does the Portraits panel's AI look (`portrait.rs`),
-                    // its masks and blur put back on the landed recipe BEFORE
-                    // `on_analyzed` writes it — the saved file is the look the
-                    // panel shows, not a mask-less one fixed up a frame later.
-                    let portrait = self.portrait_look_landing(epoch).map(|(kept, blur)| {
-                        if let Ok((recipe, _, _)) = &mut *boxed {
-                            autoshade::face::restore_portrait_masks(recipe, kept, blur);
-                        }
-                    });
+                    // The look protocol's claim: only the pending look's own,
+                    // current epoch may touch this result. A looked-for verb
+                    // also puts back what its fresh look replaced, BEFORE the
+                    // shared landing writes.
+                    let claim = logic::look::claim(&mut self.look, epoch, self.gen_epoch, &boxed);
+                    if let Some(claim) = &claim
+                        && let Ok((recipe, _, _)) = &mut *boxed
+                    {
+                        logic::look::restore(claim, recipe);
+                    }
                     let landed = boxed.is_ok();
                     self.on_analyzed(lang, epoch, boxed);
-                    if let Some(landed) = one_click {
-                        self.after_one_click(lang, landed);
-                    }
-                    if portrait.is_some() {
-                        self.after_portrait_look(landed);
+                    // The claimed look's own line, memory and view facts.
+                    if let Some(claim) = claim {
+                        let effects = logic::look::landed(&claim, &self.recipe, landed);
+                        self.run_effects(effects);
                     }
                 }
                 Msg::OneClickBuildProgress { done, total } => {
