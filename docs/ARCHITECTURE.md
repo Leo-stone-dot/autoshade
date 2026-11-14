@@ -7559,9 +7559,10 @@ own rotated axes, the rotation grip and the clamped centre move are pure; the
 hit-testing and the drag anchor stay in the canvas. The AI region box
 ([`logic/region.rs`](../src/bin/gui/logic/region.rs): `apply`) takes the
 four mapped corners, refuses a box under 2% and words its size; a tiny drag
-clears. The recipe library's import dialog is the first view→dialog verb moved
-to the action layer (`RecipeAction::ImportFile`): the panel emits, the dialog
-and the library writes happen outside it.
+clears. Every dialog a panel asks for is now such an action
+(`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
+`PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
+and runs the side; no file/folder dialog lives under `panels/` any more.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 

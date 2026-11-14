@@ -52,6 +52,53 @@ impl AutoShadeApp {
                 Action::Recipe(action) => match action {
                     logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
                 },
+                Action::Ai(action) => match action {
+                    logic::ai::AiAction::PickRawFolder => {
+                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                            self.style_raw_dir = Some(dir);
+                        }
+                    }
+                    logic::ai::AiAction::PickReferenceFolder => {
+                        let mut dialog = rfd::FileDialog::new();
+                        // Reopen where the last build ran, when it still exists.
+                        if let Some(d) = self.style_src_dir.clone().filter(|d| d.is_dir()) {
+                            dialog = dialog.set_directory(d);
+                        }
+                        if let Some(dir) = dialog.pick_folder() {
+                            // Remembered on the PICK: a build that then fails must
+                            // not lose the folder the rebuild button needs.
+                            self.style_src_dir = Some(dir.clone());
+                            self.start_style_build(dir);
+                        }
+                    }
+                },
+                Action::Normal(action) => match action {
+                    logic::normal::NormalAction::SaveJpg => self.start_normal_save(),
+                    logic::normal::NormalAction::ApplyToFolder => self.start_apply_to_folder(),
+                    logic::normal::NormalAction::PickReferencesFolder => {
+                        let mut dialog = rfd::FileDialog::new();
+                        if let Some(d) = self.normal.ref_dir.clone().filter(|d| d.is_dir()) {
+                            dialog = dialog.set_directory(d);
+                        }
+                        if let Some(dir) = dialog.pick_folder() {
+                            // The known folder goes through the same landing
+                            // the view's own `References` action uses.
+                            self.apply_actions(vec![Action::References(dir)]);
+                        }
+                    }
+                },
+                Action::Settings(action) => match action {
+                    logic::settings::SettingsAction::ImportLegacyFolder => {
+                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                            self.start_import_legacy(dir);
+                        }
+                    }
+                    logic::settings::SettingsAction::PickDeliveryFolder => {
+                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                            self.settings.out_dir = dir.display().to_string();
+                        }
+                    }
+                },
             }
         }
         self.run_effects(effects);
