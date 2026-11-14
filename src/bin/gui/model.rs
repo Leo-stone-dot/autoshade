@@ -530,30 +530,7 @@ pub(crate) enum StyleNote {
     NotSaved,
 }
 
-/// Export result facts (L12#4) — one message enum for both export shapes.
-pub(crate) enum ExportOutcome {
-    /// A single render: the deliverable + whether the pre-era base look was
-    /// re-estimated on the way + the masks the resolve step could not draw
-    /// (`pipeline::DevelopMasks::warning`, library English).
-    Single { out: PathBuf, relooked: bool, warn: Option<String> },
-    /// A batch: counts + per-photo errors (library English, shown verbatim
-    /// as today) + the same-stem rename disclosures + relook count + the
-    /// per-photo develop warnings the OPEN path would have surfaced (L16-2),
-    /// plus the delivery ROOT this run actually used.
-    ///
-    /// That root is a FACT the worker carries (L12#4), not something the
-    /// landing re-derives: the Destination combo stays reachable for the
-    /// minutes a batch runs, and a landing that read the CURRENT setting
-    /// would name a folder the files are not in.
-    Batch {
-        ok: usize,
-        errs: Vec<String>,
-        renamed: Vec<String>,
-        relooked: usize,
-        warns: Vec<String>,
-        dest: PathBuf,
-    },
-}
+pub(crate) use crate::logic::export_landing::ExportOutcome;
 
 /// How a single delivery treats a file already at its path
 /// (`start_render_with`).
