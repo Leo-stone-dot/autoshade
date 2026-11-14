@@ -49,6 +49,16 @@ impl AutoShadeApp {
                     effects.extend(logic::mask_edit::apply(&mut self.recipe, action));
                 }
                 Action::Region(action) => effects.extend(logic::region::apply(action)),
+                Action::Portrait(action) => match action {
+                    logic::portrait::PortraitAction::FindPeople => self.start_find_people(),
+                    logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
+                    logic::portrait::PortraitAction::KeepPersonSharp(on) => {
+                        if self.set_keep_person_sharp(on) {
+                            self.dirty = true;
+                        }
+                    }
+                    logic::portrait::PortraitAction::SetKeepSkin(on) => self.set_keep_skin(on),
+                },
                 Action::Develop(action) => match action {
                     logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),
                     logic::develop::DevelopAction::Stack(extra) => self.start_stack(extra),

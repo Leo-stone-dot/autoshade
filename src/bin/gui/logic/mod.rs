@@ -28,6 +28,7 @@ pub(crate) mod paste;
 pub(crate) mod mask_place;
 pub(crate) mod mask_refine;
 pub(crate) mod pick;
+pub(crate) mod portrait;
 pub(crate) mod recipes;
 pub(crate) mod settings;
 pub(crate) mod style;
@@ -61,6 +62,8 @@ pub(crate) enum Action {
     Region(region::RegionAction),
     /// The develop panel's list verbs.
     Develop(develop::DevelopAction),
+    /// The Portraits panel's verbs.
+    Portrait(portrait::PortraitAction),
     /// The recipe-library window's verbs.
     Recipe(recipes::RecipeAction),
     /// The AI panel's folder verbs.

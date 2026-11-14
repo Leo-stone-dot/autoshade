@@ -7606,7 +7606,12 @@ bindings, the tool arming and the draw code, and the guard pins that it starts
 no worker and touches no store. The recipe library window follows: listing, saving,
 applying, renaming and deleting entries live in `recipe_actions.rs`, the window
 emits `RecipeAction`s (import included), and the guard pins that it writes
-nothing — its preview/details panes still READ an entry to draw it. Every dialog a panel asks for is now such an action
+nothing — its preview/details panes still READ an entry to draw it. Portraits follows: the people/subject find (its worker and
+`PortraitFind`/`FoundFaces` facts), the AI blemish removal, the depth landing
+and the skin switch's per-card bookkeeping live in `portrait_actions.rs`; the
+panel draws and emits `PortraitAction`s (`FindPeople`, `RemoveBlemishes`,
+`KeepPersonSharp`, `SetKeepSkin`), and the numeric slider boundary `reach` is
+shared from `logic::portrait`. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

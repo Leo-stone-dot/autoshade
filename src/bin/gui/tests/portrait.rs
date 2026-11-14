@@ -194,7 +194,8 @@
     /// such; a landing for another photo is dropped.
     #[test]
     fn finding_lands_four_role_masks_and_refreshes_them_in_place() {
-        use crate::panels::portrait::{FoundFaces, PortraitFind, PortraitLine};
+        use crate::logic::portrait::{FoundFaces, PortraitFind};
+        use crate::panels::portrait::PortraitLine;
         let mut app = portrait_app(Lang::En, false);
         let photo = app.src_path.clone().unwrap();
         let before = app.recipe.masks.len();
@@ -560,7 +561,7 @@
     /// heal's face raster all stay.
     #[test]
     fn a_search_that_finds_no_face_takes_the_old_face_masks_away() {
-        use crate::panels::portrait::{FoundFaces, PortraitFind};
+        use crate::logic::portrait::{FoundFaces, PortraitFind};
         let mut app = portrait_app(Lang::En, true);
         let photo = app.src_path.clone().unwrap();
         autoshade::face::set_soften(autoshade::face::skin_target(&mut app.recipe).unwrap(), 30.0);
@@ -767,7 +768,7 @@
         let face = image::GrayImage::from_pixel(32, 24, image::Luma([255]));
         let mut recipe = EditRecipe { temperature_k: Some(3200.0), tint: 80.0, ..Default::default() };
         recipe.masks.push(found_masks()[2].clone());
-        let seed = crate::panels::portrait::panel_skin_seed(&base, &face, &recipe, None, false, None).expect("a seed");
+        let seed = crate::portrait_actions::panel_skin_seed(&base, &face, &recipe, None, false, None).expect("a seed");
         let reference = autoshade::face::skin_seed_reference(&base, &recipe, 0, None, false, None);
         assert_eq!(Some(seed), autoshade::face::skin_seed(&reference, &face), "seeded from the developed reference");
         let neutral = autoshade::face::skin_seed(&base.to_rgb8(), &face).unwrap();
