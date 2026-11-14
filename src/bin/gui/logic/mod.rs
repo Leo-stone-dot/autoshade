@@ -15,6 +15,7 @@
 pub(crate) mod analysis_landing;
 pub(crate) mod gallery;
 pub(crate) mod lens_blur;
+pub(crate) mod pick;
 pub(crate) mod look;
 
 use std::path::PathBuf;
@@ -32,6 +33,8 @@ pub(crate) enum Action {
     Lens(lens_blur::LensAction),
     /// The library gallery.
     Gallery(gallery::GalleryAction),
+    /// An on-canvas eyedropper sample.
+    Pick(pick::PickAction),
 }
 
 /// One named argument of a [`UiText`]: literal text, or a catalogue key that
@@ -93,6 +96,8 @@ pub(crate) enum Effect {
     /// is a variant away when a domain needs one.
     ToastError(UiText),
     ArmFocusPick(bool),
+    /// Put one armed eyedropper (WB / range / point colour) down.
+    DisarmPicker(pick::Picker),
     /// One canvas tool at a time: every arming site disarms the rest.
     DisarmTools,
     MarkDirty,
