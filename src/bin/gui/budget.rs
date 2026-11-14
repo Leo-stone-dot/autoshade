@@ -267,7 +267,7 @@ mod tests {
             ("export.rs", 2),
             ("masks.rs", 1),
             ("retouch_actions.rs", 7),
-            ("workers.rs", 2),
+            ("canvas_masters.rs", 2),
         ];
         let gui_src =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join("bin").join("gui");

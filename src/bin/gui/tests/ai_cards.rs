@@ -657,8 +657,8 @@
         develops_at_film(canvas, "pub(crate) fn handle_point_color_pick(", "self.film_short_edge()", framed);
         let fill = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
         develops_at_film(fill, "fn developed_card_pixels(", "autoshade::decode::film_short_edge(path)", framed);
-        let workers = include_str!("../workers.rs");
-        develops_at_film(workers, "pub(crate) fn start_redevelop(", "self.film_short_edge()", "build_preview(");
+        let masters = include_str!("../canvas_masters.rs");
+        develops_at_film(masters, "pub(crate) fn start_redevelop(", "self.film_short_edge()", "build_preview(");
         let util = include_str!("../util.rs");
         develops_at_film(util, "pub(crate) fn build_preview(", "film_short_edge", "develop_preview_film(");
         let serve = include_str!("../../../serve.rs");
