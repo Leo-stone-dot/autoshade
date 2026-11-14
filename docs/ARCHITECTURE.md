@@ -7583,7 +7583,11 @@ fit prompt. `logic::export_landing` owns `ExportOutcome` and its
 words: a single export's line (with the camera-curve repair and the skipped-mask
 warning) and a batch's base plus its fixed-order disclosures (renames,
 re-estimated base looks, develop warnings), with a partial batch reading as a
-failure. The settings panel is the last one dragged behind the seam:
+failure. `logic::fit` owns the reverse-fit landing's
+facts (`FitNote`, `DeepFitOutcome`) and their words: the done sentence's two
+error readings, and one or more " · "-led pieces per fact (the AI review adds
+its hint's sentence; the XMP-failure sentence is the save landing's shared bare
+key, so the caller adds the separator). The settings panel is the last one dragged behind the seam:
 its form load/save, model fetch, Python-env install and checks moved to the app
 layer, and the panel's buttons emit `SettingsAction::{SaveForm,
 FetchModels, InstallPython}`; the guard now asserts `panels/settings.rs` holds
