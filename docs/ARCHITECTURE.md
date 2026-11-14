@@ -7541,7 +7541,10 @@ happened instead of composing the sentence. The library gallery
 ([`logic/gallery.rs`](../src/bin/gui/logic/gallery.rs): `click`, `toggle`,
 `trim_window`, `edited_badge`) owns a row click's meaning, the batch selection,
 the bounded texture window and the ●-edited fact, while the folder dialog, the
-thumbnail worker and the retains are the runtime's `GalleryAction` arms.
+thumbnail worker and the retains are the runtime's `GalleryAction` arms. The three on-canvas eyedroppers
+([`logic/pick.rs`](../src/bin/gui/logic/pick.rs): `apply`) decide what one
+sample does — the WB solve, the range re-key, the Point Color swatch and when
+the tool drops — while the canvas keeps the sampling itself.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 

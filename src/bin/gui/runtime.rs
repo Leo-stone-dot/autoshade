@@ -39,6 +39,9 @@ impl AutoShadeApp {
                     effects.extend(logic::lens_blur::apply(&mut self.recipe, action, start, self.busy));
                 }
                 Action::Gallery(action) => self.apply_gallery(action),
+                Action::Pick(action) => {
+                    effects.extend(logic::pick::apply(&mut self.recipe, action));
+                }
             }
         }
         self.run_effects(effects);
@@ -60,6 +63,11 @@ impl AutoShadeApp {
                 Effect::StartLook(intent) => self.start_look(intent),
                 Effect::ReferenceBuild { photo, dir } => self.start_reference_build(photo, dir),
                 Effect::ArmFocusPick(on) => self.lens_focus_picking = on,
+                Effect::DisarmPicker(picker) => match picker {
+                    logic::pick::Picker::WhiteBalance => self.wb_picking = false,
+                    logic::pick::Picker::Range => self.range_picking = None,
+                    logic::pick::Picker::PointColor => self.point_color_picking = false,
+                },
                 Effect::DisarmTools => self.disarm_tools(),
                 Effect::MarkDirty => self.dirty = true,
             }

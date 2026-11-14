@@ -234,6 +234,9 @@
     fn the_point_color_eyedropper_makes_a_swatch_of_the_colour_clicked() {
         use autoshade::recipe::MAX_POINT_COLORS;
         let mut app = AutoShadeApp::default();
+        let pick = |app: &mut AutoShadeApp, px: [f32; 3]| {
+            app.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
+        };
         assert!(!app.tool_armed(), "premise: a fresh app has no tool armed");
         app.point_color_picking = true;
         assert!(app.tool_armed(), "an armed eyedropper is an armed canvas tool");
@@ -241,12 +244,12 @@
         assert!(!app.point_color_picking, "Esc's disarm puts it down with the rest");
 
         app.point_color_picking = true;
-        app.pick_point_color([0.5, 0.5, 0.5]);
+        pick(&mut app, [0.5, 0.5, 0.5]);
         assert!(app.recipe.point_colors.is_empty(), "a grey spot is no swatch: {}", app.status);
         assert!(app.point_color_picking, "…and the tool stays armed for the retry");
         assert!(!app.dirty, "…and nothing was edited");
 
-        app.pick_point_color([0.8, 0.3, 0.2]);
+        pick(&mut app, [0.8, 0.3, 0.2]);
         assert_eq!(app.recipe.point_colors.len(), 1, "{}", app.status);
         let chip = autoshade::render::point_color_rgb(&app.recipe.point_colors[0]);
         for (c, want) in chip.iter().zip([0.8, 0.3, 0.2]) {
@@ -260,7 +263,7 @@
 
         app.recipe.point_colors = vec![app.recipe.point_colors[0].clone(); MAX_POINT_COLORS];
         app.point_color_picking = true;
-        app.pick_point_color([0.2, 0.3, 0.8]);
+        pick(&mut app, [0.2, 0.3, 0.8]);
         assert_eq!(app.recipe.point_colors.len(), MAX_POINT_COLORS, "a full list takes no more");
         assert!(!app.point_color_picking, "…and the refusal disarms");
         assert!(

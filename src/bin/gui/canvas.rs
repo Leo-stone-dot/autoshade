@@ -984,16 +984,7 @@ impl AutoShadeApp {
             let Some(px) = sample_5x5_mean(base, nx, ny) else { return };
             px
         };
-        let (k, tint) = autoshade::render::solve_wb_for(px, &self.recipe);
-        self.recipe.temperature_k = Some(k);
-        self.recipe.tint = tint;
-        self.wb_picking = false;
-        self.dirty = true;
-        self.status = trf(
-            self.lang,
-            "WB eyedropper: {k} K · tint {tint} — fine-tune in the Tone section",
-            &[("k", &format!("{k:.0}")), ("tint", &format!("{tint:+.0}"))],
-        );
+        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::WhiteBalance(px))]);
     }
 
     /// Colour-range sample: click keys the pending mask's Color range to that
@@ -1044,20 +1035,12 @@ impl AutoShadeApp {
             let Some(smp) = sample_5x5_mean(reference, bx, by) else { return };
             smp
         };
-        // Keep the tolerance the user already dialled in; only re-key the colour.
-        let amount = match self.recipe.masks[mi].range {
-            Some(RangeMask::Color { amount, .. }) => amount,
-            _ => 0.5,
-        };
-        self.recipe.masks[mi].range =
-            Some(RangeMask::Color { r: smp[0], g: smp[1], b: smp[2], amount, px: nx, py: ny });
-        self.range_picking = None;
-        self.dirty = true;
-        self.status = tr(
-            self.lang,
-            "Color range: sampled — the 「Tolerance」 slider adjusts the selection width",
-        )
-        .into();
+        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::RangeColor {
+            mask: mi,
+            rgb: smp,
+            px: nx,
+            py: ny,
+        })]);
     }
 
     /// Point Color eyedropper (v1.5.0): click a colour and a swatch keyed to
@@ -1091,47 +1074,7 @@ impl AutoShadeApp {
             let Some(px) = sample_5x5_mean(&img, bx, by) else { return };
             px
         };
-        self.pick_point_color(px);
-    }
-
-    /// What ONE eyedropper sample does — the canvas-free half of
-    /// [`Self::handle_point_color_pick`], so the verdict is testable without a
-    /// frame.
-    ///
-    /// A colour becomes a swatch at the end of the list and the tool disarms,
-    /// as the WB and Range pickers do. A near-grey spot adds NOTHING and keeps
-    /// the tool armed, saying why: `render::point_color_at` gives such a pixel
-    /// to no swatch, so a swatch of it would be four sliders that move nothing,
-    /// and the next click is the obvious retry. A full list refuses out loud
-    /// rather than pushing a swatch `EditRecipe::clamp` would drop on the floor.
-    pub(crate) fn pick_point_color(&mut self, px: [f32; 3]) {
-        use autoshade::recipe::MAX_POINT_COLORS;
-        let lang = self.lang;
-        if self.recipe.point_colors.len() >= MAX_POINT_COLORS {
-            self.point_color_picking = false;
-            self.status = trf(
-                lang,
-                "Point Color: at most {n} swatches",
-                &[("n", &MAX_POINT_COLORS.to_string())],
-            );
-            return;
-        }
-        let Some(swatch) = autoshade::render::point_color_at(px) else {
-            self.status = tr(
-                lang,
-                "Point Color: that spot is almost grey, so no swatch could move it — pick a more colourful spot",
-            )
-            .into();
-            return;
-        };
-        self.recipe.point_colors.push(swatch);
-        self.point_color_picking = false;
-        self.dirty = true;
-        self.status = trf(
-            lang,
-            "Point Color: swatch {n} added — its sliders are in the Color Mixer section",
-            &[("n", &self.recipe.point_colors.len().to_string())],
-        );
+        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
     }
 
     /// The geometry the canvas tools currently target: the selected mask's
