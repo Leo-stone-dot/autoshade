@@ -30,6 +30,7 @@ use image::GenericImageView;
 // see i18n.rs. (Private submodule — enabled by `autobins = false` in Cargo.toml.)
 mod i18n;
 mod landing_canvas;
+mod landing_worker;
 mod landing_persist;
 use i18n::{tr, trf, Lang};
 
