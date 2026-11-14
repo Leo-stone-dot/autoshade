@@ -16,6 +16,7 @@ pub(crate) mod analysis_landing;
 pub(crate) mod crop;
 pub(crate) mod gallery;
 pub(crate) mod lens_blur;
+pub(crate) mod mask_edit;
 pub(crate) mod mask_place;
 pub(crate) mod pick;
 pub(crate) mod look;
@@ -39,6 +40,8 @@ pub(crate) enum Action {
     Pick(pick::PickAction),
     /// A crop gesture (preset pick, handle drag, rotate-straighten).
     Crop(crop::CropAction),
+    /// A knob drag on the selected mask's geometry.
+    MaskEdit(mask_edit::MaskEditAction),
 }
 
 /// One named argument of a [`UiText`]: literal text, or a catalogue key that

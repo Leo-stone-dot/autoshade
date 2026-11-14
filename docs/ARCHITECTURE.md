@@ -7552,7 +7552,11 @@ transform stay in the canvas. The crop box's geometry
 ([`logic/crop.rs`](../src/bin/gui/logic/crop.rs): `apply`) is the same split at
 its largest: the preset's same-centre fit, the eight handles with the pixel
 ratio, and the rotate-straighten wrap/clamp are pure mappings; the pointer, the
-hit-testing and the overlay stay in `handle_crop`.
+hit-testing and the overlay stay in `handle_crop`. Mask knob drags
+([`logic/mask_edit.rs`](../src/bin/gui/logic/mask_edit.rs): `apply`) follow the
+same rule: the linear/shaped points, the radial edges projected onto the mask's
+own rotated axes, the rotation grip and the clamped centre move are pure; the
+hit-testing and the drag anchor stay in the canvas.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 
