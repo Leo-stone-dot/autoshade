@@ -7524,18 +7524,24 @@ shared AI / Develop / Retouch panels.
 it does not mutate a recipe, spawn a worker, open a dialog or write the develop
 store. `runtime.rs` is the only crossing: `apply_actions` routes the actions to
 `logic::*`, `run_effects` executes what comes back (a worker, a status line, a
-view flag), and `i18n::text` renders the `logic::UiText` key. `logic/` is
-headless — no widget code, no rendered text — so a domain is tested by calling
-it. The Lens Blur pilot ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs):
-`estimate_depth` and `landed`) is the shape the other panels migrate to, and the
-four AI-look verbs share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
+view flag), and `i18n::text` renders the `logic::UiText` key. The actions are
+closed per domain (`Look`, `Lens`, `Gallery`), so a panel can only ask for its
+own verbs. `logic/` is headless — no widget code, no rendered text — so a
+domain is tested by calling it. The Lens Blur pilot
+([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
+`landed`) is the shape the other panels migrate to, and the four AI-look verbs
+share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
 `plan`, `claim`, `restore`, `landed` — one epoch a result can win), with all
-three starters (AI Analyze / adjust, Normal's one-click and reference folder, the
-Portraits look) routed through it; Portraits look) routed through it. The analysis LANDING's decisions and
+three starters (AI Analyze / adjust, Normal's one-click and reference folder,
+the Portraits look) routed through it. The analysis LANDING's decisions and
 words live beside it in `logic::analysis_landing`: `accepted`, `shape` (the
 canvas copy a generated card needs vs the store's own recipe), and one
 `SaveReport`/`words` pair per persistence outcome, so the worker reports what
-happened instead of composing the sentence.
+happened instead of composing the sentence. The library gallery
+([`logic/gallery.rs`](../src/bin/gui/logic/gallery.rs): `click`, `toggle`,
+`trim_window`, `edited_badge`) owns a row click's meaning, the batch selection,
+the bounded texture window and the ●-edited fact, while the folder dialog, the
+thumbnail worker and the retains are the runtime's `GalleryAction` arms.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 
