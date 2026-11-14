@@ -7591,7 +7591,11 @@ key, so the caller adds the separator). The settings panel is the last one dragg
 its form load/save, model fetch, Python-env install and checks moved to the app
 layer, and the panel's buttons emit `SettingsAction::{SaveForm,
 FetchModels, InstallPython}`; the guard now asserts `panels/settings.rs` holds
-no worker, dialog, locked write or direct call to those methods. Every dialog a panel asks for is now such an action
+no worker, dialog, locked write or direct call to those methods. Retouch follows the same split: its worker starts
+(fill / adjust / heal / denoise / stack / clone / reimagine / style prompt) and
+the card-picture develop they share live in `retouch_actions.rs`; the panel
+draws, samples the brush and emits verbs, and the guard pins that it holds no
+worker, permit or store write. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

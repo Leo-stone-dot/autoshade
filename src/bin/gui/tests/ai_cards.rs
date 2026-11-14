@@ -217,7 +217,7 @@
         // the card's picture for the model, asks the library for a LAYER and
         // lands as one. MUTATION: `layer: true` → false, or `Layer` →
         // `NewGenerated` / `InPlace`, and this names it.
-        let fill = include_str!("../panels/retouch.rs");
+        let fill = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
         let body = &fill[fill.find("pub(crate) fn start_fill(").expect("start_fill moved")..];
         let body = &body[..body.find("pub(crate) fn start_heal(").expect("start_heal moved")];
         assert!(body.contains("autoshade::generative::retouch_onto("), "the fill no longer hands the library its own base");
@@ -304,7 +304,7 @@
                 release_empty_claim(&out);
             }
         }
-        let worker = include_str!("../panels/retouch.rs");
+        let worker = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
         let start = worker.find("pub(crate) fn start_adjust(").unwrap();
         let body = &worker[start..worker[start..].find("pub(crate) fn start_heal(").unwrap() + start];
         assert!(body.contains("self.active_source_path()"), "the card supplies its own raster");
@@ -655,7 +655,7 @@
         develops_at_film(canvas, "pub(crate) fn refresh_mask_overlay(", "self.film_short_edge()", framed);
         develops_at_film(canvas, "pub(crate) fn handle_range_pick(", "self.film_short_edge()", framed);
         develops_at_film(canvas, "pub(crate) fn handle_point_color_pick(", "self.film_short_edge()", framed);
-        let fill = include_str!("../panels/retouch.rs");
+        let fill = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
         develops_at_film(fill, "fn developed_card_pixels(", "autoshade::decode::film_short_edge(path)", framed);
         let workers = include_str!("../workers.rs");
         develops_at_film(workers, "pub(crate) fn start_redevelop(", "self.film_short_edge()", "build_preview(");
@@ -999,7 +999,7 @@
         // a NEW card, never in place, and always on the full frame — the
         // ≤2048 px working-copy tier is gone with the checkbox. MUTATION:
         // `NewDenoised` → `InPlace` in start_ai_denoise, and this names it.
-        let now = include_str!("../panels/retouch.rs");
+        let now = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
         let body = &now[now.find("pub(crate) fn start_ai_denoise(").expect("start_ai_denoise moved")..];
         let body = &body[..body.find("pub(crate) fn start_clone(").expect("start_clone moved")];
         assert!(body.contains("RetouchKind::NewDenoised))"), "the denoise no longer lands as a new card");
@@ -1270,7 +1270,7 @@
         // for a worker a unit test cannot run): the stack lands as a NEW card,
         // always at full resolution (`None` cap), and the frames the user
         // picked JOIN this card's frame rather than replacing it.
-        let now = include_str!("../panels/retouch.rs");
+        let now = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
         let body = &now[now.find("pub(crate) fn start_stack(").expect("start_stack moved")..];
         let body = &body[..body.find("pub(crate) fn start_clone(").expect("start_clone moved")];
         assert!(body.contains("RetouchKind::NewStacked,"), "the stack no longer lands as a new card");

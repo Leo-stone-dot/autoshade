@@ -266,7 +266,7 @@ mod tests {
             ("actions.rs", 3),
             ("export.rs", 2),
             ("masks.rs", 1),
-            ("retouch.rs", 7),
+            ("retouch_actions.rs", 7),
             ("workers.rs", 2),
         ];
         let gui_src =
