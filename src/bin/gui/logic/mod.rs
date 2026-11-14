@@ -21,6 +21,7 @@ pub(crate) mod lens_blur;
 pub(crate) mod mask_edit;
 pub(crate) mod normal;
 pub(crate) mod mask_place;
+pub(crate) mod mask_refine;
 pub(crate) mod pick;
 pub(crate) mod recipes;
 pub(crate) mod settings;

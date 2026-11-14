@@ -7566,7 +7566,10 @@ the skipped-items disclosure); `logic::Words`/`Tone` is now the shared landing
 vocabulary. `logic::segmented` lands an AI mask raster: a re-run
 matches the existing mask by raster FAMILY (the family rule lives in
 `store::mask_family`, not the view), re-points its stored path or adds a mask,
-words added-vs-refreshed, and discloses the fallback tier with a toast. Every dialog a panel asks for is now such an action
+words added-vs-refreshed, and discloses the fallback tier with a toast. `logic::mask_refine` lands the full-resolution refine:
+the initiating index wins only while it still carries that raster, a unique
+raster match is adopted, an ambiguous one is refused out loud, and an
+over-budget refusal names the source size. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.
