@@ -7569,7 +7569,10 @@ matches the existing mask by raster FAMILY (the family rule lives in
 words added-vs-refreshed, and discloses the fallback tier with a toast. `logic::mask_refine` lands the full-resolution refine:
 the initiating index wins only while it still carries that raster, a unique
 raster match is adopted, an ambiguous one is refused out loud, and an
-over-budget refusal names the source size. Every dialog a panel asks for is now such an action
+over-budget refusal names the source size. `logic::paste` words a batch paste: the counts, the
+sidecar disclosures that ride a full success (a failed projection, a
+regenerated sidecar), and the partial-failure line that must never read as a
+success. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

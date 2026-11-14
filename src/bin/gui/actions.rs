@@ -3302,14 +3302,14 @@ impl AutoShadeApp {
                 quit_warns.push(trf(
                     lang,
                     "{n} Lightroom XMP projection(s) failed (those develops ARE saved): {detail}",
-                    &[("n", &xmp_warns.len().to_string()), ("detail", &brief_list(&xmp_warns))],
+                    &[("n", &xmp_warns.len().to_string()), ("detail", &logic::brief_list(&xmp_warns))],
                 ));
             }
             if !clear_warns.is_empty() {
                 quit_warns.push(trf(
                     lang,
                     "{n} clear(s) could not be marked: {detail} — a sidecar beside the RAW may restore those edits on the next open",
-                    &[("n", &clear_warns.len().to_string()), ("detail", &brief_list(&clear_warns))],
+                    &[("n", &clear_warns.len().to_string()), ("detail", &logic::brief_list(&clear_warns))],
                 ));
             }
             match failed {

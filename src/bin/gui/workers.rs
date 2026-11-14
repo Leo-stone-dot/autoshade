@@ -3005,84 +3005,55 @@ impl AutoShadeApp {
     /// `Msg::Pasted` landing — body extracted verbatim from the
     /// poll_workers pump (round-12 decomposition; indentation kept).
     fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>) {
-                    // Sidecars were written (possibly partially on error) —
-                    // recompute the gallery badges either way.
-                    self.edited_badge.clear();
-                    // Every photo the paste wrote now has the pasted look on
-                    // disk, and that look REPLACED whatever unsaved work its
-                    // navigation stash held: left in place, the stash would
-                    // outrank the paste in a batch render, a reopen and
-                    // 「Save all」 at exit (the stash beats disk on all three).
-                    // A partial failure wrote the others all the same.
-                    if let Ok(out) = &res {
-                        for p in &out.written {
-                            self.nav_stash.remove(p);
-                        }
-                    }
-                    match res {
-                        // A partial failure keeps the error channel (as the
-                        // worker-side bail! did) — it must never read as a
-                        // clean success, and the ● baseline must not advance.
-                        Ok(out) if out.errs.is_empty() => {
-                            // The open photo's paste is on disk: advance the
-                            // ● baseline so the marker doesn't cry wolf. Only
-                            // on FULL success — a partial failure could be
-                            // exactly the open photo, which must keep warning.
-                            // Guard on the photo still being open, and compare
-                            // nothing: edits made while the worker ran leave
-                            // recipe != saved_recipe, correctly re-lighting ●.
-                            if let Some((p, r)) = self.pasted_open.take()
-                                && self.src_path.as_ref() == Some(&p)
-                            {
-                                self.saved_recipe = r;
-                                self.nav_stash.remove(&p);
-                            }
-                            let mut s = trf(
-                                lang,
-                                "Recipe pasted to {ok} photos ({xmp} XMP) → develop store",
-                                &[("ok", &out.ok.to_string()), ("xmp", &out.xmp.to_string())],
-                            );
-                            if !out.xmp_fails.is_empty() {
-                                let d = brief_list(&out.xmp_fails);
-                                s.push_str(&trf(
-                                    lang,
-                                    " — ⚠ {n} XMP projection(s) failed (those pastes ARE saved): {detail}",
-                                    &[("n", &out.xmp_fails.len().to_string()), ("detail", &d)],
-                                ));
-                            }
-                            if !out.xmp_notes.is_empty() {
-                                let d = brief_list(&out.xmp_notes);
-                                s.push_str(&trf(
-                                    lang,
-                                    " — {n} sidecar(s) regenerated rather than merged (Lightroom-only properties dropped): {detail}",
-                                    &[("n", &out.xmp_notes.len().to_string()), ("detail", &d)],
-                                ));
-                            }
-                            self.done(s);
-                        }
-                        Ok(out) => {
-                            self.pasted_open = None;
-                            self.fail(
-                                tr(lang, "batch paste"),
-                                anyhow::anyhow!(
-                                    "{}",
-                                    trf(
-                                        lang,
-                                        "{ok} succeeded, {fail} failed: {detail}",
-                                        &[
-                                            ("ok", &out.ok.to_string()),
-                                            ("fail", &out.errs.len().to_string()),
-                                            ("detail", &out.errs.join(" · ")),
-                                        ],
-                                    )
-                                ),
-                            );
-                        }
-                        Err(e) => {
-                            self.pasted_open = None;
-                            self.fail(tr(lang, "batch paste"), e);
-                        }
-                    }
+        // Sidecars were written (possibly partially on error) — recompute the
+        // gallery badges either way.
+        self.edited_badge.clear();
+        // Every photo the paste wrote now has the pasted look on disk, and that
+        // look REPLACED whatever unsaved work its navigation stash held: left
+        // in place, the stash would outrank the paste in a batch render, a
+        // reopen and 「Save all」 at exit (the stash beats disk on all three).
+        // A partial failure wrote the others all the same.
+        if let Ok(out) = &res {
+            for p in &out.written {
+                self.nav_stash.remove(p);
+            }
+        }
+        match res {
+            // A partial failure keeps the error channel — it must never read as
+            // a clean success, and the ● baseline must not advance.
+            Ok(out) if out.errs.is_empty() => {
+                // The open photo's paste is on disk: advance the ● baseline so
+                // the marker doesn't cry wolf. Only on FULL success — a partial
+                // failure could be exactly the open photo, which must keep
+                // warning. Guard on the photo still being open, and compare
+                // nothing: edits made while the worker ran leave
+                // recipe != saved_recipe, correctly re-lighting ●.
+                if let Some((p, r)) = self.pasted_open.take()
+                    && self.src_path.as_ref() == Some(&p)
+                {
+                    self.saved_recipe = r;
+                    self.nav_stash.remove(&p);
+                }
+                // The counts and the sidecar disclosures are the logic layer's
+                // (`logic/paste.rs`); the suffixes already carry their " — ".
+                let (base, suffixes) =
+                    logic::paste::clean_words(out.ok, out.xmp, &out.xmp_fails, &out.xmp_notes);
+                let mut s = crate::i18n::text(lang, &base);
+                for suffix in suffixes {
+                    s.push_str(&crate::i18n::text(lang, &suffix));
+                }
+                self.done(s);
+            }
+            Ok(out) => {
+                self.pasted_open = None;
+                let msg = crate::i18n::text(lang, &logic::paste::partial_words(out.ok, &out.errs));
+                self.fail(tr(lang, "batch paste"), anyhow::anyhow!("{}", msg));
+            }
+            Err(e) => {
+                self.pasted_open = None;
+                self.fail(tr(lang, "batch paste"), e);
+            }
+        }
     }
 
     /// `Msg::Models` landing. Keyed by ROLE: the two roles have their own
