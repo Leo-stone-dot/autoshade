@@ -15,6 +15,7 @@
 pub(crate) mod ai;
 pub(crate) mod analysis_landing;
 pub(crate) mod crop;
+pub(crate) mod develop;
 pub(crate) mod export_landing;
 pub(crate) mod fit;
 pub(crate) mod folder;
@@ -58,6 +59,8 @@ pub(crate) enum Action {
     MaskEdit(mask_edit::MaskEditAction),
     /// A box-selected AI region.
     Region(region::RegionAction),
+    /// The develop panel's list verbs.
+    Develop(develop::DevelopAction),
     /// The recipe-library window's verbs.
     Recipe(recipes::RecipeAction),
     /// The AI panel's folder verbs.

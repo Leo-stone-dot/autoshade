@@ -7598,7 +7598,12 @@ draws, samples the brush and emits verbs, and the guard pins that it holds no
 worker, permit or store write. The AI section closes the same loop: its library status
 read, library build, reimagine, generated-card adjust, reverse-fit and style
 prompt are `AiAction`s executed by the runtime, and the guard pins that the
-panel holds no worker, store read/write, dialog or direct start call. Every dialog a panel asks for is now such an action
+panel holds no worker, store read/write, dialog or direct start call. The develop panel's list verbs follow: its
+`DevelopAction`s move/duplicate a mask (detaching bitmap rasters) and
+load/delete a version (the delete under a no-wait develop lock), plus the
+denoise / stack / brush / segment / refine starts; the panel keeps the slider
+bindings, the tool arming and the draw code, and the guard pins that it starts
+no worker and touches no store. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

@@ -1514,7 +1514,9 @@ impl AutoShadeApp {
                         )) } else { missing.to_string() })
                         .clicked()
                     {
-                        self.start_ai_denoise();
+                        self.apply_actions(vec![logic::Action::Develop(
+                            logic::develop::DevelopAction::AiDenoise,
+                        )]);
                     }
                     // No 「Full-res」 checkbox any more (2026-09-15): the
                     // result is a CARD, and a card baked from a ≤2048 px
@@ -1575,7 +1577,9 @@ impl AutoShadeApp {
                         .clicked()
                         && let Some(extra) = photo_files_dialog()
                     {
-                        self.start_stack(extra);
+                        self.apply_actions(vec![logic::Action::Develop(
+                            logic::develop::DevelopAction::Stack(extra),
+                        )]);
                     }
                 });
             });
@@ -2127,7 +2131,9 @@ impl AutoShadeApp {
                     if brush_armed {
                         self.disarm_tools();
                     } else if self.base_preview.is_some() {
-                        self.start_mask_brush(None);
+                        self.apply_actions(vec![logic::Action::Develop(
+                            logic::develop::DevelopAction::MaskBrush(None),
+                        )]);
                     }
                 }
             });
@@ -2185,7 +2191,9 @@ impl AutoShadeApp {
                     )) } else { missing.to_string() })
                     .clicked()
                 {
-                    self.start_segment("subject", "Subject");
+                    self.apply_actions(vec![logic::Action::Develop(
+                        logic::develop::DevelopAction::Segment { target: "subject", label: "Subject" },
+                    )]);
                 }
                 if action_in(ui, cell, can_seg, tr(lang, "🤖 Select sky"))
                     .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
@@ -2193,7 +2201,9 @@ impl AutoShadeApp {
                     )) } else { missing.to_string() })
                     .clicked()
                 {
-                    self.start_segment("sky", "Sky");
+                    self.apply_actions(vec![logic::Action::Develop(
+                        logic::develop::DevelopAction::Segment { target: "sky", label: "Sky" },
+                    )]);
                 }
             });
             // Empty state: an open section with zero rows looked like a bug;
@@ -2584,64 +2594,28 @@ impl AutoShadeApp {
                         .on_hover_text(tr(lang, "Move up (renders earlier)"))
                         .clicked()
                     {
-                        self.recipe.masks.swap(i, i - 1);
-                        self.remap_mask_indices(|s| {
-                            Some(if s == i { i - 1 } else if s == i - 1 { i } else { s })
-                        });
-                        self.overlay_stale = true;
-                        changed = true;
+                        self.apply_actions(vec![logic::Action::Develop(
+                            logic::develop::DevelopAction::MoveMaskUp(i),
+                        )]);
                     }
                     if glyph(ui, i + 1 < self.recipe.masks.len(), "⬇")
                         .on_hover_text(tr(lang, "Move down (renders later)"))
                         .clicked()
                     {
-                        self.recipe.masks.swap(i, i + 1);
-                        self.remap_mask_indices(|s| {
-                            Some(if s == i { i + 1 } else if s == i + 1 { i } else { s })
-                        });
-                        self.overlay_stale = true;
-                        changed = true;
+                        self.apply_actions(vec![logic::Action::Develop(
+                            logic::develop::DevelopAction::MoveMaskDown(i),
+                        )]);
                     }
                     // Duplicate: a second gradient with the same tuned ten
-                    // sliders used to mean re-dragging and re-typing every
-                    // value. Rasters are DETACHED copies (the version-load
+                    // sliders; rasters are DETACHED copies (the version-load
                     // rule), so the twins never share a mutable file.
                     if glyph(ui, true, "⧉")
                         .on_hover_text(tr(lang, "Duplicate this mask (bitmap rasters are copied, so the copies stay independent)"))
                         .clicked()
                     {
-                        if self.recipe.masks.len() >= 64 {
-                            let t = tr(lang, "mask limit reached (64) — delete one first");
-                            self.toast(ToastKind::Error, t.to_string());
-                        } else {
-                            let mut clone = self.recipe.masks[i].clone();
-                            if let Some(p) = self.src_path.as_deref() {
-                                let mut tmp = EditRecipe { masks: vec![clone], ..Default::default() };
-                                autoshade::store::detach_rasters(p, &mut tmp, "mask-dup");
-                                clone = tmp.masks.remove(0);
-                            }
-                            if !clone.name.is_empty() {
-                                clone.name = format!("{} 2", clone.name);
-                            }
-                            self.recipe.masks.insert(i + 1, clone);
-                            self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
-                            self.sel_mask = Some(i + 1);
-                            self.sel_component = None;
-                            self.overlay_stale = true;
-                            // The remap maps an armed Redraw(i)/brush(i) to
-                            // ITSELF (s > i is false at s == i) while the
-                            // selection jumps to the copy — armed on the
-                            // original, pointed at the duplicate (L06#3's
-                            // second instance). Selection moved ⇒ same rule.
-                            if self.disarm_selection_bound_tools(self.sel_mask) {
-                                let t = tr(
-                                    self.lang,
-                                    "the raster-edit brush session ended — you selected another mask; its unbaked strokes were discarded",
-                                );
-                                self.toast(ToastKind::Error, t.to_string());
-                            }
-                            changed = true;
-                        }
+                        self.apply_actions(vec![logic::Action::Develop(
+                            logic::develop::DevelopAction::DuplicateMask(i),
+                        )]);
                     }
                 });
                 // R38: the two switches on their own row, under the verbs.
@@ -2740,14 +2714,18 @@ impl AutoShadeApp {
                             if edit_armed {
                                 self.disarm_tools();
                             } else {
-                                self.start_mask_brush(Some(i));
+                                self.apply_actions(vec![logic::Action::Develop(
+                                logic::develop::DevelopAction::MaskBrush(Some(i)),
+                            )]);
                             }
                         }
                         if action_in(ui, cell, !self.busy, tr(lang, "Full-res refine"))
                             .on_hover_text(tr(lang, "Re-cut this mask against the FULL-resolution source (guided filter). Preview-res AI masks smear their boundary at export — this snaps it to real edges. Decodes the full-size source; takes a few seconds."))
                             .clicked()
                         {
-                            self.start_mask_refine(i);
+                            self.apply_actions(vec![logic::Action::Develop(
+                            logic::develop::DevelopAction::MaskRefine(i),
+                        )]);
                         }
                     });
                     ui.horizontal(|ui| {
@@ -3518,7 +3496,9 @@ impl AutoShadeApp {
                     self.version_name_buf = Some((p, n, cur.clone(), cur));
                 }
                 if let Some(n) = load {
-                    self.load_version(n);
+                    self.apply_actions(vec![logic::Action::Develop(
+                        logic::develop::DevelopAction::LoadVersion(n),
+                    )]);
                 }
                 if let Some(n) = delete
                     && let Some(src) = self.src_path.clone()
@@ -3532,27 +3512,9 @@ impl AutoShadeApp {
                     {
                         self.version_name_buf = None;
                     }
-                    // NoWait wrapper: delete_version locks internally with
-                    // Wait — a foreground 🗑 click must fail into the error
-                    // arm when another process holds the develop, not hang.
-                    match autoshade::store::with_develop_lock(
-                        &src,
-                        autoshade::store::DevelopLockMode::NoWait,
-                        || autoshade::store::delete_version(&src, n),
-                    ) {
-                        Ok(()) => {
-                            self.refresh_versions();
-                            self.status =
-                                trf(lang, "Version v{n} deleted", &[("n", &n.to_string())]);
-                        }
-                        Err(e) => {
-                            self.persist_postponed(
-                                &e,
-                                "Delete v{n} failed: {err}",
-                                &[("n", &n.to_string())],
-                            );
-                        }
-                    }
+                    self.apply_actions(vec![logic::Action::Develop(
+                        logic::develop::DevelopAction::DeleteVersion(n),
+                    )]);
                 }
                 if n_ver == 0 {
                     explainer(ui, lang, tr(lang, "Like LR virtual copies: store multiple parameter sets for one photo (B&W, cropped…) without overwriting."));
