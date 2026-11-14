@@ -1876,8 +1876,7 @@ impl AutoShadeApp {
                         // pre-analyze step and Ctrl+Z skips it.
                         self.commit_pending_names();
                         self.commit_now();
-                        let accepted =
-                            verdict.decision == autoshade::advisor::Decision::Accept;
+                        let accepted = logic::analysis_landing::accepted(&verdict);
                         // The recipe arrives with its base_curve already
                         // stamped by produce_recipe (saved-curve-first, else a
                         // fresh estimate) — the single authority all three
@@ -1894,22 +1893,17 @@ impl AutoShadeApp {
                         // keeps the calibration — stripping there rendered the
                         // canvas neutral-dark while the disk recipe kept the
                         // look.
-                        let mut stamped = recipe;
-                        // "Keep skin natural" (Portraits) holds where the
-                        // landing is WRITTEN: the persist below saves this
-                        // recipe, and the frame's guard only reaches the
-                        // canvas one frame after the file was written.
-                        if self.skin_held() {
-                            autoshade::face::keep_skin_natural_in(&mut stamped);
-                        }
-                        let mut canvas = stamped.clone();
-                        if self.active_on_ai_pixels() {
-                            canvas.strip_baked_start();
-                            // Anchor follows the strip rule (baked WB).
-                            canvas.as_shot_k = None;
-                            canvas.as_shot_tint = None;
-                        }
-                        self.recipe = canvas;
+                        // The landing's two recipes: the canvas copy a
+                        // GENERATED card needs (baked look stripped), and the
+                        // store's own (the RAW's develop). See
+                        // `logic::analysis_landing::shape`.
+                        let shaped = logic::analysis_landing::shape(
+                            recipe,
+                            self.skin_held(),
+                            self.active_on_ai_pixels(),
+                        );
+                        let stamped = shaped.stamped;
+                        self.recipe = shaped.canvas;
                         // The immutability rule, BEFORE the persist below
                         // reads the strip: an analysis landing on the
                         // pristine ✨ card is an edit, and lands on a new ✎
@@ -1937,13 +1931,14 @@ impl AutoShadeApp {
                             // stash and the close guard protect it — and the
                             // user decides: Ctrl+S keeps it, Ctrl+Z steps
                             // back to the pre-analyze edit.
-                            let t = trf(
+                            self.show_words(
                                 lang,
-                                "AI edit applied — the AI's self-check said: {v}. Not saved yet (Ctrl+S saves, Ctrl+Z undoes)",
-                                &[("v", tr(lang, autoshade::advisor::decision_key(&verdict.decision)))],
-                            );
-                            self.toast(ToastKind::Success, t.clone());
-                            t
+                                logic::analysis_landing::words(
+                                    &logic::analysis_landing::SaveReport::NotAccepted {
+                                        decision: autoshade::advisor::decision_key(&verdict.decision),
+                                    },
+                                ),
+                            )
                         } else { match self.src_path.clone() {
                             // The backup gate comes FIRST: if the existing save
                             // cannot be snapshotted, it is not overwritten —
@@ -1959,15 +1954,14 @@ impl AutoShadeApp {
                                 autoshade::store::DevelopLockMode::NoWait,
                                 || -> std::io::Result<String> {
                                     Ok(match autoshade::store::backup_saved_develop(&p, Some(&stamped)) {
-                                Err(e) => {
-                                    let t = trf(
-                                        lang,
-                                        "AI develop applied — but NOT saved: backing up your existing save failed ({err}); Ctrl+S overwrites explicitly",
-                                        &[("err", &e.to_string())],
-                                    );
-                                    self.toast(ToastKind::Error, t.clone());
-                                    t
-                                }
+                                Err(e) => self.show_words(
+                                    lang,
+                                    logic::analysis_landing::words(
+                                        &logic::analysis_landing::SaveReport::BackupFailed {
+                                            err: e.to_string(),
+                                        },
+                                    ),
+                                ),
                                 Ok(backed) => {
                                     // The recipe write ALONE decides the saved
                                     // state (same rule as save_xmp): once it
@@ -2067,14 +2061,12 @@ impl AutoShadeApp {
                                             if backed.is_some() {
                                                 self.refresh_versions();
                                             }
-                                            let mut s = match backed {
-                                                Some(n) => trf(
-                                                    lang,
-                                                    "AI develop applied · saved (previous save backed up as v{n})",
-                                                    &[("n", &n.to_string())],
+                                            let mut s = self.show_words(
+                                                lang,
+                                                logic::analysis_landing::words(
+                                                    &logic::analysis_landing::SaveReport::Saved { backed_up: backed },
                                                 ),
-                                                None => tr(lang, "AI develop applied · saved to recipe.json").to_string(),
-                                            };
+                                            );
                                             if autoshade::decode::is_raw(&p) && !generated {
                                                 match xmp_outcome {
                                                     // Regenerated-not-merged AND
@@ -2154,12 +2146,14 @@ impl AutoShadeApp {
                                             // but this photo's working save
                                             // failed, and a status line alone
                                             // scrolls away.
-                                            let t = trf(
+                                            let t = self.show_words(
                                                 lang,
-                                                "AI develop applied — but saving the sidecar failed: {err}",
-                                                &[("err", &e.to_string())],
+                                                logic::analysis_landing::words(
+                                                    &logic::analysis_landing::SaveReport::SidecarFailed {
+                                                        err: e.to_string(),
+                                                    },
+                                                ),
                                             );
-                                            self.toast(ToastKind::Error, t.clone());
                                             self.refresh_versions();
                                             t
                                         }
@@ -2178,7 +2172,10 @@ impl AutoShadeApp {
                                     self.status.clone()
                                 }
                             },
-                            None => tr(lang, "AI develop applied").into(),
+                            None => self.show_words(
+                                lang,
+                                logic::analysis_landing::words(&logic::analysis_landing::SaveReport::NoPhoto),
+                            ),
                         } };
                     }
                     Err(e) => {

@@ -12,6 +12,7 @@
 //! touches the filesystem; and a migrated panel does not mutate business state
 //! or reach past the seam.
 
+pub(crate) mod analysis_landing;
 pub(crate) mod lens_blur;
 pub(crate) mod look;
 
@@ -40,12 +41,21 @@ pub(crate) enum Action {
     FocusPicked([f32; 2]),
 }
 
+/// One named argument of a [`UiText`]: literal text, or a catalogue key that
+/// the renderer translates (a verdict word, say) — the logic layer carries the
+/// KEY, never the rendered word.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Arg {
+    Key(&'static str),
+    Text(String),
+}
+
 /// One line the caller should show: the i18n key plus its named arguments.
 /// Rendering lives outside this layer (`i18n::text`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct UiText {
     pub(crate) key: &'static str,
-    pub(crate) args: Vec<(&'static str, String)>,
+    pub(crate) args: Vec<(&'static str, Arg)>,
 }
 
 impl UiText {
@@ -57,8 +67,14 @@ impl UiText {
     pub(crate) fn with(key: &'static str, args: &[(&'static str, &str)]) -> Self {
         Self {
             key,
-            args: args.iter().map(|(name, value)| (*name, (*value).to_owned())).collect(),
+            args: args.iter().map(|(name, value)| (*name, Arg::Text((*value).to_owned()))).collect(),
         }
+    }
+
+    /// A key with named arguments, some of which are catalogue keys to
+    /// translate at render time.
+    pub(crate) fn with_args(key: &'static str, args: &[(&'static str, Arg)]) -> Self {
+        Self { key, args: args.to_vec() }
     }
 }
 

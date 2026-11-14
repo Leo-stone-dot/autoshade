@@ -294,12 +294,12 @@ def tr_keys(src: str) -> tuple[set[str], list[tuple[int, str]]]:
     """Literal keys + (line, argument-expression) for every dynamic site.
 
     Two spellings reach the catalogue: the view's `tr`/`trf`, and the headless
-    logic layer's `UiText::of`/`UiText::with` — the logic hands back the key as
+    logic layer's `UiText::of`/`with`/`with_args` — the logic hands back the key as
     DATA and `i18n::text` renders it, so both are call sites and both must be
     translated."""
     keys: set[str] = set()
     dynamic: list[tuple[int, str]] = []
-    for m in re.finditer(r"\btrf?\(|\bUiText::(?:of|with)\(", src):
+    for m in re.finditer(r"\btrf?\(|\bUiText::(?:of|with|with_args)\(", src):
         s = m.start()
         if s > 0 and (src[s - 1].isalnum() or src[s - 1] == "_"):
             continue
