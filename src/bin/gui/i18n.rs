@@ -160,6 +160,21 @@ pub fn trf(lang: Lang, en: &'static str, args: &[(&str, &str)]) -> String {
     out
 }
 
+/// Render one piece of logic-authored text (`logic::UiText`) in `lang`.
+///
+/// The logic layer never renders: it hands back the catalogue key plus its
+/// named arguments, and this is the one place that turns that data into the
+/// sentence the user reads — through the same `tr`/`trf` catalogue every view
+/// string uses, so one string cannot have two spellings.
+pub fn text(lang: Lang, text: &crate::logic::UiText) -> String {
+    if text.args.is_empty() {
+        return tr(lang, text.key).to_owned();
+    }
+    let args: Vec<(&str, &str)> =
+        text.args.iter().map(|(name, value)| (*name, value.as_str())).collect();
+    trf(lang, text.key, &args)
+}
+
 /// Lazily materialise the English→Chinese lookup from the flat [`ZH_ENTRIES`]
 /// slice (built once, on the first `Zh` translation).
 fn zh_map() -> &'static HashMap<&'static str, &'static str> {
@@ -2665,7 +2680,7 @@ static ZH_ENTRIES: &[(&str, &str)] = &[
     ("Rendered here and in every export from this app; Lightroom's sidecar cannot carry it.",
      "在本应用里和每次导出中都会渲染；Lightroom 的 XMP 带不走它。"),
     ("AI estimating depth… (the first run downloads the model)", "AI 正在估算景深……（首次运行会下载模型）"),
-    ("Depth estimate failed", "景深估算失败"),
+    ("Depth estimate failed: {e}", "景深估算失败：{e}"),
     ("Depth estimated — click the photo to choose what stays sharp", "景深已估算——在照片上点一下，选定哪里保持清晰"),
     ("Depth re-estimated — the focus point and sliders are kept", "景深已重新估算——对焦点和滑块保持不变"),
     ("Focus set — the blur follows the distance of what you clicked", "已对焦——虚化按你点中位置的远近变化"),

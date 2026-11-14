@@ -784,7 +784,7 @@ impl AutoShadeApp {
                 .clicked()
             {
                 self.portrait.blur_from_panel = true;
-                self.start_depth();
+                self.apply_actions(vec![logic::Action::EstimateDepth]);
             }
         } else if let Some(lb) = self.recipe.lens_blur.as_mut() {
             changed |= Self::slider(ui, lang, tr(lang, "Blur amount"), &mut lb.amount, 0.0, 100.0, 50.0);

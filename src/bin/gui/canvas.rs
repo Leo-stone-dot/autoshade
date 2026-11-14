@@ -775,7 +775,9 @@ impl AutoShadeApp {
             self.handle_point_color_pick(ui, &resp, xf);
         } else if self.lens_focus_picking {
             self.draw_lens_focus(ui, xf);
-            self.handle_lens_focus_pick(ui, &resp, xf);
+            if let Some(action) = self.handle_lens_focus_pick(ui, &resp, xf) {
+                self.apply_actions(vec![action]);
+            }
         } else if self.clone_mode {
             self.handle_clone(ui, &resp, xf);
             self.ensure_mask_tex(ui.ctx());
