@@ -166,5 +166,25 @@
                 "panels/ai.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
         }
+        // `develop.rs` — its mask-list and version-list verbs are actions now
+        // (`DevelopAction`): moving/duplicating a mask and loading/deleting a
+        // version are the app layer's, and the panel no longer starts a worker
+        // or touches the store from draw code.
+        let develop = std::fs::read_to_string(root.join("develop.rs")).expect("the panel source is readable");
+        for needle in [
+            concat!("spawn_worker", "("),
+            "Msg::",
+            "rfd::",
+            concat!("crate::budget::heavy_permit", "("),
+            "autoshade::store::detach_rasters(",
+            "autoshade::store::with_develop_lock(",
+            "autoshade::store::delete_version(",
+            "self.start_",
+        ] {
+            assert!(
+                !develop.contains(needle),
+                "panels/develop.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
         }
     }

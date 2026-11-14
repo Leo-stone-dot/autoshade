@@ -3901,6 +3901,77 @@ impl AutoShadeApp {
         words
     }
 
+    /// Move one mask a row up/down. Mask ORDER is render semantics (masks
+    /// stack sequentially; a later mask's range sees earlier masks' output), so
+    /// the list order is editable — and the armed-tool indices remap with it.
+    pub(crate) fn move_mask(&mut self, i: usize, up: bool) {
+        let j = if up {
+            if i == 0 { return }
+            i - 1
+        } else {
+            if i + 1 >= self.recipe.masks.len() { return }
+            i + 1
+        };
+        self.recipe.masks.swap(i, j);
+        self.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
+        self.overlay_stale = true;
+        self.dirty = true;
+    }
+
+    /// Duplicate a mask: its tuned sliders come along, its rasters are DETACHED
+    /// copies (the version-load rule), so the twins never share a mutable file.
+    pub(crate) fn duplicate_mask(&mut self, lang: Lang, i: usize) {
+        if self.recipe.masks.len() >= 64 {
+            let t = tr(lang, "mask limit reached (64) — delete one first");
+            self.toast(ToastKind::Error, t.to_string());
+            return;
+        }
+        let Some(mut clone) = self.recipe.masks.get(i).cloned() else { return };
+        if let Some(p) = self.src_path.as_deref() {
+            let mut tmp = EditRecipe { masks: vec![clone], ..Default::default() };
+            autoshade::store::detach_rasters(p, &mut tmp, "mask-dup");
+            clone = tmp.masks.remove(0);
+        }
+        if !clone.name.is_empty() {
+            clone.name = format!("{} 2", clone.name);
+        }
+        self.recipe.masks.insert(i + 1, clone);
+        self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
+        self.sel_mask = Some(i + 1);
+        self.sel_component = None;
+        self.overlay_stale = true;
+        // The remap maps an armed Redraw(i)/brush(i) to ITSELF (s > i is false
+        // at s == i) while the selection jumps to the copy — armed on the
+        // original, pointed at the duplicate. Selection moved ⇒ same rule.
+        if self.disarm_selection_bound_tools(self.sel_mask) {
+            let t = tr(
+                self.lang,
+                "the raster-edit brush session ended — you selected another mask; its unbaked strokes were discarded",
+            );
+            self.toast(ToastKind::Error, t.to_string());
+        }
+        self.dirty = true;
+    }
+
+    /// Delete one version snapshot. The develop store is locked NO-WAIT: a
+    /// foreground 🗑 click must fail into the error arm when another process
+    /// holds the develop, not hang.
+    pub(crate) fn delete_version_clicked(&mut self, lang: Lang, src: PathBuf, n: u32) {
+        match autoshade::store::with_develop_lock(
+            &src,
+            autoshade::store::DevelopLockMode::NoWait,
+            || autoshade::store::delete_version(&src, n),
+        ) {
+            Ok(()) => {
+                self.refresh_versions();
+                self.status = trf(lang, "Version v{n} deleted", &[("n", &n.to_string())]);
+            }
+            Err(e) => {
+                self.persist_postponed(&e, "Delete v{n} failed: {err}", &[("n", &n.to_string())]);
+            }
+        }
+    }
+
     /// Migrate every gallery photo's sidecars from a user-picked pre-store
     /// ./out folder (Settings button). Worker-side: one read_dir per photo
     /// over a possibly huge folder is I/O the UI thread must not pay.
