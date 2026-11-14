@@ -2252,94 +2252,41 @@ impl AutoShadeApp {
     /// `Msg::MaskRefined` landing — body extracted verbatim from the
     /// poll_workers pump (round-12 decomposition; indentation kept).
     fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRefineOutcome>) {
-                match res {
-                    Ok(MaskRefineOutcome::OverBudget { w, h }) => {
-                        // Nothing was written (masks.rs refuses before the
-                        // claim): the mask keeps the raster it had.
-                        self.busy = false;
-                        let t = trf(
-                            lang,
-                            "this source is {w}×{h} — a full-resolution refined mask would exceed the mask budget and could never be read back",
-                            &[("w", &w.to_string()), ("h", &h.to_string())],
-                        );
-                        self.toast(ToastKind::Error, t.clone());
-                        self.status = t;
+        match res {
+            Ok(outcome) => {
+                // Which mask the raster belongs to, and the refusal lines, are
+                // the logic layer's (`logic/mask_refine.rs`).
+                let outcome = match outcome {
+                    MaskRefineOutcome::OverBudget { w, h } => {
+                        logic::mask_refine::Outcome::OverBudget { w, h }
                     }
-                    Ok(MaskRefineOutcome::Refined(idx, stored_ref, out)) => {
-                        // Index + stored reference validated TOGETHER: the
-                        // strip may have been edited while the worker decoded
-                        // the full-res source, and a bare path search could
-                        // repoint the wrong mask when two masks share one
-                        // raster. Index-with-matching-path wins; else the
-                        // unique path match; else say so — never guess.
-                        let out_s = out.to_string_lossy().into_owned();
-                        // By FILE, not by variant: a refined reverse-fit zone
-                        // is a Select Sky component carrying the same raster.
-                        let at = |m: &autoshade::recipe::LocalAdjustment| {
-                            autoshade::render::geometry_raster_path(&m.mask)
-                                == Some(stored_ref.as_str())
-                        };
-                        let hit = match self.recipe.masks.get(idx) {
-                            Some(m) if at(m) => Some(idx),
-                            _ => {
-                                let matches: Vec<usize> = self
-                                    .recipe
-                                    .masks
-                                    .iter()
-                                    .enumerate()
-                                    .filter(|(_, m)| at(m))
-                                    .map(|(i, _)| i)
-                                    .collect();
-                                // Only an UNAMBIGUOUS survivor is adopted.
-                                (matches.len() == 1).then(|| matches[0])
-                            }
-                        };
-                        match hit {
-                            Some(i) => {
-                                // Repoint, never re-shape (see
-                                // `masks.rs::commit_mask_brush`). `at` already
-                                // proved this geometry carries a raster.
-                                if let Some(slot) = autoshade::render::geometry_raster_path_mut(
-                                    &mut self.recipe.masks[i].mask,
-                                ) {
-                                    *slot = out_s;
-                                }
-                                self.sel_mask = Some(i);
-                                // Same rule as the segmentation landing: the
-                                // selection moved, selection-bound tools on
-                                // another row follow it (Codex L06-1).
-                                if self.disarm_selection_bound_tools(self.sel_mask) {
-                                    let t = tr(
-                                        lang,
-                                        "the AI result took the selection — a brush session on another mask ended; its unbaked strokes were discarded",
-                                    );
-                                    self.toast(ToastKind::Error, t.to_string());
-                                }
-                                self.dirty = true;
-                                self.overlay_stale = true;
-                                self.busy = false;
-                                self.status = tr(
-                                    lang,
-                                    "mask refined to full resolution — boundaries now follow the source's own edges",
-                                )
-                                .into();
-                            }
-                            None => {
-                                self.busy = false;
-                                let t = trf(
-                                    lang,
-                                    "the mask changed while refining — the result was saved at {path} but not applied",
-                                    &[("path", &out.display().to_string())],
-                                );
-                                self.toast(ToastKind::Error, t.clone());
-                                self.status = t;
-                            }
+                    MaskRefineOutcome::Refined(index, stored_ref, out) => {
+                        logic::mask_refine::Outcome::Refined {
+                            index,
+                            stored_ref,
+                            out_display: out.display().to_string(),
+                            out,
                         }
                     }
-                    Err(e) => {
-                        self.fail(tr(lang, "mask refine failed"), e);
+                };
+                let landed = logic::mask_refine::apply(&mut self.recipe, &outcome);
+                if let Some(i) = landed.selection {
+                    self.sel_mask = Some(i);
+                    // Same rule as the segmentation landing: the selection
+                    // moved, selection-bound tools on another row follow it.
+                    if self.disarm_selection_bound_tools(self.sel_mask) {
+                        let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
+                        self.toast(ToastKind::Error, t);
                     }
+                    self.overlay_stale = true;
                 }
+                self.busy = false;
+                self.run_effects(landed.effects);
+            }
+            Err(e) => {
+                self.fail(tr(lang, "mask refine failed"), e);
+            }
+        }
     }
 
     /// `Msg::Folder` landing — body extracted verbatim from the
