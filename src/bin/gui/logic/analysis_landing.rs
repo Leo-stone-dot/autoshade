@@ -6,7 +6,7 @@
 //! runtime's, which is why it reports back as a [`SaveReport`] instead of this
 //! layer reaching for a lock or a file.
 
-use super::{Arg, UiText};
+use super::{Arg, Tone, UiText, Words};
 use autoshade::advisor::{Decision, Verdict};
 use autoshade::recipe::EditRecipe;
 
@@ -54,20 +54,6 @@ pub(crate) enum SaveReport {
     BackupFailed { err: String },
     SidecarFailed { err: String },
     NoPhoto,
-}
-
-/// The tone of a toast the caller should raise.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Tone {
-    Error,
-    Success,
-}
-
-/// One landing's user-facing outcome: the status line, and a toast when the
-/// outcome needs to interrupt (a quiet success, or a failed write).
-pub(crate) struct Words {
-    pub(crate) status: UiText,
-    pub(crate) toast: Option<(Tone, UiText)>,
 }
 
 /// The words for one landing outcome. The decision word travels as a

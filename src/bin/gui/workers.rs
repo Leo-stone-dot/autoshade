@@ -2191,27 +2191,28 @@ impl AutoShadeApp {
     fn on_style_built(&mut self, lang: Lang, outcome: StyleBuildOutcome) {
         self.style_build_inflight = false;
         self.style_build_progress = None;
-        match outcome {
-            StyleBuildOutcome::Saved { total, dir, phrased } => {
-                let (n, path, m) = (total.to_string(), abs_display(&dir), phrased.to_string());
-                let t = if phrased > 0 {
-                    trf(lang, "Reference library built: {n} finished photos from {path}, {m} with look phrases", &[("n", &n), ("path", &path), ("m", &m)])
-                } else {
-                    trf(lang, "Reference library built: {n} finished photos from {path}", &[("n", &n), ("path", &path)])
-                };
-                self.status = t.clone();
-                self.toast(ToastKind::Success, t);
-                self.style_src_dir = Some(dir);
-                // A build has just run the embedding model, so its one-time
-                // download is done: searching is what the user built it for.
-                self.style_embed = true;
-                self.start_style_info();
-            }
-            StyleBuildOutcome::Failed { err } => {
-                let t = trf(lang, "Building the reference library failed: {err}", &[("err", &err)]);
-                self.status = t.clone();
-                self.toast(ToastKind::Error, t);
-            }
+        // The words are the logic layer's; the state below is this landing's.
+        let (words, dir) = match &outcome {
+            StyleBuildOutcome::Saved { total, dir, phrased } => (
+                logic::style::words(&logic::style::Outcome::Saved {
+                    total: *total,
+                    dir_display: abs_display(dir),
+                    phrased: *phrased,
+                }),
+                Some(dir.clone()),
+            ),
+            StyleBuildOutcome::Failed { err } => (
+                logic::style::words(&logic::style::Outcome::Failed { err: err.clone() }),
+                None,
+            ),
+        };
+        self.show_words(lang, words);
+        if let Some(dir) = dir {
+            self.style_src_dir = Some(dir);
+            // A build has just run the embedding model, so its one-time
+            // download is done: searching is what the user built it for.
+            self.style_embed = true;
+            self.start_style_info();
         }
     }
 
@@ -2465,25 +2466,12 @@ impl AutoShadeApp {
                         self.selected = None;
                         self.multi_sel.clear(); // indices belong to the old folder
                         self.busy = false;
-                        self.status = if n == 0 {
-                            // The plural line says "click a thumbnail" — with
-                            // zero rows there is none to click.
-                            tr(lang, "no photos found in this folder").to_string()
-                        } else if n == 1 {
-                            tr(lang, "1 photo — click a thumbnail to open").to_string()
-                        } else {
-                            trf(lang, "{n} photos — click a thumbnail to open", &[("n", &n.to_string())])
-                        };
-                        // L08: each unreadable entry went to stderr as the
-                        // scan hit it — invisible in the windowed GUI, so
-                        // the count rides the scan's own status answer.
-                        if skipped > 0 {
-                            let w = trf(
-                                lang,
-                                "{n} unreadable item(s) skipped during the folder scan",
-                                &[("n", &skipped.to_string())],
-                            );
-                            self.status = format!("{} — ⚠ {}", self.status, w);
+                        // The count line and the skipped-items disclosure are
+                        // the logic layer's words.
+                        let words = logic::folder::words(n, skipped);
+                        self.status = crate::i18n::text(lang, &words.status);
+                        if let Some(skip) = words.skipped {
+                            self.status = format!("{} — ⚠ {}", self.status, crate::i18n::text(lang, &skip));
                         }
                         // L12#3 tofu disclosure: a gallery name in a script
                         // no installed face covers renders as boxes — say
