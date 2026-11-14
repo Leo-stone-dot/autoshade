@@ -20,6 +20,7 @@ pub(crate) mod gallery;
 pub(crate) mod lens_blur;
 pub(crate) mod mask_edit;
 pub(crate) mod normal;
+pub(crate) mod paste;
 pub(crate) mod mask_place;
 pub(crate) mod mask_refine;
 pub(crate) mod pick;
@@ -61,6 +62,16 @@ pub(crate) enum Action {
     Settings(settings::SettingsAction),
     /// The Normal panel's Save group.
     Normal(normal::NormalAction),
+}
+
+/// A short display list: the first three entries joined, with an ellipsis when
+/// there were more. Used by landings that name files in a status line.
+pub(crate) fn brief_list(v: &[String]) -> String {
+    let mut d = v.iter().take(3).cloned().collect::<Vec<_>>().join(" · ");
+    if v.len() > 3 {
+        d = format!("{d} …");
+    }
+    d
 }
 
 /// The tone of a toast a landing asks for.

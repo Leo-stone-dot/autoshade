@@ -1407,14 +1407,6 @@ pub(crate) fn gui_tmp_png(kind: &str) -> PathBuf {
 /// First three entries joined by " · ", an ellipsis when more were cut — the
 /// bounded form every multi-failure status/toast shares (a 40-photo batch
 /// must not pour 40 error lines into one toast).
-pub(crate) fn brief_list(v: &[String]) -> String {
-    let mut d = v.iter().take(3).cloned().collect::<Vec<_>>().join(" · ");
-    if v.len() > 3 {
-        d.push_str(" …");
-    }
-    d
-}
-
 /// 256-bin RGB+luma histogram of the already-packed preview (one bin per
 /// 8-bit code value, Lightroom-grade resolution). One worker-side RGB8 buffer
 /// feeds histogram, clipping and texture staging alike.
