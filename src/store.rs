@@ -98,6 +98,7 @@ pub use migrate::{migrate_legacy, migrate_legacy_from_many};
 #[cfg(test)]
 use migrate::{migrate_legacy_in};
 pub use paths::{
+    mask_family,
     OwnedRaster, claim_raster, clear_pixel_source, detach_rasters, develop_dir, export_xmp_beside,
     masters_dir, own_areas_in, pixel_source_path, pixel_source_record_bytes, raster_target, recipe_target, saved_quarter_turns,
     variants_path, version_target, write_pixel_source, xmp_beside_target, xmp_target,

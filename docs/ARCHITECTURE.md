@@ -7563,7 +7563,10 @@ clears. Two worker landings follow the same shape:
 `logic::style` words the reference-library build (saved with/without look
 phrases, failed) and `logic::folder` words a folder scan (the count line and
 the skipped-items disclosure); `logic::Words`/`Tone` is now the shared landing
-vocabulary. Every dialog a panel asks for is now such an action
+vocabulary. `logic::segmented` lands an AI mask raster: a re-run
+matches the existing mask by raster FAMILY (the family rule lives in
+`store::mask_family`, not the view), re-points its stored path or adds a mask,
+words added-vs-refreshed, and discloses the fallback tier with a toast. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.
