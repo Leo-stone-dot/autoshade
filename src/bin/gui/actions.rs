@@ -3429,6 +3429,92 @@ impl AutoShadeApp {
         }
     }
 
+    /// The jpg the Save group delivers.
+    pub(crate) fn normal_export_opts(&self) -> autoshade::render::ExportOpts {
+        autoshade::render::ExportOpts { jpeg_quality: self.normal.quality.jpeg_quality(), ..Default::default() }
+    }
+
+    /// 「Save as jpg」: the single export of the card on screen (the ◈ card
+    /// when the noise switch is on), as a jpg at the quality step, to the
+    /// export destination (asked when the destination is "ask"). A name the
+    /// app made is numbered (`-2`, `-3`, …) when a jpg of that name is
+    /// already there; a file picked in the save window is replaced, as that
+    /// window confirmed.
+    pub(crate) fn start_normal_save(&mut self) {
+        if self.active_source_path().is_none() || self.busy {
+            return;
+        }
+        let name = self.export_file_name_as("jpg");
+        let (out, how) = match self.export_dest_dir() {
+            Some(dir) => (dir.join(name), OutName::Numbered),
+            None => {
+                let Some(p) = self.pick_save_file(name) else { return };
+                (normalize_export_target(p, "jpg"), OutName::Chosen)
+            }
+        };
+        let export = self.normal_export_opts();
+        // The folder picked in the save window is remembered when the render
+        // starts — the workspace Export's rule (`export_to_chosen_path`), so
+        // 「the folder you last saved to」 has somewhere to point.
+        let picked = (how == OutName::Chosen).then(|| out.parent().map(|d| d.to_path_buf())).flatten();
+        if self.start_render_with(out, export, None, false, how) {
+            self.normal.delivering = true;
+            if picked.is_some() {
+                self.last_export_dir = picked;
+            }
+        }
+    }
+
+    /// The save window's answer (`None` = cancelled).
+    fn pick_save_file(&mut self, name: String) -> Option<PathBuf> {
+        #[cfg(test)]
+        if let Some(pick) = self.normal.file_pick.take() {
+            return pick;
+        }
+        let mut dlg = rfd::FileDialog::new().add_filter("jpg", &["jpg"]).set_file_name(name);
+        if let Some(d) = self.last_export_dir.clone().filter(|d| d.is_dir()) {
+            dlg = dlg.set_directory(d);
+        }
+        dlg.save_file()
+    }
+
+    /// 「Apply this look to every photo in the folder」: the open photo's look
+    /// pasted onto every photo of the library folder (crop left out), then —
+    /// once the paste has landed whole (`after_apply_all_paste`) — every one
+    /// rendered as a jpg. The library panel's own two verbs, as one. The
+    /// jpgs' folder is settled FIRST: a folder dialog cancelled after the
+    /// paste would have left every photo's look changed and nothing saved.
+    pub(crate) fn start_apply_to_folder(&mut self) {
+        if self.busy || self.gallery.is_empty() || self.src_path.is_none() {
+            return;
+        }
+        let Some(dest) = self.apply_all_dest() else {
+            // Cancelled: nothing was changed, and the line says nothing.
+            self.status.clear();
+            return;
+        };
+        self.commit_pending_names();
+        let targets = self.gallery.clone();
+        self.normal.apply_all = Some(dest);
+        self.start_paste_to(self.recipe.clone(), self.src_path.clone(), targets, false);
+        if !self.busy {
+            self.normal.apply_all = None;
+        }
+    }
+
+    /// The destination setting's folder, or the folder dialog's answer when
+    /// it asks (`None` = cancelled).
+    fn apply_all_dest(&mut self) -> Option<PathBuf> {
+        if let Some(d) = self.export_dest_dir() {
+            return Some(d);
+        }
+        #[cfg(test)]
+        if let Some(pick) = self.normal.folder_pick.take() {
+            return pick;
+        }
+        self.pick_batch_folder()
+    }
+
     /// Migrate every gallery photo's sidecars from a user-picked pre-store
     /// ./out folder (Settings button). Worker-side: one read_dir per photo
     /// over a possibly huge folder is I/O the UI thread must not pay.

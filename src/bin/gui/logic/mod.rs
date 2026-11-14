@@ -12,14 +12,17 @@
 //! touches the filesystem; and a migrated panel does not mutate business state
 //! or reach past the seam.
 
+pub(crate) mod ai;
 pub(crate) mod analysis_landing;
 pub(crate) mod crop;
 pub(crate) mod gallery;
 pub(crate) mod lens_blur;
 pub(crate) mod mask_edit;
+pub(crate) mod normal;
 pub(crate) mod mask_place;
 pub(crate) mod pick;
 pub(crate) mod recipes;
+pub(crate) mod settings;
 pub(crate) mod region;
 pub(crate) mod look;
 
@@ -48,6 +51,12 @@ pub(crate) enum Action {
     Region(region::RegionAction),
     /// The recipe-library window's verbs.
     Recipe(recipes::RecipeAction),
+    /// The AI panel's folder verbs.
+    Ai(ai::AiAction),
+    /// The settings panel's folder verbs.
+    Settings(settings::SettingsAction),
+    /// The Normal panel's Save group.
+    Normal(normal::NormalAction),
 }
 
 /// One named argument of a [`UiText`]: literal text, or a catalogue key that

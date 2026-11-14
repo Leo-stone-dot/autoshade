@@ -715,8 +715,8 @@ impl AutoShadeApp {
                 None => tr(lang, "no RAW folder: references go without settings").to_string(),
             };
             ui.label(egui::RichText::new(raw_note).small().weak());
-            if pick_raw && let Some(d) = rfd::FileDialog::new().pick_folder() {
-                self.style_raw_dir = Some(d);
+            if pick_raw {
+                self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::PickRawFolder)]);
             }
             ui.checkbox(&mut self.style_describe, tr(lang, "Write look phrases (local model)"))
                 .on_hover_text(tr(lang,
@@ -734,19 +734,10 @@ impl AutoShadeApp {
                 .small(),
             );
         }
-        // rfd after the row is laid out: the dialog is modal and blocks.
+        // The dialog is modal and blocks: the runtime opens it after the row
+        // is laid out (it remembers the pick before starting the build).
         if pick {
-            let mut dialog = rfd::FileDialog::new();
-            // Reopen where the last build ran, when that folder still exists.
-            if let Some(d) = self.style_src_dir.clone().filter(|d| d.is_dir()) {
-                dialog = dialog.set_directory(d);
-            }
-            if let Some(dir) = dialog.pick_folder() {
-                // Remembered on the PICK: a build that then fails must not
-                // lose the folder the rebuild button needs.
-                self.style_src_dir = Some(dir.clone());
-                build = Some(dir);
-            }
+            self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::PickReferenceFolder)]);
         }
         if let Some(dir) = build {
             self.start_style_build(dir);

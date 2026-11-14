@@ -638,6 +638,7 @@
         let on = &now[now.find("pub(crate) fn set_normal_denoise(").expect("set_normal_denoise moved")..];
         let on = &on[..on.find("pub(crate) fn after_normal_denoise(").expect("after_normal_denoise moved")];
         assert!(on.contains("self.start_ai_denoise();"), "the switch no longer runs the Retouch denoise");
+        let now = include_str!("../actions.rs");
         let save = &now[now.find("pub(crate) fn start_normal_save(").expect("start_normal_save moved")..];
         let save = &save[..save.find("pub(crate) fn start_apply_to_folder(").expect("start_apply_to_folder moved")];
         assert!(save.contains("start_render_with(out, export, None, false, how)"), "the save runs a denoise of its own again");

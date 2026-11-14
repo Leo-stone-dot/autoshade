@@ -453,9 +453,10 @@ impl AutoShadeApp {
                 "Saves made before v0.13 lived in a ./out folder next to wherever the app was launched. If your old edits are missing, point this at that folder — its recipes / XMP / versions migrate into the develop store.",
             ))
             .clicked()
-            && let Some(dir) = rfd::FileDialog::new().pick_folder()
         {
-            self.start_import_legacy(dir);
+            self.apply_actions(vec![logic::Action::Settings(
+                logic::settings::SettingsAction::ImportLegacyFolder,
+            )]);
         }
         // --- the DELIVERY ROOT (R24-5 M8) ------------------------------------
         // The counterpart to the develop store above: that folder holds the
@@ -467,6 +468,7 @@ impl AutoShadeApp {
         ui.separator();
         ui.heading(tr(lang, "Delivery folder"));
         let resolved = autoshade::config::delivery_root();
+        let mut browse_delivery = false;
         {
             let f = &mut self.settings;
             ui.horizontal(|ui| {
@@ -482,11 +484,15 @@ impl AutoShadeApp {
                 if action(ui, true, tr(lang, "Browse…"))
                     .on_hover_text(tr(lang, "Pick the delivery folder"))
                     .clicked()
-                    && let Some(dir) = rfd::FileDialog::new().pick_folder()
                 {
-                    f.out_dir = dir.display().to_string();
+                    browse_delivery = true;
                 }
             });
+        }
+        if browse_delivery {
+            self.apply_actions(vec![logic::Action::Settings(
+                logic::settings::SettingsAction::PickDeliveryFolder,
+            )]);
         }
         // The RESOLVED root, absolute: a relative setting (the default
         // included) means nothing without saying which directory it is
