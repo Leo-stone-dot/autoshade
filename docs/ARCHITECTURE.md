@@ -7595,7 +7595,10 @@ no worker, dialog, locked write or direct call to those methods. Retouch follows
 (fill / adjust / heal / denoise / stack / clone / reimagine / style prompt) and
 the card-picture develop they share live in `retouch_actions.rs`; the panel
 draws, samples the brush and emits verbs, and the guard pins that it holds no
-worker, permit or store write. Every dialog a panel asks for is now such an action
+worker, permit or store write. The AI section closes the same loop: its library status
+read, library build, reimagine, generated-card adjust, reverse-fit and style
+prompt are `AiAction`s executed by the runtime, and the guard pins that the
+panel holds no worker, store read/write, dialog or direct start call. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

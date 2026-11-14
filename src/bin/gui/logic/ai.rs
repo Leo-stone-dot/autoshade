@@ -8,4 +8,16 @@ pub(crate) enum AiAction {
     PickRawFolder,
     /// Pick the reference-photo folder and start its build.
     PickReferenceFolder,
+    /// Read the reference library's summary once (the panel's lazy status).
+    RefreshLibraryStatus,
+    /// Build / rebuild the library from the remembered folder.
+    BuildReferenceLibrary,
+    /// Whole-frame「AI generate」.
+    Reimagine,
+    /// Adjust the selected generated card.
+    AdjustGenerated,
+    /// Reverse-fit the reference onto this photo.
+    ReverseFit,
+    /// Extract the look as a style prompt file.
+    StylePrompt,
 }
