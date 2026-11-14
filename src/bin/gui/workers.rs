@@ -598,46 +598,33 @@ impl AutoShadeApp {
                     match outcome {
                         ExportOutcome::Single { out, relooked, warn } => {
                             // ABSOLUTE (R22-7): the deliverable exists NOW, and
-                            // "exported → out/DSC0001.developed.tif" named a
-                            // folder relative to whatever directory the app was
-                            // launched from — the single most-reported "where
-                            // did my file go". `abs_display` is lexical, so it
-                            // costs nothing and yields no `\\?\` prefix.
-                            let mut p = abs_display(&out);
-                            if relooked {
-                                // The export repaired its own COPY of this
-                                // canvas's washed base curve (export.rs) —
-                                // without repairing the canvas too, export
-                                // and preview stay divergent for the rest of
-                                // the session (the cross-surface class,
-                                // L14-3). Same photo anchor as the worker;
-                                // the repair memo is hot, so this is cheap.
-                                if let Some(photo) = self.src_path.clone()
-                                    && autoshade::pipeline::repair_pre_era_base_curve(
-                                        &photo,
-                                        &mut self.recipe,
-                                    )
-                                    .is_some()
-                                {
-                                    self.dirty = true;
-                                }
-                                p = format!(
-                                    "{p} — {}",
-                                    tr(
-                                        lang,
-                                        "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
-                                    )
-                                );
+                            // a folder relative to the launch directory was the
+                            // single most-reported "where did my file go".
+                            let p = abs_display(&out);
+                            if relooked
+                                && let Some(photo) = self.src_path.clone()
+                                && autoshade::pipeline::repair_pre_era_base_curve(
+                                    &photo,
+                                    &mut self.recipe,
+                                )
+                                .is_some()
+                            {
+                                // The export repaired its own COPY: the canvas
+                                // is repaired too, or export and preview stay
+                                // divergent for the rest of the session.
+                                self.dirty = true;
                             }
-                            let line = trf(lang, "exported → {path}", &[("path", &p)]);
-                            match warn {
-                                // The file is written; the masks that could not
-                                // be drawn are not in it — said, as the open
-                                // path says it.
-                                Some(why) => {
+                            let words =
+                                logic::export_landing::single_words(&p, relooked, warn.as_deref());
+                            let mut line = crate::i18n::text(lang, &words.line);
+                            if let Some(relook) = words.relook {
+                                line = format!("{line} — {}", crate::i18n::text(lang, &relook));
+                            }
+                            match words.warn {
+                                Some(warn) => {
                                     let t = format!(
                                         "{line} · {}",
-                                        trf(lang, "Some masks could not be drawn, so they are not applied: {why}", &[("why", &why)])
+                                        crate::i18n::text(lang, &warn)
                                     );
                                     self.status = t.clone();
                                     self.toast(ToastKind::Error, t);
@@ -649,74 +636,33 @@ impl AutoShadeApp {
                             // Where the batch actually DELIVERED becomes the
                             // remembered destination — here, not at the dialog
                             // (R22 M1): a folder inside the photo library is
-                            // refused per photo by `guard_readonly`, so a batch
-                            // that picked one lands nothing, and remembering it
-                            // would leave `ExportDest::LastUsed` aimed at a
-                            // folder that can only refuse. `ok > 0` is the proof
-                            // that at least one file is really there.
+                            // refused per photo, so a batch that picked one
+                            // lands nothing and must not be remembered. `ok > 0`
+                            // is the proof that at least one file is there.
                             if ok > 0 {
                                 self.last_export_dir = Some(dest.clone());
                             }
-                            // Same-stem photos were kept apart — disclose
-                            // WHICH photo took WHICH name, or the user hunts
-                            // for an export that "vanished".
-                            let renames = if renamed.is_empty() {
-                                String::new()
-                            } else {
-                                trf(
-                                    lang,
-                                    " · same-name photos kept apart: {list}",
-                                    &[("list", &renamed.join(", "))],
-                                )
-                            };
-                            let relook = if relooked == 0 {
-                                String::new()
-                            } else {
-                                trf(
-                                    lang,
-                                    " · {n} base look(s) re-estimated (saved by an earlier version)",
-                                    &[("n", &relooked.to_string())],
-                                )
-                            };
-                            // The open path's develop warnings, on the batch
-                            // outcome (L16-2) — both reply arms, so a partial
-                            // failure keeps its disclosures too.
-                            let develop_warns = if warns.is_empty() {
-                                String::new()
-                            } else {
-                                trf(
-                                    lang,
-                                    " · {n} develop warning(s): {detail}",
-                                    &[("n", &warns.len().to_string()), ("detail", &warns.join(" / "))],
-                                )
-                            };
+                            let words = logic::export_landing::batch_words(
+                                ok,
+                                &errs,
+                                &renamed,
+                                relooked,
+                                &warns,
+                                &abs_display(&dest),
+                            );
+                            let mut line = crate::i18n::text(lang, &words.base);
+                            for part in [words.renamed, words.relooked, words.develops]
+                                .into_iter()
+                                .flatten()
+                            {
+                                line.push_str(&crate::i18n::text(lang, &part));
+                            }
                             if errs.is_empty() {
-                                self.done(format!(
-                                    "{}{renames}{relook}{develop_warns}",
-                                    trf(
-                                        lang,
-                                        "batch {n} done → {path}",
-                                        &[("n", &ok.to_string()), ("path", &abs_display(&dest))],
-                                    )
-                                ));
+                                self.done(line);
                             } else {
                                 // A partial failure keeps the error channel,
                                 // exactly as the worker-side bail! did.
-                                self.fail(
-                                    tr(lang, "export failed"),
-                                    anyhow::anyhow!(
-                                        "{}{renames}{relook}{develop_warns}",
-                                        trf(
-                                            lang,
-                                            "Batch: {ok} succeeded, {fail} failed: {detail}",
-                                            &[
-                                                ("ok", &ok.to_string()),
-                                                ("fail", &errs.len().to_string()),
-                                                ("detail", &errs.join("; ")),
-                                            ],
-                                        )
-                                    ),
-                                );
+                                self.fail(tr(lang, "export failed"), anyhow::anyhow!("{line}"));
                             }
                         }
                     }

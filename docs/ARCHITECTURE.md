@@ -7579,7 +7579,11 @@ installed / discarded / failed outcomes. `logic::retouch` owns the retouch resul
 (`RetouchNote`) and the landing line's parts — the sentence, the " · " facts a
 stack carries, and the " — ⚠ " tail folded from the engine's typed notes and
 the model's raw prose; `reimagine_fidelity` is shared by the landing and the
-fit prompt. Every dialog a panel asks for is now such an action
+fit prompt. `logic::export_landing` owns `ExportOutcome` and its
+words: a single export's line (with the camera-curve repair and the skipped-mask
+warning) and a batch's base plus its fixed-order disclosures (renames,
+re-estimated base looks, develop warnings), with a partial batch reading as a
+failure. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

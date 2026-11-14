@@ -15,6 +15,7 @@
 pub(crate) mod ai;
 pub(crate) mod analysis_landing;
 pub(crate) mod crop;
+pub(crate) mod export_landing;
 pub(crate) mod folder;
 pub(crate) mod gallery;
 pub(crate) mod lens_blur;
