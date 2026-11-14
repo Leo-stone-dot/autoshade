@@ -7559,7 +7559,11 @@ own rotated axes, the rotation grip and the clamped centre move are pure; the
 hit-testing and the drag anchor stay in the canvas. The AI region box
 ([`logic/region.rs`](../src/bin/gui/logic/region.rs): `apply`) takes the
 four mapped corners, refuses a box under 2% and words its size; a tiny drag
-clears. Every dialog a panel asks for is now such an action
+clears. Two worker landings follow the same shape:
+`logic::style` words the reference-library build (saved with/without look
+phrases, failed) and `logic::folder` words a folder scan (the count line and
+the skipped-items disclosure); `logic::Words`/`Tone` is now the shared landing
+vocabulary. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

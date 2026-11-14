@@ -15,6 +15,7 @@
 pub(crate) mod ai;
 pub(crate) mod analysis_landing;
 pub(crate) mod crop;
+pub(crate) mod folder;
 pub(crate) mod gallery;
 pub(crate) mod lens_blur;
 pub(crate) mod mask_edit;
@@ -23,6 +24,7 @@ pub(crate) mod mask_place;
 pub(crate) mod pick;
 pub(crate) mod recipes;
 pub(crate) mod settings;
+pub(crate) mod style;
 pub(crate) mod region;
 pub(crate) mod look;
 
@@ -57,6 +59,20 @@ pub(crate) enum Action {
     Settings(settings::SettingsAction),
     /// The Normal panel's Save group.
     Normal(normal::NormalAction),
+}
+
+/// The tone of a toast a landing asks for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Tone {
+    Error,
+    Success,
+}
+
+/// One landing's user-facing outcome: the status line, and a toast when the
+/// outcome needs to interrupt.
+pub(crate) struct Words {
+    pub(crate) status: UiText,
+    pub(crate) toast: Option<(Tone, UiText)>,
 }
 
 /// One named argument of a [`UiText`]: literal text, or a catalogue key that
