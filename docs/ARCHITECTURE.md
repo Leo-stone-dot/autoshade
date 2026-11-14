@@ -7580,7 +7580,11 @@ saving paths word plainly, never by matching its English.
 **The Portraits panel.** It is drawn first in the same sidebar, above Normal's
 groups and the shared panels
 ([`src/bin/gui/panels/portrait.rs`](../src/bin/gui/panels/portrait.rs)).
-Its four groups are doors the workspace already has.
+Its four groups are doors the workspace already has. The recipe-side half of
+the feature — which mask a control writes (`role_mask`, `skin_target`), what a
+fresh AI look keeps (`restore_portrait_masks`), and the slider↔field mappings —
+lives in `autoshade::face`, not in the panel; the warmth scale a Normal slider
+draws is `EditRecipe::warmth` / `kelvin_at_warmth` in the library.
 "Find people and faces" is one worker running two sidecars on the
 original-frame preview — `segment::segment_file` with the `subject` target and
 `face::detect_faces` — and its landing (`on_portrait_found`) adds or

@@ -575,7 +575,7 @@ impl AutoShadeApp {
                     // panel shows, not a mask-less one fixed up a frame later.
                     let portrait = self.portrait_look_landing(epoch).map(|(kept, blur)| {
                         if let Ok((recipe, _, _)) = &mut *boxed {
-                            crate::panels::portrait::restore_portrait_masks(recipe, kept, blur);
+                            autoshade::face::restore_portrait_masks(recipe, kept, blur);
                         }
                     });
                     let landed = boxed.is_ok();

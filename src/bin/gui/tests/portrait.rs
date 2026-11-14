@@ -163,46 +163,21 @@
     }
 
     fn autoshade_subject(app: &AutoShadeApp) -> Option<String> {
-        crate::panels::portrait::subject_raster(&app.recipe)
+        autoshade::face::subject_raster(&app.recipe)
     }
 
-    /// Each control writes the field the design names, on the mask with its
-    /// role — and nothing else: soften = texture− and clarity− on the skin
-    /// mask, eyes brighten = exposure and crisp = sharpness + clarity on the
-    /// eyes mask, darken = exposure− and fade = saturation− on the
-    /// background mask, keep-the-person-sharp = the blur's protect raster.
+    /// Keep the person sharp points the blur at the background mask's own
+    /// raster (the subject matte) and off is no protection; nothing to protect
+    /// before the person is found. The slider→field mappings this test used to
+    /// pin live in `autoshade::face` now.
     ///
-    /// MUTATION THIS CATCHES: any mapping in `panels/portrait.rs` changed (a
-    /// share, a sign, a field), or the skin group aimed at the face mask
-    /// while a skin mask exists.
+    /// MUTATION THIS CATCHES: `set_keep_person_sharp` protecting with another
+    /// raster, or claiming protection with no subject.
     #[test]
     fn every_portrait_control_writes_its_field_on_its_role() {
-        use crate::panels::portrait::*;
+        // The slider→field mappings are the library's (`autoshade::face`'s
+        // own tests); what is the PANEL's is the keep-the-person-sharp switch.
         let mut app = portrait_app(Lang::En, true);
-        let r = &mut app.recipe;
-        let skin = skin_target(r).unwrap();
-        assert_eq!(skin.role, autoshade::recipe::MaskRole::Skin, "the skin group writes the skin mask");
-        set_soften(skin, 40.0);
-        assert_eq!((skin.texture, skin.clarity), (-40.0, -20.0));
-        assert_eq!(soften_of(skin), 40.0);
-        let eyes = role_mask(r, autoshade::recipe::MaskRole::Eyes).unwrap();
-        set_crisp(eyes, 30.0);
-        assert_eq!((eyes.sharpness, eyes.clarity), (30.0, 15.0));
-        assert_eq!(crisp_of(eyes), 30.0);
-        let bg = role_mask(r, autoshade::recipe::MaskRole::Background).unwrap();
-        set_darken(bg, 50.0);
-        assert_eq!(bg.exposure_ev, -1.0, "100 = two stops down");
-        assert_eq!(darken_of(bg), 50.0);
-        set_fade(bg, 25.0);
-        assert_eq!(bg.saturation, -25.0);
-        assert_eq!(fade_of(bg), 25.0);
-        // Only the four fields moved; the face mask was not touched.
-        let face = role_mask(r, autoshade::recipe::MaskRole::Face).unwrap();
-        assert_eq!(*face, autoshade::face::portrait_adjustment(autoshade::recipe::MaskRole::Face, "mask-face.png".into()));
-        // Without a skin mask (an AI look's face mask alone) the skin group
-        // writes the face mask.
-        let mut only_face = EditRecipe { masks: vec![autoshade::face::portrait_adjustment(autoshade::recipe::MaskRole::Face, "f.png".into())], ..Default::default() };
-        assert_eq!(skin_target(&mut only_face).unwrap().role, autoshade::recipe::MaskRole::Face);
         // Keep the person sharp: the blur protects the background mask's own
         // raster — the subject matte — and off is no protection.
         assert!(app.set_keep_person_sharp(true));
@@ -244,7 +219,7 @@
         assert_eq!(app.status, "Found 2 faces");
         assert_eq!(app.portrait.found, Some((photo.clone(), 2)));
         // The user softens; a second search keeps that and moves the raster.
-        crate::panels::portrait::set_soften(&mut app.recipe.masks[before + 2], 30.0);
+        autoshade::face::set_soften(&mut app.recipe.masks[before + 2], 30.0);
         app.on_portrait_found(Lang::En, find("b", 1));
         assert_eq!(app.recipe.masks.len(), before + 4, "refreshed, not stacked");
         let skin = &app.recipe.masks[before + 2];
@@ -288,7 +263,7 @@
         push_skin(&mut app);
         let ctx = egui::Context::default();
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
-        let skin = crate::panels::portrait::skin_target(&mut app.recipe).unwrap().clone();
+        let skin = autoshade::face::skin_target(&mut app.recipe).unwrap().clone();
         assert_eq!((skin.saturation, skin.sharpness, skin.texture), (15.0, 0.0, -60.0), "pulled back to the limits");
         // OFF (the user's flip): the same write stands.
         let mut free = portrait_app(Lang::En, true);
@@ -296,13 +271,13 @@
         free.set_keep_skin(false);
         push_skin(&mut free);
         free.guard_portrait_skin();
-        let skin = crate::panels::portrait::skin_target(&mut free.recipe).unwrap();
+        let skin = autoshade::face::skin_target(&mut free.recipe).unwrap();
         assert_eq!((skin.saturation, skin.sharpness, skin.texture), (60.0, 40.0, -90.0), "off clamps nothing");
     }
 
     /// Three skin values past the limits on the skin mask.
     fn push_skin(app: &mut AutoShadeApp) {
-        let skin = crate::panels::portrait::skin_target(&mut app.recipe).unwrap();
+        let skin = autoshade::face::skin_target(&mut app.recipe).unwrap();
         skin.saturation = 60.0;
         skin.sharpness = 40.0;
         skin.texture = -90.0;
@@ -344,7 +319,7 @@
             let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         }
         let read = |app: &mut AutoShadeApp| {
-            let s = crate::panels::portrait::skin_target(&mut app.recipe).unwrap();
+            let s = autoshade::face::skin_target(&mut app.recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
         };
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "opening changed nothing");
@@ -521,7 +496,7 @@
     fn remove_blemishes_is_greyed_without_a_face() {
         for lang in [Lang::En, Lang::Zh] {
             let (mut app, ctx, size, mut frame, rect, _scrub) = blemish_app(&format!("blemish-none-{lang:?}"), lang, false);
-            assert_eq!(crate::panels::portrait::face_raster(&app.recipe), None);
+            assert_eq!(autoshade::face::face_raster(&app.recipe), None);
             let rect = rect.expect("the button is drawn, greyed");
             click_at(&ctx, &mut app, size, &mut frame, rect.center());
             assert_eq!(app.portrait.heal_asked, None, "{lang:?}: a greyed button starts nothing");
@@ -588,8 +563,8 @@
         use crate::panels::portrait::{FoundFaces, PortraitFind};
         let mut app = portrait_app(Lang::En, true);
         let photo = app.src_path.clone().unwrap();
-        crate::panels::portrait::set_soften(crate::panels::portrait::skin_target(&mut app.recipe).unwrap(), 30.0);
-        assert!(crate::panels::portrait::face_raster(&app.recipe).is_some());
+        autoshade::face::set_soften(autoshade::face::skin_target(&mut app.recipe).unwrap(), 30.0);
+        assert!(autoshade::face::face_raster(&app.recipe).is_some());
         app.on_portrait_found(
             Lang::En,
             PortraitFind {
@@ -604,7 +579,7 @@
         }
         assert!(roles.contains(&autoshade::recipe::MaskRole::Background), "the person still lands");
         assert_eq!(app.portrait_face_gate(Lang::En), Some("No face found in this photo"));
-        assert_eq!(crate::panels::portrait::face_raster(&app.recipe), None, "🤖 Remove blemishes has no face");
+        assert_eq!(autoshade::face::face_raster(&app.recipe), None, "🤖 Remove blemishes has no face");
     }
 
     /// Ctrl+Z back to an edit made past the limits (before the switch was
@@ -626,7 +601,7 @@
         app.set_keep_skin(true);
         app.commit_now();
         let read = |app: &mut AutoShadeApp| {
-            let s = crate::panels::portrait::skin_target(&mut app.recipe).unwrap();
+            let s = autoshade::face::skin_target(&mut app.recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
         };
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0), "turned on: held");
@@ -655,7 +630,7 @@
         app.set_keep_skin(true);
         app.commit_now();
         let read = |app: &mut AutoShadeApp| {
-            let s = crate::panels::portrait::skin_target(&mut app.recipe).unwrap();
+            let s = autoshade::face::skin_target(&mut app.recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
         };
         app.undo(&ctx);
@@ -687,7 +662,7 @@
         app.reset_history();
         assert!(app.keep_skin_on());
         let edit = |app: &mut AutoShadeApp, v: f32| {
-            crate::panels::portrait::skin_target(&mut app.recipe).unwrap().saturation = v;
+            autoshade::face::skin_target(&mut app.recipe).unwrap().saturation = v;
         };
         edit(&mut app, 5.0);
         app.commit_now();
@@ -722,7 +697,7 @@
         app.set_keep_skin(true);
         app.commit_now();
         app.undo(&ctx);
-        crate::panels::portrait::skin_target(&mut app.recipe).unwrap().saturation = 70.0;
+        autoshade::face::skin_target(&mut app.recipe).unwrap().saturation = 70.0;
         app.commit_now();
         assert!(app.redo_stack.is_empty(), "the new edit drops the redo branch");
         assert!(!app.keep_skin_on(), "the switch stays off");

@@ -176,35 +176,6 @@ fn folder_name(p: &std::path::Path) -> String {
     p.file_name().map_or_else(|| abs_display(p), |n| n.to_string_lossy().into_owned())
 }
 
-/// The warmth slider's reach: ±100 is a factor of 2^±1 on the colour
-/// temperature, so the full travel spans one octave either side of the
-/// camera's own white balance.
-const WARMTH_OCTAVES: f32 = 1.0;
-
-/// The Kelvin the white balance is measured against: the camera's as-shot
-/// value when the photo carries one, the develop panel's 5500 K otherwise
-/// (the same anchor its Temp slider resets to).
-fn warmth_anchor(r: &EditRecipe) -> f32 {
-    r.as_shot_k.unwrap_or(5500.0)
-}
-
-/// The warmth a recipe shows, −100 (cool) … +100 (warm): its colour
-/// temperature as an offset from the anchor, in hundredths of an octave. No
-/// custom white balance is 0.
-pub(crate) fn warmth_of(r: &EditRecipe) -> f32 {
-    match r.temperature_k {
-        Some(k) if k > 0.0 => (100.0 / WARMTH_OCTAVES * (k / warmth_anchor(r)).log2()).clamp(-100.0, 100.0),
-        _ => 0.0,
-    }
-}
-
-/// The colour temperature for a warmth: the anchor times 2^(warmth/100),
-/// inside the develop panel's 2000–50000 K track. A higher temperature
-/// renders warmer, as Lightroom's Temp slider does.
-pub(crate) fn kelvin_for_warmth(r: &EditRecipe, warmth: f32) -> f32 {
-    (warmth_anchor(r) * (warmth.clamp(-100.0, 100.0) / 100.0 * WARMTH_OCTAVES).exp2()).clamp(2000.0, 50000.0)
-}
-
 impl AutoShadeApp {
     /// The request and direction a one-click sends — read on the UI thread,
     /// like `start_analyze`'s. Fixed in Normal (design §3): the style, the
@@ -762,7 +733,7 @@ impl AutoShadeApp {
         let r = &mut self.recipe;
         changed |= Self::slider(ui, lang, tr(lang, "Brightness"), &mut r.exposure_ev, -5.0, 5.0, 0.0);
         changed |= Self::slider(ui, lang, tr(lang, "Contrast"), &mut r.contrast, -100.0, 100.0, 0.0);
-        let mut warmth = warmth_of(r);
+        let mut warmth = r.warmth();
         if Self::slider_hinted(
             ui,
             lang,
@@ -773,7 +744,8 @@ impl AutoShadeApp {
             0.0,
             tr(lang, "Cooler to the left, warmer to the right; 0 is the camera's own colour."),
         ) {
-            r.temperature_k = Some(kelvin_for_warmth(r, warmth));
+            let kelvin = r.kelvin_at_warmth(warmth);
+            r.temperature_k = Some(kelvin);
             changed = true;
         }
         changed |= Self::slider(ui, lang, tr(lang, "Vividness"), &mut r.saturation, -100.0, 100.0, 0.0);
