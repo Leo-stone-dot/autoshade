@@ -2426,150 +2426,25 @@ impl AutoShadeApp {
     }
 
     /// Render one retouch fact in the CURRENT language (L12#4) — the
-    /// worker returns [`RetouchNote`] facts; this runs at landing time.
+    /// Render one retouch note's words: the logic layer returns the parts,
+    /// the landing renders and appends them (`logic/retouch.rs`).
     fn render_retouch_note(lang: Lang, n: &RetouchNote) -> String {
-        match n {
-            RetouchNote::Filled(p) => trf(
-                lang,
-                "filled → {path} (a layer over this card's develop — Ctrl+Z takes it off; the card's own pixels are untouched)",
-                &[("path", &p.display().to_string())],
-            ),
-            RetouchNote::FoundFilled { out, coverage } => trf(
-                lang,
-                "changed {pct}% of the picture → {path} (a layer over this card's develop — Ctrl+Z takes it off; the card's own pixels are untouched)",
-                &[("pct", &format!("{:.0}", coverage * 100.0)), ("path", &out.display().to_string())],
-            ),
-            RetouchNote::Adjusted { out, region, divergence } => {
-                let note = if *region {
-                    tr(lang, "adjusted → new ✨ card (painted area only)").to_string()
-                } else if let Some(d) = divergence {
-                    trf(lang, "adjusted → new ✨ card (whole image, divergence D = {d})",
-                        &[("d", &format!("{d:.2}"))])
-                } else {
-                    tr(lang, "adjusted → new ✨ card (whole image)").to_string()
-                };
-                format!("{note} · {}", out.display())
-            }
-            RetouchNote::Healed { n, out, ai_prose, notes, in_face } => {
-                let args = [("n", n.to_string()), ("path", out.display().to_string())];
-                let args: Vec<(&str, &str)> = args.iter().map(|(k, v)| (*k, v.as_str())).collect();
-                let mut s = if *in_face {
-                    trf(lang, "healed {n} spot(s) on the face → {path} (spots elsewhere were left alone — Ctrl+Z goes back)", &args)
-                } else {
-                    trf(lang, "healed {n} spot(s) → {path}", &args)
-                };
-                // The spots left untouched (no donor of their size fits the
-                // frame) ride in `notes` as `HEAL_SKIPPED_NO_DONOR` and render
-                // below with every other typed note — one sentence, owned by
-                // the engine, instead of the GUI's own copy of it.
-                if !ai_prose.is_empty() || !notes.is_empty() {
-                    // AI prose stays raw (the model's own text); the typed
-                    // notes render localized (L12#2B).
-                    let mut tail = ai_prose.clone();
-                    for note in notes {
-                        let args: Vec<(&str, &str)> =
-                            note.args.iter().map(|(k, v)| (*k, v.as_str())).collect();
-                        tail.push_str(&trf(lang, note.key, &args));
-                    }
-                    s = format!("{s} — ⚠ {tail}");
-                }
-                s
-            }
-            RetouchNote::Denoised { out, on_mosaic: true } => trf(
-                lang,
-                "AI denoised on the sensor mosaic → {path} (new ◈ card; the card you started from is untouched)",
-                &[("path", &out.display().to_string())],
-            ),
-            RetouchNote::Denoised { out, on_mosaic: false } => trf(
-                lang,
-                "AI denoised (a baked source, so SCUNet on developed pixels) → {path} (new ◈ card; the card you started from is untouched)",
-                &[("path", &out.display().to_string())],
-            ),
-            RetouchNote::Stacked { out, kind, frames, travel, uncovered, headroom_ev } => {
-                let mut s = trf(
-                    lang,
-                    "stacked {n} frames ({how}) → {path} (new ▦ card; the frame you started from is untouched)",
-                    &[
-                        ("n", &frames.to_string()),
-                        ("how", tr(lang, kind.label())),
-                        ("path", &out.display().to_string()),
-                    ],
-                );
-                // The three numbers worth reading before trusting a stack, and
-                // only when they have something to say: how far the aligner
-                // had to move the worst frame, how much of the frame no source
-                // could cover, and — an HDR merge only — the stops of
-                // highlight it recovered, which is the number the SDR
-                // rendition panel is then set from.
-                if *travel >= 0.5 {
-                    s.push_str(&trf(
-                        lang,
-                        " · aligned by up to {px} px",
-                        &[("px", &format!("{travel:.1}"))],
-                    ));
-                }
-                if *uncovered > 0.0 {
-                    s.push_str(&trf(
-                        lang,
-                        " · {pct}% of the frame was outside at least one source",
-                        &[("pct", &format!("{:.2}", 100.0 * uncovered))],
-                    ));
-                }
-                if *headroom_ev > 0.0 {
-                    s.push_str(&trf(
-                        lang,
-                        " · recovered {ev} EV above the first frame's white — the SDR rendition sliders now mean something",
-                        &[("ev", &format!("{headroom_ev:.2}"))],
-                    ));
-                }
-                s
-            }
-            RetouchNote::Cloned { n, out } => trf(
-                lang,
-                "Cloned {n} spot(s) → {path}",
-                &[("n", &n.to_string()), ("path", &out.display().to_string())],
-            ),
-            RetouchNote::Reimagined { out, divergence, discarded } => {
-                let mut s = trf(
-                    lang,
-                    "「AI generated」variant created → {path} · edits on it continue on an ✎ card, or 「Reverse-fit」",
-                    &[("path", &out.display().to_string())],
-                );
-                s.push_str(&Self::reimagine_fidelity(lang, *divergence));
-                if let Some(d0) = discarded {
-                    s.push_str(&trf(
-                        lang,
-                        " · the opt-in retry kept the closer of two results (discarded D={d0})",
-                        &[("d0", &format!("{d0:.3}"))],
-                    ));
-                }
-                s
-            }
+        let words = logic::retouch::words(n);
+        let mut s = crate::i18n::text(lang, &words.text);
+        if let Some(path) = words.path_suffix {
+            s = format!("{s} · {path}");
         }
-    }
-
-    /// A reimagine's generation-side fidelity reading, ` · `-led: the
-    /// landing's status line ends with it and the fit prompt states it — one
-    /// wording, so the two never drift. The SAME statistic the reverse-fit's
-    /// mode selector computes, so the warning names the consequence in that
-    /// vocabulary.
-    pub(crate) fn reimagine_fidelity(lang: Lang, divergence: f32) -> String {
-        if divergence >= autoshade::fit::DIVERGENCE_GLOBAL {
-            trf(
-                lang,
-                " · ⚠ structure diverged from the original (D={d} ≥ {limit}) — a reverse-fit will fall back to atmosphere mode",
-                &[
-                    ("d", &format!("{divergence:.3}")),
-                    ("limit", &format!("{:.2}", autoshade::fit::DIVERGENCE_GLOBAL)),
-                ],
-            )
-        } else {
-            trf(
-                lang,
-                " · faithful to the frame (structural divergence D={d})",
-                &[("d", &format!("{divergence:.3}"))],
-            )
+        for suffix in words.suffixes {
+            s.push_str(&crate::i18n::text(lang, &suffix));
         }
+        if !words.prose.is_empty() || !words.warnings.is_empty() {
+            let mut tail = words.prose;
+            for warning in words.warnings {
+                tail.push_str(&crate::i18n::text(lang, &warning));
+            }
+            s = format!("{s} — ⚠ {tail}");
+        }
+        s
     }
 
     /// `Msg::Retouched` landing — body extracted verbatim from the

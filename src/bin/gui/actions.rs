@@ -2821,7 +2821,7 @@ impl AutoShadeApp {
             .iter()
             .position(|v| v.id == prompt.target)
             .map(|i| trf(lang, "To: {card}", &[("card", &self.numbered_card_label(i))]));
-        let fidelity = Self::reimagine_fidelity(lang, prompt.divergence);
+        let fidelity = crate::i18n::text(lang, &logic::retouch::reimagine_fidelity(prompt.divergence));
         let on_off = |on: bool| if on { tr(lang, "on") } else { tr(lang, "off") };
         let in_force = trf(
             lang,

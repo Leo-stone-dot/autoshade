@@ -7575,7 +7575,11 @@ regenerated sidecar), and the partial-failure line that must never read as a
 success. `logic::models` classifies a fetched model listing
 for the role that asked (chat ids, an image list only for the image role, and
 the per-id effort/vision facts only where the listing stated them) and words the
-installed / discarded / failed outcomes. Every dialog a panel asks for is now such an action
+installed / discarded / failed outcomes. `logic::retouch` owns the retouch result FACTS
+(`RetouchNote`) and the landing line's parts — the sentence, the " · " facts a
+stack carries, and the " — ⚠ " tail folded from the engine's typed notes and
+the model's raw prose; `reimagine_fidelity` is shared by the landing and the
+fit prompt. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

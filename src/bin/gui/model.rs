@@ -481,55 +481,7 @@ pub(crate) enum RetouchKind {
     InPlace,
 }
 
-/// What one finished retouch DID (L12#4): facts, not prose — the landing
-/// renders them in the landing-time language (`render_retouch_note`).
-pub(crate) enum RetouchNote {
-    /// Generative fill landed at this pixel master — as a NEW ✨ card since
-    /// 2026-09-15 (the model is shown the card's picture; see `start_fill`).
-    Filled(PathBuf),
-    /// A fill with no painted area: the model chose where, and the layer
-    /// covers this share of the frame (`generative::auto_fill_onto`).
-    FoundFilled { out: PathBuf, coverage: f32 },
-    /// An adjust of a generated card: region fills have no whole-frame D.
-    Adjusted { out: PathBuf, region: bool, divergence: Option<f32> },
-    /// Heal: spot count + artifact + the heal report's rationale split per
-    /// the L12#2B suffix contract (AI prose prefix + typed notes). `skipped`
-    /// is the engine's own count of planned spots it left untouched because
-    /// no donor of that size fit inside the frame (`HealReport::skipped`) —
-    /// rendered as its own line, so "healed N" never stands for "asked N".
-    /// `in_face`: the heal was held to the face mask (the Portraits panel's
-    /// 🤖 Remove blemishes), so `n` counts the spots healed on the face.
-    Healed {
-        n: usize,
-        out: PathBuf,
-        ai_prose: String,
-        notes: Vec<autoshade::rationale::Note>,
-        in_face: bool,
-    },
-    /// A stack landed as a new ▦ card at this pixel master. Facts, not prose:
-    /// which merge ran, how many frames it took, how far the aligner had to
-    /// move the worst of them, how much of the frame no source could cover,
-    /// and the stops of highlight an HDR merge recovered.
-    Stacked {
-        out: PathBuf,
-        kind: autoshade::stack::merge::StackKind,
-        frames: usize,
-        travel: f32,
-        uncovered: f32,
-        headroom_ev: f32,
-    },
-    /// AI denoise landed as a new ◈ card at this pixel master; `on_mosaic`
-    /// says the source was a RAW, denoised on its sensor mosaic before
-    /// demosaic (a baked source goes through SCUNet on developed pixels).
-    Denoised { out: PathBuf, on_mosaic: bool },
-    /// Clone stamp: spot count + artifact.
-    Cloned { n: usize, out: PathBuf },
-    /// Whole-frame reimagine → a new Generated variant. Carries the
-    /// generation-side fidelity reading: the kept result's structural
-    /// divergence D, and the discarded attempt's D when the opt-in retry
-    /// bought a second generation.
-    Reimagined { out: PathBuf, divergence: f32, discarded: Option<f32> },
-}
+pub(crate) use crate::logic::retouch::RetouchNote;
 
 /// The question a whole-frame「AI generate」landing asks (v1.17.0): reverse-fit
 /// the new ✨ card, and from which negative (`fit_prompt_layer`).

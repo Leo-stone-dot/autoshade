@@ -29,6 +29,7 @@ pub(crate) mod recipes;
 pub(crate) mod settings;
 pub(crate) mod style;
 pub(crate) mod region;
+pub(crate) mod retouch;
 pub(crate) mod segmented;
 pub(crate) mod look;
 
