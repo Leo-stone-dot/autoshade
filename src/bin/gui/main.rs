@@ -29,6 +29,7 @@ use image::GenericImageView;
 // table with English fallback. `tr`/`trf` are called with the English literal;
 // see i18n.rs. (Private submodule — enabled by `autobins = false` in Cargo.toml.)
 mod i18n;
+mod landing_analysis;
 mod landing_canvas;
 mod landing_worker;
 mod landing_persist;
@@ -57,6 +58,7 @@ mod logic;
 mod app;
 mod budget;
 mod canvas;
+mod canvas_masters;
 mod export;
 mod masks;
 mod normal_actions;
