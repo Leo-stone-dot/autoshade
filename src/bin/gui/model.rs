@@ -775,94 +775,11 @@ pub(crate) enum MaskRefineOutcome {
     OverBudget { w: u32, h: u32 },
 }
 
-/// One reverse-fit landing fact (L12#4): the worker records WHAT happened
-/// on the persist path; `render_fit_note` (workers.rs) translates it when
-/// the result lands. Owned args only — stringified errors, paths, counts.
-pub(crate) enum FitNote {
-    /// The finished fit includes a semantic sky/land correction, possibly bands.
-    IncludesSkyZone,
-    /// The fit contains at least one native range mask.
-    IncludesRangeMasks,
-    /// This many spatial tiles are present, as native geometry or refined rasters.
-    IncludesSpatialTiles(usize),
-    /// Complete guided-refinement outcomes across semantic/tile masks.
-    MaskRefinement { kept: usize, abstained: usize },
-    /// `commit_develop` failed — the fit stays on the canvas unsaved.
-    NotPersistedCommit(String),
-    /// The Lightroom XMP sidecar landed at this path.
-    XmpWritten(std::path::PathBuf),
-    /// write_xmp's regenerated-not-merged disclosure (library English).
-    XmpMergeNote(String),
-    /// recipe.json persisted but the XMP write failed.
-    XmpFailed(String),
-    /// The previous explicit save was snapshotted as v{n} first.
-    BackedUpAs(u32),
-    /// The backup gate refused — nothing was written.
-    NotPersistedBackup(String),
-    /// The develop store lock could not be taken.
-    NotPersistedLock(String),
-    /// R20 opt-in AI review: the vision judge scored how faithfully the
-    /// fitted render matches the target look. Critique is model English
-    /// (the rationale contract — args ride verbatim, like error text).
-    /// The judgement's accept/revise decision is deliberately NOT carried:
-    /// the prompt pins its thresholds to the score (accept = 85+), so the
-    /// score already says it — a second word would just need translating.
-    ///
-    /// `hint` is the reviewer's ONE actionable instruction. R20 dropped it
-    /// on the floor — the ROADMAP entry gave a reason for dropping
-    /// `decision` and none at all for this — so the user paid for a vision
-    /// call and was shown two thirds of what it said. It is displayed, never
-    /// executed, on the default path; the deep path (R23-6 D) additionally
-    /// uses it to pick an ACTION, never to write a value.
-    AiReview { score: f32, critique: String, hint: Option<String> },
-    /// The AI review call failed — the fit itself already landed; this is
-    /// the informational layer degrading, never the fit erroring.
-    AiReviewFailed(String),
-    /// R33 §I: which solver ran. The mode decides whether white balance,
-    /// channel curves and the paired estimators exist at all, and until now
-    /// the status line said nothing about it — two fits of the same pair from
-    /// two entry points landed in different modes and read identical.
-    SolverMode { atmosphere: bool },
-    /// R33 §I: the two structural readings and the pairing scale they bought.
-    /// Strings, not floats: they are already formatted (and may read
-    /// "unmeasured"), and a landing-time format would be a second rounding.
-    SolverPairing { pixel: bool, fine: String, coarse: String },
-    /// R23-6 A-3: the terminal do-no-harm fired and the whole recipe was
-    /// reset to the calibration base. A rationale line was never enough for
-    /// this one — it is the "the reverse-fit did nothing" outcome, and it
-    /// belongs in the status line in those words.
-    FitReset,
-    /// R23-6 B-7: the chosen reference does not look like this frame.
-    ReferenceNotSameFrame,
-    /// R23-6 D: the deep path ran and this is what it did. `action` names the
-    /// move the review's hint selected; [`DeepFitOutcome`] says what became of
-    /// it.
-    DeepFit { action: &'static str, outcome: DeepFitOutcome },
-}
+pub(crate) use crate::logic::fit::FitNote;
 
-/// What the deep reverse-fit's ONE guided retry came to.
-///
-/// Four states, not the `{rounds, adopted}` pair this used to be (R23 review
-/// LOW-4). `rounds == 0` had THREE producers — the hint named no move the app
-/// has, the zoned re-solve failed, or the saturation step clamped to the value
-/// the recipe already carried — and all three rendered as "the review found
-/// nothing this app can act on", which is only true of the first. The other two
-/// are the app failing to carry out a move it DID select, and telling the user
-/// the reviewer had no opinion hides that.
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub(crate) enum DeepFitOutcome {
-    /// The hint named no move this app can make (`FitAction::None`).
-    NothingActionable,
-    /// A move WAS selected and could not be carried out: the zoned re-solve
-    /// errored (no raster home, segmentation unavailable), or the saturation
-    /// step landed on the value the recipe already had after clamping. No
-    /// second review was bought either way.
-    ActionDidNotRun,
-    /// The retry was bought and KEPT — it re-scored at least as high.
-    Adopted,
-    /// The retry was bought and discarded — it re-scored lower.
-    Discarded,
-}
+
+pub(crate) use crate::logic::fit::DeepFitOutcome;
+
 
 /// What the reverse-fit's INFORMATIONAL review should do at the end of a run,
 /// given whatever the deep path left behind.

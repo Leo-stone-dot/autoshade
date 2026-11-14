@@ -2593,151 +2593,20 @@ impl AutoShadeApp {
                     }
     }
 
-    /// Render one reverse-fit landing fact in the CURRENT language — the
-    /// worker returns [`FitNote`] facts, and this runs at landing time, so
-    /// a language switch during the multi-minute fit renders fresh (L12#4).
+    /// Render one fit landing fact as its " · "-led fragment(s). The pieces
+    /// are the logic layer's (`logic/fit.rs`); only the XMP-failure sentence
+    /// is bare and gets its separator here.
     pub(crate) fn render_fit_note(lang: Lang, n: &FitNote) -> String {
-        match n {
-            FitNote::SolverMode { atmosphere: false } => {
-                tr(lang, " · full solve (all develop controls)").to_string()
+        let mut out = String::new();
+        for piece in logic::fit::note_words(n) {
+            if piece.key.starts_with(" · ") {
+                out.push_str(&crate::i18n::text(lang, &piece));
+            } else {
+                out.push_str(" · ");
+                out.push_str(&crate::i18n::text(lang, &piece));
             }
-            FitNote::SolverMode { atmosphere: true } => tr(
-                lang,
-                " · mood-only match (the two images differ in content, so only overall tone and colour were matched)",
-            )
-            .to_string(),
-            FitNote::SolverPairing { pixel: true, fine, coarse } => trf(
-                lang,
-                " · matched pixel to pixel (difference {fine} at pixel scale, {coarse} at layout scale)",
-                &[("fine", fine), ("coarse", coarse)],
-            ),
-            FitNote::SolverPairing { pixel: false, fine, coarse } => trf(
-                lang,
-                " · matched by cell statistics only (difference {fine} at pixel scale, {coarse} at layout scale)",
-                &[("fine", fine), ("coarse", coarse)],
-            ),
-            FitNote::IncludesSkyZone => tr(
-                lang,
-                " · includes sky-zone correction (editable in the mask panel; native masks export to XMP and remaining losses are named)",
-            )
-            .to_string(),
-            FitNote::IncludesRangeMasks => tr(
-                lang,
-                " · includes native range correction (adjustable in the mask panel and written to XMP)",
-            )
-            .to_string(),
-            FitNote::IncludesSpatialTiles(n) => trf(
-                lang,
-                " · includes {n} spatial tile correction(s) (editable in the mask panel; native tiles export to XMP, retained rasters have a named loss)",
-                &[("n", &n.to_string())],
-            ),
-            FitNote::MaskRefinement { kept, abstained } => trf(
-                lang,
-                " · guided mask refinement: {kept} kept, {abstained} abstained",
-                &[
-                    ("kept", &kept.to_string()),
-                    ("abstained", &abstained.to_string()),
-                ],
-            ),
-            FitNote::NotPersistedCommit(e) => trf(
-                lang,
-                " · NOT persisted: saving the develop failed ({err}) — Ctrl+S to save explicitly",
-                &[("err", e)],
-            ),
-            FitNote::XmpWritten(p) => {
-                trf(lang, " · XMP → {path}", &[("path", &p.display().to_string())])
-            }
-            FitNote::XmpMergeNote(m) => trf(lang, " · ⚠ {note}", &[("note", m)]),
-            FitNote::XmpFailed(e) => {
-                let mut s = String::from(" · ");
-                s.push_str(&trf(
-                    lang,
-                    "recipe saved — but the Lightroom XMP failed: {err}",
-                    &[("err", e)],
-                ));
-                s
-            }
-            FitNote::BackedUpAs(n) => {
-                trf(lang, " · previous save backed up as v{n}", &[("n", &n.to_string())])
-            }
-            FitNote::NotPersistedBackup(e) => trf(
-                lang,
-                " · NOT persisted: backing up your existing save failed ({err}) — Ctrl+S to save explicitly",
-                &[("err", e)],
-            ),
-            FitNote::NotPersistedLock(e) => trf(
-                lang,
-                " · NOT persisted: the develop store could not be locked ({err}) — Ctrl+S to save explicitly",
-                &[("err", e)],
-            ),
-            // R20 opt-in AI review. The critique is model English by the
-            // rationale contract (args ride verbatim, like {err} text).
-            FitNote::AiReview { score, critique, hint } => {
-                let mut s = trf(
-                    lang,
-                    " · AI review: match {score}/100 — {critique}",
-                    &[("score", &format!("{score:.0}")), ("critique", critique)],
-                );
-                // R23-6: the third of the three things the paid call
-                // returned. R20 kept the score and the critique and dropped
-                // this one with no reason on record. Labelled as a
-                // SUGGESTION because on this path nothing acted on it.
-                if let Some(h) = hint.as_deref().map(str::trim).filter(|h| !h.is_empty()) {
-                    s.push_str(&trf(
-                        lang,
-                        " · it suggests: {hint} (nothing was changed — tick 「Retry once」 to let it try)",
-                        &[("hint", h)],
-                    ));
-                }
-                s
-            }
-            FitNote::AiReviewFailed(e) => trf(
-                lang,
-                " · AI review unavailable ({err}) — the fit itself already landed",
-                &[("err", e)],
-            ),
-            // R23-6 A-3: loud, because "the reverse-fit did nothing" is what
-            // it means and a rationale line was not carrying it.
-            FitNote::FitReset => tr(
-                lang,
-                " · ⚠ THE REVERSE-FIT WAS DISCARDED: every version of it rendered farther from the target than your untouched photo, so the recipe was reset to neutral — this is the same as not having reverse-fitted at all",
-            )
-            .to_string(),
-            // R23 review LOW-3: names the CROP, which at a 2% aspect tolerance
-            // is the likeliest cause by far on a reference the user exported
-            // themselves — "two different photos" sent them hunting a mix-up
-            // they had not made. The verdict is the same either way.
-            FitNote::ReferenceNotSameFrame => tr(
-                lang,
-                " · ⚠ the reference's proportions do not match this photo — it was cropped, or it is not the same frame; either way the two distributions are not comparable",
-            )
-            .to_string(),
-            // R23 review LOW-4: "found nothing to act on" is the answer to
-            // ONE of the no-retry paths. A move the app selected and then
-            // could not run is a different fact and gets its own sentence —
-            // the user has paid for a review either way.
-            FitNote::DeepFit { action, outcome } => match outcome {
-                DeepFitOutcome::NothingActionable => {
-                    tr(lang, " · retry: the review found nothing this app can act on — the plain fit stands")
-                        .to_string()
-                }
-                DeepFitOutcome::ActionDidNotRun => trf(
-                    lang,
-                    " · retry: the review asked for {action}, which could not be carried out — the plain fit stands",
-                    &[("action", action)],
-                ),
-                DeepFitOutcome::Adopted => trf(
-                    lang,
-                    " · retry: tried {action} on the review's suggestion and kept it (it re-scored at least as high)",
-                    &[("action", action)],
-                ),
-                DeepFitOutcome::Discarded => trf(
-                    lang,
-                    " · retry: tried {action} on the review's suggestion and discarded it (it re-scored lower)",
-                    &[("action", action)],
-                ),
-            },
         }
+        out
     }
 
     /// `Msg::Fitted` landing — facts arrive typed and are rendered HERE
@@ -2769,13 +2638,12 @@ impl AutoShadeApp {
                             self.pixels_on_disk = out.negative.clone();
                         }
                         self.refresh_versions();
-                        let mut note = trf(
+                        // The landing's words are the logic layer's
+                        // (`logic/fit.rs`); the variant work below is this
+                        // landing's.
+                        let mut note = crate::i18n::text(
                             lang,
-                            "Reverse-fit done: difference from target {before}→{after} (lower = closer) · created a「Reverse-fit」variant (editable / XMP / full-res)",
-                            &[
-                                ("before", &format!("{:.3}", out.err_before)),
-                                ("after", &format!("{:.3}", out.err_after)),
-                            ],
+                            &logic::fit::done_words(out.err_before, out.err_after),
                         );
                         for n in &out.status {
                             note.push_str(&Self::render_fit_note(lang, n));
