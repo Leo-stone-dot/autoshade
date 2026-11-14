@@ -13,6 +13,7 @@
 //! or reach past the seam.
 
 pub(crate) mod analysis_landing;
+pub(crate) mod crop;
 pub(crate) mod gallery;
 pub(crate) mod lens_blur;
 pub(crate) mod mask_place;
@@ -36,6 +37,8 @@ pub(crate) enum Action {
     Gallery(gallery::GalleryAction),
     /// An on-canvas eyedropper sample.
     Pick(pick::PickAction),
+    /// A crop gesture (preset pick, handle drag, rotate-straighten).
+    Crop(crop::CropAction),
 }
 
 /// One named argument of a [`UiText`]: literal text, or a catalogue key that

@@ -1331,7 +1331,6 @@ impl AutoShadeApp {
         xf: ViewXform,
         tex_size: egui::Vec2,
     ) {
-        use autoshade::recipe::Crop;
         // Pixel aspect ratio (w/h) requested by the preset; "原始" resolves here.
         // `tex_size` is the CURRENT after texture: right after a straighten
         // change with the develop still in flight it can be one frame stale,
@@ -1345,39 +1344,15 @@ impl AutoShadeApp {
         // A preset picked in the panel re-derives the box NOW (LR applies the
         // aspect immediately, D13): largest same-centre fit at the new
         // ratio, shrunk to stay in frame. "Free" keeps the box untouched.
-        if std::mem::take(&mut self.crop_aspect_pending)
-            && let Some(r_px) = aspect
-        {
-            let rn = r_px * tex_size.y.max(1.0) / tex_size.x.max(1.0);
-            let c0 = self
-                .recipe
-                .crop
-                .map(|c| [c.left, c.top, c.right, c.bottom])
-                .unwrap_or([0.0, 0.0, 1.0, 1.0]);
-            let (cx, cy) = ((c0[0] + c0[2]) / 2.0, (c0[1] + c0[3]) / 2.0);
-            let (mut w, mut h) = (c0[2] - c0[0], c0[3] - c0[1]);
-            if w / h.max(1e-6) > rn {
-                w = h * rn;
-            } else {
-                h = w / rn.max(1e-6);
-            }
-            let s = ((2.0 * cx.min(1.0 - cx)) / w.max(1e-6))
-                .min((2.0 * cy.min(1.0 - cy)) / h.max(1e-6))
-                .min(1.0);
-            let (w, h) = (w * s, h * s);
-            // The drag path refuses boxes under 0.05 a side — the preset
-            // path must not create what the handles could then never
-            // reproduce (Codex batch-38). Growing can shift the box off its
-            // centre at the frame edge, so the position re-clamps after.
-            let grow = (0.05_f32 / w.max(1e-6)).max(0.05_f32 / h.max(1e-6)).max(1.0);
-            let (w, h) = ((w * grow).min(1.0), (h * grow).min(1.0));
-            let left = (cx - w / 2.0).clamp(0.0, 1.0 - w);
-            let top = (cy - h / 2.0).clamp(0.0, 1.0 - h);
-            let next = Some(Crop { left, top, right: left + w, bottom: top + h });
-            if self.recipe.crop != next {
-                self.recipe.crop = next;
-                self.dirty = true; // histogram/clipping follow the crop
-            }
+        if std::mem::take(&mut self.crop_aspect_pending) {
+            // The box is the logic layer's geometry (`logic::crop`); this view
+            // keeps the pick, the handles and the overlay.
+            let current = self.recipe.crop.map(|c| [c.left, c.top, c.right, c.bottom]);
+            self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Preset {
+                current,
+                aspect_px: aspect,
+                tex: (tex_size.x, tex_size.y),
+            })]);
         }
         let cur = self
             .recipe
@@ -1456,146 +1431,26 @@ impl AutoShadeApp {
         {
             if h == 9 {
                 // Rotate-straighten: drag outside the box (LR). Angle around
-                // the box centre, screen space — y-down atan2 makes clockwise
-                // positive, matching the engine's clockwise straighten °; the
-                // image turns WITH the drag. The box mapping is unaffected
-                // mid-drag (recipe.crop lives in the post-rotation view frame).
+                // the box centre, screen space — the WRAP and the ±45° clamp
+                // are the logic layer's.
                 let a = xf.to_screen(orig[0], orig[1]);
                 let b = xf.to_screen(orig[2], orig[3]);
                 let centre = egui::pos2((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
                 let ang = |q: egui::Pos2| (q.y - centre.y).atan2(q.x - centre.x);
-                // Wrap the delta into (-180°, 180°]: crossing atan2's ±180°
-                // branch cut otherwise reads a 2° clockwise move near the
-                // leftward ray as −358° and slams the slider to the clamp.
-                let delta = (ang(p) - ang(start)).to_degrees();
-                let delta = (delta + 540.0) % 360.0 - 180.0;
-                let next = (deg0 + delta).clamp(-45.0, 45.0);
-                if self.recipe.straighten_deg != next {
-                    self.recipe.straighten_deg = next;
-                    self.dirty = true;
-                }
+                let raw_delta_deg = (ang(p) - ang(start)).to_degrees();
+                self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Rotate {
+                    base_deg: deg0,
+                    raw_delta_deg,
+                })]);
             } else {
                 let (sn, pn) = (xf.to_norm(start), xf.to_norm(p));
-                let (dx, dy) = (pn.0 - sn.0, pn.1 - sn.1);
-                // The preset is a PIXEL w/h ratio; geometry below works in
-                // normalised view space, so convert once.
-                let ratio_n =
-                    aspect.map(|r_px| r_px * tex_size.y.max(1.0) / tex_size.x.max(1.0));
-                let c: [f32; 4] = if h == 4 {
-                    // Move: shift, clamped so the rect stays inside the frame.
-                    let (w, hg) = (orig[2] - orig[0], orig[3] - orig[1]);
-                    let nl = (orig[0] + dx).clamp(0.0, 1.0 - w);
-                    let nt = (orig[1] + dy).clamp(0.0, 1.0 - hg);
-                    [nl, nt, nl + w, nt + hg]
-                } else if h == 5 || h == 6 {
-                    // Top/bottom edge: anchored at the opposite edge. Free
-                    // aspect moves only this edge; a fixed aspect rederives
-                    // the width centred on the box's vertical axis (the LR
-                    // edge behaviour), shrinking to stay in frame.
-                    let ay = if h == 5 { orig[3] } else { orig[1] };
-                    let y = (if h == 5 { orig[1] } else { orig[3] } + dy).clamp(0.0, 1.0);
-                    let mut h_n = (y - ay).abs();
-                    let (mut l, mut r) = (orig[0], orig[2]);
-                    if let Some(rn) = ratio_n {
-                        let cx = (orig[0] + orig[2]) / 2.0;
-                        let mut w_n = h_n * rn;
-                        let room = 2.0 * cx.min(1.0 - cx);
-                        if w_n > room {
-                            w_n = room;
-                            h_n = w_n / rn;
-                        }
-                        l = cx - w_n / 2.0;
-                        r = cx + w_n / 2.0;
-                    }
-                    let y = if h == 5 { ay - h_n } else { ay + h_n };
-                    [l, y.min(ay), r, y.max(ay)]
-                } else if h == 7 || h == 8 {
-                    // Left/right edge — the transpose of the above.
-                    let ax = if h == 7 { orig[2] } else { orig[0] };
-                    let x = (if h == 7 { orig[0] } else { orig[2] } + dx).clamp(0.0, 1.0);
-                    let mut w_n = (x - ax).abs();
-                    let (mut t, mut b) = (orig[1], orig[3]);
-                    if let Some(rn) = ratio_n {
-                        let cy = (orig[1] + orig[3]) / 2.0;
-                        let mut h_n = w_n / rn;
-                        let room = 2.0 * cy.min(1.0 - cy);
-                        if h_n > room {
-                            h_n = room;
-                            w_n = h_n * rn;
-                        }
-                        t = cy - h_n / 2.0;
-                        b = cy + h_n / 2.0;
-                    }
-                    let x = if h == 7 { ax - w_n } else { ax + w_n };
-                    [x.min(ax), t, x.max(ax), b]
-                } else {
-                    // Corner: drag it, anchored at the opposite corner.
-                    let (ax, ay) = match h {
-                        0 => (orig[2], orig[3]),
-                        1 => (orig[0], orig[3]),
-                        2 => (orig[2], orig[1]),
-                        _ => (orig[0], orig[1]),
-                    };
-                    let mut x = (match h {
-                        0 | 2 => orig[0] + dx,
-                        _ => orig[2] + dx,
-                    })
-                    .clamp(0.0, 1.0);
-                    let mut y = (match h {
-                        0 | 1 => orig[1] + dy,
-                        _ => orig[3] + dy,
-                    })
-                    .clamp(0.0, 1.0);
-                    if let Some(rn) = ratio_n {
-                        // The DOMINANT drag axis drives and the other follows
-                        // the ratio. Dominance comes from the DRAG DELTAS (in
-                        // width units), not max(extents): max() can only grow
-                        // past the stale axis, so an inward pull dominated by
-                        // one axis left the corner pinned at the old size.
-                        // The Y side follows the POINTER relative to the
-                        // anchor, exactly like x below (L13-8): pinning it to
-                        // the handle's original identity meant a TL corner
-                        // dragged past BR rebuilt the box on the anchor's far
-                        // side, away from the pointer — the un-ratio'd path's
-                        // min/max already handles crossing, and the asymmetry
-                        // was the defect.
-                        let above = y < ay;
-                        let mut w_n = if dx.abs() >= dy.abs() * rn {
-                            (x - ax).abs()
-                        } else {
-                            (y - ay).abs() * rn
-                        };
-                        let mut h_n = w_n / rn;
-                        let room = if above { ay } else { 1.0 - ay };
-                        if h_n > room {
-                            h_n = room;
-                            w_n = h_n * rn;
-                        }
-                        // Horizontal room too: a dominantly VERTICAL pull can
-                        // derive a width wider than the frame leaves on the
-                        // driven side — x would land outside 0..1 and the
-                        // final min/max can't repair that.
-                        let x_room = if x >= ax { 1.0 - ax } else { ax };
-                        if w_n > x_room {
-                            w_n = x_room;
-                            h_n = w_n / rn;
-                        }
-                        x = if x >= ax { ax + w_n } else { ax - w_n };
-                        y = if above { ay - h_n } else { ay + h_n };
-                    }
-                    [x.min(ax), y.min(ay), x.max(ax), y.max(ay)]
-                };
-                if c[2] - c[0] >= 0.05 && c[3] - c[1] >= 0.05 {
-                    let next = Some(Crop { left: c[0], top: c[1], right: c[2], bottom: c[3] });
-                    // The crop IS a develop input: build_preview restricts the
-                    // histogram + clipping to it, so a crop change that never
-                    // sets `dirty` leaves both describing the OLD crop until
-                    // some unrelated slider is touched.
-                    if self.recipe.crop != next {
-                        self.recipe.crop = next;
-                        self.dirty = true;
-                    }
-                }
+                self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Drag {
+                    handle: h,
+                    start: orig,
+                    delta: (pn.0 - sn.0, pn.1 - sn.1),
+                    aspect_px: aspect,
+                    tex: (tex_size.x, tex_size.y),
+                })]);
             }
         }
         if resp.drag_stopped() {
