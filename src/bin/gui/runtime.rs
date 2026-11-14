@@ -48,6 +48,10 @@ impl AutoShadeApp {
                 Action::MaskEdit(action) => {
                     effects.extend(logic::mask_edit::apply(&mut self.recipe, action));
                 }
+                Action::Region(action) => effects.extend(logic::region::apply(action)),
+                Action::Recipe(action) => match action {
+                    logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
+                },
             }
         }
         self.run_effects(effects);
@@ -69,6 +73,7 @@ impl AutoShadeApp {
                 Effect::StartLook(intent) => self.start_look(intent),
                 Effect::ReferenceBuild { photo, dir } => self.start_reference_build(photo, dir),
                 Effect::ArmFocusPick(on) => self.lens_focus_picking = on,
+                Effect::SetRegion(region) => self.region = region,
                 Effect::DisarmPicker(picker) => match picker {
                     logic::pick::Picker::WhiteBalance => self.wb_picking = false,
                     logic::pick::Picker::Range => self.range_picking = None,

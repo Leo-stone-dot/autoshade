@@ -1218,26 +1218,7 @@ impl AutoShadeApp {
                     map(egui::pos2(s.x, e.y)),
                     map(egui::pos2(e.x, s.y)),
                 ];
-                let (mut l, mut t, mut r, mut b) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
-                for (x, y) in corners {
-                    l = l.min(x);
-                    t = t.min(y);
-                    r = r.max(x);
-                    b = b.max(y);
-                }
-                if r - l > 0.02 && b - t > 0.02 {
-                    self.region = Some([l, t, r, b]);
-                    self.status = trf(
-                        self.lang,
-                        "region {w}×{h}% — type a direction, then AI Analyze (click to clear)",
-                        &[
-                            ("w", &(((r - l) * 100.0).round() as i32).to_string()),
-                            ("h", &(((b - t) * 100.0).round() as i32).to_string()),
-                        ],
-                    );
-                } else {
-                    self.region = None; // a tiny drag clears the selection
-                }
+                self.apply_actions(vec![logic::Action::Region(logic::region::RegionAction::Select(corners))]);
             }
         } else if resp.clicked() && !resp.double_clicked() {
             // Remember what this click cleared: if it turns out to be the

@@ -19,6 +19,8 @@ pub(crate) mod lens_blur;
 pub(crate) mod mask_edit;
 pub(crate) mod mask_place;
 pub(crate) mod pick;
+pub(crate) mod recipes;
+pub(crate) mod region;
 pub(crate) mod look;
 
 use std::path::PathBuf;
@@ -42,6 +44,10 @@ pub(crate) enum Action {
     Crop(crop::CropAction),
     /// A knob drag on the selected mask's geometry.
     MaskEdit(mask_edit::MaskEditAction),
+    /// A box-selected AI region.
+    Region(region::RegionAction),
+    /// The recipe-library window's verbs.
+    Recipe(recipes::RecipeAction),
 }
 
 /// One named argument of a [`UiText`]: literal text, or a catalogue key that
@@ -105,6 +111,8 @@ pub(crate) enum Effect {
     ArmFocusPick(bool),
     /// Put one armed eyedropper (WB / range / point colour) down.
     DisarmPicker(pick::Picker),
+    /// The AI region box (the logic layer decided and worded it).
+    SetRegion(Option<[f32; 4]>),
     /// One canvas tool at a time: every arming site disarms the rest.
     DisarmTools,
     MarkDirty,
