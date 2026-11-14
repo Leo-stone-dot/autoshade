@@ -106,5 +106,23 @@
                 !gallery.contains(needle),
                 "panels/gallery.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
+        // `settings.rs` — its verbs (save / fetch models / install the Python
+        // environment) are actions now: no worker, no dialog, no locked write
+        // and no call to the moved business methods from the draw code.
+        let settings = std::fs::read_to_string(root.join("settings.rs")).expect("the panel source is readable");
+        for needle in [
+            concat!("spawn_worker", "("),
+            "rfd::",
+            "Msg::",
+            "update_local_settings",
+            "save_settings_form(",
+            "fetch_models(",
+            "start_python_env_install(",
+        ] {
+            assert!(
+                !settings.contains(needle),
+                "panels/settings.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
         }
     }

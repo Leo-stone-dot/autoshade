@@ -98,6 +98,15 @@ impl AutoShadeApp {
                             self.settings.out_dir = dir.display().to_string();
                         }
                     }
+                    logic::settings::SettingsAction::SaveForm => self.save_settings_form(),
+                    logic::settings::SettingsAction::FetchModels(side) => {
+                        let role = match side {
+                            logic::settings::ModelSide::Analysis => ModelRole::Analysis,
+                            logic::settings::ModelSide::Image => ModelRole::Image,
+                        };
+                        self.fetch_models(role);
+                    }
+                    logic::settings::SettingsAction::InstallPython => self.start_python_env_install(),
                 },
             }
         }
