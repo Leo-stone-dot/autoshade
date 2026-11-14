@@ -130,6 +130,7 @@ impl AutoShadeApp {
                 Action::Normal(action) => match action {
                     logic::normal::NormalAction::SaveJpg => self.start_normal_save(),
                     logic::normal::NormalAction::ApplyToFolder => self.start_apply_to_folder(),
+                    logic::normal::NormalAction::SetDenoise(on) => self.set_normal_denoise(on),
                     logic::normal::NormalAction::PickReferencesFolder => {
                         let mut dialog = rfd::FileDialog::new();
                         if let Some(d) = self.normal.ref_dir.clone().filter(|d| d.is_dir()) {

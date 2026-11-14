@@ -56,6 +56,7 @@ mod budget;
 mod canvas;
 mod export;
 mod masks;
+mod normal_actions;
 mod panels;
 mod portrait_actions;
 mod recipe_actions;

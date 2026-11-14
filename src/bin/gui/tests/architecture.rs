@@ -234,5 +234,37 @@
                 "panels/portrait.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
         }
+        // `normal.rs` — the Save group's hand-off/landing words and the noise
+        // switch's card dance live in `normal_actions.rs`; the panel draws and
+        // emits NormalActions.
+        let normal = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("src")
+                .join("bin")
+                .join("gui")
+                .join("panels")
+                .join("normal.rs"),
+        )
+        .expect("the panel source is readable");
+        for needle in [
+            concat!("spawn_worker", "("),
+            "Msg::",
+            "ToastKind",
+            concat!("crate::budget::heavy_permit", "("),
+            "autoshade::store::",
+            "start_batch_render_for(",
+            "start_render_with(",
+            "start_ai_denoise(",
+            "set_normal_denoise(",
+            "take_look_history(",
+            "carry_look_history(",
+            "normal_delivery_words(",
+            "after_apply_all_paste(",
+        ] {
+            assert!(
+                !normal.contains(needle),
+                "panels/normal.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
         }
     }

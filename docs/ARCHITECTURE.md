@@ -7611,7 +7611,10 @@ nothing — its preview/details panes still READ an entry to draw it. Portraits 
 and the skin switch's per-card bookkeeping live in `portrait_actions.rs`; the
 panel draws and emits `PortraitAction`s (`FindPeople`, `RemoveBlemishes`,
 `KeepPersonSharp`, `SetKeepSkin`), and the numeric slider boundary `reach` is
-shared from `logic::portrait`. Every dialog a panel asks for is now such an action
+shared from `logic::portrait`. Normal closes the panel pass: its Save group's batch hand-off and
+landing words and the noise switch's card dance (the ◈ card, its look history,
+the undo baseline) live in `normal_actions.rs`; the panel emits
+`NormalAction::SetDenoise` and keeps the plain-words lines it draws. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.

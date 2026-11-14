@@ -634,7 +634,7 @@
         // The switch's way on is the Retouch door, and the save carries no
         // denoise of its own (pinned on the source, the house pattern for a
         // worker whose sidecar cannot run offline).
-        let now = include_str!("../panels/normal.rs");
+        let now = include_str!("../normal_actions.rs");
         let on = &now[now.find("pub(crate) fn set_normal_denoise(").expect("set_normal_denoise moved")..];
         let on = &on[..on.find("pub(crate) fn after_normal_denoise(").expect("after_normal_denoise moved")];
         assert!(on.contains("self.start_ai_denoise();"), "the switch no longer runs the Retouch denoise");
