@@ -305,6 +305,11 @@ impl AutoShadeApp {
                     self.open_folder(dir);
                 }
             }
+            GalleryAction::OpenPhotoFile => {
+                if let Some(p) = open_photo_dialog() {
+                    self.open_path(p);
+                }
+            }
             GalleryAction::Click { index, multi } => match logic::gallery::click(index, multi) {
                 Click::Open(index) => self.open_gallery_index(index),
                 Click::Toggle(index) => logic::gallery::toggle(&mut self.multi_sel, index),

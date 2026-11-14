@@ -7632,7 +7632,14 @@ landing, leaving `workers.rs` as the message pump plus the worker starts. Every 
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
-logic files stay headless and a migrated panel stays behind the seam.
+logic files stay headless and a migrated panel stays behind the seam. The split's own census, kept current in
+`wishes/autoshade-view-split/PLAN.md` (the working plan, outside this repository):
+26 files under `logic/` with 135 headless tests; every `panels/` file (the
+business panels and the two pure widgets), `canvas.rs` and the frame `app.rs`
+are in the guard; `workers.rs` is the message pump and worker starts, with the
+landings in `landing_*.rs` and the business mutations in `*_actions.rs`; no view
+file contains `rfd::`, a worker spawn, a develop-store write or a direct
+`start_*` call.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

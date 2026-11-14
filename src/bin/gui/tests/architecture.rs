@@ -266,5 +266,69 @@
                 "panels/normal.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
         }
+        // `canvas.rs` — the view's biggest file. Its gestures emit actions
+        // (crop / pick / mask / region); it starts no worker, opens no dialog,
+        // takes no permit, writes no store and does not replace the recipe.
+        let canvas = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("src")
+                .join("bin")
+                .join("gui")
+                .join("canvas.rs"),
+        )
+        .expect("the canvas source is readable");
+        for needle in [
+            concat!("spawn_worker", "("),
+            "Msg::",
+            "rfd::",
+            concat!("crate::budget::heavy_permit", "("),
+            "autoshade::store::",
+            "self.start_",
+            "self.recipe =",
+            "self.recipe.masks.push(",
+            "self.recipe.point_colors.push(",
+            "self.recipe.pixel_layers.push(",
+        ] {
+            assert!(
+                !canvas.contains(needle),
+                "canvas.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
+        // The two pure-widget panels: no business at all.
+        for file in ["grade_wheel.rs", "histogram.rs"] {
+            let src = std::fs::read_to_string(root.join(file)).expect("the panel source is readable");
+            for needle in [
+                concat!("spawn_worker", "("),
+                "Msg::",
+                "rfd::",
+                concat!("crate::budget::heavy_permit", "("),
+                "autoshade::store::",
+                "ToastKind",
+                "self.start_",
+                "self.recipe =",
+                "self.recipe.masks.push(",
+            ] {
+                assert!(
+                    !src.contains(needle),
+                    "panels/{file} reaches past the seam with `{needle}` — emit a logic::Action instead"
+                );
+            }
+        }
+        // The frame (`app.rs`) opens no dialog: the empty canvas's open verbs
+        // are GalleryActions now.
+        let app = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("src")
+                .join("bin")
+                .join("gui")
+                .join("app.rs"),
+        )
+        .expect("the app source is readable");
+        for needle in ["rfd::", "open_photo_dialog("] {
+            assert!(
+                !app.contains(needle),
+                "app.rs opens a dialog with `{needle}` — emit a logic::Action instead"
+            );
+        }
         }
     }
