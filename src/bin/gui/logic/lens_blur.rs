@@ -4,10 +4,27 @@
 //! The view (`panels/lens_blur.rs`, `canvas.rs`) never mutates a recipe: it
 //! emits [`super::Action`]s, and the reach-through into the develop is here.
 
-use super::{Action, Effect, UiText};
+use super::{Effect, UiText};
 use autoshade::recipe::EditRecipe;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+/// What the Lens Blur section asks for. A closed per-domain enum, so this
+/// domain never has to match the other verbs' actions.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum LensAction {
+    ToggleLensBlur(bool),
+    SetBlurAmount(f32),
+    SetFocusRange(f32),
+    RemoveLensBlur,
+    /// Arm / disarm the click-on-the-photo focus pick.
+    SetFocusPicking(bool),
+    /// Ask for the depth estimate (the worker runs the sidecar).
+    EstimateDepth,
+    /// The armed focus pick landed on this point, in normalized original-frame
+    /// coordinates.
+    FocusPicked([f32; 2]),
+}
 
 /// `Some` while the card carries a blur that is switched on — the panel's
 /// section title's "active" dot, and the only read the view needs.
@@ -20,26 +37,26 @@ pub(crate) fn active(recipe: &EditRecipe) -> bool {
 /// pure state change; `busy` is the one in-flight guard the view also greys.
 pub(crate) fn apply(
     recipe: &mut EditRecipe,
-    action: Action,
+    action: LensAction,
     start: Option<(PathBuf, Arc<image::DynamicImage>)>,
     busy: bool,
 ) -> Vec<Effect> {
     match action {
-        Action::ToggleLensBlur(on) => with_blur(recipe, |lb| lb.enabled = on),
-        Action::SetBlurAmount(value) => with_blur(recipe, |lb| lb.amount = value),
-        Action::SetFocusRange(value) => with_blur(recipe, |lb| lb.range = value),
-        Action::RemoveLensBlur => match recipe.lens_blur.take() {
+        LensAction::ToggleLensBlur(on) => with_blur(recipe, |lb| lb.enabled = on),
+        LensAction::SetBlurAmount(value) => with_blur(recipe, |lb| lb.amount = value),
+        LensAction::SetFocusRange(value) => with_blur(recipe, |lb| lb.range = value),
+        LensAction::RemoveLensBlur => match recipe.lens_blur.take() {
             Some(_) => vec![Effect::ArmFocusPick(false), Effect::MarkDirty],
             None => Vec::new(),
         },
-        Action::SetFocusPicking(on) => {
+        LensAction::SetFocusPicking(on) => {
             if on {
                 vec![Effect::ArmFocusPick(true), Effect::DisarmTools]
             } else {
                 vec![Effect::ArmFocusPick(false)]
             }
         }
-        Action::FocusPicked([x, y]) => {
+        LensAction::FocusPicked([x, y]) => {
             let mut effects = with_blur(recipe, |lb| {
                 lb.focus = [x.clamp(0.0, 1.0), y.clamp(0.0, 1.0)];
             });
@@ -54,8 +71,7 @@ pub(crate) fn apply(
         }
         // The facade routes the look domain itself; this function is only
         // reached with a lens-blur action.
-        Action::Look(_) | Action::References(_) => Vec::new(),
-        Action::EstimateDepth => {
+        LensAction::EstimateDepth => {
             if busy {
                 return Vec::new();
             }
@@ -179,11 +195,11 @@ mod tests {
     #[test]
     fn the_edits_stay_inside_the_blur_and_mark_the_recipe_dirty() {
         let mut recipe = EditRecipe::default();
-        assert!(apply(&mut recipe, Action::ToggleLensBlur(true), None, false).is_empty(), "nothing to toggle yet");
+        assert!(apply(&mut recipe, LensAction::ToggleLensBlur(true), None, false).is_empty(), "nothing to toggle yet");
         assert!(recipe.lens_blur.is_none());
 
         landed(&mut recipe, Ok(depth("a.png")));
-        let effects = apply(&mut recipe, Action::SetBlurAmount(250.0), None, false);
+        let effects = apply(&mut recipe, LensAction::SetBlurAmount(250.0), None, false);
         assert!(matches!(effects.as_slice(), [Effect::MarkDirty]));
         // The reflection layer assigns; the RANGE is the library's rule, applied
         // by `EditRecipe::clamp` (the same call the develop panel makes after
@@ -192,15 +208,15 @@ mod tests {
         recipe.clamp();
         assert_eq!(recipe.lens_blur.as_ref().unwrap().amount, 100.0, "the library clamps the dial");
 
-        let effects = apply(&mut recipe, Action::SetFocusPicking(true), None, false);
+        let effects = apply(&mut recipe, LensAction::SetFocusPicking(true), None, false);
         assert!(effects.iter().any(|e| matches!(e, Effect::ArmFocusPick(true))));
         assert!(effects.iter().any(|e| matches!(e, Effect::DisarmTools)));
 
-        let effects = apply(&mut recipe, Action::RemoveLensBlur, None, false);
+        let effects = apply(&mut recipe, LensAction::RemoveLensBlur, None, false);
         assert!(recipe.lens_blur.is_none());
         assert!(effects.iter().any(|e| matches!(e, Effect::ArmFocusPick(false))));
 
-        let effects = apply(&mut recipe, Action::RemoveLensBlur, None, false);
+        let effects = apply(&mut recipe, LensAction::RemoveLensBlur, None, false);
         assert!(effects.is_empty(), "removing an absent blur is a no-op");
     }
 
@@ -209,17 +225,17 @@ mod tests {
     fn the_estimate_needs_a_photo_its_base_and_a_free_worker() {
         let photo = depth("photo.arw");
         let base = Arc::new(image::DynamicImage::new_rgb8(6, 4));
-        assert!(apply(&mut EditRecipe::default(), Action::EstimateDepth, None, false).is_empty());
+        assert!(apply(&mut EditRecipe::default(), LensAction::EstimateDepth, None, false).is_empty());
         assert!(apply(
             &mut EditRecipe::default(),
-            Action::EstimateDepth,
+            LensAction::EstimateDepth,
             Some((photo.clone(), base.clone())),
             true,
         )
         .is_empty());
         let effects = apply(
             &mut EditRecipe::default(),
-            Action::EstimateDepth,
+            LensAction::EstimateDepth,
             Some((photo.clone(), base)),
             false,
         );
@@ -231,7 +247,7 @@ mod tests {
     fn a_picked_focus_lands_normalized_and_says_so() {
         let mut recipe = EditRecipe::default();
         landed(&mut recipe, Ok(depth("focus.png")));
-        let effects = apply(&mut recipe, Action::FocusPicked([1.7, -0.4]), None, false);
+        let effects = apply(&mut recipe, LensAction::FocusPicked([1.7, -0.4]), None, false);
         assert_eq!(recipe.lens_blur.as_ref().unwrap().focus, [1.0, 0.0]);
         assert!(effects.iter().any(|e| matches!(e, Effect::ArmFocusPick(false))));
         assert!(matches!(statuses(&effects)[..], ["Focus set — the blur follows the distance of what you clicked"]));

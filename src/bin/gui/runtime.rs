@@ -20,37 +20,25 @@ impl AutoShadeApp {
                 Action::Look(intent) => self.start_look(intent),
                 Action::References(dir) => {
                     let photo = self.src_path.clone();
-                    let effects = logic::look::references_start(
+                    let started = logic::look::references_start(
                         photo.as_deref(),
                         dir,
                         self.busy,
                         self.analyze_inflight,
                         self.normal.building,
                     );
-                    self.run_effects(effects);
+                    self.run_effects(started);
                 }
-                Action::ToggleLensBlur(_)
-                | Action::SetBlurAmount(_)
-                | Action::SetFocusRange(_)
-                | Action::RemoveLensBlur
-                | Action::SetFocusPicking(_)
-                | Action::FocusPicked(_)
-                | Action::EstimateDepth => {
+                Action::Lens(action) => {
                     let start = match action {
-                        Action::EstimateDepth => self
-                            .src_path
-                            .clone()
-                            .zip(self.original_frame_base())
-                            .map(|(photo, base)| (photo, base)),
+                        logic::lens_blur::LensAction::EstimateDepth => {
+                            self.src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
+                        }
                         _ => None,
                     };
-                    effects.extend(logic::lens_blur::apply(
-                        &mut self.recipe,
-                        action,
-                        start,
-                        self.busy,
-                    ));
+                    effects.extend(logic::lens_blur::apply(&mut self.recipe, action, start, self.busy));
                 }
+                Action::Gallery(action) => self.apply_gallery(action),
             }
         }
         self.run_effects(effects);
@@ -173,6 +161,44 @@ impl AutoShadeApp {
         debug_assert_eq!(job.epoch, self.gen_epoch, "a planned job starts under the current epoch");
         self.busy = true;
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
+    }
+
+
+    /// Apply one gallery action: the folder dialog, the open/toggle decision,
+    /// the thumbnail worker and the bounded texture window are the runtime's.
+    fn apply_gallery(&mut self, action: logic::gallery::GalleryAction) {
+        use logic::gallery::{Click, GalleryAction};
+        match action {
+            GalleryAction::OpenFolder => {
+                if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                    self.open_folder(dir);
+                }
+            }
+            GalleryAction::Click { index, multi } => match logic::gallery::click(index, multi) {
+                Click::Open(index) => self.open_gallery_index(index),
+                Click::Toggle(index) => logic::gallery::toggle(&mut self.multi_sel, index),
+            },
+            GalleryAction::CopyRecipe => {
+                // The clipboard must carry the name the user sees in the box.
+                self.commit_pending_names();
+                self.copied = Some(self.recipe.clone());
+                self.copied_from = self.src_path.clone();
+                self.status = crate::i18n::tr(
+                    self.lang,
+                    "Recipe copied — Ctrl/⌘+click to pick several, then “Paste to selected”",
+                )
+                .to_owned();
+            }
+            GalleryAction::PasteToSelected => self.start_paste(),
+            GalleryAction::RenderSelected => self.start_batch_render(),
+            GalleryAction::OpenRecipeLibrary => self.open_recipe_library(),
+            GalleryAction::ClearSelection => self.multi_sel.clear(),
+            GalleryAction::ThumbNeeded(index) => self.request_thumb(index),
+            GalleryAction::Trim { start, end } => {
+                self.thumbs.retain(|i, _| (*i >= start) && (*i < end));
+                self.thumb_requested.retain(|i| (*i >= start) && (*i < end));
+            }
+        }
     }
 
     /// Map a look's presentation line onto the panel that owns it. The wording

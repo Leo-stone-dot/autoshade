@@ -15,10 +15,10 @@ impl AutoShadeApp {
         // whatever the font metrics do.
         ui.horizontal_wrapped(|ui| {
             ui.heading(tr(lang, "Library"));
-            if action(ui, true, tr(lang, "🗂 Open folder…")).clicked()
-                && let Some(dir) = rfd::FileDialog::new().pick_folder()
-            {
-                self.open_folder(dir);
+            if action(ui, true, tr(lang, "🗂 Open folder…")).clicked() {
+                self.apply_actions(vec![logic::Action::Gallery(
+                    logic::gallery::GalleryAction::OpenFolder,
+                )]);
             }
         });
         if let Some(d) = &self.gallery_dir {
@@ -48,12 +48,7 @@ impl AutoShadeApp {
             .on_hover_text(tr(lang, "Copy every develop setting from the current photo"))
             .clicked()
         {
-            // Flush every pending rename first — the clipboard must
-            // carry the name the user sees in the box (U10; CX5-9).
-            self.commit_pending_names();
-            self.copied = Some(self.recipe.clone());
-            self.copied_from = self.src_path.clone();
-            self.status = tr(lang, "Recipe copied — Ctrl/⌘+click to pick several, then “Paste to selected”").to_string();
+            self.apply_actions(vec![logic::Action::Gallery(logic::gallery::GalleryAction::CopyRecipe)]);
         }
         let n = self.multi_sel.len();
         let n_s = n.to_string();
@@ -61,7 +56,9 @@ impl AutoShadeApp {
             .on_hover_text(tr(lang, "Writes each photo's develop into your develop store (recipe JSON; RAW also gets a Lightroom XMP). Leaves library files untouched, renders nothing."))
             .clicked()
         {
-            self.start_paste();
+            self.apply_actions(vec![logic::Action::Gallery(
+                logic::gallery::GalleryAction::PasteToSelected,
+            )]);
         }
         ui.horizontal(|ui| {
             // The last row lends ✕ (clear the selection) one square of its
@@ -78,10 +75,14 @@ impl AutoShadeApp {
                 ))
                 .clicked()
             {
-                self.start_batch_render();
+                self.apply_actions(vec![logic::Action::Gallery(
+                    logic::gallery::GalleryAction::RenderSelected,
+                )]);
             }
             if n > 0 && glyph(ui, true, "✕").on_hover_text(tr(lang, "Clear selection")).clicked() {
-                self.multi_sel.clear();
+                self.apply_actions(vec![logic::Action::Gallery(
+                    logic::gallery::GalleryAction::ClearSelection,
+                )]);
             }
         });
         if self.copied.is_some() {
@@ -96,7 +97,9 @@ impl AutoShadeApp {
             ))
             .clicked()
         {
-            self.open_recipe_library();
+            self.apply_actions(vec![logic::Action::Gallery(
+                logic::gallery::GalleryAction::OpenRecipeLibrary,
+            )]);
         }
         ui.separator();
         if self.gallery.is_empty() {
@@ -115,15 +118,16 @@ impl AutoShadeApp {
 
         let count = self.gallery.len();
         // Borrow only the fields the row closure reads; collect actions to apply
-        // after (request_thumb / open_gallery_index both need &mut self).
+        // after (a thumb request and an open both need &mut self).
         let thumbs = &self.thumbs;
         let edited_badge = &mut self.edited_badge;
         let gallery = &self.gallery;
         let selected = self.selected;
         let multi_sel = &self.multi_sel;
         let colors = self.theme.colors();
-        let mut to_open: Option<usize> = None;
-        let mut to_toggle: Option<usize> = None;
+        // A row click is an action; the decision (open vs toggle) is the
+        // logic layer's, applied after the row closure ends.
+        let mut clicked: Option<(usize, bool)> = None;
         let mut to_request: Vec<usize> = Vec::new();
         let mut visible: std::ops::Range<usize> = 0..0;
 
@@ -229,19 +233,12 @@ impl AutoShadeApp {
                                     // wrapped long filename would misalign the
                                     // whole virtualized scroll.
                                     ui.add(egui::Label::new(name).truncate());
-                                    // Cached: 2 filesystem stats per visible row
-                                    // per repaint (continuous while thumbnails
-                                    // decode) added up to thousands of syscalls
-                                    // per second. Dropped whenever this app
-                                    // writes a sidecar or the folder changes.
-                                    let edited = *edited_badge.entry(i).or_insert_with(|| {
-                                        // Central store OR legacy ./out — a
-                                        // pre-migration library keeps its ● —
-                                        // OR Lightroom's own sidecar (L13#2:
-                                        // an LR-edited photo showed no badge
-                                        // yet opened with its LR develop).
-                                        autoshade::store::has_develop_or_sidecar(path)
-                                    });
+                                    // The badge is a fact about the photo's
+                                    // store/sidecar, cached per row by the
+                                    // logic layer (this loop runs per repaint),
+                                    // and dropped whenever this app writes a
+                                    // sidecar or the folder changes.
+                                    let edited = logic::gallery::edited_badge(edited_badge, i, path);
                                     let baked = !autoshade::decode::is_raw(path);
                                     ui.horizontal(|ui| {
                                         if is_multi {
@@ -263,12 +260,7 @@ impl AutoShadeApp {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                     }
                     if resp.clicked() {
-                        // Ctrl+click toggles the batch selection; plain click opens.
-                        if ui.input(|inp| inp.modifiers.command) {
-                            to_toggle = Some(i);
-                        } else {
-                            to_open = Some(i);
-                        }
+                        clicked = Some((i, ui.input(|inp| inp.modifiers.command)));
                     }
                 }
             });
@@ -280,27 +272,26 @@ impl AutoShadeApp {
                 self.gallery_thumb_rect = Some(draw);
             }
         }
-        for i in to_request {
-            self.request_thumb(i);
+        if !to_request.is_empty() {
+            let asked: Vec<logic::Action> = to_request
+                .into_iter()
+                .map(|i| logic::Action::Gallery(logic::gallery::GalleryAction::ThumbNeeded(i)))
+                .collect();
+            self.apply_actions(asked);
         }
-        // Texture LRU (bounded GPU memory): every scrolled-past row otherwise
-        // pins its 160px texture until the folder changes (~68 KB each — a
-        // 10k-photo folder reached ~0.7 GB). Keep a generous window around the
-        // viewport; evicted indices drop their `requested` marker so a
-        // scroll-back re-materialises from the disk cache in ~1 ms.
-        const THUMB_TEX_CAP: usize = 1500;
-        if self.thumbs.len() > THUMB_TEX_CAP {
-            let keep = visible.start.saturating_sub(600)..visible.end + 600;
-            self.thumbs.retain(|i, _| keep.contains(i));
-            self.thumb_requested.retain(|i| keep.contains(i));
-        }
-        if let Some(i) = to_toggle
-            && !self.multi_sel.remove(&i)
+        // Bounded GPU memory: the window is the logic layer's, the retains
+        // are the runtime's (`GalleryAction::Trim`).
+        if let Some(keep) =
+            logic::gallery::trim_window(visible.clone(), self.thumbs.len(), logic::gallery::THUMB_TEX_CAP)
         {
-            self.multi_sel.insert(i);
+            self.apply_actions(vec![logic::Action::Gallery(
+                logic::gallery::GalleryAction::Trim { start: keep.start, end: keep.end },
+            )]);
         }
-        if let Some(i) = to_open {
-            self.open_gallery_index(i);
+        if let Some((index, multi)) = clicked {
+            self.apply_actions(vec![logic::Action::Gallery(
+                logic::gallery::GalleryAction::Click { index, multi },
+            )]);
         }
     }
 }

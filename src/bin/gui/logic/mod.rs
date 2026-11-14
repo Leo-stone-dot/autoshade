@@ -13,6 +13,7 @@
 //! or reach past the seam.
 
 pub(crate) mod analysis_landing;
+pub(crate) mod gallery;
 pub(crate) mod lens_blur;
 pub(crate) mod look;
 
@@ -27,18 +28,10 @@ pub(crate) enum Action {
     /// Read this folder as the reference library, then look at the photo that
     /// was open when it was picked.
     References(PathBuf),
-    /// Lens blur: mute/unmute without losing the settings.
-    ToggleLensBlur(bool),
-    SetBlurAmount(f32),
-    SetFocusRange(f32),
-    RemoveLensBlur,
-    /// Arm / disarm the click-on-the-photo focus pick.
-    SetFocusPicking(bool),
-    /// Ask for the depth estimate (the worker runs the sidecar).
-    EstimateDepth,
-    /// The armed focus pick landed on this point, in normalized original-frame
-    /// coordinates.
-    FocusPicked([f32; 2]),
+    /// The Lens Blur section.
+    Lens(lens_blur::LensAction),
+    /// The library gallery.
+    Gallery(gallery::GalleryAction),
 }
 
 /// One named argument of a [`UiText`]: literal text, or a catalogue key that

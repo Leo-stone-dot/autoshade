@@ -55,40 +55,56 @@
         }
     }
 
-    /// The pilot panel is view-only: it reads the recipe and the app's flags,
-    /// draws, and returns actions. A mutation, a worker, a dialog or a store
-    /// write here would re-fork the business logic this migration removed.
+    /// The migrated panels are view-only: they read state, draw, and return
+    /// actions. A mutation, a worker, a dialog or a store write here would
+    /// re-fork the business logic these migrations removed.
     ///
-    /// MUTATION: put a recipe `as_mut` call or a worker spawn back in the panel
-    /// and this fails with the needle.
+    /// MUTATION: put `.as_mut()` or `rfd::` back in a listed panel and this
+    /// fails with the file and the needle.
     #[test]
-    fn the_migrated_panel_stays_behind_the_seam() {
-        let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+    fn the_migrated_panels_stay_behind_the_seam() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("src")
             .join("bin")
             .join("gui")
-            .join("panels")
-            .join("lens_blur.rs");
-        let src = std::fs::read_to_string(&file).expect("the panel source is readable");
-        let spawn = concat!("spawn_worker", "(");
-        for needle in [
-            spawn,
+            .join("panels");
+        let common = [
+            concat!("spawn_worker", "("),
             "rfd::",
             "std::fs::",
             "autoshade::store::",
             "Msg::",
             "ToastKind",
-            "on_depth_estimated",
-            "start_depth",
             ".as_mut()",
             "self.status =",
             "self.toast(",
             "self.busy =",
             "self.dirty =",
-        ] {
+        ];
+        // `lens_blur.rs` — the pilot: it must not start the depth worker, open
+        // a dialog or reach into the recipe.
+        let lens = std::fs::read_to_string(root.join("lens_blur.rs")).expect("the panel source is readable");
+        for needle in common.into_iter().chain(["on_depth_estimated", "start_depth"]) {
             assert!(
-                !src.contains(needle),
+                !lens.contains(needle),
                 "panels/lens_blur.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
+        // `gallery.rs` — the folder dialog, the thumbnail worker, the selection
+        // and the texture window are the runtime/logic's now.
+        let gallery = std::fs::read_to_string(root.join("gallery.rs")).expect("the panel source is readable");
+        for needle in common.into_iter().chain([
+            "open_gallery_index",
+            "request_thumb(",
+            "self.thumbs.retain",
+            "self.thumb_requested",
+            "multi_sel.insert",
+            "multi_sel.remove",
+            "multi_sel.clear",
+        ]) {
+            assert!(
+                !gallery.contains(needle),
+                "panels/gallery.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
         }
     }
