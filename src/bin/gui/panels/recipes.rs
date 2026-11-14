@@ -33,7 +33,7 @@ impl AutoShadeApp {
     }
 
     /// Localized wording for a refused name.
-    fn recipe_name_error(&self, e: autoshade::recipe_library::NameError) -> String {
+    pub(crate) fn recipe_name_error(&self, e: autoshade::recipe_library::NameError) -> String {
         use autoshade::recipe_library::NameError as N;
         match e {
             N::Empty => tr(self.lang, "A recipe needs a name").to_string(),
@@ -47,7 +47,7 @@ impl AutoShadeApp {
     }
 
     /// What a portable entry left behind, as one list of user-facing fragments.
-    fn recipe_losses(&self, losses: autoshade::recipe_library::Losses) -> String {
+    pub(crate) fn recipe_losses(&self, losses: autoshade::recipe_library::Losses) -> String {
         let lang = self.lang;
         let mut parts: Vec<String> = Vec::new();
         if losses.masks > 0 {
@@ -70,7 +70,7 @@ impl AutoShadeApp {
 
     /// Report an outcome on both channels (the status line for the record, a
     /// toast for the failure the user must not miss).
-    fn recipe_status(&mut self, ok: bool, text: String) {
+    pub(crate) fn recipe_status(&mut self, ok: bool, text: String) {
         self.status = text.clone();
         if !ok {
             self.toast(ToastKind::Error, text);
@@ -110,62 +110,6 @@ impl AutoShadeApp {
                 self.refresh_recipes();
                 self.recipe_sel = Some(name.clone());
                 let base = trf(self.lang, "Saved recipe 「{name}」", &[("name", &name)]);
-                let text = if losses.is_empty() {
-                    base
-                } else {
-                    format!(
-                        "{} — {} {}",
-                        base,
-                        tr(self.lang, "left out what belongs to the source photo:"),
-                        self.recipe_losses(losses)
-                    )
-                };
-                self.recipe_status(true, text);
-            }
-            Err(e) => {
-                let text = trf(self.lang, "Recipe 「{name}」 could not be saved: {err}", &[("name", &name), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
-            }
-        }
-    }
-
-    /// Add a recipe file the user picked (our own recipe.json, or a Lightroom
-    /// .xmp sidecar) to the library.
-    pub(crate) fn import_recipe(&mut self) {
-        let Some(path) = rfd::FileDialog::new()
-            .add_filter(tr(self.lang, "Recipe file"), &["json", "xmp"])
-            .pick_file()
-        else {
-            return;
-        };
-        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default().to_string();
-        let name = match autoshade::recipe_library::check_name(&stem) {
-            Ok(name) => name,
-            Err(e) => {
-                let text = self.recipe_name_error(e);
-                self.recipe_status(false, text);
-                return;
-            }
-        };
-        if autoshade::recipe_library::exists(&name) {
-            let text = trf(self.lang, "A recipe named 「{name}」 already exists", &[("name", &name)]);
-            self.recipe_status(false, text);
-            return;
-        }
-        let recipe = match autoshade::recipe_library::read_file(&path) {
-            Ok(r) => r,
-            Err(e) => {
-                let text = trf(self.lang, "{file} is not a recipe: {err}", &[("file", &path.display().to_string()), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
-                return;
-            }
-        };
-        let (entry, losses) = autoshade::recipe_library::portable(&recipe, false);
-        match autoshade::recipe_library::create(&name, &entry) {
-            Ok(()) => {
-                self.refresh_recipes();
-                self.recipe_sel = Some(name.clone());
-                let base = trf(self.lang, "Imported 「{name}」", &[("name", &name)]);
                 let text = if losses.is_empty() {
                     base
                 } else {
@@ -387,7 +331,9 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, "Add a recipe.json or a Lightroom / Camera Raw .xmp sidecar to the library"))
                     .clicked()
                 {
-                    self.import_recipe();
+                    self.apply_actions(vec![logic::Action::Recipe(
+                        logic::recipes::RecipeAction::ImportFile,
+                    )]);
                 }
             });
         });

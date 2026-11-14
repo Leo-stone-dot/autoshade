@@ -7556,7 +7556,12 @@ hit-testing and the overlay stay in `handle_crop`. Mask knob drags
 ([`logic/mask_edit.rs`](../src/bin/gui/logic/mask_edit.rs): `apply`) follow the
 same rule: the linear/shaped points, the radial edges projected onto the mask's
 own rotated axes, the rotation grip and the clamped centre move are pure; the
-hit-testing and the drag anchor stay in the canvas.
+hit-testing and the drag anchor stay in the canvas. The AI region box
+([`logic/region.rs`](../src/bin/gui/logic/region.rs): `apply`) takes the
+four mapped corners, refuses a box under 2% and words its size; a tiny drag
+clears. The recipe library's import dialog is the first view→dialog verb moved
+to the action layer (`RecipeAction::ImportFile`): the panel emits, the dialog
+and the library writes happen outside it.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 
