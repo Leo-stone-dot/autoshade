@@ -211,5 +211,28 @@
                 "panels/recipes.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
         }
+        // `portrait.rs` — finding the people, the skin switch's bookkeeping,
+        // blemish removal and the depth landing live in `portrait_actions.rs`;
+        // the panel draws and emits PortraitActions.
+        let portrait = std::fs::read_to_string(root.join("portrait.rs")).expect("the panel source is readable");
+        for needle in [
+            concat!("spawn_worker", "("),
+            "Msg::",
+            "ToastKind",
+            concat!("crate::budget::heavy_permit", "("),
+            "autoshade::store::",
+            "start_find_people(",
+            "start_remove_blemishes(",
+            "set_keep_person_sharp(",
+            "set_keep_skin(",
+            "on_portrait_found(",
+            "after_portrait_depth(",
+            "guard_portrait_skin(",
+        ] {
+            assert!(
+                !portrait.contains(needle),
+                "panels/portrait.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
         }
     }
