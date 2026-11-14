@@ -57,6 +57,7 @@ mod canvas;
 mod export;
 mod masks;
 mod panels;
+mod retouch_actions;
 mod runtime;
 mod side_panel;
 mod window_chrome;

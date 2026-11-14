@@ -124,5 +124,24 @@
                 "panels/settings.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
         }
+        // `retouch.rs` — its worker starts (fill / adjust / heal / denoise /
+        // stack / clone / reimagine / style prompt) live in
+        // `retouch_actions.rs` now: the panel draws, samples the brush and
+        // emits verbs.
+        let retouch = std::fs::read_to_string(root.join("retouch.rs")).expect("the panel source is readable");
+        for needle in [
+            concat!("spawn_worker", "("),
+            "Msg::",
+            "ToastKind",
+            concat!("crate::budget::heavy_permit", "("),
+            "autoshade::store::",
+            "rfd::",
+            "self.recipe.pixel_layers.push(",
+        ] {
+            assert!(
+                !retouch.contains(needle),
+                "panels/retouch.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
         }
     }

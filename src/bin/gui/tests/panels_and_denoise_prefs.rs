@@ -659,7 +659,7 @@
         );
         // …and each verb reads ITS fold's dial: no literal strength survives
         // in either worker, and neither reads the other's field.
-        let now = include_str!("../panels/retouch.rs");
+        let now = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
         assert!(now.contains("let strength = self.selected_denoise_strength(false);"));
         assert!(now.contains("DenoiseOpts::from_config(&cfg, None, strength)"));
         assert!(!now.contains("save_denoise_strength"), "「AI Denoise now」 must not read the Export dial");
