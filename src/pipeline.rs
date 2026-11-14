@@ -65,6 +65,24 @@ pub struct GradeRequest {
     pub embed: crate::library::EmbeddingSwitch,
 }
 
+/// The direction text a box-selected REGION folds into: the normalized corners
+/// plus what the user asked, phrased so the proposer emits a mask exactly
+/// there. The desktop app's region tool and the web request both build this
+/// sentence — one implementation, so the two surfaces cannot drift; an empty
+/// direction becomes the neutral one.
+pub fn region_guidance(left: f32, top: f32, right: f32, bottom: f32, direction: &str) -> String {
+    let direction = direction.trim();
+    let direction =
+        if direction.is_empty() { "make a tasteful local improvement" } else { direction };
+    format!(
+        "The user SELECTED a target region (normalized 0..1 frame coords): \
+         left={left:.3} top={top:.3} right={right:.3} bottom={bottom:.3}. Apply the direction ONLY \
+         to that region — emit a mask covering it (a radial mask with those exact \
+         left/top/right/bottom bounds and feather ~0.4 is ideal, or a linear gradient for a thin \
+         edge band). Direction: {direction}"
+    )
+}
+
 impl Default for GradeRequest {
     /// The struct defaults, PLUS the embedding switch, whose default is the
     /// environment's answer — resolved here, once per request, so nothing
@@ -9503,5 +9521,24 @@ mod harness_dispatch_tests {
         assert!(!fresh_analysis(None, Some("warmer"), None, false), "direction");
         assert!(!fresh_analysis(None, None, Some(&base), false), "refine");
         assert!(!fresh_analysis(None, None, None, true), "--deep");
+    }
+}
+
+/// The region prompt is shared by the desktop app and the web request — one
+/// sentence, so a change to what the model is asked cannot land on one surface
+/// only.
+#[cfg(test)]
+mod region_guidance_tests {
+    use super::region_guidance;
+
+    /// The corners are formatted into the same template both surfaces send; an
+    /// empty direction falls back to the neutral instruction.
+    #[test]
+    fn a_region_is_phrased_the_same_way_on_every_surface() {
+        let s = region_guidance(0.125, 0.25, 0.75, 0.875, "warmer");
+        assert!(s.starts_with("The user SELECTED a target region (normalized 0..1 frame coords): left=0.125 top=0.250 right=0.750 bottom=0.875."), "{s}");
+        assert!(s.contains("emit a mask covering it"));
+        assert!(s.ends_with("Direction: warmer"), "{s}");
+        assert!(region_guidance(0.0, 0.0, 1.0, 1.0, "  ").ends_with("Direction: make a tasteful local improvement"));
     }
 }

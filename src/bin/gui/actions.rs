@@ -3537,14 +3537,9 @@ impl AutoShadeApp {
             None => self.guidance.trim().to_string(),
         };
         let guidance = match self.region {
-            Some([l, t, r, b]) => Some(format!(
-                "The user SELECTED a target region (normalized 0..1 frame coords): \
-                 left={l:.3} top={t:.3} right={r:.3} bottom={b:.3}. Apply the direction ONLY to \
-                 that region — emit a mask covering it (a radial mask with those exact \
-                 left/top/right/bottom bounds and feather ~0.4 is ideal, or a linear gradient \
-                 for a thin edge band). Direction: {}",
-                if typed.is_empty() { "make a tasteful local improvement" } else { &typed }
-            )),
+            Some([l, t, r, b]) => {
+                Some(autoshade::pipeline::region_guidance(l, t, r, b, &typed))
+            }
             None => (guide == autoshade::pipeline::Guide::Direction && !typed.is_empty()).then(|| typed.clone()),
         };
         let base = adjusting.then(|| {

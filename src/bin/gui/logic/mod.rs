@@ -13,6 +13,7 @@
 //! or reach past the seam.
 
 pub(crate) mod lens_blur;
+pub(crate) mod look;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -59,7 +60,13 @@ impl UiText {
 /// Something the caller must do FOR the logic — the effects that need a
 /// thread, a frame or the app's own state, kept out of the functions above so
 /// they stay synchronous and testable.
+#[derive(Debug)]
 pub(crate) enum Effect {
+    /// The line a view verb owns (the panel maps it to its own line enum).
+    LookLine { kind: look::LookKind, line: look::LookLine },
+    /// A one-click landed: remember the values 「back to the one-click result」
+    /// restores for this photo.
+    RememberOneClick { photo: PathBuf, fine: look::FineTune },
     /// Run the depth sidecar over this photo's original-frame base.
     EstimateDepth { photo: PathBuf, base: Arc<image::DynamicImage> },
     Status(UiText),

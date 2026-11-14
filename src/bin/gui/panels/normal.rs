@@ -17,6 +17,7 @@
 //! design §6): none of the workspace's trade terms appear here.
 
 use crate::*;
+use crate::logic::look::{FineTune, OneClick};
 use autoshade::pipeline::{GradeRequest, Guide};
 
 /// The adherence a preset's direction is followed with: above 70 %, a firm
@@ -33,14 +34,6 @@ pub(crate) const REFERENCE_STYLE: f32 = 1.0;
 /// `NETWORK_BYTES`, 71 994 286 bytes), in MB — pinned by a test against
 /// that file.
 pub(crate) const DENOISE_FIRST_DOWNLOAD_MB: u32 = 72;
-
-/// What a one-click asks for: one of the fixed looks, or the photos in the
-/// chosen reference folder.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum OneClick {
-    Preset(&'static str),
-    References,
-}
 
 /// The one line under the one-click group: what the last one-click did.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -92,29 +85,6 @@ pub(crate) struct DenoisePair {
     pub(crate) photo: PathBuf,
     pub(crate) plain: String,
     pub(crate) denoised: Option<String>,
-}
-
-/// The four fine-tune values as a one-click left them, so 「back to the
-/// one-click result」 can put them back.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct FineTune {
-    pub(crate) exposure_ev: f32,
-    pub(crate) contrast: f32,
-    pub(crate) temperature_k: Option<f32>,
-    pub(crate) saturation: f32,
-}
-
-impl FineTune {
-    pub(crate) fn of(r: &EditRecipe) -> Self {
-        FineTune { exposure_ev: r.exposure_ev, contrast: r.contrast, temperature_k: r.temperature_k, saturation: r.saturation }
-    }
-
-    fn apply(self, r: &mut EditRecipe) {
-        r.exposure_ev = self.exposure_ev;
-        r.contrast = self.contrast;
-        r.temperature_k = self.temperature_k;
-        r.saturation = self.saturation;
-    }
 }
 
 /// Normal's own state. Nothing here is persisted: the remembered preferences

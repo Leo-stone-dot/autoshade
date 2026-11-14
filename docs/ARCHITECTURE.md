@@ -7527,7 +7527,9 @@ store. `runtime.rs` is the only crossing: `apply_actions` routes the actions to
 view flag), and `i18n::text` renders the `logic::UiText` key. `logic/` is
 headless — no widget code, no rendered text — so a domain is tested by calling
 it. The Lens Blur pilot ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs):
-`estimate_depth` and `landed`) is the shape the other panels migrate to;
+`estimate_depth` and `landed`) is the shape the other panels migrate to, and the
+four AI-look verbs share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
+`plan`, `claim`, `restore`, `landed` — one epoch a result can win);
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 

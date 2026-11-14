@@ -1869,13 +1869,7 @@ fn api_analyze(request: &mut Request, state: &AppState) -> Result<ResponseBox> {
             .map(|(m, _)| m)
             .unwrap_or_else(|| raw.clone());
         let (l, t, r, b) = region_to_original(g, mapped_view.as_ref(), &display_src);
-        format!(
-            "The user SELECTED a target region (normalized 0..1 frame coords): left={l:.3} top={t:.3} \
-             right={r:.3} bottom={b:.3}. Apply the direction ONLY to that region — emit a mask covering \
-             it (a radial mask with those exact left/top/right/bottom bounds and feather ~0.4 is \
-             ideal, or a linear gradient for a thin edge band). Direction: {}",
-            req.guidance.as_deref().unwrap_or("make a tasteful local improvement"),
-        )
+        pipeline::region_guidance(l, t, r, b, req.guidance.as_deref().unwrap_or(""))
     });
     let guidance = region_guidance.as_deref().or(req.guidance.as_deref());
     // A dragged region is a direction too: it only means something to a

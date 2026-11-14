@@ -311,7 +311,7 @@ impl AutoShadeApp {
         if self.busy || self.analyze_inflight {
             return;
         }
-        let (req, guidance) = self.one_click_request(crate::panels::normal::OneClick::Preset("portrait"));
+        let (req, guidance) = self.one_click_request(crate::logic::look::OneClick::Preset("portrait"));
         let kept: Vec<LocalAdjustment> = self.recipe.masks.iter().filter(|m| PORTRAIT_ROLES.contains(&m.role)).cloned().collect();
         let blur = self.recipe.lens_blur.clone();
         self.busy = true;
