@@ -7619,7 +7619,12 @@ the undo baseline) live in `normal_actions.rs`; the panel emits
 losses interrupt a save (stamped calibration is quiet, anything the
 photographer chose or an unregistered control is not), which rotation angles
 are named and counted, and which carried-only gaps collapse into which
-section; `util.rs` renders those rules into the sentences. Every dialog a panel asks for is now such an action
+section; `util.rs` renders those rules into the sentences. The analysis landing's WRITE half is now its own app-layer module
+([`src/bin/gui/landing_persist.rs`](../src/bin/gui/landing_persist.rs):
+`persist_analysis_landing`): the backup gate, the single-generation develop
+commit (recipe + pixel link + strip + XMP member) and the sidecar disclosures,
+under one no-wait lock; `workers::on_analyzed` keeps the epoch guard, the shape
+and the state install. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.
