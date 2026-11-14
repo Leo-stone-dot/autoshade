@@ -57,6 +57,7 @@ mod canvas;
 mod export;
 mod masks;
 mod panels;
+mod recipe_actions;
 mod retouch_actions;
 mod runtime;
 mod side_panel;

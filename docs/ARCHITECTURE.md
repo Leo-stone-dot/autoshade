@@ -7603,7 +7603,10 @@ panel holds no worker, store read/write, dialog or direct start call. The develo
 load/delete a version (the delete under a no-wait develop lock), plus the
 denoise / stack / brush / segment / refine starts; the panel keeps the slider
 bindings, the tool arming and the draw code, and the guard pins that it starts
-no worker and touches no store. Every dialog a panel asks for is now such an action
+no worker and touches no store. The recipe library window follows: listing, saving,
+applying, renaming and deleting entries live in `recipe_actions.rs`, the window
+emits `RecipeAction`s (import included), and the guard pins that it writes
+nothing — its preview/details panes still READ an entry to draw it. Every dialog a panel asks for is now such an action
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.
