@@ -58,6 +58,22 @@ impl AutoShadeApp {
                             self.style_raw_dir = Some(dir);
                         }
                     }
+                    logic::ai::AiAction::RefreshLibraryStatus => {
+                        // Not in tests: a headless frame would spawn a worker
+                        // reading the developer's own store.
+                        if !cfg!(test) && self.style_info.is_none() && !self.style_info_loading {
+                            self.start_style_info();
+                        }
+                    }
+                    logic::ai::AiAction::BuildReferenceLibrary => {
+                        if let Some(dir) = self.style_src_dir.clone().filter(|d| d.is_dir()) {
+                            self.start_style_build(dir);
+                        }
+                    }
+                    logic::ai::AiAction::Reimagine => self.start_reimagine(),
+                    logic::ai::AiAction::AdjustGenerated => self.start_adjust(),
+                    logic::ai::AiAction::ReverseFit => self.start_fit(),
+                    logic::ai::AiAction::StylePrompt => self.start_style_prompt(),
                     logic::ai::AiAction::PickReferenceFolder => {
                         let mut dialog = rfd::FileDialog::new();
                         // Reopen where the last build ran, when it still exists.

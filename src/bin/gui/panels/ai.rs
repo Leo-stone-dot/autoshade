@@ -565,8 +565,8 @@ impl AutoShadeApp {
         // sub-area up reads this same answer, so a collapsed fold must not
         // starve it. Not in tests: a headless frame would spawn a worker
         // reading the developer's own store; tests set `style_info` directly.
-        if !cfg!(test) && self.style_info.is_none() && !self.style_info_loading {
-            self.start_style_info();
+        if self.style_info.is_none() && !self.style_info_loading {
+            self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::RefreshLibraryStatus)]);
         }
         ui.add_space(SPACE_XS);
         // Read off the SAME comparison the pipeline makes
@@ -739,8 +739,8 @@ impl AutoShadeApp {
         if pick {
             self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::PickReferenceFolder)]);
         }
-        if let Some(dir) = build {
-            self.start_style_build(dir);
+        if build.is_some() {
+            self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::BuildReferenceLibrary)]);
         }
     }
 
@@ -877,7 +877,7 @@ impl AutoShadeApp {
                             ))
                             .clicked()
                         {
-                            self.start_reimagine();
+                            self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::Reimagine)]);
                         }
                     });
                 });
@@ -953,7 +953,7 @@ impl AutoShadeApp {
                     self.adjust_btn_enabled = Some(resp.enabled());
                 }
                 if resp.clicked() {
-                    self.start_adjust();
+                    self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::AdjustGenerated)]);
                 }
             });
     }
@@ -1159,7 +1159,7 @@ impl AutoShadeApp {
                     ))
                     .clicked()
                 {
-                    self.start_fit();
+                    self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::ReverseFit)]);
                 }
                 if action_in(ui, cell, can, tr(lang, "Extract style"))
                     .on_hover_text(tr(lang,
@@ -1169,7 +1169,7 @@ impl AutoShadeApp {
                     ))
                     .clicked()
                 {
-                    self.start_style_prompt();
+                    self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::StylePrompt)]);
                 }
             });
             // R20 opt-in LLM-as-a-judge. OUTSIDE the can_fit gate: the

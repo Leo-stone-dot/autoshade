@@ -143,5 +143,28 @@
                 "panels/retouch.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
             );
         }
+        // `ai.rs` — the AI section's starts (library status/build, reimagine,
+        // generated-card adjust, reverse-fit, style prompt) are actions now:
+        // the panel draws and emits verbs.
+        let ai = std::fs::read_to_string(root.join("ai.rs")).expect("the panel source is readable");
+        for needle in [
+            concat!("spawn_worker", "("),
+            "Msg::",
+            "ToastKind",
+            concat!("crate::budget::heavy_permit", "("),
+            "autoshade::store::",
+            "rfd::",
+            "start_style_info(",
+            "start_style_build(",
+            "start_reimagine(",
+            "start_adjust(",
+            "start_fit(",
+            "start_style_prompt(",
+        ] {
+            assert!(
+                !ai.contains(needle),
+                "panels/ai.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+            );
+        }
         }
     }
