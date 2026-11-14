@@ -1791,74 +1791,32 @@ impl AutoShadeApp {
         // Live placement preview: no owning adjustment yet → markers upright.
         draw_mask_overlay(ui, xf, &geom_to_view(&geom, dims, deg, &dist), false, self.lang);
         if resp.drag_stopped() {
-            let status: String = match target {
-                PlaceTarget::Redraw(i) if i < self.recipe.masks.len() => {
-                    // Redraw replaces the AREA only — a radial's tuned feather /
-                    // roundness / flipped / angle are slider+handle state, and
-                    // silently resetting them made ↻ Redraw destructive. The
-                    // two CARRIED Lightroom attributes (midpoint, mask_version)
-                    // ride the same rule for a stronger reason: nothing in this
-                    // app can even show them, so a redraw that reset an
-                    // imported mask's own Midpoint to 50 would be a loss with
-                    // no surface to notice it on (R25 P5).
-                    let mut geom = geom;
-                    if let (
-                        autoshade::recipe::MaskGeometry::Radial {
-                            feather, roundness, flipped, angle, midpoint, mask_version, ..
-                        },
-                        autoshade::recipe::MaskGeometry::Radial {
-                            feather: kept_f,
-                            roundness: kept_r,
-                            flipped: kept_fl,
-                            angle: kept_a,
-                            midpoint: kept_m,
-                            mask_version: kept_v,
-                            ..
-                        },
-                    ) = (&mut geom, &self.recipe.masks[i].mask)
-                    {
-                        *feather = *kept_f;
-                        *roundness = *kept_r;
-                        *flipped = *kept_fl;
-                        *angle = *kept_a;
-                        *midpoint = *kept_m;
-                        *mask_version = *kept_v;
-                    }
-                    self.recipe.masks[i].mask = geom;
-                    // A REDRAW kept the mask's existing (possibly nonzero)
-                    // sliders — the "all 0 now" line below is only true for a
-                    // brand-new mask.
-                    tr(self.lang, "mask area redrawn — its existing adjustments now apply to the new area").into()
-                }
-                PlaceTarget::Component(i, mode) if i < self.recipe.masks.len() => {
-                    let m = &mut self.recipe.masks[i];
-                    m.components.push(autoshade::recipe::MaskComponent { inverted: false, geometry: geom, mode });
-                    self.sel_mask = Some(i);
-                    self.sel_component = Some(m.components.len() - 1);
-                    tr(self.lang, "shape added to this mask — drag its knobs to adjust; the shape list is under the mask's row").into()
-                }
-                // NewMask — and the two index-carrying targets whose mask
-                // vanished mid-drag (an async recipe replace): a redraw
-                // degrades to a fresh mask (pre-v0.22 behaviour); a component
-                // with no owner joins it rather than vanishing silently.
-                _ => {
-                    let n = self.recipe.masks.len();
-                    let name = trf(self.lang, "Manual {n}", &[("n", &(n + 1).to_string())]);
-                    self.recipe.masks.push(autoshade::recipe::LocalAdjustment {
-                        mask: geom,
-                        name,
-                        ..Default::default()
-                    });
-                    self.sel_mask = Some(n);
-                    self.sel_component = None;
-                    tr(self.lang, "mask placed — pull its sliders in 「Local Masks」 at left (all 0 now, no visible effect yet)").into()
-                }
+            // The commit's MEANING is the logic layer's (redraw keeps the
+            // tuned state, a component joins its mask, a fresh drag creates
+            // one); this handler keeps the drag itself.
+            let place = match target {
+                PlaceTarget::NewMask => logic::mask_place::Place::NewMask,
+                PlaceTarget::Redraw(i) => logic::mask_place::Place::Redraw(i),
+                PlaceTarget::Component(i, mode) => logic::mask_place::Place::Component(i, mode),
             };
+            let n = (self.recipe.masks.len() + 1).to_string();
+            let name = trf(self.lang, "Manual {n}", &[("n", &n)]);
+            let committed = logic::mask_place::commit(&mut self.recipe, place, geom, name);
+            match committed.selection {
+                logic::mask_place::Selection::Keep => {}
+                logic::mask_place::Selection::Mask(i) => {
+                    self.sel_mask = Some(i);
+                    self.sel_component = None;
+                }
+                logic::mask_place::Selection::Component(i, c) => {
+                    self.sel_mask = Some(i);
+                    self.sel_component = Some(c);
+                }
+            }
+            self.run_effects(committed.effects);
             self.placing_mask = None;
             self.place_start = None;
-            self.dirty = true;
             self.overlay_stale = true;
-            self.status = status;
         }
     }
 

@@ -15,6 +15,7 @@
 pub(crate) mod analysis_landing;
 pub(crate) mod gallery;
 pub(crate) mod lens_blur;
+pub(crate) mod mask_place;
 pub(crate) mod pick;
 pub(crate) mod look;
 

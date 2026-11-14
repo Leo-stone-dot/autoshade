@@ -7544,7 +7544,11 @@ the bounded texture window and the ●-edited fact, while the folder dialog, the
 thumbnail worker and the retains are the runtime's `GalleryAction` arms. The three on-canvas eyedroppers
 ([`logic/pick.rs`](../src/bin/gui/logic/pick.rs): `apply`) decide what one
 sample does — the WB solve, the range re-key, the Point Color swatch and when
-the tool drops — while the canvas keeps the sampling itself.
+the tool drops — while the canvas keeps the sampling itself. A dragged mask's commit
+([`logic/mask_place.rs`](../src/bin/gui/logic/mask_place.rs): `commit`) is the
+same split: redraw keeps the tuned radial state and replaces only the area, a
+component joins its mask, a fresh drag is named and selected — the drag and the
+transform stay in the canvas.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam.
 
