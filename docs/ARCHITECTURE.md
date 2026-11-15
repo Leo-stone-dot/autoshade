@@ -7544,9 +7544,12 @@ view flag), and `i18n::text` renders the `logic::UiText` key. The actions are
 closed per domain (`Look`, `Lens`, `Gallery`), so a panel can only ask for its
 own verbs. A panel that has moved to the projection draws through `PanelView`
 ([`panel_view.rs`](../src/bin/gui/panel_view.rs)): it receives `&mut Editor`,
-`&mut WorkspaceView`, the language and the test seams — never
-`&mut AutoShadeApp`. The histogram, the tone-curve editor and the clipping
-toggle they share are the first tenant. `logic/` is headless — no widget code,
+`&mut WorkspaceView`, the language, the test seams and the frame's ACTION SINK
+(`&mut Vec<logic::Action>`) — never `&mut AutoShadeApp`. A panel reports its
+intents with `act_all` and toasts through the chrome's door; `draw_panel` runs
+the sink once the draw returns. The histogram, the tone-curve editor and the
+clipping toggle, the settings window and the gallery are the migrated tenants.
+`logic/` is headless — no widget code,
 no rendered text — so a
 domain is tested by calling it. The develop panel's scalar controls are a
 trait registry too ([`controls.rs`](../src/bin/gui/controls.rs): `ControlWidget`,
