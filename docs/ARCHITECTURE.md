@@ -7204,7 +7204,9 @@ the user's own browser*, and the guarantees are:
 - **The develop form's bands are the server's.** `GET /api/controls` answers the
   scalar `RECIPE_CONTROLS` bands — the same table `EditRecipe::clamp` is pinned
   to — and the page overwrites its slider ranges from that answer on load,
-  keeping only its labels and steps locally. A failed fetch keeps the local
+  keeping only its labels and steps locally; the same answer carries each
+  control's RESET value (a companion's Lightroom default, e.g. grain size 25,
+  rather than the stored 0 that means absent). A failed fetch keeps the local
   numbers, so the page still works when the endpoint is unreachable.
 
 - **Bounded work.** `EditRecipe::clamp` caps masks/curves/knots **and strings**

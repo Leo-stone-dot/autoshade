@@ -1374,11 +1374,25 @@ fn fresh_base_payload(raw: &Path) -> String {
 /// the web form must not be able to state a range `EditRecipe::clamp` does not
 /// enforce. Its labels and steps stay in the page.
 fn controls_json() -> serde_json::Value {
+    let default_recipe = crate::recipe::EditRecipe::default();
     let controls: Vec<serde_json::Value> = crate::advisor::catalogue::RECIPE_CONTROLS
         .iter()
         .filter_map(|c| {
-            c.range
-                .map(|(lo, hi)| json!({ "name": c.name, "range": [lo, hi] }))
+            let (lo, hi) = c.range?;
+            // The reset value comes from THIS tree's data: a companion's
+            // Lightroom default (grain size 25, not the stored 0 that means
+            // "absent"), otherwise the default recipe's own scalar.
+            let default = if crate::recipe::LR_COMPANION_DEFAULTS.iter().any(|(n, _)| *n == c.name) {
+                Some(default_recipe.resolved(c.name))
+            } else {
+                match crate::advisor::catalogue::global_value(&default_recipe, c.name) {
+                    Some(crate::advisor::catalogue::GlobalValue::Num(v)) => Some(v),
+                    Some(crate::advisor::catalogue::GlobalValue::OptNum(Some(v))) => Some(v),
+                    Some(crate::advisor::catalogue::GlobalValue::Int(v)) => Some(v as f32),
+                    _ => None,
+                }
+            };
+            Some(json!({ "name": c.name, "range": [lo, hi], "default": default }))
         })
         .collect();
     json!({ "controls": controls })
@@ -3758,6 +3772,16 @@ mod tests {
             .find(|r| r["name"] == "exposure_ev")
             .expect("exposure_ev is a listed control");
         assert_eq!(exposure["range"], json!([-5.0, 5.0]), "the band is the clamp band");
+        assert_eq!(exposure["default"], json!(0.0), "the reset value is the default recipe's scalar");
+        let grain = rows
+            .iter()
+            .find(|r| r["name"] == "grain_size")
+            .expect("grain_size is a listed companion control");
+        assert_eq!(
+            grain["default"],
+            json!(25.0),
+            "a companion resets to Lightroom's default, not to the stored 0 that means absent",
+        );
         for r in rows {
             let range = r["range"].as_array().expect("range array");
             assert_eq!(range.len(), 2, "every listed control carries one band");
