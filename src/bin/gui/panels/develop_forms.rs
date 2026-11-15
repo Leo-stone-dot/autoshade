@@ -73,6 +73,8 @@ fn label(lang: Lang, id: CapabilityId) -> &'static str {
         CapabilityId::CalRedHue | CapabilityId::CalGreenHue | CapabilityId::CalBlueHue => tr(lang, "Hue"),
         CapabilityId::CalRedSat | CapabilityId::CalGreenSat | CapabilityId::CalBlueSat => tr(lang, "Saturation"),
         CapabilityId::WhiteBalanceTint => tr(lang, "Tint"),
+        CapabilityId::GradeBlending => tr(lang, "Blending"),
+        CapabilityId::GradeBalance => tr(lang, "Balance"),
     }
 }
 
@@ -103,7 +105,7 @@ pub(crate) fn render_rows(
 ) -> bool {
     let mut changed = false;
     for cap in table {
-        let Some((min, max)) = cap.range() else { continue };
+        let Some(((min, max), reset)) = cap.band_and_reset() else { continue };
         let text = label(lang, cap.id);
         let row_changed = match cap.kind {
             SliderKind::CompanionInt | SliderKind::CompanionFine => {
@@ -125,7 +127,7 @@ pub(crate) fn render_rows(
                     &mut current,
                     min,
                     max,
-                    cap.reset,
+                    reset,
                     hint(lang, cap.id).unwrap_or(""),
                 );
                 if dirty {
@@ -136,9 +138,9 @@ pub(crate) fn render_rows(
             SliderKind::Plain | SliderKind::Fine => {
                 let mut current = capability::value(recipe, cap.id);
                 let dirty = if cap.kind == SliderKind::Fine {
-                    AutoShadeApp::slider_fine(ui, lang, text, &mut current, min, max, cap.reset)
+                    AutoShadeApp::slider_fine(ui, lang, text, &mut current, min, max, reset)
                 } else {
-                    AutoShadeApp::slider(ui, lang, text, &mut current, min, max, cap.reset)
+                    AutoShadeApp::slider(ui, lang, text, &mut current, min, max, reset)
                 };
                 if dirty {
                     out.push(Command::SetCapability { id: cap.id, value: current });

@@ -3765,6 +3765,12 @@ mod tests {
             json!(25.0),
             "a companion resets to Lightroom's default, not to the stored 0 that means absent",
         );
+        let blending = rows
+            .iter()
+            .find(|r| r["name"] == "color_grade.blending")
+            .expect("the nested colour-grade field is a listed control");
+        assert_eq!(blending["range"], json!([0.0, 100.0]), "the nested band is the grading clamp's");
+        assert_eq!(blending["default"], json!(50.0), "blending's reset is its neutral 50, not 0");
         for r in rows {
             let range = r["range"].as_array().expect("range array");
             assert_eq!(range.len(), 2, "every listed control carries one band");

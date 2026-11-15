@@ -3112,6 +3112,12 @@ mod tests {
         let all = autoshade::advisor::catalogue::form_controls();
         let grain = all.iter().find(|(n, _, _)| *n == "grain_size").expect("grain_size listed");
         assert_eq!(grain.2, Some(25.0), "grain_size resets to Lightroom's default");
+        let blending = all
+            .iter()
+            .find(|(n, _, _)| *n == "color_grade.blending")
+            .expect("the nested colour-grade field is listed");
+        assert_eq!(blending.1, (0.0, 100.0), "the nested band is the grading clamp's");
+        assert_eq!(blending.2, Some(50.0), "blending resets to its neutral 50");
     }
 
 

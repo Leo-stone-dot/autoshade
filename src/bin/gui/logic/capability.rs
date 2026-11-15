@@ -1,12 +1,14 @@
 //! The develop form's scalar capability table: one row per control, the single
-//! place a control's recipe field, its catalogue spelling and its reset value
-//! are named. The RANGE is not repeated here — it is read from the core
-//! catalogue (`advisor::catalogue::Control::range`), the same table the advisor
-//! and the XMP writer read, so the form cannot state a band the engine does not
-//! enforce. The renderer turns one row into one slider; the label (and its
-//! translation) stays at the draw site.
+//! place a control's recipe field and its catalogue spelling are named. The
+//! BAND and the reset are not repeated here — both come from the core
+//! catalogue through `advisor::catalogue::form_control` (the top-level
+//! `RECIPE_CONTROLS` rows the advisor and XMP writer read, plus the nested
+//! `COLOR_GRADE_FIELDS`), so the form cannot state a band the engine does not
+//! enforce nor a reset `EditRecipe::default` does not store. The renderer turns
+//! one row into one slider; the label (and its translation) stays at the draw
+//! site.
 
-use autoshade::advisor::catalogue::global_control;
+use autoshade::advisor::catalogue::form_control;
 use autoshade::recipe::EditRecipe;
 
 /// How one row is drawn. `Companion*` is the Lightroom companion encoding (a
@@ -93,6 +95,8 @@ pub(crate) enum CapabilityId {
     CalBlueHue,
     CalBlueSat,
     WhiteBalanceTint,
+    GradeBlending,
+    GradeBalance,
 }
 
 impl CapabilityId {
@@ -115,171 +119,183 @@ impl CapabilityId {
 }
 
 /// One row of the form: the field, the catalogue spelling it must resolve to,
-/// the double-click reset value and how it is drawn.
+/// and how it is drawn. The BAND and the double-click reset come from the core
+/// catalogue's `form_control` lookup — a row never restates either.
 pub(crate) struct Capability {
     pub id: CapabilityId,
     pub control: &'static str,
-    pub reset: f32,
     pub kind: SliderKind,
 }
 
 impl Capability {
-    /// The band the slider draws, from the catalogue (None = the catalogue has
-    /// no band for this spelling; the unit test below rejects such a row).
-    pub(crate) fn range(&self) -> Option<(f32, f32)> {
-        global_control(self.control).and_then(|c| c.range)
+    /// The band the slider draws plus the double-click reset, both from the
+    /// catalogue's one `form_controls` answer (top-level scalars and the
+    /// nested `color_grade.<field>` rows). `None` = the catalogue has no band
+    /// for this spelling; the headless table tests reject such a row.
+    pub(crate) fn band_and_reset(&self) -> Option<((f32, f32), f32)> {
+        let (band, reset) = form_control(self.control)?;
+        Some((band, reset.unwrap_or(0.0)))
     }
 }
 
 macro_rules! cap {
-    ($id:ident, $control:literal, $reset:literal, $kind:ident) => {
-        Capability { id: CapabilityId::$id, control: $control, reset: $reset, kind: SliderKind::$kind }
+    ($id:ident, $control:literal, $kind:ident) => {
+        Capability { id: CapabilityId::$id, control: $control, kind: SliderKind::$kind }
     };
 }
 
 /// Lightroom's Basic-panel tone controls, in the panel's order.
 pub(crate) const TONE: &[Capability] = &[
-    cap!(Exposure, "exposure_ev", 0.0, Plain),
-    cap!(Contrast, "contrast", 0.0, Plain),
-    cap!(Highlights, "highlights", 0.0, Plain),
-    cap!(Shadows, "shadows", 0.0, Plain),
-    cap!(Whites, "whites", 0.0, Plain),
-    cap!(Blacks, "blacks", 0.0, Plain),
+    cap!(Exposure, "exposure_ev", Plain),
+    cap!(Contrast, "contrast", Plain),
+    cap!(Highlights, "highlights", Plain),
+    cap!(Shadows, "shadows", Plain),
+    cap!(Whites, "whites", Plain),
+    cap!(Blacks, "blacks", Plain),
 ];
 
 /// Presence, in the engine's own order (texture → clarity → dehaze, then the
 /// two colour dials).
 pub(crate) const PRESENCE: &[Capability] = &[
-    cap!(Texture, "texture", 0.0, Plain),
-    cap!(Clarity, "clarity", 0.0, Plain),
-    cap!(Dehaze, "dehaze", 0.0, Plain),
-    cap!(Vibrance, "vibrance", 0.0, Plain),
-    cap!(Saturation, "saturation", 0.0, Plain),
+    cap!(Texture, "texture", Plain),
+    cap!(Clarity, "clarity", Plain),
+    cap!(Dehaze, "dehaze", Plain),
+    cap!(Vibrance, "vibrance", Plain),
+    cap!(Saturation, "saturation", Plain),
 ];
 
 /// Post-crop vignetting, in the panel's row order.
 pub(crate) const VIGNETTE: &[Capability] = &[
-    cap!(PostCropVignette, "post_crop_vignette", 0.0, Plain),
-    cap!(CompanionPostCropMid, "post_crop_vignette_mid", 0.0, CompanionInt),
-    cap!(CompanionPostCropFeather, "post_crop_vignette_feather", 0.0, CompanionInt),
-    cap!(PostCropVignetteRound, "post_crop_vignette_round", 0.0, Plain),
-    cap!(CompanionPostCropStyle, "post_crop_vignette_style", 0.0, CompanionInt),
-    cap!(PostCropVignetteHl, "post_crop_vignette_hl", 0.0, Plain),
+    cap!(PostCropVignette, "post_crop_vignette", Plain),
+    cap!(CompanionPostCropMid, "post_crop_vignette_mid", CompanionInt),
+    cap!(CompanionPostCropFeather, "post_crop_vignette_feather", CompanionInt),
+    cap!(PostCropVignetteRound, "post_crop_vignette_round", Plain),
+    cap!(CompanionPostCropStyle, "post_crop_vignette_style", CompanionInt),
+    cap!(PostCropVignetteHl, "post_crop_vignette_hl", Plain),
 ];
 
 /// Grain, below the vignette rows.
 pub(crate) const GRAIN: &[Capability] = &[
-    cap!(Grain, "grain", 0.0, Plain),
-    cap!(CompanionGrainSize, "grain_size", 0.0, CompanionInt),
-    cap!(CompanionGrainRough, "grain_rough", 0.0, CompanionInt),
+    cap!(Grain, "grain", Plain),
+    cap!(CompanionGrainSize, "grain_size", CompanionInt),
+    cap!(CompanionGrainRough, "grain_rough", CompanionInt),
 ];
 
 /// HDR edit mode's own dial (above the SDR block).
-pub(crate) const HDR_HEADROOM: &[Capability] = &[cap!(HdrMaxEv, "hdr_max_ev", 0.0, Fine)];
+pub(crate) const HDR_HEADROOM: &[Capability] = &[cap!(HdrMaxEv, "hdr_max_ev", Fine)];
 
 /// The SDR rendition's seven dials, in panel order.
 pub(crate) const HDR_SDR: &[Capability] = &[
-    cap!(SdrBlend, "sdr_blend", 0.0, Plain),
-    cap!(SdrBrightness, "sdr_brightness", 0.0, Plain),
-    cap!(SdrContrast, "sdr_contrast", 0.0, Plain),
-    cap!(SdrHighlights, "sdr_highlights", 0.0, Plain),
-    cap!(SdrShadows, "sdr_shadows", 0.0, Plain),
-    cap!(SdrWhites, "sdr_whites", 0.0, Plain),
-    cap!(SdrClarity, "sdr_clarity", 0.0, Plain),
+    cap!(SdrBlend, "sdr_blend", Plain),
+    cap!(SdrBrightness, "sdr_brightness", Plain),
+    cap!(SdrContrast, "sdr_contrast", Plain),
+    cap!(SdrHighlights, "sdr_highlights", Plain),
+    cap!(SdrShadows, "sdr_shadows", Plain),
+    cap!(SdrWhites, "sdr_whites", Plain),
+    cap!(SdrClarity, "sdr_clarity", Plain),
 ];
 
 /// Lens correction's manual rows, above the profile-strength block.
 pub(crate) const LENS_MANUAL: &[Capability] = &[
-    cap!(LensVignetting, "lens_vignette", 0.0, Plain),
-    cap!(LensVignettingMid, "lens_vignette_mid", 50.0, Plain),
-    cap!(LensDistortion, "lens_distortion", 0.0, Plain),
+    cap!(LensVignetting, "lens_vignette", Plain),
+    cap!(LensVignettingMid, "lens_vignette_mid", Plain),
+    cap!(LensDistortion, "lens_distortion", Plain),
 ];
 
 /// The profile's own two strengths (a Hinted row: the tooltip says what 0 and
 /// 100 mean).
 pub(crate) const LENS_PROFILE: &[Capability] = &[
-    cap!(LensProfileDistortionScale, "lens_profile_distortion_scale", 100.0, Hinted),
-    cap!(LensProfileVignettingScale, "lens_profile_vignetting_scale", 100.0, Hinted),
+    cap!(LensProfileDistortionScale, "lens_profile_distortion_scale", Hinted),
+    cap!(LensProfileVignettingScale, "lens_profile_vignetting_scale", Hinted),
 ];
 
 /// The manual lateral CA pair.
 pub(crate) const LENS_CA: &[Capability] = &[
-    cap!(CaRed, "ca_r", 0.0, Plain),
-    cap!(CaBlue, "ca_b", 0.0, Plain),
+    cap!(CaRed, "ca_r", Plain),
+    cap!(CaBlue, "ca_b", Plain),
 ];
 
 /// Adobe's de-fringe block: two amounts plus the hue windows, whose neutrals
 /// are NOT zero (30/70 and 40/60).
 pub(crate) const LENS_DEFRINGE: &[Capability] = &[
-    cap!(DefringePurple, "defringe_purple", 0.0, Plain),
-    cap!(DefringePurpleLo, "defringe_purple_lo", 30.0, Hinted),
-    cap!(DefringePurpleHi, "defringe_purple_hi", 70.0, Hinted),
-    cap!(DefringeGreen, "defringe_green", 0.0, Plain),
-    cap!(DefringeGreenLo, "defringe_green_lo", 40.0, Hinted),
-    cap!(DefringeGreenHi, "defringe_green_hi", 60.0, Hinted),
+    cap!(DefringePurple, "defringe_purple", Plain),
+    cap!(DefringePurpleLo, "defringe_purple_lo", Hinted),
+    cap!(DefringePurpleHi, "defringe_purple_hi", Hinted),
+    cap!(DefringeGreen, "defringe_green", Plain),
+    cap!(DefringeGreenLo, "defringe_green_lo", Hinted),
+    cap!(DefringeGreenHi, "defringe_green_hi", Hinted),
 ];
 
 /// Calibration's shadows tint (its own captioned group in the panel).
-pub(crate) const CAL_TINT: &[Capability] = &[cap!(CalShadowTint, "cal_shadow_tint", 0.0, Plain)];
+pub(crate) const CAL_TINT: &[Capability] = &[cap!(CalShadowTint, "cal_shadow_tint", Plain)];
 
 /// Calibration's red primary pair: hue then saturation, the panel drawing the
 /// group label between the tables.
 pub(crate) const CAL_RED: &[Capability] = &[
-    cap!(CalRedHue, "cal_red_hue", 0.0, Plain),
-    cap!(CalRedSat, "cal_red_sat", 0.0, Plain),
+    cap!(CalRedHue, "cal_red_hue", Plain),
+    cap!(CalRedSat, "cal_red_sat", Plain),
 ];
 
 /// Calibration's green primary pair.
 pub(crate) const CAL_GREEN: &[Capability] = &[
-    cap!(CalGreenHue, "cal_green_hue", 0.0, Plain),
-    cap!(CalGreenSat, "cal_green_sat", 0.0, Plain),
+    cap!(CalGreenHue, "cal_green_hue", Plain),
+    cap!(CalGreenSat, "cal_green_sat", Plain),
 ];
 
 /// Calibration's blue primary pair.
 pub(crate) const CAL_BLUE: &[Capability] = &[
-    cap!(CalBlueHue, "cal_blue_hue", 0.0, Plain),
-    cap!(CalBlueSat, "cal_blue_sat", 0.0, Plain),
+    cap!(CalBlueHue, "cal_blue_hue", Plain),
+    cap!(CalBlueSat, "cal_blue_sat", Plain),
 ];
 
 /// The white balance's Tint half (the Temp slider and the Custom-WB checkbox
 /// stay custom: one is a log Kelvin anchor, the other an enable switch).
-pub(crate) const WB_TINT: &[Capability] = &[cap!(WhiteBalanceTint, "tint", 0.0, Plain)];
+pub(crate) const WB_TINT: &[Capability] = &[cap!(WhiteBalanceTint, "tint", Plain)];
+
+/// Colour grading's two WHOLE-GRADE dials, under the wheel block. The wheels
+/// themselves stay a custom widget (`develop_widgets.rs` cannot draw a wheel
+/// from a scalar row), but these two are plain scalars of the nested object, so
+/// their band and reset come from the catalogue like every other form row.
+pub(crate) const GRADE_GLOBALS: &[Capability] = &[
+    cap!(GradeBlending, "color_grade.blending", Plain),
+    cap!(GradeBalance, "color_grade.balance", Plain),
+];
 
 /// The crop section's one scalar row (the box itself is a canvas tool).
-pub(crate) const CROP: &[Capability] = &[cap!(Straighten, "straighten_deg", 0.0, Fine)];
+pub(crate) const CROP: &[Capability] = &[cap!(Straighten, "straighten_deg", Fine)];
 
 /// Detail's sharpening rows below the amount (whose RAW/baked default is the
 /// custom `sharpening_slider` arm, so it stays out of this table).
 pub(crate) const SHARPEN: &[Capability] = &[
-    cap!(SharpenRadius, "sharpen_radius", 0.0, CompanionFine),
-    cap!(SharpenDetail, "sharpen_detail", 0.0, CompanionInt),
-    cap!(SharpenMasking, "sharpen_mask", 0.0, Plain),
+    cap!(SharpenRadius, "sharpen_radius", CompanionFine),
+    cap!(SharpenDetail, "sharpen_detail", CompanionInt),
+    cap!(SharpenMasking, "sharpen_mask", Plain),
 ];
 
 /// Luminance noise reduction's rows.
 pub(crate) const NOISE_LUMA: &[Capability] = &[
-    cap!(NoiseReduction, "noise_reduction", 0.0, Plain),
-    cap!(NoiseDetail, "nr_detail", 0.0, CompanionInt),
-    cap!(NoiseContrast, "nr_contrast", 0.0, Plain),
+    cap!(NoiseReduction, "noise_reduction", Plain),
+    cap!(NoiseDetail, "nr_detail", CompanionInt),
+    cap!(NoiseContrast, "nr_contrast", Plain),
 ];
 
 /// Colour noise reduction's rows.
 pub(crate) const NOISE_COLOR: &[Capability] = &[
-    cap!(ColorNoiseReduction, "color_nr", 0.0, Plain),
-    cap!(ColorNoiseDetail, "color_nr_detail", 0.0, CompanionInt),
-    cap!(ColorNoiseSmooth, "color_nr_smooth", 0.0, CompanionInt),
+    cap!(ColorNoiseReduction, "color_nr", Plain),
+    cap!(ColorNoiseDetail, "color_nr_detail", CompanionInt),
+    cap!(ColorNoiseSmooth, "color_nr_smooth", CompanionInt),
 ];
 
 /// Transform's projective sliders, in panel order. The Upright mode, its notes
 /// and the constrain-crop checkbox stay custom.
 pub(crate) const TRANSFORM: &[Capability] = &[
-    cap!(PerspectiveVertical, "perspective_vertical", 0.0, Plain),
-    cap!(PerspectiveHorizontal, "perspective_horizontal", 0.0, Plain),
-    cap!(PerspectiveRotate, "perspective_rotate", 0.0, Plain),
-    cap!(PerspectiveScale, "perspective_scale", 100.0, Plain),
-    cap!(PerspectiveAspect, "perspective_aspect", 0.0, Plain),
-    cap!(PerspectiveX, "perspective_x", 0.0, Plain),
-    cap!(PerspectiveY, "perspective_y", 0.0, Plain),
+    cap!(PerspectiveVertical, "perspective_vertical", Plain),
+    cap!(PerspectiveHorizontal, "perspective_horizontal", Plain),
+    cap!(PerspectiveRotate, "perspective_rotate", Plain),
+    cap!(PerspectiveScale, "perspective_scale", Plain),
+    cap!(PerspectiveAspect, "perspective_aspect", Plain),
+    cap!(PerspectiveX, "perspective_x", Plain),
+    cap!(PerspectiveY, "perspective_y", Plain),
 ];
 
 /// Read a plain/fine row's current value.
@@ -341,6 +357,8 @@ pub(crate) fn value(recipe: &EditRecipe, id: CapabilityId) -> f32 {
         CapabilityId::CalBlueHue => recipe.cal_blue_hue,
         CapabilityId::CalBlueSat => recipe.cal_blue_sat,
         CapabilityId::WhiteBalanceTint => recipe.tint,
+        CapabilityId::GradeBlending => recipe.color_grade.blending,
+        CapabilityId::GradeBalance => recipe.color_grade.balance,
         other => unreachable!("companion row {other:?} is read through `EditRecipe::resolved`"),
     }
 }
@@ -404,6 +422,8 @@ pub(crate) fn set_value(recipe: &mut EditRecipe, id: CapabilityId, value: f32) {
         CapabilityId::CalBlueHue => recipe.cal_blue_hue = value,
         CapabilityId::CalBlueSat => recipe.cal_blue_sat = value,
         CapabilityId::WhiteBalanceTint => recipe.tint = value,
+        CapabilityId::GradeBlending => recipe.color_grade.blending = value,
+        CapabilityId::GradeBalance => recipe.color_grade.balance = value,
         other => unreachable!("companion row {other:?} is written through `EditRecipe::set_resolved`"),
     }
 }
@@ -433,14 +453,16 @@ mod tests {
         CAL_GREEN,
         CAL_BLUE,
         WB_TINT,
+        GRADE_GLOBALS,
     ];
 
     #[test]
-    fn every_row_resolves_to_a_catalogue_band() {
+    fn every_row_resolves_to_a_catalogue_band_and_reset() {
         for table in ALL {
             for cap in *table {
-                let range = cap.range().unwrap_or_else(|| panic!("`{}` has no catalogue band", cap.control));
-                assert!(range.0 < range.1, "`{}` band is empty: {range:?}", cap.control);
+                let ((lo, hi), _) =
+                    cap.band_and_reset().unwrap_or_else(|| panic!("`{}` has no catalogue band", cap.control));
+                assert!(lo < hi, "`{}` band is empty: {lo}..{hi}", cap.control);
             }
         }
     }
@@ -516,6 +538,7 @@ mod tests {
         assert_eq!(names(CAL_GREEN), ["cal_green_hue", "cal_green_sat"]);
         assert_eq!(names(CAL_BLUE), ["cal_blue_hue", "cal_blue_sat"]);
         assert_eq!(names(WB_TINT), ["tint"]);
+        assert_eq!(names(GRADE_GLOBALS), ["color_grade.blending", "color_grade.balance"]);
     }
 
     #[test]
@@ -547,10 +570,29 @@ mod tests {
                 }
                 set_value(&mut recipe, cap.id, 12.5);
                 assert_eq!(value(&recipe, cap.id), 12.5, "`{}` does not round-trip", cap.control);
-                set_value(&mut recipe, cap.id, cap.reset);
-                assert_eq!(value(&recipe, cap.id), cap.reset);
+                let reset = cap.band_and_reset().unwrap().1;
+                set_value(&mut recipe, cap.id, reset);
+                assert_eq!(value(&recipe, cap.id), reset);
             }
         }
+    }
+
+    /// The two colour-grading rows are nested fields, not top-level recipe
+    /// controls, so this pins their catalogue answer explicitly: the band
+    /// `ColorGrade::clamp` enforces and the neutral the default recipe stores
+    /// (blending 50, not the panel's old literal 50 written by hand twice).
+    #[test]
+    fn the_grading_rows_take_their_band_and_reset_from_the_catalogue() {
+        assert_eq!(
+            GRADE_GLOBALS[0].band_and_reset(),
+            Some(((0.0, 100.0), 50.0)),
+            "blending",
+        );
+        assert_eq!(
+            GRADE_GLOBALS[1].band_and_reset(),
+            Some(((-100.0, 100.0), 0.0)),
+            "balance",
+        );
     }
 
     #[test]

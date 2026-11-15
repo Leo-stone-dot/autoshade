@@ -3513,6 +3513,55 @@ pub const COLOR_GRADE_CRS: [(&str, &str); 14] = [
     ("balance", "SplitToningBalance"),
 ];
 
+/// One SCALAR FIELD inside the nested `color_grade` object: the spelling the
+/// clients name it by, the band `ColorGrade::clamp` enforces and the neutral
+/// `ColorGrade::default` stores (blending's is 50, not 0).
+///
+/// These are deliberately NOT [`RECIPE_CONTROLS`] rows. The advisor sees the
+/// grading object WHOLE (`Shape::ColorGrade`, one property in the strict
+/// schema), so a nested row there would rewrite the AI contract; what the
+/// clients need is the FORM view of the same object, and before this table
+/// every client spelled that band again (the GUI's grading panel drew its two
+/// whole-grade sliders with literal 0..100 / -100..100 and reset 50 / 0). The
+/// registry stays the band source for top-level scalars; this table is its
+/// nested counterpart, and `form_control` answers for both.
+pub struct GradeField {
+    /// The name the clients use: `color_grade.<field>`.
+    pub name: &'static str,
+    /// The band [`ColorGrade::clamp`] enforces on the field.
+    pub range: (f32, f32),
+    /// The neutral — `ColorGrade::default`'s value for the field.
+    pub neutral: f32,
+}
+
+impl GradeField {
+    /// The JSON field name, i.e. the part after the `color_grade.` qualifier.
+    pub fn field(&self) -> &'static str {
+        self.name.strip_prefix("color_grade.").unwrap_or(self.name)
+    }
+}
+
+/// Every field of the nested `color_grade` object, in schema order. The band
+/// categories are `ColorGrade::clamp`'s own (hue wraps 0..360, sat 0..100,
+/// lum/balance -100..100, blending 0..100); the field list is pinned to the
+/// schema and to [`COLOR_GRADE_CRS`] by `registry_serde_and_schema_agree_on_both_mirrors`.
+pub const COLOR_GRADE_FIELDS: [GradeField; 14] = [
+    GradeField { name: "color_grade.shadow_hue", range: (0.0, 360.0), neutral: 0.0 },
+    GradeField { name: "color_grade.shadow_sat", range: (0.0, 100.0), neutral: 0.0 },
+    GradeField { name: "color_grade.shadow_lum", range: (-100.0, 100.0), neutral: 0.0 },
+    GradeField { name: "color_grade.midtone_hue", range: (0.0, 360.0), neutral: 0.0 },
+    GradeField { name: "color_grade.midtone_sat", range: (0.0, 100.0), neutral: 0.0 },
+    GradeField { name: "color_grade.midtone_lum", range: (-100.0, 100.0), neutral: 0.0 },
+    GradeField { name: "color_grade.highlight_hue", range: (0.0, 360.0), neutral: 0.0 },
+    GradeField { name: "color_grade.highlight_sat", range: (0.0, 100.0), neutral: 0.0 },
+    GradeField { name: "color_grade.highlight_lum", range: (-100.0, 100.0), neutral: 0.0 },
+    GradeField { name: "color_grade.global_hue", range: (0.0, 360.0), neutral: 0.0 },
+    GradeField { name: "color_grade.global_sat", range: (0.0, 100.0), neutral: 0.0 },
+    GradeField { name: "color_grade.global_lum", range: (-100.0, 100.0), neutral: 0.0 },
+    GradeField { name: "color_grade.blending", range: (0.0, 100.0), neutral: 50.0 },
+    GradeField { name: "color_grade.balance", range: (-100.0, 100.0), neutral: 0.0 },
+];
+
 /// One colour-grade wheel field by name — the exhaustive-destructure tripwire
 /// for `recipe::ColorGrade` (a fifth wheel stops the build here).
 pub fn color_grade_value(cg: &ColorGrade, field: &str) -> Option<f32> {
@@ -3597,31 +3646,50 @@ pub fn global_control(name: &str) -> Option<&'static Control> {
     RECIPE_CONTROLS.iter().find(|c| c.name == name)
 }
 
-/// The scalar controls the develop forms render, as `(name, clamp band, reset
-/// value)`. The band is the catalogue's own (the one `EditRecipe::clamp` is
-/// pinned to) and the reset is the COMPANION's Lightroom default
-/// (`EditRecipe::resolved`, e.g. grain size 25 — the stored 0 means "absent"),
-/// else the default recipe's own scalar. The GUI's capability table, the web
-/// form's sliders and the CLI's `controls` command all read this.
-pub fn form_controls() -> Vec<(&'static str, (f32, f32), Option<f32>)> {
+/// The reset value a top-level scalar row's form shows: the COMPANION's
+/// Lightroom default (`EditRecipe::resolved`, e.g. grain size 25 — the stored
+/// 0 means "absent"), else the default recipe's own scalar.
+fn form_reset(name: &str) -> Option<f32> {
     let default_recipe = EditRecipe::default();
-    RECIPE_CONTROLS
+    if crate::recipe::LR_COMPANION_DEFAULTS.iter().any(|(n, _)| *n == name) {
+        Some(default_recipe.resolved(name))
+    } else {
+        match global_value(&default_recipe, name) {
+            Some(GlobalValue::Num(v)) => Some(v),
+            Some(GlobalValue::OptNum(Some(v))) => Some(v),
+            Some(GlobalValue::Int(v)) => Some(v as f32),
+            _ => None,
+        }
+    }
+}
+
+/// One FORM control's `(clamp band, reset)` by the name the clients use: a
+/// top-level [`RECIPE_CONTROLS`] spelling, or the nested `color_grade.<field>`
+/// form of [`COLOR_GRADE_FIELDS`]. This is the lookup the GUI's capability rows
+/// use, so a row never restates a band or a reset; [`form_controls`] builds its
+/// list from the two registries directly.
+pub fn form_control(name: &str) -> Option<((f32, f32), Option<f32>)> {
+    if let Some(field) = name.strip_prefix("color_grade.") {
+        let row = COLOR_GRADE_FIELDS.iter().find(|f| f.field() == field)?;
+        return Some((row.range, Some(row.neutral)));
+    }
+    let c = global_control(name)?;
+    Some((c.range?, form_reset(name)))
+}
+
+/// The scalar controls the develop forms render, as `(name, clamp band, reset
+/// value)`. The top-level rows are the catalogue's own (the band `EditRecipe::clamp`
+/// is pinned to; the reset a companion's Lightroom default or the default
+/// recipe's scalar); the nested colour-grade fields follow in schema order with
+/// [`COLOR_GRADE_FIELDS`]' band and neutral. The GUI's capability table, the web
+/// form's sliders and the CLI's `controls` command all read this one answer.
+pub fn form_controls() -> Vec<(&'static str, (f32, f32), Option<f32>)> {
+    let mut rows: Vec<(&'static str, (f32, f32), Option<f32>)> = RECIPE_CONTROLS
         .iter()
-        .filter_map(|c| {
-            let band = c.range?;
-            let reset = if crate::recipe::LR_COMPANION_DEFAULTS.iter().any(|(n, _)| *n == c.name) {
-                Some(default_recipe.resolved(c.name))
-            } else {
-                match global_value(&default_recipe, c.name) {
-                    Some(GlobalValue::Num(v)) => Some(v),
-                    Some(GlobalValue::OptNum(Some(v))) => Some(v),
-                    Some(GlobalValue::Int(v)) => Some(v as f32),
-                    _ => None,
-                }
-            };
-            Some((c.name, band, reset))
-        })
-        .collect()
+        .filter_map(|c| Some((c.name, c.range?, form_reset(c.name))))
+        .collect();
+    rows.extend(COLOR_GRADE_FIELDS.iter().map(|f| (f.name, f.range, Some(f.neutral))));
+    rows
 }
 
 #[cfg(test)]
@@ -4283,6 +4351,21 @@ mod tests {
         assert_eq!(exposure.2, Some(0.0), "the reset is the default recipe's scalar");
         let grain = rows.iter().find(|(n, _, _)| *n == "grain_size").expect("grain_size listed");
         assert_eq!(grain.2, Some(25.0), "a companion resets to Lightroom's default");
+        let blending =
+            rows.iter().find(|(n, _, _)| *n == "color_grade.blending").expect("grading row listed");
+        assert_eq!(blending.1, (0.0, 100.0), "the nested band is the grading clamp's");
+        assert_eq!(blending.2, Some(50.0), "blending resets to its neutral 50, not to 0");
+        let balance =
+            rows.iter().find(|(n, _, _)| *n == "color_grade.balance").expect("grading row listed");
+        assert_eq!(balance.1, (-100.0, 100.0));
+        assert_eq!(balance.2, Some(0.0));
+        assert_eq!(
+            form_control("color_grade.blending"),
+            Some(((0.0, 100.0), Some(50.0))),
+            "the single-row lookup answers the same as the list",
+        );
+        assert!(form_control("color_grade.not_a_field").is_none());
+        assert!(form_control("not_a_control").is_none());
         let mut names: Vec<&str> = rows.iter().map(|(n, _, _)| *n).collect();
         let before = names.len();
         names.sort();
@@ -4291,6 +4374,48 @@ mod tests {
         for (_, (lo, hi), _) in &rows {
             assert!(lo < hi, "bands are ordered");
         }
+    }
+
+    /// The nested colour-grade table states the bands `ColorGrade::clamp`
+    /// enforces and the neutrals `ColorGrade::default` stores — the two facts
+    /// every client's grading form used to spell for itself.
+    #[test]
+    fn the_colour_grade_fields_state_the_bands_and_neutrals_their_clamp_enforces() {
+        let default = ColorGrade::default();
+        let mut names = BTreeSet::new();
+        for f in COLOR_GRADE_FIELDS {
+            assert!(f.name.starts_with("color_grade."), "{} is not qualified", f.name);
+            assert!(names.insert(f.name), "{} is listed twice", f.name);
+            let (lo, hi) = f.range;
+            assert!(lo < hi, "{} band is empty: {lo}..{hi}", f.name);
+            assert_eq!(
+                color_grade_value(&default, f.field()),
+                Some(f.neutral),
+                "{}: the stated neutral is not what the default recipe stores",
+                f.name
+            );
+            let span = hi - lo;
+            for probe in [hi + span + 1.0, lo - span - 1.0] {
+                let json = format!("{{\"color_grade\": {{\"{}\": {probe}}}}}", f.field());
+                let mut r: EditRecipe = serde_json::from_str(&json)
+                    .unwrap_or_else(|e| panic!("{} probe {probe} did not deserialize: {e}", f.name));
+                r.clamp();
+                let got = color_grade_value(&r.color_grade, f.field())
+                    .unwrap_or_else(|| panic!("{} has no reader", f.name));
+                assert!(
+                    (lo..=hi).contains(&got),
+                    "{}: the table states {lo}..{hi}, but clamp() maps {probe} to {got}",
+                    f.name
+                );
+            }
+            assert_eq!(
+                form_control(f.name),
+                Some((f.range, Some(f.neutral))),
+                "{}: the form lookup disagrees with the table",
+                f.name
+            );
+        }
+        assert_eq!(names.len(), COLOR_GRADE_CRS.len(), "the wheel list and the form list differ");
     }
 
     #[test]
@@ -4545,6 +4670,14 @@ mod tests {
             "ColorGrade",
             ("serde", &grade),
             ("COLOR_GRADE_CRS", &COLOR_GRADE_CRS.iter().map(|(f, _)| f.to_string()).collect()),
+        );
+        assert_same(
+            "ColorGrade",
+            ("serde", &grade),
+            (
+                "COLOR_GRADE_FIELDS",
+                &COLOR_GRADE_FIELDS.iter().map(|f| f.field().to_string()).collect(),
+            ),
         );
 
         let crop = serde_keys(

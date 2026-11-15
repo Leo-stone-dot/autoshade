@@ -1,7 +1,9 @@
 //! The develop panel's custom widgets: the tone-curve editor, the parametric
 //! curve, the colour mixer (HSL) grid with its Point Color rows, and the colour
 //! grading wheels. They are real widget code, not form rows — a capability table
-//! cannot draw them — so they live in their own module instead of the panel.
+//! cannot draw a wheel — so they live in their own module instead of the panel.
+//! The grading section's two whole-grade scalars (Blending/Balance) ARE form
+//! rows and render through the capability table.
 
 use crate::*;
 use crate::panels::grade_wheel::{grade_wheel, GRADE_VIEWS};
@@ -312,10 +314,12 @@ impl AutoShadeApp {
                     });
                 }
                 // Blending/Balance shape the WHOLE grade, not one wheel — a
-                // scope caption keeps them from reading as a wheel's own.
+                // scope caption keeps them from reading as a wheel's own. The
+                // two sliders are capability rows: the band and the reset
+                // (blending 50, not 0) come from the core catalogue's nested
+                // colour-grade table, not from this draw site.
                 sub_caption(ui, tr(lang, "All regions"));
-                changed |= Self::slider(ui, lang, tr(lang, "Blending"), &mut cg.blending, 0.0, 100.0, 50.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Balance"), &mut cg.balance, -100.0, 100.0, 0.0);
+                changed |= self.capability_rows(ui, crate::logic::capability::GRADE_GLOBALS);
             });
         changed
     }

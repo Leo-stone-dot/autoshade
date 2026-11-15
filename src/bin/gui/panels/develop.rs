@@ -803,7 +803,7 @@ impl AutoShadeApp {
     /// each change as a `Command`, the app applies it. Companion rows still
     /// write their resolved encoding directly (that command arm is not built
     /// yet), and both paths mark the frame changed the same way.
-    fn capability_rows(&mut self, ui: &mut egui::Ui, table: &[crate::logic::capability::Capability]) -> bool {
+    pub(crate) fn capability_rows(&mut self, ui: &mut egui::Ui, table: &[crate::logic::capability::Capability]) -> bool {
         let mut commands = Vec::new();
         let changed = crate::panels::develop_forms::render_rows(ui, self.lang, &mut self.doc.recipe, table, &mut commands);
         for command in commands {
