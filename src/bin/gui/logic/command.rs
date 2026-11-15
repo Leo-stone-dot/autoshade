@@ -24,7 +24,7 @@ pub(crate) enum Command {
 
 /// The mask-list verbs a client can ask for. Selection remapping and the
 /// overlay invalidation stay with the caller: this layer owns the recipe list.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum MaskCommand {
     /// Drop the mask at `index` (out of range: nothing).
     Delete { index: usize },
@@ -36,6 +36,16 @@ pub(crate) enum MaskCommand {
     MoveUp { index: usize },
     /// Swap the mask with the one below it (the last row: nothing).
     MoveDown { index: usize },
+    /// Replace the mask's display name (out of range: nothing).
+    Rename { index: usize, name: String },
+    /// Replace the mask's range mode (the panel builds the neutral start).
+    SetRange { index: usize, range: Option<autoshade::recipe::RangeMask> },
+    /// Replace one component's combine mode.
+    SetComponentMode { index: usize, component: usize, mode: autoshade::recipe::MaskCombine },
+    /// Replace one component's inverted flag.
+    SetComponentInverted { index: usize, component: usize, inverted: bool },
+    /// Drop one component.
+    RemoveComponent { index: usize, component: usize },
 }
 
 /// Apply one command to the recipe. The GUI calls this now; the CLI and the
@@ -67,6 +77,33 @@ pub(crate) fn apply(recipe: &mut EditRecipe, command: Command) {
         Command::Mask(MaskCommand::MoveDown { index }) => {
             if index + 1 < recipe.masks.len() {
                 recipe.masks.swap(index, index + 1);
+            }
+        }
+        Command::Mask(MaskCommand::Rename { index, name }) => {
+            if let Some(m) = recipe.masks.get_mut(index) {
+                m.name = name;
+            }
+        }
+        Command::Mask(MaskCommand::SetRange { index, range }) => {
+            if let Some(m) = recipe.masks.get_mut(index) {
+                m.range = range;
+            }
+        }
+        Command::Mask(MaskCommand::SetComponentMode { index, component, mode }) => {
+            if let Some(c) = recipe.masks.get_mut(index).and_then(|m| m.components.get_mut(component)) {
+                c.mode = mode;
+            }
+        }
+        Command::Mask(MaskCommand::SetComponentInverted { index, component, inverted }) => {
+            if let Some(c) = recipe.masks.get_mut(index).and_then(|m| m.components.get_mut(component)) {
+                c.inverted = inverted;
+            }
+        }
+        Command::Mask(MaskCommand::RemoveComponent { index, component }) => {
+            if let Some(m) = recipe.masks.get_mut(index) {
+                if component < m.components.len() {
+                    m.components.remove(component);
+                }
             }
         }
         Command::InsertMask { after, mask } => {
@@ -123,6 +160,41 @@ mod tests {
         apply(&mut recipe, Command::Mask(MaskCommand::ToggleEnabled { index: 9 }));
         apply(&mut recipe, Command::Mask(MaskCommand::Reorder { from: 9, to: 0 }));
         assert_eq!(recipe.masks.len(), 2);
+    }
+
+    #[test]
+    fn the_component_and_rename_verbs_edit_only_the_named_slot() {
+        use autoshade::recipe::{LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, RangeMask};
+        let mut recipe = EditRecipe::default();
+        recipe.masks.push(LocalAdjustment {
+            mask: MaskGeometry::Linear { zero_x: 0.1, zero_y: 0.1, full_x: 0.9, full_y: 0.9 },
+            components: vec![MaskComponent {
+                inverted: false,
+                geometry: MaskGeometry::Linear { zero_x: 0.2, zero_y: 0.2, full_x: 0.8, full_y: 0.8 },
+                mode: MaskCombine::Add,
+            }],
+            ..Default::default()
+        });
+        apply(&mut recipe, Command::Mask(MaskCommand::Rename { index: 0, name: "sky 2".into() }));
+        assert_eq!(recipe.masks[0].name.trim(), "sky 2");
+        apply(&mut recipe, Command::Mask(MaskCommand::SetComponentMode {
+            index: 0, component: 0, mode: MaskCombine::Subtract,
+        }));
+        assert_eq!(recipe.masks[0].components[0].mode, MaskCombine::Subtract);
+        apply(&mut recipe, Command::Mask(MaskCommand::SetComponentInverted {
+            index: 0, component: 0, inverted: true,
+        }));
+        assert!(recipe.masks[0].components[0].inverted);
+        apply(&mut recipe, Command::Mask(MaskCommand::SetRange {
+            index: 0, range: Some(RangeMask::Luminance { lo_outer: 0.0, lo: 0.0, hi: 1.0, hi_outer: 1.0 }),
+        }));
+        assert!(matches!(recipe.masks[0].range, Some(RangeMask::Luminance { .. })));
+        apply(&mut recipe, Command::Mask(MaskCommand::RemoveComponent { index: 0, component: 0 }));
+        assert!(recipe.masks[0].components.is_empty());
+        // Missing mask / component arms are no-ops.
+        apply(&mut recipe, Command::Mask(MaskCommand::Rename { index: 9, name: "x".into() }));
+        apply(&mut recipe, Command::Mask(MaskCommand::RemoveComponent { index: 0, component: 9 }));
+        assert_eq!(recipe.masks.len(), 1);
     }
 
     #[test]
