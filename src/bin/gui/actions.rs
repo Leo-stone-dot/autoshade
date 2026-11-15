@@ -294,13 +294,9 @@ impl AutoShadeApp {
     pub(crate) fn cached_base(&mut self, path: &std::path::Path, edge: u32) -> Option<OpenedBase> {
         let mtime = file_stamp(path);
         let pixels = pixel_identity(path);
-        let pos = self.open.base_cache.iter().position(|((p, e, t, px), _)| {
+        crate::logic::lru::get(&mut self.open.base_cache, |(p, e, t, px)| {
             p == path && *e == edge && *t == mtime && *px == pixels
-        })?;
-        let entry = self.open.base_cache.remove(pos);
-        let hit = entry.1.clone();
-        self.open.base_cache.push(entry);
-        Some(hit)
+        })
     }
 
     /// Remember a freshly decoded base. The KEY comes from the worker's
@@ -313,11 +309,13 @@ impl AutoShadeApp {
     /// missed twin.
     pub(crate) fn remember_base(&mut self, path: &std::path::Path, opened: &OpenedBase) {
         let (edge, mtime, pixels) = opened.5.clone();
-        self.open.base_cache.retain(|((p, e, _, _), _)| !(p == path && *e == edge));
-        self.open.base_cache.push(((path.to_path_buf(), edge, mtime, pixels), opened.clone()));
-        if self.open.base_cache.len() > BASE_CACHE_CAP {
-            self.open.base_cache.remove(0); // least-recent first
-        }
+        crate::logic::lru::insert(
+            &mut self.open.base_cache,
+            (path.to_path_buf(), edge, mtime, pixels),
+            opened.clone(),
+            |(p, e, _, _)| p == path && *e == edge,
+            BASE_CACHE_CAP,
+        );
     }
 
     /// Drop the open photo's decoded-base cache entries. Called whenever its
@@ -326,7 +324,7 @@ impl AutoShadeApp {
     /// alone would happily serve a hit with stale baked pixels.
     pub(crate) fn forget_open_base(&mut self) {
         if let Some(p) = self.src_path.clone() {
-            self.open.base_cache.retain(|((q, _, _, _), _)| q != &p);
+            crate::logic::lru::retain(&mut self.open.base_cache, |(q, _, _, _)| q != &p);
         }
     }
 

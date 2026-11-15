@@ -90,14 +90,9 @@ pub(crate) fn cached_master(
     edge: u32,
 ) -> Option<Arc<image::DynamicImage>> {
     let stamp = file_stamp(origin);
-    let pos = self
-        .open.master_cache
-        .iter()
-        .position(|((p, e, t), _)| p == origin && *e == edge && *t == stamp)?;
-    let entry = self.open.master_cache.remove(pos);
-    let hit = entry.1.clone();
-    self.open.master_cache.push(entry);
-    Some(hit)
+    crate::logic::lru::get(&mut self.open.master_cache, |(p, e, t)| {
+        p == origin && *e == edge && *t == stamp
+    })
 }
 
 /// Remember a freshly decoded cold master under its own identity —
@@ -113,11 +108,13 @@ pub(crate) fn remember_master(
     stamp: FileStamp,
     img: Arc<image::DynamicImage>,
 ) {
-    self.open.master_cache.retain(|((p, e, _), _)| !(p == origin && *e == edge));
-    self.open.master_cache.push(((origin.to_path_buf(), edge, stamp), img));
-    if self.open.master_cache.len() > MASTER_CACHE_CAP {
-        self.open.master_cache.remove(0); // least-recent first
-    }
+    crate::logic::lru::insert(
+        &mut self.open.master_cache,
+        (origin.to_path_buf(), edge, stamp),
+        img,
+        |(p, e, _)| p == origin && *e == edge,
+        MASTER_CACHE_CAP,
+    );
 }
 
 /// Install decoded master pixels into every strip entry that still
