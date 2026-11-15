@@ -263,7 +263,7 @@ impl AutoShadeApp {
     /// is a reading pane, so the editor's keys stay live beside it. Closes
     /// itself once there is nothing to show (a new photo, a cleared result).
     pub(crate) fn analysis_full_window(&mut self, ctx: &egui::Context) {
-        if !self.show_analysis_full {
+        if !self.ui.show_analysis_full {
             return;
         }
         let mut open = self.has_analysis_output();
@@ -280,7 +280,7 @@ impl AutoShadeApp {
                     .auto_shrink([false, false])
                     .show(ui, |ui| self.analysis_output(ui));
             });
-        self.show_analysis_full = open;
+        self.ui.show_analysis_full = open;
     }
 
     /// Sub-area ① — ANALYSIS (paid API): the verdict and rationale one Analyze
@@ -325,7 +325,7 @@ impl AutoShadeApp {
                 if out.content_size.y > out.inner_rect.height() + 0.5
                     && action_row(ui, true, tr(lang, "View full text…")).clicked()
                 {
-                    self.show_analysis_full = true;
+                    self.ui.show_analysis_full = true;
                 }
             }
             // Library OR direction (user ruling 2026-10-14): the switch heads

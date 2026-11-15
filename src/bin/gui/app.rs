@@ -194,7 +194,6 @@ pub(crate) struct AutoShadeApp {
     // change it), so a mismatch triggers a cheap rebuild in `update`.
     // The title-bar ✕ was intercepted with unsaved edits: show the in-app
     // save-all / discard / cancel layer until the user decides.
-    pub(crate) confirm_quit: bool,
     // Local buffer for the selected mask's name TextEdit:
     // (mask index, name at seed time, edited text). Committed on focus loss so
     // a rename is ONE undo step, not one per key; the seed-time name lets a
@@ -231,22 +230,16 @@ pub(crate) struct AutoShadeApp {
     // card of the open photo.
     // Whether to ask it at all (a pref): the prompt's 「Don't ask again」 turns
     // it off, the reverse-fit fold's checkbox turns it back on.
-    pub(crate) show_settings: bool,    // the Settings window is open
-    pub(crate) show_shortcuts: bool,   // the keyboard cheat-sheet window is open (F1 / ? / ⌨)
-    pub(crate) show_analysis_full: bool, // the AI analysis full-text window is open
     // Tab hides both side panels (the LR grammar) for an edge-to-edge canvas.
     // Session-only on purpose: relaunching with an invisible library reads as
     // a broken app, so the state never persists.
-    pub(crate) panels_hidden: bool,
     // egui derives Tab's focus-traversal direction from raw input BEFORE
     // update() runs, so consuming the key can't stop the first widget from
     // taking focus this frame — which would also kill every focused-none
     // shortcut. Cleared on the NEXT frame instead.
-    pub(crate) defocus_next: bool,
-    pub(crate) settings: SettingsForm, // editable buffers for that window
+    /// The window shell (settings form, theme, open windows, probes); see [`ShellState`].
+    pub(crate) ui: ShellState,
     pub(crate) lang: Lang,             // UI language: English skeleton / Chinese overlay (i18n.rs)
-    pub(crate) theme: ThemePref,       // surface scheme — applied via install_look, kept in Prefs
-    pub(crate) accent: AccentPref,     // chrome accent — applied with the theme, kept in Prefs
     // --- library / gallery ---
     /// The gallery's own state (scan, thumbnails, selection); see
     /// [`GalleryState`].
@@ -301,7 +294,6 @@ pub(crate) struct AutoShadeApp {
     // mask-slider drag rebuilds only the coverage map, not a second develop.
     // First-frame OS titlebar sync (see update()'s head): viewport commands
     // sent from the creation closure are dropped before the loop runs.
-    pub(crate) os_theme_synced: bool,
     // --- zoom / pan (per-photo, reset on open) ---
     /// The canvas view state; see [`ViewState`].
     pub(crate) view: ViewState,
@@ -433,10 +425,8 @@ pub(crate) struct AutoShadeApp {
     pub(crate) normal: crate::panels::normal::NormalState,
     /// The last line uv printed during the managed Python environment's
     /// install (`panels/settings.rs`).
-    pub(crate) python_env_line: Option<String>,
     /// What the sidecar interpreter was found to be at startup
     /// (`python_env::inspect`); `None` until the first check.
-    pub(crate) python_check: Option<autoshade::python_env::PythonCheck>,
     /// The Portraits panel's own state (`panels/portrait.rs`).
     pub(crate) portrait: crate::panels::portrait::PortraitState,
 }
@@ -449,7 +439,7 @@ impl AutoShadeApp {
         // Tab's egui focus traversal fired last frame despite the consume (see
         // `defocus_next`): drop that focus now so the panel toggle doesn't
         // leave a surprise-focused widget eating every later shortcut.
-        if std::mem::take(&mut self.defocus_next)
+        if std::mem::take(&mut self.ui.defocus_next)
             && let Some(id) = ctx.memory(|m| m.focused())
         {
             ctx.memory_mut(|m| m.surrender_focus(id));
@@ -471,9 +461,9 @@ impl AutoShadeApp {
         // box), R = crop, Enter = commit crop, W/Q/K/M = LR tool keys,
         // \ / Y = compare, [ ] = brush size, Tab = hide the side panels —
         // the keyboard grammar of every desktop photo editor.
-        let transient_open = self.show_settings || self.show_shortcuts;
+        let transient_open = self.ui.show_settings || self.ui.show_shortcuts;
         if !self.modal_up() && transient_open {
-            let sheet_open = self.show_shortcuts;
+            let sheet_open = self.ui.show_shortcuts;
             let (esc, sheet_key) = ctx.input_mut(|i| {
                 (
                     i.consume_key(egui::Modifiers::NONE, egui::Key::Escape),
@@ -488,10 +478,10 @@ impl AutoShadeApp {
             });
             if esc || sheet_key {
                 // Cheat-sheet first — it is the topmost transient.
-                if self.show_shortcuts {
-                    self.show_shortcuts = false;
+                if self.ui.show_shortcuts {
+                    self.ui.show_shortcuts = false;
                 } else {
-                    self.show_settings = false;
+                    self.ui.show_settings = false;
                 }
             }
         }
@@ -747,8 +737,8 @@ impl AutoShadeApp {
                 };
             }
             if do_panels {
-                self.panels_hidden = !self.panels_hidden;
-                self.defocus_next = true; // undo egui's Tab focus traversal next frame
+                self.ui.panels_hidden = !self.ui.panels_hidden;
+                self.ui.defocus_next = true; // undo egui's Tab focus traversal next frame
             }
             if brush_delta != 0.0 {
                 // Proportional, as Lightroom's [ / ]: a fixed 4 px step was
@@ -758,7 +748,7 @@ impl AutoShadeApp {
                 self.set_brush((self.masks.brush * factor).round(), now);
             }
             if do_cheatsheet {
-                self.show_shortcuts = !self.show_shortcuts;
+                self.ui.show_shortcuts = !self.ui.show_shortcuts;
             }
             // Esc leaves whatever on-image tool is active (the universal
             // editor exit) — the transient windows own their Esc in the
@@ -929,7 +919,7 @@ impl AutoShadeApp {
         window_chrome::window_outline(ctx);
         let frame = egui::Frame::side_top_panel(&ctx.style())
             .inner_margin(egui::Margin::symmetric(8, SPACE_MD.round() as i8))
-            .fill(self.theme.colors().bar_fill);
+            .fill(self.ui.theme.colors().bar_fill);
         egui::TopBottomPanel::top("top").frame(frame).show(ctx, |ui| {
             let lang = self.lang;
             // ONE wrapped row of ACTIONS only (UX batch): settings that used
@@ -1132,13 +1122,13 @@ impl AutoShadeApp {
                         // Reload the form only on the closed→open edge — reloading
                         // while open wiped everything already typed (incl. keys).
                         // Toggle semantics, matching ⌨ next door.
-                        if !self.show_settings {
+                        if !self.ui.show_settings {
                             self.load_settings_form();
                         }
-                        self.show_settings = !self.show_settings;
+                        self.ui.show_settings = !self.ui.show_settings;
                     }
                     if glyph(ui, true, "⌨").on_hover_text(tr(lang, "Keyboard shortcuts (F1 / ?)")).clicked() {
-                        self.show_shortcuts = !self.show_shortcuts;
+                        self.ui.show_shortcuts = !self.ui.show_shortcuts;
                     }
                 });
             });
@@ -1148,7 +1138,7 @@ impl AutoShadeApp {
     /// One update() phase — body extracted verbatim from the eframe
     /// update loop (round-12 decomposition).
     pub(crate) fn upd_status_bar(&mut self, ctx: &egui::Context) {
-        let frame = egui::Frame::side_top_panel(&ctx.style()).fill(self.theme.colors().bar_fill);
+        let frame = egui::Frame::side_top_panel(&ctx.style()).fill(self.ui.theme.colors().bar_fill);
         egui::TopBottomPanel::bottom("status").frame(frame).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if self.busy {
@@ -1302,7 +1292,7 @@ impl AutoShadeApp {
         // Left-most: the library gallery (folder browse + thumbnails), then
         // the develop controls. Tab collapses both for an edge-to-edge canvas
         // (LR's panel-hiding grammar); all state lives on, only layout skips.
-        if !self.panels_hidden {
+        if !self.ui.panels_hidden {
             egui::SidePanel::left("gallery").default_width(240.0).show(ctx, |ui| {
                 self.gallery_panel(ui);
             });
@@ -1334,7 +1324,7 @@ impl AutoShadeApp {
         // The canvas sits on a bed one step below the panel fill (recessed
         // stage / raised chrome) — keep the stock margins, swap the fill.
         let bed = egui::Frame::central_panel(&ctx.style())
-            .fill(self.theme.colors().canvas_bed);
+            .fill(self.ui.theme.colors().canvas_bed);
         egui::CentralPanel::default().frame(bed).show(ctx, |ui| {
             // Empty state: a real landing surface instead of a blank canvas.
             if self.src_path.is_none() {
@@ -1418,7 +1408,7 @@ impl AutoShadeApp {
         self.recipe_library_window(ctx);
         // Settings window (provider / model / API keys). A local `open` avoids a
         // double &mut self borrow (Window::open vs the closure that reads self).
-        if self.show_settings {
+        if self.ui.show_settings {
             let mut open = true;
             // Scroll inside the window, capped below the screen height: the
             // provider sections outgrow a small display, and without a scroll
@@ -1438,17 +1428,17 @@ impl AutoShadeApp {
                         .show(ui, |ui| self.settings_ui(ui));
                 });
             if !open {
-                self.show_settings = false;
+                self.ui.show_settings = false;
             }
         }
 
         // Keyboard cheat-sheet (F1 / ? / the ⌨ toolbar button) — the full
         // shortcut + gesture map lived only in tooltips and a code comment;
         // O (mask overlay) had no visible control at all.
-        if self.show_shortcuts {
+        if self.ui.show_shortcuts {
             let mut open = true;
             let lang = self.lang;
-            let accent = self.theme.colors().accent_text;
+            let accent = self.ui.theme.colors().accent_text;
             egui::Window::new(tr(lang, "⌨ Shortcuts"))
                 // Fixed id, as for Settings: the title varies with the language
                 // and egui keys window state (position) off the id.
@@ -1523,7 +1513,7 @@ impl AutoShadeApp {
                     );
                 });
             if !open {
-                self.show_shortcuts = false;
+                self.ui.show_shortcuts = false;
             }
         }
     }
@@ -1579,20 +1569,12 @@ impl Default for AutoShadeApp {
             // Prefs::default.
             // Session state, never persisted (see the field's comment).
             // Mirror Prefs::default.
-            show_settings: false,
-            show_shortcuts: false,
-            show_analysis_full: false,
-            panels_hidden: false,
-            defocus_next: false,
-            settings: SettingsForm::default(),
+            ui: ShellState::default(),
             // English is the default / skeleton language; a persisted pref
             // (restored in `new`) overrides this on launch.
             lang: Lang::En,
-            theme: ThemePref::Dark,
-            accent: AccentPref::Gold,
             gal: GalleryState::default(),
             open: OpenState::default(),
-            confirm_quit: false,
             masks: MaskEditState::default(),
             overlay: OverlayState::default(),
             fill_prompt: String::new(),
@@ -1631,11 +1613,8 @@ impl Default for AutoShadeApp {
             active: 0,
             cards: CardsState::default(),
             preview_edge: PREVIEW_EDGE,
-            os_theme_synced: false,
             normal: Default::default(),
             portrait: Default::default(),
-            python_env_line: None,
-            python_check: None,
         }
     }
 }
@@ -1648,8 +1627,8 @@ impl AutoShadeApp {
         // from the creation closure, but viewport commands sent before the
         // event loop runs are dropped — a FIRST-ever launch (no prefs, so no
         // second install) kept the OS-default titlebar over dark chrome.
-        if !std::mem::replace(&mut self.os_theme_synced, true) {
-            ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(self.theme.system()));
+        if !std::mem::replace(&mut self.ui.os_theme_synced, true) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(self.ui.theme.system()));
             // …and say which system faces the font chain turned away.
             // `install_fonts` runs before this app exists and can only reach
             // stderr, which a windowed build does not have — so the first
@@ -1710,7 +1689,7 @@ impl AutoShadeApp {
                     || self.inactive_dirty_variants() > 0)
             {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-                self.confirm_quit = true;
+                self.ui.confirm_quit = true;
                 // Surrender any widget focus NOW: the layer's Enter-saves
                 // default is gated on "no widget focused", and a text field
                 // that kept focus from before the close request silently
@@ -1722,7 +1701,7 @@ impl AutoShadeApp {
                 }
             }
         }
-        if self.confirm_quit {
+        if self.ui.confirm_quit {
             self.confirm_quit_layer(ctx);
         }
         // Hover-to-preview is frame-scoped: take last frame's target; the mask
@@ -1732,7 +1711,7 @@ impl AutoShadeApp {
         // The question a generation landing asks: BEFORE the shortcut tiers,
         // so its Esc / Enter are its own; never under the quit layer, which
         // outranks it.
-        if !self.confirm_quit {
+        if !self.ui.confirm_quit {
             self.fit_prompt_layer(ctx);
         }
 
@@ -1808,7 +1787,7 @@ impl AutoShadeApp {
             // Chrome-side veil → the chrome accent's family (see the colour
             // rule at ACCENT), dimmed to 0.29 so the white line reads on it
             // in every theme.
-            let a = self.theme.colors().accent_fill;
+            let a = self.ui.theme.colors().accent_fill;
             let dim = |v: u8| (f32::from(v) * 0.29).round() as u8;
             painter.rect_filled(rect, 0.0, egui::Color32::from_rgba_unmultiplied(dim(a.r()), dim(a.g()), dim(a.b()), 150));
             painter.text(
@@ -1832,7 +1811,7 @@ impl AutoShadeApp {
                 .constrain(false)
                 .order(egui::Order::Foreground)
                 .show(ctx, |ui| {
-                    let c = self.theme.colors();
+                    let c = self.ui.theme.colors();
                     // Right-aligned rows: a toast slides in from the right
                     // edge by a shrinking right-hand gap.
                     ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
@@ -1972,8 +1951,8 @@ impl eframe::App for AutoShadeApp {
                 preview_edge: self.preview_edge,
                 show_clipping: self.chrome.show_clipping,
                 lang: self.lang,
-                theme: self.theme,
-                accent: self.accent,
+                theme: self.ui.theme,
+                accent: self.ui.accent,
             },
         );
     }

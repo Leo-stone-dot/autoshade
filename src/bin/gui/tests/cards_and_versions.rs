@@ -242,7 +242,7 @@
         // The negative: a transient (Settings) swallows the tool tier…
         let mut app = AutoShadeApp {
             src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/x.arw", std::process::id()))),
-            show_settings: true,
+            ui: ShellState { show_settings: true, ..Default::default() },
             ..Default::default()
         };
         let mut input = egui::RawInput::default();
@@ -253,7 +253,7 @@
         let mut input = egui::RawInput::default();
         input.events.push(key(egui::Key::Escape));
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
-        assert!(!app.show_settings, "Esc dismissed the transient");
+        assert!(!app.ui.show_settings, "Esc dismissed the transient");
         assert!(!app.crop.mode);
     }
 

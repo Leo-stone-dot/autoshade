@@ -36,7 +36,7 @@ impl AutoShadeApp {
 
     fn recipe_library_ui(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let colors = self.theme.colors();
+        let colors = self.ui.theme.colors();
         let n = self.rlib.recipes.len();
         ui.set_min_width(540.0);
 
@@ -263,7 +263,7 @@ impl AutoShadeApp {
     fn recipe_details_pane(&mut self, ui: &mut egui::Ui, name: &str) {
         let lang = self.lang;
         let entry = autoshade::recipe_library::read(name);
-        let colors = self.theme.colors();
+        let colors = self.ui.theme.colors();
         let photo_stem = self.src_path.as_deref().map(|p| autoshade::pipeline::stem(p).to_string());
         ui.horizontal_top(|ui| {
             const PREVIEW_W: f32 = 200.0;

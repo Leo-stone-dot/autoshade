@@ -880,7 +880,7 @@
             assert!(words.contains("python"), "{lang:?}: {words}");
 
             // The Settings row repeats it, for the interpreter the launch found.
-            let mut app = AutoShadeApp { lang, python_check: Some(bad), ..Default::default() };
+            let mut app = AutoShadeApp { lang, ui: ShellState { python_check: Some(bad), ..Default::default() }, ..Default::default() };
             let seen = tall_frame(&mut app, |a, ui| a.settings_ui(ui));
             assert!(
                 seen.iter().any(|t| t.contains("Python27")),

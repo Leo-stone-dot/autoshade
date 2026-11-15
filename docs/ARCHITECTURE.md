@@ -7692,7 +7692,11 @@ struct is at 87 fields. `model::ChromeState` owns the status chrome
 (startup greeting, toast queue, histogram cache, window-title cache, clipping
 warnings and their texture), one `chrome` field; the status line itself stays on
 the app as the per-frame read nearly every action needs. The app struct is at
-81 fields.
+81 fields. `model::ShellState` owns the window shell
+(Settings form, installed theme/accent, open windows, panel/defocus switches,
+quit confirmation, first-frame theme sync, Python probe), one `ui` field; the UI
+language stays on the app because every `tr()` call reads it. The app struct is
+at 70 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

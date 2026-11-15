@@ -122,9 +122,9 @@ impl AutoShadeApp {
                 .interact(tri, ui.id().with(("clip_tri", right)), egui::Sense::click())
                 .on_hover_text(tip);
             let color = lit.unwrap_or(if self.chrome.show_clipping {
-                self.theme.colors().clip_tri_on
+                self.ui.theme.colors().clip_tri_on
             } else {
-                self.theme.colors().clip_tri_off
+                self.ui.theme.colors().clip_tri_off
             });
             p.add(egui::Shape::convex_polygon(
                 vec![
@@ -174,7 +174,7 @@ impl AutoShadeApp {
             return false;
         }
         let lang = self.lang;
-        let label_colors = self.theme.colors().curve_labels;
+        let label_colors = self.ui.theme.colors().curve_labels;
         let mut changed = false;
         ui.horizontal(|ui| {
             for (i, (name, _)) in CURVE_CHANNELS.iter().enumerate() {

@@ -486,7 +486,7 @@ impl AutoShadeApp {
     /// selector that makes an AI develop a first-class, non-reverting version.
     pub(crate) fn variant_strip(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let accent = self.theme.colors().accent_text; // Copy — safe in closures
+        let accent = self.ui.theme.colors().accent_text; // Copy — safe in closures
         // ONE deferred action for the whole strip (R24-5): the five separate
         // `Option`s this replaced were dispatched by an `else if` chain whose
         // exclusivity was a property of the chain; a single value makes it a
@@ -581,7 +581,7 @@ impl AutoShadeApp {
                                 // any theme change.
                                 const CARD_RADIUS: f32 = 4.0;
                                 const GLOW_EXPAND: f32 = 3.0;
-                                let ring = self.theme.colors().accent_fill;
+                                let ring = self.ui.theme.colors().accent_fill;
                                 if active {
                                     ui.painter().rect_filled(
                                         rect.expand(GLOW_EXPAND),
@@ -3242,7 +3242,7 @@ impl AutoShadeApp {
                     self.seams.edit_list_actions.clear();
                 }
                 if n_var > 0 {
-                    let accent = self.theme.colors().accent_text;
+                    let accent = self.ui.theme.colors().accent_text;
                     ui.label(
                         egui::RichText::new(trf(
                             lang,

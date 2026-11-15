@@ -579,14 +579,14 @@ pub(crate) fn on_models(
     // installing this completion would resurrect the ids the OLD
     // credential could see and offer them under the new one's name.
     if generation != self.catalogue_mut(role).generation {
-        self.settings.status = crate::i18n::text(lang, &logic::models::discarded_words());
+        self.ui.settings.status = crate::i18n::text(lang, &logic::models::discarded_words());
         return;
     }
     match res {
         Ok(models) => {
             // The classification and the line are the logic layer's.
             let cat = logic::models::catalogue(&models, role == ModelRole::Image);
-            self.settings.status = crate::i18n::text(lang, &logic::models::installed_words(&cat));
+            self.ui.settings.status = crate::i18n::text(lang, &logic::models::installed_words(&cat));
             let slot = self.catalogue_mut(role);
             slot.chat = cat.chat;
             slot.image_gen = cat.image;
@@ -594,7 +594,7 @@ pub(crate) fn on_models(
             slot.vision = cat.vision;
         }
         Err(e) => {
-            self.settings.status =
+            self.ui.settings.status =
                 crate::i18n::text(lang, &logic::models::failed_words(&e.to_string()));
         }
     }

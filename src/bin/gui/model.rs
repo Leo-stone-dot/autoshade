@@ -483,6 +483,44 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The window shell: the Settings form, the theme/accent actually installed,
+/// which windows are open, the panel/defocus switches, the quit confirmation,
+/// the first-frame theme sync and the Python-environment probe. The UI language
+/// stays on the app — every `tr()` call reads it.
+pub(crate) struct ShellState {
+    pub(crate) settings: SettingsForm,
+    pub(crate) theme: ThemePref,
+    pub(crate) accent: AccentPref,
+    pub(crate) show_settings: bool,
+    pub(crate) show_shortcuts: bool,
+    pub(crate) show_analysis_full: bool,
+    pub(crate) panels_hidden: bool,
+    pub(crate) defocus_next: bool,
+    pub(crate) confirm_quit: bool,
+    pub(crate) os_theme_synced: bool,
+    pub(crate) python_env_line: Option<String>,
+    pub(crate) python_check: Option<autoshade::python_env::PythonCheck>,
+}
+
+impl Default for ShellState {
+    fn default() -> Self {
+        Self {
+            settings: SettingsForm::default(),
+            theme: ThemePref::Dark,
+            accent: AccentPref::Gold,
+            show_settings: false,
+            show_shortcuts: false,
+            show_analysis_full: false,
+            panels_hidden: false,
+            defocus_next: false,
+            confirm_quit: false,
+            os_theme_synced: false,
+            python_env_line: None,
+            python_check: None,
+        }
+    }
+}
+
 /// The status chrome around the workspace: the startup greeting, the toast
 /// queue, the histogram cache, the window-title cache and the clipping
 /// warnings (the shown flag, the last pixels and their texture). The status

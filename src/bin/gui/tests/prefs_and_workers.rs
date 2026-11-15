@@ -234,27 +234,27 @@
         let mut app = AutoShadeApp::default();
         // A typed loopback base + typed token keep the real worker's probe
         // off the network entirely (connection refused before any header).
-        app.settings.image_base_url = "http://127.0.0.1:9/v1".into();
-        app.settings.image_api_key = "typed-test-token".into();
+        app.ui.settings.image_base_url = "http://127.0.0.1:9/v1".into();
+        app.ui.settings.image_api_key = "typed-test-token".into();
         app.fetch_models(ModelRole::Image);
-        let stale_gen = app.settings.image_models.generation;
-        assert!(app.settings.image_models.fetching, "the flight is up");
+        let stale_gen = app.ui.settings.image_models.generation;
+        assert!(app.ui.settings.image_models.fetching, "the flight is up");
         // The user replaces the key mid-flight — the key field's handler
         // clears the catalogue, and clearing bumps the generation:
-        app.settings.image_models.clear();
+        app.ui.settings.image_models.clear();
         // The old flight lands, delivered exactly as the pump would:
         app.on_models(Lang::En, ModelRole::Image, stale_gen, Ok(vec!["stale-model".into()]));
         assert!(
-            app.settings.image_models.chat.is_empty(),
+            app.ui.settings.image_models.chat.is_empty(),
             "ids fetched with the OLD credential must not be offered under the new one"
         );
-        assert!(!app.settings.image_models.fetching, "stale or not, THE flight is over");
+        assert!(!app.ui.settings.image_models.fetching, "stale or not, THE flight is over");
         // A fresh fetch's completion still installs normally:
         app.fetch_models(ModelRole::Image);
-        let live_gen = app.settings.image_models.generation;
+        let live_gen = app.ui.settings.image_models.generation;
         app.on_models(Lang::En, ModelRole::Image, live_gen, Ok(vec!["fresh-model".into()]));
-        assert_eq!(app.settings.image_models.chat, vec!["fresh-model".to_string()]);
-        assert!(!app.settings.image_models.fetching);
+        assert_eq!(app.ui.settings.image_models.chat, vec!["fresh-model".to_string()]);
+        assert!(!app.ui.settings.image_models.fetching);
     }
 
     /// Part D: what the listing SAYS about a model reaches its pickers — the
@@ -266,10 +266,10 @@
     fn the_listing_capabilities_reach_the_pickers_and_clear_with_the_ids() {
         use autoshade::openai_models::ModelInfo;
         let mut app = AutoShadeApp::default();
-        app.settings.image_base_url = "http://127.0.0.1:9/v1".into();
-        app.settings.image_api_key = "typed-test-token".into();
+        app.ui.settings.image_base_url = "http://127.0.0.1:9/v1".into();
+        app.ui.settings.image_api_key = "typed-test-token".into();
         app.fetch_models(ModelRole::Image);
-        let live_gen = app.settings.image_models.generation;
+        let live_gen = app.ui.settings.image_models.generation;
         app.on_models(
             Lang::En,
             ModelRole::Image,
@@ -284,7 +284,7 @@
                 ModelInfo::from("unknown"),
             ]),
         );
-        let cat = &app.settings.image_models;
+        let cat = &app.ui.settings.image_models;
         assert_eq!(cat.tiers_for("reasoner", &EFFORT_TIERS_API), vec!["minimal", "max"]);
         assert_eq!(cat.tiers_for("plain", &EFFORT_TIERS_API), Vec::<&str>::new());
         assert_eq!(cat.tiers_for("unknown", &EFFORT_TIERS_API), EFFORT_TIERS_API.to_vec());
@@ -292,8 +292,8 @@
         assert_eq!(cat.vision_of("plain"), Some(false));
         assert_eq!(cat.vision_of("reasoner"), Some(true));
         assert_eq!(cat.vision_of("unknown"), None);
-        app.settings.image_models.clear();
-        let cat = &app.settings.image_models;
+        app.ui.settings.image_models.clear();
+        let cat = &app.ui.settings.image_models;
         assert!(cat.efforts.is_empty() && cat.vision.is_empty(), "forgotten with the ids");
         assert_eq!(cat.tiers_for("reasoner", &EFFORT_TIERS_API), EFFORT_TIERS_API.to_vec());
     }
@@ -308,7 +308,7 @@
         // Any dispatch stays strictly on loopback: a typed form base wins
         // over the machine's saved config, and the saved-key rule withholds
         // any real credential from an endpoint it was not saved for.
-        app.settings.image_base_url = "http://127.0.0.1:9/v1".into();
+        app.ui.settings.image_base_url = "http://127.0.0.1:9/v1".into();
         let mut cfg = autoshade::config::Config {
             openai_api_key: None,
             openai_model: "test-chat".into(),
@@ -344,20 +344,20 @@
         // must not spend the session's opportunity.
         app.autofetch_models_once(&cfg);
         assert!(
-            !app.settings.image_models.autofetched,
+            !app.ui.settings.image_models.autofetched,
             "an ineligible open must not consume the role's probe"
         );
-        assert!(!app.settings.image_models.fetching);
+        assert!(!app.ui.settings.image_models.fetching);
         // The key arrives (saved on another surface); the NEXT open probes.
         cfg.openai_api_key = Some("typed-test-token".into());
         app.autofetch_models_once(&cfg);
-        assert!(app.settings.image_models.autofetched, "consumed at dispatch");
-        assert!(app.settings.image_models.fetching, "the probe launched");
+        assert!(app.ui.settings.image_models.autofetched, "consumed at dispatch");
+        assert!(app.ui.settings.image_models.fetching, "the probe launched");
         // …and only once per session: a reopen never re-probes a metered
         // endpoint (the review verified this half held; it must keep holding).
-        app.settings.image_models.fetching = false;
+        app.ui.settings.image_models.fetching = false;
         app.autofetch_models_once(&cfg);
-        assert!(!app.settings.image_models.fetching, "the one probe is spent");
+        assert!(!app.ui.settings.image_models.fetching, "the one probe is spent");
     }
 
     /// GUI review 2026-08-12 F1 (model face): the CLI accepts full ids as
