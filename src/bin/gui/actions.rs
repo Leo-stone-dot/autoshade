@@ -187,16 +187,18 @@ impl AutoShadeApp {
     /// The active card's actual pixels choose the path, including generated
     /// masters under a RAW original. An unopened app displays the RAW dials.
     pub(crate) fn denoise_uses_raw(&self) -> bool {
-        self.active_source_path().is_none_or(|p| autoshade::decode::is_raw(&p))
+        crate::logic::noise::uses_raw(self.active_source_path().as_deref())
     }
 
     pub(crate) fn selected_denoise_strength(&self, on_export: bool) -> f32 {
-        match (self.denoise_uses_raw(), on_export) {
-            (true, false) => self.exp.denoise_strength,
-            (true, true) => self.exp.save_denoise_strength,
-            (false, false) => self.exp.baked_denoise_strength,
-            (false, true) => self.exp.baked_save_denoise_strength,
-        }
+        crate::logic::noise::selected_strength(
+            self.denoise_uses_raw(),
+            on_export,
+            self.exp.denoise_strength,
+            self.exp.save_denoise_strength,
+            self.exp.baked_denoise_strength,
+            self.exp.baked_save_denoise_strength,
+        )
     }
 
     pub(crate) fn show_startup_note(&mut self) {

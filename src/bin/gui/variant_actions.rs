@@ -458,12 +458,6 @@ pub(crate) fn negative_origin(&self) -> Option<PathBuf> {
     crate::logic::cards::negative_origin(&self.variants, self.active)
 }
 
-/// Test-only view of [`crate::logic::cards::fit_source_index`].
-#[cfg(test)]
-pub(crate) fn fit_source_index(&self) -> Option<usize> {
-    crate::logic::cards::fit_source_index(&self.variants, self.active, self.fit.fit_from.as_deref())
-}
-
 pub(crate) fn fit_negative(&self) -> Option<PathBuf> {
     crate::logic::cards::fit_negative(&self.variants, self.active, self.fit.fit_from.as_deref())
 }
