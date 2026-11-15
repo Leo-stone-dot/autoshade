@@ -126,18 +126,18 @@
             (app.seams.ai_library_build_enabled, app.seams.ai_library_read_enabled)
         };
         let mut app = AutoShadeApp::default();
-        assert!(app.style_strength > 0.0, "premise: the app ships with Style above 0");
+        assert!(app.aip.style_strength > 0.0, "premise: the app ships with Style above 0");
         assert_eq!(frame(&mut app), (Some(true), Some(true)), "above Style 0 a library is buildable and read");
-        app.style_strength = 0.0;
+        app.aip.style_strength = 0.0;
         assert_eq!(frame(&mut app), (Some(true), Some(false)), "at Style 0: still buildable, not read");
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         assert!(seen.iter().any(|t| t.contains("Style is at 0%")), "a greyed control must say why: {seen:?}");
         assert!(seen.iter().any(|t| t.contains("Build / rebuild")), "the build entry stays at Style 0: {seen:?}");
-        app.style_strength = 0.01;
+        app.aip.style_strength = 0.01;
         assert_eq!(frame(&mut app), (Some(true), Some(true)), "any non-zero Style opens a library");
         // Guided by the direction, no library is read whatever Style says —
         // and it is still buildable.
-        app.guide = autoshade::pipeline::Guide::Direction;
+        app.aip.guide = autoshade::pipeline::Guide::Direction;
         assert_eq!(frame(&mut app), (Some(true), Some(false)), "direction-guided: buildable, not read");
     }
 
@@ -154,16 +154,19 @@
         });
         let warn = "built, but not searched";
         let mut app = AutoShadeApp {
+            aip: AiPrefs {
+                style_embed: false,
+                ..Default::default()
+            },
             ai: AiState {
                 style_info: built.clone(),
                 ..Default::default()
             },
-            style_embed: false,
             ..Default::default()
         };
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         assert!(seen.iter().any(|t| t.contains(warn)), "{seen:?}");
-        app.style_embed = true;
+        app.aip.style_embed = true;
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         assert!(!seen.iter().any(|t| t.contains(warn)), "{seen:?}");
         let mut app = AutoShadeApp {
@@ -303,7 +306,7 @@
     #[test]
     fn the_style_reference_photo_switch_is_off_in_both_defaults() {
         assert!(
-            !AutoShadeApp::default().send_style_ref_image,
+            !AutoShadeApp::default().aip.send_style_ref_image,
             "spending is opt-in — a fresh app must not send a second image"
         );
         assert!(
@@ -313,15 +316,21 @@
         assert_eq!(Prefs::default().style_src_dir, None);
         // …and the request the analyze worker builds carries the flag, so the
         // checkbox cannot become decoration.
-        let app = AutoShadeApp { send_style_ref_image: true, ..Default::default() };
+        let app = AutoShadeApp {
+            aip: AiPrefs {
+                send_style_ref_image: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let req = autoshade::pipeline::GradeRequest {
-            guide: app.guide,
-            style: app.style_strength,
-            send_reference_image: app.send_style_ref_image,
-            strength: autoshade::recipe::GradeStrength::new(app.grade_strength),
-            think: app.deep_think,
+            guide: app.aip.guide,
+            style: app.aip.style_strength,
+            send_reference_image: app.aip.send_style_ref_image,
+            strength: autoshade::recipe::GradeStrength::new(app.aip.grade_strength),
+            think: app.aip.deep_think,
             adherence: autoshade::recipe::DirectionAdherence::default(),
-            embed: autoshade::library::EmbeddingSwitch::resolve(None, app.style_embed),
+            embed: autoshade::library::EmbeddingSwitch::resolve(None, app.aip.style_embed),
         };
         assert!(req.send_reference_image);
         assert!(
@@ -345,16 +354,28 @@
     fn gui_embedding_pref_reaches_the_develop_query() {
         // The environment is NOT set here, and is not touched: the preference
         // alone must be enough.
-        let on = AutoShadeApp { style_embed: true, ..Default::default() };
-        let off = AutoShadeApp { style_embed: false, ..Default::default() };
+        let on = AutoShadeApp {
+            aip: AiPrefs {
+                style_embed: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let off = AutoShadeApp {
+            aip: AiPrefs {
+                style_embed: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let request_from = |app: &AutoShadeApp| autoshade::pipeline::GradeRequest {
-            guide: app.guide,
-            style: app.style_strength,
-            send_reference_image: app.send_style_ref_image,
-            strength: autoshade::recipe::GradeStrength::new(app.grade_strength),
-            think: app.deep_think,
+            guide: app.aip.guide,
+            style: app.aip.style_strength,
+            send_reference_image: app.aip.send_style_ref_image,
+            strength: autoshade::recipe::GradeStrength::new(app.aip.grade_strength),
+            think: app.aip.deep_think,
             adherence: autoshade::recipe::DirectionAdherence::default(),
-            embed: autoshade::library::EmbeddingSwitch::resolve_with(None, app.style_embed, |_| None),
+            embed: autoshade::library::EmbeddingSwitch::resolve_with(None, app.aip.style_embed, |_| None),
         };
         assert!(request_from(&on).embed.on(), "the checkbox must reach the develop's request");
         assert!(!request_from(&off).embed.on(), "…and un-checking it must too");
@@ -375,7 +396,7 @@
         );
         let runtime = include_str!("../runtime.rs");
         assert_eq!(
-            runtime.matches("EmbeddingSwitch::resolve(None, self.style_embed)").count(),
+            runtime.matches("EmbeddingSwitch::resolve(None, self.aip.style_embed)").count(),
             1,
             "the look start snapshots the preference into the request"
         );
@@ -471,7 +492,7 @@
     #[test]
     fn the_deep_thinking_switch_is_off_by_default_and_rides_the_request() {
         assert!(
-            !AutoShadeApp::default().deep_think,
+            !AutoShadeApp::default().aip.deep_think,
             "a fresh app must not start paying for a deeper analyze"
         );
         assert!(
@@ -486,18 +507,24 @@
         );
         // Same rule as `fit_ai_judge` / `send_style_ref_image`: a remembered
         // preference is not "this photo's AI inputs carry state".
-        app.deep_think = true;
+        app.aip.deep_think = true;
         assert!(!app.ai_section_active(), "a preference must not light the section ●");
 
-        let app = AutoShadeApp { deep_think: true, ..Default::default() };
+        let app = AutoShadeApp {
+            aip: AiPrefs {
+                deep_think: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let req = autoshade::pipeline::GradeRequest {
-            guide: app.guide,
-            style: app.style_strength,
-            send_reference_image: app.send_style_ref_image,
-            strength: autoshade::recipe::GradeStrength::new(app.grade_strength),
-            think: app.deep_think,
+            guide: app.aip.guide,
+            style: app.aip.style_strength,
+            send_reference_image: app.aip.send_style_ref_image,
+            strength: autoshade::recipe::GradeStrength::new(app.aip.grade_strength),
+            think: app.aip.deep_think,
             adherence: autoshade::recipe::DirectionAdherence::default(),
-            embed: autoshade::library::EmbeddingSwitch::resolve(None, app.style_embed),
+            embed: autoshade::library::EmbeddingSwitch::resolve(None, app.aip.style_embed),
         };
         assert!(req.think, "the checkbox must reach the worker's request");
         assert!(
@@ -526,7 +553,7 @@
             },
             ..Default::default()
         };
-        assert!(!app.style_embed, "premise: the search ships off");
+        assert!(!app.aip.style_embed, "premise: the search ships off");
         app.tx
             .send(Msg::StyleBuilt(Box::new(StyleBuildOutcome::Saved { total: 412, dir: dir.clone(), phrased: 0 })))
             .unwrap();
@@ -534,8 +561,8 @@
         assert!(!app.ai.style_build_inflight, "the button re-arms");
         assert_eq!(app.ai.style_build_progress, None, "the counter belongs to ONE build");
         assert!(app.status.contains("412") && !app.status.contains("look phrases"), "{}", app.status);
-        assert_eq!(app.style_src_dir.as_deref(), Some(dir.as_path()), "the folder is remembered");
-        assert!(app.style_embed, "a built library is a searched library");
+        assert_eq!(app.aip.style_src_dir.as_deref(), Some(dir.as_path()), "the folder is remembered");
+        assert!(app.aip.style_embed, "a built library is a searched library");
         // The landing ARMS a fresh status read on a real worker thread, which
         // may already have answered inside this drain: in flight OR answered.
         assert!(app.ai.style_info_loading || app.ai.style_info.is_some(), "a build invalidates the cached status");
@@ -573,7 +600,7 @@
         assert!(!app.ai.style_build_inflight);
         assert!(app.status.contains("access denied"), "{}", app.status);
         assert!(app.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)));
-        assert!(!app.style_embed && app.style_src_dir.is_none() && !app.ai.style_info_loading, "a failed build changes nothing");
+        assert!(!app.aip.style_embed && app.aip.style_src_dir.is_none() && !app.ai.style_info_loading, "a failed build changes nothing");
 
         // Progress ticks land as counts, not as a worker-built sentence.
         let mut app = AutoShadeApp {

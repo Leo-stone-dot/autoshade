@@ -25,10 +25,10 @@ pub(crate) fn on_style_built(&mut self, lang: Lang, outcome: StyleBuildOutcome) 
     };
     self.show_words(lang, words);
     if let Some(dir) = dir {
-        self.style_src_dir = Some(dir);
+        self.aip.style_src_dir = Some(dir);
         // A build has just run the embedding model, so its one-time
         // download is done: searching is what the user built it for.
-        self.style_embed = true;
+        self.aip.style_embed = true;
         self.start_style_info();
     }
 }

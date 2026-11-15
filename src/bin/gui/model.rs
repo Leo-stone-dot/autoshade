@@ -483,6 +483,43 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The persisted AI preferences, mirrored on the app so the panels read them
+/// without loading `Prefs`: the guide, the three strengths, the adherence dial
+/// and the library/deep-think switches. Field names are the app's; the `Prefs`
+/// struct keeps its own serialized names, and the load/save code maps between
+/// them explicitly.
+pub(crate) struct AiPrefs {
+    pub(crate) guide: autoshade::pipeline::Guide,
+    pub(crate) style_strength: f32,
+    pub(crate) grade_strength: f32,
+    pub(crate) fit_strength: f32,
+    pub(crate) send_style_ref_image: bool,
+    pub(crate) deep_think: bool,
+    pub(crate) style_embed: bool,
+    pub(crate) style_describe: bool,
+    pub(crate) style_src_dir: Option<PathBuf>,
+    pub(crate) style_raw_dir: Option<PathBuf>,
+    pub(crate) direction_adherence: f32,
+}
+
+impl Default for AiPrefs {
+    fn default() -> Self {
+        Self {
+            guide: autoshade::pipeline::Guide::default(),
+            style_strength: STYLE_STRENGTH_DEFAULT,
+            grade_strength: GRADE_STRENGTH_DEFAULT,
+            fit_strength: autoshade::recipe::GradeStrength::DEFAULT,
+            send_style_ref_image: false,
+            deep_think: false,
+            style_embed: false,
+            style_describe: false,
+            style_src_dir: None,
+            style_raw_dir: None,
+            direction_adherence: autoshade::recipe::DirectionAdherence::DEFAULT,
+        }
+    }
+}
+
 /// The open/photo-source state: the navigation stash, the master cache and its
 /// loads, the source part and its re-develop flight, the photo's lens/as-shot
 /// facts, the Before baseline, the open window's flags and the discard request.

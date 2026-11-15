@@ -78,15 +78,14 @@ pub(crate) struct AutoShadeApp {
     /// What guides AI Analyze: the reference library or the Direction text —
     /// either/or (user ruling 2026-10-14). The controls of the one not chosen
     /// are greyed out. Persisted.
-    pub(crate) guide: autoshade::pipeline::Guide,
-    pub(crate) style_strength: f32,
+    /// The persisted AI preferences; see [`AiPrefs`].
+    pub(crate) aip: AiPrefs,
     /// R23-3, feedback #5 ("the AI is too timid"): how COMMITTED the grade
     /// should be, 0..1. A SEPARATE axis from `style_strength` — that one asks
     /// how much like the user's own past edits, this one how hard to push — and
     /// keeping them apart is the point of the round. Persisted; stored as the
     /// raw fraction and handed to `GradeStrength::new` at the call site, which
     /// owns the clamp.
-    pub(crate) grade_strength: f32,
     /// The reverse-fit's HONESTY BUDGET, 0..1 — its OWN dial in the Reverse-fit
     /// fold (user decision 2026-09-12: a control belongs to the section whose
     /// function it serves, and a function two sections need gets two controls,
@@ -94,30 +93,22 @@ pub(crate) struct AutoShadeApp {
     /// Strength two folds up, which nobody looking at the fit's own row could
     /// find. Persisted as the raw fraction; `GradeStrength::new` owns the clamp
     /// at the call site, exactly like `grade_strength`.
-    pub(crate) fit_strength: f32,
     /// R23-2, feedback #6: also SHOW the vision model the nearest past photo,
     /// not only its numbers. Persisted, and OFF by default — it puts a second
     /// image on every call of a paid analysis (the checkbox says so).
-    pub(crate) send_style_ref_image: bool,
     /// R23-4, feedback #13 ("let it think"): DEEP THINKING for this photo's
     /// analysis — the structured working in the proposal, one step more
     /// reasoning effort, and a visual judge allowed to converge over more than
     /// one round. Persisted, OFF by default: it is the most expensive switch on
     /// the panel (the checkbox states the call counts), and every unattended
     /// surface (batch, eval) is structurally unable to turn it on.
-    pub(crate) deep_think: bool,
-    pub(crate) style_embed: bool,
     /// Step 14 / S2: also write a LOCAL prose description of each record's
     /// grade. Persisted, OFF by default — it downloads 4.3 GB once and makes
     /// every build slower, which is not a cost an upgrade may take unasked.
-    pub(crate) style_describe: bool,
     /// The folder the reference library was last built FROM — prefilled into
     /// the picker so a rebuild does not mean finding it again. Persisted.
-    pub(crate) style_src_dir: Option<PathBuf>,
     /// The RAW folder a build looks in for each finished photo's sidecar
     /// settings (`library::settings`). Persisted; `None` = no settings check.
-    pub(crate) style_raw_dir: Option<PathBuf>,
-    pub(crate) direction_adherence: f32,
     /// The reference library's status as last READ (`library::summary`),
     /// cached: it parses a file that can reach tens of MB, so it must never
     /// happen per frame. `None` = not read yet.
@@ -1593,23 +1584,13 @@ impl Default for AutoShadeApp {
             // target and the AI section's ● baseline (R22 #16) — see
             // model::STYLE_STRENGTH_DEFAULT for why the literal cannot live in
             // two Default impls.
-            guide: autoshade::pipeline::Guide::default(),
-            style_strength: STYLE_STRENGTH_DEFAULT,
+            aip: AiPrefs::default(),
             // 0.65 — braver than the 0.5 calibration point, by user decision
             // (2026-08-17 ⑦). Same one-definition rule as above: the constant is
             // the lib's own `GradeStrength::DEFAULT`.
-            grade_strength: GRADE_STRENGTH_DEFAULT,
-            fit_strength: autoshade::recipe::GradeStrength::DEFAULT,
             // OFF: an extra image on a paid call is the user's opt-in, never a
             // default (the same rule `fit_ai_judge` follows).
-            send_style_ref_image: false,
             // OFF, same rule and a bigger bill (up to 17 calls per analyze).
-            deep_think: false,
-            style_embed: false,
-            style_describe: false,
-            style_src_dir: None,
-            style_raw_dir: None,
-            direction_adherence: autoshade::recipe::DirectionAdherence::DEFAULT,
             ai: AiState::default(),
             exp: ExportState::default(),
             // ./out — the CLI's and the batch renderer's own root; mirror
@@ -2003,17 +1984,17 @@ impl eframe::App for AutoShadeApp {
             &Prefs {
                 prefs_era: PREFS_ERA,
                 gallery_dir: self.gal.gallery_dir.clone(),
-                guide: self.guide,
-                style_strength: self.style_strength,
-                grade_strength: self.grade_strength,
-                fit_strength: self.fit_strength,
-                send_style_ref_image: self.send_style_ref_image,
-                deep_think: self.deep_think,
-                style_embed: self.style_embed,
-                style_describe: self.style_describe,
-                style_src_dir: self.style_src_dir.clone(),
-                style_raw_dir: self.style_raw_dir.clone(),
-                direction_adherence: self.direction_adherence,
+                guide: self.aip.guide,
+                style_strength: self.aip.style_strength,
+                grade_strength: self.aip.grade_strength,
+                fit_strength: self.aip.fit_strength,
+                send_style_ref_image: self.aip.send_style_ref_image,
+                deep_think: self.aip.deep_think,
+                style_embed: self.aip.style_embed,
+                style_describe: self.aip.style_describe,
+                style_src_dir: self.aip.style_src_dir.clone(),
+                style_raw_dir: self.aip.style_raw_dir.clone(),
+                direction_adherence: self.aip.direction_adherence,
                 // Both written: exp_format is the truth, save_jpeg keeps a
                 // pre-阶段4 build reading this prefs file sane.
                 save_jpeg: self.exp.format == ExportFormat::Jpeg,

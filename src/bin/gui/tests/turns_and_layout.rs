@@ -206,18 +206,18 @@
         // (3) a real direction under the library guide: still inert — the
         // direction is not sent (library OR direction, 2026-10-14).
         app.ai.guidance = "warmer, moodier".into();
-        assert_eq!(app.guide, autoshade::pipeline::Guide::Library, "premise: the default guide");
+        assert_eq!(app.aip.guide, autoshade::pipeline::Guide::Library, "premise: the default guide");
         assert_eq!(frame(&mut app), Some(false), "a direction the library overrides has no dial");
         // (4) guided by that direction: live.
-        app.guide = autoshade::pipeline::Guide::Direction;
+        app.aip.guide = autoshade::pipeline::Guide::Direction;
         assert_eq!(frame(&mut app), Some(true), "with a guiding direction the dial must be usable");
         // …and the DIAL reaches the request as a tier, which is the only thing
         // the value is for.
-        app.direction_adherence = 0.1;
-        let hint = autoshade::recipe::DirectionAdherence::new(app.direction_adherence);
+        app.aip.direction_adherence = 0.1;
+        let hint = autoshade::recipe::DirectionAdherence::new(app.aip.direction_adherence);
         assert_eq!(hint.tier(), autoshade::recipe::AdherenceTier::Hint);
-        app.direction_adherence = 0.95;
-        let brief = autoshade::recipe::DirectionAdherence::new(app.direction_adherence);
+        app.aip.direction_adherence = 0.95;
+        let brief = autoshade::recipe::DirectionAdherence::new(app.aip.direction_adherence);
         assert_eq!(brief.tier(), autoshade::recipe::AdherenceTier::Brief);
         assert_ne!(hint.tier(), brief.tier(), "the dial must be able to change the tier");
         // …and the tooltip NAMES the tiers, which is what a user needs to know
@@ -261,7 +261,7 @@
         };
         let mut app = AutoShadeApp::default();
         assert_eq!(frame(&mut app), Some((false, true)), "library: Direction greyed, Style live");
-        app.guide = Guide::Direction;
+        app.aip.guide = Guide::Direction;
         assert_eq!(frame(&mut app), Some((true, false)), "direction: Direction live, Style greyed");
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         assert!(seen.iter().any(|t| t.contains("Guided by the Direction")), "a greyed library must say why: {seen:?}");
@@ -271,7 +271,7 @@
         let back: Prefs = serde_json::from_str(&json).unwrap();
         let mut restored = AutoShadeApp::default();
         restored.restore_prefs(back);
-        assert_eq!(restored.guide, Guide::Direction, "the switch must survive a restart");
+        assert_eq!(restored.aip.guide, Guide::Direction, "the switch must survive a restart");
 
         // The request half lives in the reflection layer, whose own tests drive
         // it; this guard pins the two rules the switch depends on.
@@ -306,7 +306,7 @@
             "a prefs file written before this key existed must decode to OFF"
         );
         assert!(
-            !AutoShadeApp::default().style_describe,
+            !AutoShadeApp::default().aip.style_describe,
             "a fresh app must not start a 4.3 GB download"
         );
         // A pre-S2 preferences file really is such a file: it has no key at all.
@@ -321,24 +321,36 @@
 
         // The preference is what the workers resolve, and the resolver answers
         // a VALUE — no test and no build writes the process environment.
-        let on = AutoShadeApp { style_describe: true, ..Default::default() };
-        let off = AutoShadeApp { style_describe: false, ..Default::default() };
+        let on = AutoShadeApp {
+            aip: AiPrefs {
+                style_describe: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let off = AutoShadeApp {
+            aip: AiPrefs {
+                style_describe: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let unset = |_: &str| None;
-        assert!(autoshade::library::DescribeSwitch::resolve_with(None, on.style_describe, unset).on());
-        assert!(!autoshade::library::DescribeSwitch::resolve_with(None, off.style_describe, unset).on());
+        assert!(autoshade::library::DescribeSwitch::resolve_with(None, on.aip.style_describe, unset).on());
+        assert!(!autoshade::library::DescribeSwitch::resolve_with(None, off.aip.style_describe, unset).on());
 
         let actions = include_str!("../actions.rs");
         assert_eq!(
-            actions.matches("DescribeSwitch::resolve(None, self.style_describe)").count(),
+            actions.matches("DescribeSwitch::resolve(None, self.aip.style_describe)").count(),
             1,
             "the library build reads the preference"
         );
         assert!(
-            actions.contains("app.style_describe = prefs.style_describe;"),
+            actions.contains("app.aip.style_describe = prefs.style_describe;"),
             "the saved preference must be restored at start-up"
         );
         assert!(
-            include_str!("../app.rs").contains("style_describe: self.style_describe,"),
+            include_str!("../app.rs").contains("style_describe: self.aip.style_describe,"),
             "…and written back when preferences are saved"
         );
     }

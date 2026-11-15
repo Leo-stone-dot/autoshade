@@ -333,16 +333,16 @@ impl AutoShadeApp {
             use autoshade::pipeline::Guide;
             ui.horizontal_wrapped(|ui| {
                 ui.label(tr(lang, "Guided by"));
-                ui.radio_value(&mut self.guide, Guide::Library, tr(lang, "Reference library")).on_hover_text(tr(
+                ui.radio_value(&mut self.aip.guide, Guide::Library, tr(lang, "Reference library")).on_hover_text(tr(
                     lang,
                     "The AI follows the finished photos in your reference library closest to this one; the Direction text is not sent.",
                 ));
-                ui.radio_value(&mut self.guide, Guide::Direction, tr(lang, "Direction")).on_hover_text(tr(
+                ui.radio_value(&mut self.aip.guide, Guide::Direction, tr(lang, "Direction")).on_hover_text(tr(
                     lang,
                     "The AI follows the Direction you type; the reference library is not read.",
                 ));
             });
-            let by_direction = self.guide == Guide::Direction;
+            let by_direction = self.aip.guide == Guide::Direction;
             ui.add_enabled_ui(by_direction, |ui| {
                 // #14a: was `desired_width(f32::INFINITY)` — a full-panel ribbon on a
                 // wide side panel. `prompt_field` caps it, widens while focused and
@@ -426,7 +426,7 @@ impl AutoShadeApp {
                     ui,
                     lang,
                     tr(lang, "Style"),
-                    &mut self.style_strength,
+                    &mut self.aip.style_strength,
                     1.0,
                     STYLE_STRENGTH_DEFAULT,
                     tr(lang, "How far AI proposals follow the looks in your reference library: below 85% they stay within its grading, from 85% they reproduce its look (0 = ignore it). Greyed while the Direction guides."),
@@ -460,7 +460,7 @@ impl AutoShadeApp {
                 ui,
                 lang,
                 tr(lang, "Strength"),
-                &mut self.grade_strength,
+                &mut self.aip.grade_strength,
                 1.0,
                 GRADE_STRENGTH_DEFAULT,
                 tr(lang,
@@ -479,7 +479,7 @@ impl AutoShadeApp {
                     ui,
                     lang,
                     tr(lang, "Adherence"),
-                    &mut self.direction_adherence,
+                    &mut self.aip.direction_adherence,
                     1.0,
                     autoshade::recipe::DirectionAdherence::DEFAULT,
                     tr(lang, "How closely the AI follows your direction; disabled until the Direction guides and has text. At 40% or below it is a Hint; from 40% to 70% it is followed (Direct); above 70% it is a firm Brief. It changes only what the AI is asked, never a slider limit."),
@@ -488,7 +488,7 @@ impl AutoShadeApp {
             // R23-4 (feedback #13): the THIRD analysis-side control, under the two
             // dials it modifies — the target score and round budget it unlocks are
             // read off the Strength band directly above it.
-            ui.checkbox(&mut self.deep_think, tr(lang, "Deep thinking"))
+            ui.checkbox(&mut self.aip.deep_think, tr(lang, "Deep thinking"))
                 .on_hover_text(tr(lang,
                     "Make the AI show its work and let it iterate. The proposal must first name what it sees, decide EACH tool family (tone / white balance / presence / HSL / colour grading / curves / detail / framing / masks) with a reason, state the look it is going for, and end by critiquing its own answer — those three sentences land in the 「Deep thinking」 box under the rationale. It also asks the image model for one step more reasoning effort (only when a tier other than 「provider default」 is set in Settings), and lets the visual judge keep going until it scores well enough: 2 rounds at a balanced Strength, 3 above 70%. COST: a normal analyze is at worst 11 API calls (6 with images, 8 high-detail frames); with this box ticked OR Strength above 70% — either one alone is enough — it is at worst 17 calls (10 with images, 14 high-detail), plus roughly 10-20% more output tokens per proposal. Batch and the eval harness never do this.",
                 ));
@@ -572,8 +572,8 @@ impl AutoShadeApp {
         // Read off the SAME comparison the pipeline makes
         // (`GradeRequest::library_style`), so the two can never disagree
         // about what "reads a library" means.
-        let by_direction = self.guide == autoshade::pipeline::Guide::Direction;
-        let reads_a_library = !by_direction && self.style_strength > 0.0;
+        let by_direction = self.aip.guide == autoshade::pipeline::Guide::Direction;
+        let reads_a_library = !by_direction && self.aip.style_strength > 0.0;
         card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Reference library · local"))
             .id_salt("sec_ai_libraries")
             .default_open(false)
@@ -678,7 +678,7 @@ impl AutoShadeApp {
                 pick = true;
             }
             // Rebuilding needs a folder: the remembered one, or one picked now.
-            let have = self.style_src_dir.clone().filter(|d| d.is_dir());
+            let have = self.aip.style_src_dir.clone().filter(|d| d.is_dir());
             let label = if building { tr(lang, "building…") } else { tr(lang, "🔄 Build / rebuild") };
             let resp = primary_in(ui, cell, have.is_some(), label).on_hover_text(if have.is_some() {
                 tr(lang,
@@ -703,14 +703,14 @@ impl AutoShadeApp {
             {
                 pick_raw = true;
             }
-            if action_in(ui, cell, self.style_raw_dir.is_some(), tr(lang, "✕ Clear"))
+            if action_in(ui, cell, self.aip.style_raw_dir.is_some(), tr(lang, "✕ Clear"))
                 .on_hover_text(tr(lang, "Stop looking for RAW settings"))
                 .clicked()
             {
-                self.style_raw_dir = None;
+                self.aip.style_raw_dir = None;
             }
             });
-            let raw_note = match &self.style_raw_dir {
+            let raw_note = match &self.aip.style_raw_dir {
                 Some(d) => abs_display(d),
                 None => tr(lang, "no RAW folder: references go without settings").to_string(),
             };
@@ -718,7 +718,7 @@ impl AutoShadeApp {
             if pick_raw {
                 self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::PickRawFolder)]);
             }
-            ui.checkbox(&mut self.style_describe, tr(lang, "Write look phrases (local model)"))
+            ui.checkbox(&mut self.aip.style_describe, tr(lang, "Write look phrases (local model)"))
                 .on_hover_text(tr(lang,
                     "A local model (Qwen3-VL-2B, 4.3 GB, downloaded once; builds get slower) writes a few phrases per photo about its GRADE — \"warm, faded, low contrast\" — which go to the AI beside each reference. Nothing leaves this machine and nothing is billed. Off = the references go without words.",
                 ));
@@ -749,19 +749,19 @@ impl AutoShadeApp {
     fn ai_library_use(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         let built = matches!(self.ai.style_info, Some(autoshade::library::Summary::Built { .. }));
-        ui.checkbox(&mut self.style_embed, tr(lang, "Search the library when analysing"))
+        ui.checkbox(&mut self.aip.style_embed, tr(lang, "Search the library when analysing"))
             .on_hover_text(tr(lang,
                 "Each analysis measures this photo with a local model (SigLIP 2, 1.5 GB, downloaded once) and picks the closest references. Building a library turns this on, since the build has already downloaded the model.",
             ));
-        if built && !self.style_embed {
+        if built && !self.aip.style_embed {
             ui.label(
                 egui::RichText::new(tr(lang, "built, but not searched: the switch above is off"))
                     .color(ui.visuals().warn_fg_color)
                     .small(),
             );
         }
-        ui.add_enabled_ui(built && self.style_embed, |ui| {
-            ui.checkbox(&mut self.send_style_ref_image, tr(lang, "Also show the model the reference photos"))
+        ui.add_enabled_ui(built && self.aip.style_embed, |ui| {
+            ui.checkbox(&mut self.aip.send_style_ref_image, tr(lang, "Also show the model the reference photos"))
                 .on_hover_text(if built {
                     tr(lang,
                         "WILL UPLOAD UP TO 3 MORE IMAGES per analysis call: the closest reference photos, so the model can match their look by eye as well as by words. COST: each is billed as one more image — and a revision round sends them again. They are never stored by the provider (store:false), and the rationale says how many went. Off = the references go as words only.",
@@ -1141,7 +1141,7 @@ impl AutoShadeApp {
                 ui,
                 lang,
                 tr(lang, "Reverse-fit strength"),
-                &mut self.fit_strength,
+                &mut self.aip.fit_strength,
                 1.0,
                 autoshade::recipe::GradeStrength::DEFAULT,
                 tr(lang,

@@ -29,7 +29,7 @@ impl AutoShadeApp {
     /// The Analysis fold's Strength dial as the typed axis the develop request
     /// reads (R23-3). Nothing else reads it.
     pub(crate) fn analysis_strength(&self) -> autoshade::recipe::GradeStrength {
-        autoshade::recipe::GradeStrength::new(self.grade_strength)
+        autoshade::recipe::GradeStrength::new(self.aip.grade_strength)
     }
 
     /// The Reverse-fit fold's OWN Strength dial as the fit's honesty budget
@@ -39,7 +39,7 @@ impl AutoShadeApp {
     /// both read one `panel_strength()`, and the fit's budget was a dial two
     /// folds above the fit's own row.
     pub(crate) fn fit_strength(&self) -> autoshade::recipe::GradeStrength {
-        autoshade::recipe::GradeStrength::new(self.fit_strength)
+        autoshade::recipe::GradeStrength::new(self.aip.fit_strength)
     }
 
     /// Restore persisted prefs (last folder, view mode, export options) and
@@ -87,20 +87,20 @@ impl AutoShadeApp {
     /// in headless tests; no access to the user's actual prefs is needed.
     pub(crate) fn restore_prefs(&mut self, prefs: Prefs) {
         let app = self;
-        app.guide = prefs.guide;
-        app.style_strength = prefs.style_strength.clamp(0.0, 1.0);
-        app.grade_strength = prefs.grade_strength.clamp(0.0, 1.0);
-        app.fit_strength = prefs.fit_strength.clamp(0.0, 1.0);
-        app.send_style_ref_image = prefs.send_style_ref_image;
-        app.deep_think = prefs.deep_think;
-        app.style_embed = prefs.style_embed;
-        app.style_describe = prefs.style_describe;
+        app.aip.guide = prefs.guide;
+        app.aip.style_strength = prefs.style_strength.clamp(0.0, 1.0);
+        app.aip.grade_strength = prefs.grade_strength.clamp(0.0, 1.0);
+        app.aip.fit_strength = prefs.fit_strength.clamp(0.0, 1.0);
+        app.aip.send_style_ref_image = prefs.send_style_ref_image;
+        app.aip.deep_think = prefs.deep_think;
+        app.aip.style_embed = prefs.style_embed;
+        app.aip.style_describe = prefs.style_describe;
         // Only a folder that still EXISTS is prefilled: a picker opened at
         // a deleted path lands wherever the OS decides (the same rule the
         // gallery restore above follows).
-        app.style_src_dir = prefs.style_src_dir.clone().filter(|d| d.is_dir());
-        app.style_raw_dir = prefs.style_raw_dir.clone().filter(|d| d.is_dir());
-        app.direction_adherence = autoshade::recipe::DirectionAdherence::new(prefs.direction_adherence).get();
+        app.aip.style_src_dir = prefs.style_src_dir.clone().filter(|d| d.is_dir());
+        app.aip.style_raw_dir = prefs.style_raw_dir.clone().filter(|d| d.is_dir());
+        app.aip.direction_adherence = autoshade::recipe::DirectionAdherence::new(prefs.direction_adherence).get();
         app.exp.format = ExportFormat::from_pref(prefs.exp_format, prefs.save_jpeg);
         app.exp.dest = ExportDest::from_pref(prefs.exp_dest);
         app.exp.last_dir = prefs.last_export_dir.clone();
@@ -2827,7 +2827,7 @@ impl AutoShadeApp {
             lang,
             "Reverse-fit strength {pct}% · local areas {zoned} · AI review {review} — set in the AI panel's reverse-fit fold",
             &[
-                ("pct", &format!("{:.0}", self.fit_strength * 100.0)),
+                ("pct", &format!("{:.0}", self.aip.fit_strength * 100.0)),
                 ("zoned", on_off(self.zoned_fit)),
                 ("review", on_off(self.fit_ai_judge)),
             ],
@@ -4054,8 +4054,8 @@ impl AutoShadeApp {
         let ctx = self.egui_ctx.clone();
         // Resolved HERE, on the UI thread: a preference flipped mid-build must
         // not change what this build is doing.
-        let describe = autoshade::library::DescribeSwitch::resolve(None, self.style_describe);
-        let raw_root = self.style_raw_dir.clone().filter(|d| d.is_dir());
+        let describe = autoshade::library::DescribeSwitch::resolve(None, self.aip.style_describe);
+        let raw_root = self.aip.style_raw_dir.clone().filter(|d| d.is_dir());
         self.spawn_worker(
             move || {
                 let progress = |p: autoshade::library::BuildProgress| {

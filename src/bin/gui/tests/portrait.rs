@@ -397,7 +397,7 @@
         skin.texture = -25.0;
         app.recipe.masks.push(skin);
         app.recipe.lens_blur = Some(autoshade::render::LensBlur { depth_map: "depth.png".into(), amount: 70.0, ..Default::default() });
-        app.grade_strength = 0.4;
+        app.aip.grade_strength = 0.4;
         app.start_portrait_look();
         assert!(app.busy && app.analyze_inflight);
         let (req, guidance, library) = app.normal.last_request.clone().expect("the analysis was asked");

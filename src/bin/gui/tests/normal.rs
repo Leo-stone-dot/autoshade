@@ -265,7 +265,7 @@
     fn a_preset_click_asks_for_that_presets_direction() {
         use crate::buttons::DRAWN;
         let (mut app, _src, _scrub) = normal_photo("preset");
-        app.grade_strength = 0.4;
+        app.aip.grade_strength = 0.4;
         let ctx = egui::Context::default();
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
         let size = egui::vec2(1400.0, 6000.0);

@@ -94,7 +94,7 @@ impl AutoShadeApp {
                 Action::Ai(action) => match action {
                     logic::ai::AiAction::PickRawFolder => {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                            self.style_raw_dir = Some(dir);
+                            self.aip.style_raw_dir = Some(dir);
                         }
                     }
                     logic::ai::AiAction::RefreshLibraryStatus => {
@@ -105,7 +105,7 @@ impl AutoShadeApp {
                         }
                     }
                     logic::ai::AiAction::BuildReferenceLibrary => {
-                        if let Some(dir) = self.style_src_dir.clone().filter(|d| d.is_dir()) {
+                        if let Some(dir) = self.aip.style_src_dir.clone().filter(|d| d.is_dir()) {
                             self.start_style_build(dir);
                         }
                     }
@@ -116,13 +116,13 @@ impl AutoShadeApp {
                     logic::ai::AiAction::PickReferenceFolder => {
                         let mut dialog = rfd::FileDialog::new();
                         // Reopen where the last build ran, when it still exists.
-                        if let Some(d) = self.style_src_dir.clone().filter(|d| d.is_dir()) {
+                        if let Some(d) = self.aip.style_src_dir.clone().filter(|d| d.is_dir()) {
                             dialog = dialog.set_directory(d);
                         }
                         if let Some(dir) = dialog.pick_folder() {
                             // Remembered on the PICK: a build that then fails must
                             // not lose the folder the rebuild button needs.
-                            self.style_src_dir = Some(dir.clone());
+                            self.aip.style_src_dir = Some(dir.clone());
                             self.start_style_build(dir);
                         }
                     }
@@ -262,13 +262,13 @@ impl AutoShadeApp {
     /// `logic::look::plan` decide, store the pending look and run the worker.
     fn start_look(&mut self, intent: LookIntent) {
         let prefs = logic::look::LookPrefs {
-            guide: self.guide,
-            style: self.style_strength,
-            send_reference_image: self.send_style_ref_image,
+            guide: self.aip.guide,
+            style: self.aip.style_strength,
+            send_reference_image: self.aip.send_style_ref_image,
             strength: self.analysis_strength(),
-            think: self.deep_think,
-            adherence: autoshade::recipe::DirectionAdherence::new(self.direction_adherence),
-            embed: autoshade::library::EmbeddingSwitch::resolve(None, self.style_embed),
+            think: self.aip.deep_think,
+            adherence: autoshade::recipe::DirectionAdherence::new(self.aip.direction_adherence),
+            embed: autoshade::library::EmbeddingSwitch::resolve(None, self.aip.style_embed),
         };
         let photo = self.src_path.clone();
         let Some(started) = logic::look::plan(
