@@ -7537,7 +7537,11 @@ loop (`render_rows`: plain, fine and companion rows) — the Tone, Presence,
 Effects, HDR, Crop, Detail, Transform, Lens, Calibration and the white
 balance's Tint row no longer spell a range, a feel, a hint line or a companion
 default by hand. The labels stay literal `tr()` calls per id in that file's
-`label`, so the i18n audit still checks every key. The Lens Blur pilot
+`label`, so the i18n audit still checks every key. The local-adjustments
+subsystem (mask list, the selected mask's controls, composed shapes, the
+range editor, the AI segmentation verbs) has its own module,
+[`panels/develop_masks.rs`](../src/bin/gui/panels/develop_masks.rs); the
+develop panel file keeps the form sections. The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
 share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
