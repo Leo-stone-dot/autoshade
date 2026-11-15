@@ -995,7 +995,7 @@ impl AutoShadeApp {
     /// without an alpha (a Lightroom sidecar's), on a worker — the segmenter
     /// is a sidecar run, seconds of GPU the first time, cached after.
     pub(crate) fn start_ai_mask_resolve(&mut self, lang: Lang) {
-        if self.busy || self.open_in_flight || unresolved_develop_masks(&self.recipe) == 0 {
+        if self.busy || self.open.open_in_flight || unresolved_develop_masks(&self.recipe) == 0 {
             return;
         }
         let (Some(photo), Some(pixels)) = (self.src_path.clone(), self.active_source_path()) else { return };

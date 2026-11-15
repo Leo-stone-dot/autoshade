@@ -14,9 +14,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                 // FACT agrees the flight was same-path: a stale request
                 // must never graft the outgoing photo's whole canvas,
                 // strip and history onto an incoming photo.
-                let keep = std::mem::take(&mut self.keep_recipe) && self.open_same_path;
-                let edge_revert = self.edge_before_flight.take();
-                self.open_in_flight = false; // both arms: the transition ended
+                let keep = std::mem::take(&mut self.keep_recipe) && self.open.open_same_path;
+                let edge_revert = self.open.edge_before_flight.take();
+                self.open.open_in_flight = false; // both arms: the transition ended
                 match *boxed {
                 Ok((base, (start, part), lens, as_shot, baked, src_ident, baked_note)) => {
                     self.busy = false;
@@ -76,9 +76,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // edge) while the repair memo pins its FIRST answer
                     // for persistence determinism — the two agree within
                     // the estimator's documented tolerance.
-                    self.photo_start = start.clone();
-                    self.photo_lens = lens.clone();
-                    self.photo_as_shot = as_shot;
+                    self.open.photo_start = start.clone();
+                    self.open.photo_lens = lens.clone();
+                    self.open.photo_as_shot = as_shot;
                     if keep {
                         // Preview-resolution re-decode: the SOURCE pixels just
                         // changed resolution — keep the whole variant set,
@@ -98,7 +98,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // (Both outcomes below keep the canvas in place, so
                         // this is unconditional.)
                         if let Some(p) = self.src_path.clone() {
-                            self.nav_stash.remove(&p);
+                            self.open.nav_stash.remove(&p);
                         }
                         let active_source =
                             self.active_variant().is_none_or(|v| v.base.is_none());
@@ -183,8 +183,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.toast(ToastKind::Error, t);
                         } else {
                             self.source_preview = Some(base.clone());
-                            self.source_part = part.clone();
-                            self.source_part_inflight = None;
+                            self.open.source_part = part.clone();
+                            self.open.source_part_inflight = None;
                             // Fresh decode = the EXIF display frame,
                             // i.e. turn 0 (`render_to_image` is given
                             // a NEUTRAL recipe). Declaring it here is
@@ -274,8 +274,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // below — the Before pane carries the canvas
                         // recipe's own base_curve.
                         self.source_preview = Some(base.clone());
-                        self.source_part = part.clone();
-                        self.source_part_inflight = None;
+                        self.open.source_part = part.clone();
+                        self.open.source_part_inflight = None;
                             // Fresh decode = the EXIF display frame,
                             // i.e. turn 0 (`render_to_image` is given
                             // a NEUTRAL recipe). Declaring it here is
@@ -367,7 +367,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             || self
                                 .src_path
                                 .as_ref()
-                                .is_some_and(|p| self.nav_stash.contains_key(p));
+                                .is_some_and(|p| self.open.nav_stash.contains_key(p));
                         let ResolvedSaved {
                             mut recipe,
                             restored,
@@ -381,7 +381,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.src_path.as_deref(),
                         );
                         if unresolved {
-                            self.open_unresolved = true;
+                            self.open.open_unresolved = true;
                         }
                         // A6 disclosure: numeric settings in the restored
                         // XMP that do not parse imported as SILENT
@@ -495,7 +495,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         let mut active_id = ORIGINAL_VARIANT_ID.to_string();
                         let mut active_name: Option<String> = None;
                         if let Some(st) =
-                            self.src_path.as_ref().and_then(|p| self.nav_stash.remove(p))
+                            self.src_path.as_ref().and_then(|p| self.open.nav_stash.remove(p))
                         {
                             recipe = st.recipe;
                             active_kind = st.kind;
@@ -924,8 +924,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.active = 0;
                         self.base_preview = None;
                         self.source_preview = None;
-                        self.source_part = Default::default();
-                        self.source_part_inflight = None;
+                        self.open.source_part = Default::default();
+                        self.open.source_part_inflight = None;
                         self.before_tex = None;
                         self.after_tex = None;
                         self.gal.selected = None;
@@ -947,7 +947,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // Left behind, an undo-to-clean before the next
                         // navigation resurrected these pre-undo edits on
                         // the way back (CX4-4).
-                        self.nav_stash.remove(&p);
+                        self.open.nav_stash.remove(&p);
                         // ...and the switch never materialized: the
                         // canvas kept the OLD edge, so preview_edge
                         // reverts with it (the busy-refusal rule) —
@@ -997,8 +997,8 @@ pub(crate) fn on_base_redeveloped(
     part: autoshade::render::BasePart,
     img: anyhow::Result<Arc<image::DynamicImage>>,
 ) {
-    if self.source_part_inflight.as_ref() == Some(&part) {
-        self.source_part_inflight = None;
+    if self.open.source_part_inflight.as_ref() == Some(&part) {
+        self.open.source_part_inflight = None;
     }
     if self.src_path.as_deref() != Some(path.as_path()) {
         return;
@@ -1015,7 +1015,7 @@ pub(crate) fn on_base_redeveloped(
             // Said once, then the canvas shows over the base there is:
             // asking again on every frame would repeat a develop that
             // has already failed.
-            self.source_part = part;
+            self.open.source_part = part;
             self.dirty = true;
             return;
         }
@@ -1027,7 +1027,7 @@ pub(crate) fn on_base_redeveloped(
         Arc::new(autoshade::render::turn_image((*img).clone(), turns))
     };
     self.source_preview = Some(img.clone());
-    self.source_part = part;
+    self.open.source_part = part;
     if self.active_variant().is_none_or(|v| v.base.is_none()) {
         self.base_preview = Some(img.clone());
         let start = self.recipe.start_only();

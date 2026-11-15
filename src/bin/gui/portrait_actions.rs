@@ -193,7 +193,7 @@ pub(crate) fn skin_held_for(&self, photo: &std::path::Path) -> bool {
         if self.src_path.as_deref() == Some(photo) {
             return self.skin_held();
         }
-        self.nav_stash.get(photo).is_none_or(|st| {
+        self.open.nav_stash.get(photo).is_none_or(|st| {
             self.portrait.keep_skin.get(&(photo.to_path_buf(), st.id.clone())).copied().unwrap_or(true)
         })
     }

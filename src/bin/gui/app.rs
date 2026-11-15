@@ -166,49 +166,40 @@ pub(crate) struct AutoShadeApp {
     /// variants against the ACTIVE canvas's `saved_recipe`/`pixels_on_disk`
     /// instead (the pre-v0.22 rule) made any two-origin strip permanently
     /// "unsaved" — the quit dialog then re-armed forever.
-    pub(crate) nav_stash: HashMap<PathBuf, StashEntry>,
+    /// The open/photo-source state; see [`OpenState`].
+    pub(crate) open: OpenState,
     /// Master decodes in flight, keyed (photo, origin): repeat clicks into a
     /// still-decoding cold card must coalesce, not stack a fresh full-res
     /// decode thread per click.
-    pub(crate) master_loads: std::collections::HashSet<(PathBuf, PathBuf)>,
     /// Decoded cold-variant masters, most-recent last. Keyed by the master's
     /// OWN identity (path + the edge it was shrunk to + its file stamp), the
     /// same rule as `base_cache` — a rewritten pixel master misses, and a px
     /// preference change re-decodes at the new edge instead of serving the
     /// old one.
-    pub(crate) master_cache: Vec<((PathBuf, u32, FileStamp), Arc<image::DynamicImage>)>,
     /// The open could not READ the saved develop (damaged file, or busy in
     /// another AutoShade process): the canvas baseline is not that save, so
     /// the next explicit save must version what it overwrites (save_xmp runs
     /// the backup gate while this stands).
-    pub(crate) open_unresolved: bool,
     // Paste-to-selected wrote the open photo's store: (path, exact recipe
     // written) so Msg::Pasted can advance the ● baseline on full success.
-    pub(crate) pasted_open: Option<(PathBuf, EditRecipe)>,
     // The OPEN photo's fresh START (computed by the open worker, v1.17.0):
     // Lightroom's Adobe Color canvas where this machine can render it, else
     // the camera-matched base-look knots (empty for non-RAW / no preview).
     // Reset re-stamps it so "reset" always means the fresh-open look —
     // including on a photo whose legacy save carries no curve and therefore
     // opened dark.
-    pub(crate) photo_start: autoshade::pipeline::CanvasStart,
     // The base part `source_preview` was developed under (v1.17.0,
     // `render::BasePart`): a source-based canvas whose recipe names another
     // is re-developed before it is shown (`ensure_source_part`).
-    pub(crate) source_part: autoshade::render::BasePart,
     // The part a source re-develop is in flight for, so a held slider does
     // not queue a second one.
-    pub(crate) source_part_inflight: Option<autoshade::render::BasePart>,
     // This photo's in-camera lens profile (open worker) — the twin of
     // photo_start: Reset re-stamps it, legacy toggles re-enable from it.
-    pub(crate) photo_lens: autoshade::recipe::LensProfile,
     // This photo's as-shot WB anchor (open worker) — the third calibration
     // half: Reset re-stamps it, the Temp slider and eyedropper anchor on it.
-    pub(crate) photo_as_shot: Option<(f32, f32)>,
     // The start baked into `before_tex` (`EditRecipe::start_only`). The Before
     // pane mirrors the canvas recipe's start (Reset / paste / restore can
     // change it), so a mismatch triggers a cheap rebuild in `update`.
-    pub(crate) before_start: EditRecipe,
     // The title-bar ✕ was intercepted with unsaved edits: show the in-app
     // save-all / discard / cancel layer until the user decides.
     pub(crate) confirm_quit: bool,
@@ -278,7 +269,6 @@ pub(crate) struct AutoShadeApp {
     /// Decode attempts that FAILED, per gallery index. Bounds the retry: see
     /// `request_thumb`. Not a cache — it holds no pixels, only a count.
     // Decoded-base LRU (recent last): base pixels + the photo's base-look knots.
-    pub(crate) base_cache: Vec<(BaseCacheKey, OpenedBase)>,
     // --- region box-select (local-edit target on the After image) ---
     /// The coverage overlay and the AI region; see [`OverlayState`].
     pub(crate) overlay: OverlayState,
@@ -438,12 +428,8 @@ pub(crate) struct AutoShadeApp {
     /// SAVE path needs no such flag since v0.22 — Save-all persists each
     /// photo's whole strip to variants.json, so the way-out re-check finds
     /// the state genuinely clean.)
-    pub(crate) discard_requested: bool,
     pub(crate) active: usize,                         // index into `variants` (always valid once a photo is open)
     pub(crate) keep_recipe: bool,                     // one-shot: next Opened keeps recipe/variants (preview-res re-decode)
-    pub(crate) open_in_flight: bool,                  // mid-open window: src_path re-pointed, Opened not yet processed
-    pub(crate) open_same_path: bool,                  // the in-flight open targets the photo already open (recorded by open_path — keep_recipe is a REQUEST, not a fact)
-    pub(crate) edge_before_flight: Option<u32>,       // armed by the px combo with its re-decode flight; a FAILED keep-flight reverts preview_edge to it (the canvas kept the old edge)
     // --- export pipeline (gap batch F + D2) ---
     // --- preview resolution (gap batch E) ---
     pub(crate) preview_edge: u32,                     // working-preview long edge: 1280 fluid / 2560 / 4096 detail
@@ -1029,16 +1015,16 @@ impl AutoShadeApp {
                         // The fresh START (v1.17.0): the canvas profile and
                         // Look, or the camera curve where they cannot render.
                         let start =
-                            if generated { Default::default() } else { self.photo_start.clone() };
+                            if generated { Default::default() } else { self.open.photo_start.clone() };
                         // The lens profile is the same kind of calibration: Reset
                         // re-stamps the photo's own (a Generated master's pixels
                         // already carry the corrections — none re-applied).
                         let lens_profile =
-                            if generated { Default::default() } else { self.photo_lens.clone() };
+                            if generated { Default::default() } else { self.open.photo_lens.clone() };
                         // The as-shot anchor follows the SAME generated strip:
                         // baked pixels carry their WB, so an absolute-Kelvin
                         // claim over them would be false.
-                        let (as_shot_k, as_shot_tint) = match self.photo_as_shot {
+                        let (as_shot_k, as_shot_tint) = match self.open.photo_as_shot {
                             Some((k, t)) if !generated => (Some(k), Some(t)),
                             _ => (None, None),
                         };
@@ -1656,18 +1642,7 @@ impl Default for AutoShadeApp {
             theme: ThemePref::Dark,
             accent: AccentPref::Gold,
             gal: GalleryState::default(),
-            base_cache: Vec::new(),
-            nav_stash: HashMap::new(),
-            master_loads: std::collections::HashSet::new(),
-            master_cache: Vec::new(),
-            open_unresolved: false,
-            pasted_open: None,
-            photo_start: Default::default(),
-            source_part: Default::default(),
-            source_part_inflight: None,
-            photo_lens: Default::default(),
-            photo_as_shot: None,
-            before_start: EditRecipe::default(),
+            open: OpenState::default(),
             confirm_quit: false,
             masks: MaskEditState::default(),
             overlay: OverlayState::default(),
@@ -1715,12 +1690,8 @@ impl Default for AutoShadeApp {
             analyze_inflight: false,
             look: Default::default(),
             variants: Vec::new(),
-            discard_requested: false,
             active: 0,
             keep_recipe: false,
-            open_in_flight: false,
-            open_same_path: false,
-            edge_before_flight: None,
             preview_edge: PREVIEW_EDGE,
             versions: Vec::new(),
             version_meta: HashMap::new(),
@@ -1804,9 +1775,9 @@ impl AutoShadeApp {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
                 let t = tr(self.lang, "An operation is still running — wait for it to finish, then close").to_string();
                 self.toast(ToastKind::Error, t);
-            } else if !self.discard_requested
+            } else if !self.open.discard_requested
                 && (unsaved_open
-                    || !self.nav_stash.is_empty()
+                    || !self.open.nav_stash.is_empty()
                     || self.inactive_dirty_variants() > 0)
             {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
@@ -1872,7 +1843,7 @@ impl AutoShadeApp {
             // recipe's curve is empty by construction, so this compare is
             // simply quiet there.
             && !self.active_on_ai_pixels()
-            && self.recipe.start_only() != self.before_start
+            && self.recipe.start_only() != self.open.before_start
             && let Some(b) = self.base_preview.clone()
         {
             let start = self.recipe.start_only();

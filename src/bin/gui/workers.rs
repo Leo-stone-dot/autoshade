@@ -323,7 +323,7 @@ impl AutoShadeApp {
             || self.gal.thumb_inflight > 0
             || self.settings.image_models.fetching
             || self.settings.analysis_models.fetching
-            || !self.master_loads.is_empty()
+            || !self.open.master_loads.is_empty()
             // R23-2: the style-library build is NOT busy-gated (it runs for
             // minutes and the app stays usable), so without it here the
             // "building…" state would only repaint when a progress tick

@@ -144,7 +144,7 @@ pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo
                 // The in-flight marker clears on EVERY outcome — photo
                 // mismatch included — or one failed decode would block
                 // all retries for the rest of the session.
-                self.master_loads.remove(&(photo.clone(), origin.clone()));
+                self.open.master_loads.remove(&(photo.clone(), origin.clone()));
                 // Install by identity, not index: only while the SAME
                 // photo is open, and only into strip entries that still
                 // reference this exact master and still await pixels.
@@ -445,7 +445,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // the ordinary unsaved-edit path takes over.
                     if out.persisted {
                         self.hist.saved_recipe = out.recipe.clone();
-                        self.nav_stash.remove(
+                        self.open.nav_stash.remove(
                             &self.src_path.clone().unwrap_or_default(),
                         );
                         // The pixel link the worker committed beside the
@@ -521,7 +521,7 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
     // A partial failure wrote the others all the same.
     if let Ok(out) = &res {
         for p in &out.written {
-            self.nav_stash.remove(p);
+            self.open.nav_stash.remove(p);
         }
     }
     match res {
@@ -534,11 +534,11 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             // warning. Guard on the photo still being open, and compare
             // nothing: edits made while the worker ran leave
             // recipe != saved_recipe, correctly re-lighting ●.
-            if let Some((p, r)) = self.pasted_open.take()
+            if let Some((p, r)) = self.open.pasted_open.take()
                 && self.src_path.as_ref() == Some(&p)
             {
                 self.hist.saved_recipe = r;
-                self.nav_stash.remove(&p);
+                self.open.nav_stash.remove(&p);
             }
             // The counts and the sidecar disclosures are the logic layer's
             // (`logic/paste.rs`); the suffixes already carry their " — ".
@@ -551,12 +551,12 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             self.done(s);
         }
         Ok(out) => {
-            self.pasted_open = None;
+            self.open.pasted_open = None;
             let msg = crate::i18n::text(lang, &logic::paste::partial_words(out.ok, &out.errs));
             self.fail(tr(lang, "batch paste"), anyhow::anyhow!("{}", msg));
         }
         Err(e) => {
-            self.pasted_open = None;
+            self.open.pasted_open = None;
             self.fail(tr(lang, "batch paste"), e);
         }
     }

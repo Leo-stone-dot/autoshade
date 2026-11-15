@@ -155,7 +155,7 @@ impl AutoShadeApp {
             to_color_image(&autoshade::render::develop_preview(base, &start.start_only()))
         };
         self.before_tex = Some(ctx.load_texture("before", img, egui::TextureOptions::LINEAR));
-        self.before_start = start.start_only();
+        self.open.before_start = start.start_only();
     }
 
     /// Toggle the clipping layer WITHOUT a full redevelop: the overlay is a
@@ -629,7 +629,7 @@ impl AutoShadeApp {
                         // every bake site) a resolution the preview never
                         // reached — the same residue the busy refusal above
                         // is cured of.
-                        self.edge_before_flight = Some(before);
+                        self.open.edge_before_flight = Some(before);
                         self.keep_recipe = true; // re-decode, keep the edit
                         self.open_path(p);
                     }

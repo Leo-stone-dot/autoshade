@@ -37,7 +37,7 @@ pub(crate) fn spawn_master_load(
         self.install_master(ctx, &photo, &origin, arc);
         return;
     }
-    if !self.master_loads.insert((photo.clone(), origin.clone())) {
+    if !self.open.master_loads.insert((photo.clone(), origin.clone())) {
         return;
     }
     self.status = tr(
@@ -91,12 +91,12 @@ pub(crate) fn cached_master(
 ) -> Option<Arc<image::DynamicImage>> {
     let stamp = file_stamp(origin);
     let pos = self
-        .master_cache
+        .open.master_cache
         .iter()
         .position(|((p, e, t), _)| p == origin && *e == edge && *t == stamp)?;
-    let entry = self.master_cache.remove(pos);
+    let entry = self.open.master_cache.remove(pos);
     let hit = entry.1.clone();
-    self.master_cache.push(entry);
+    self.open.master_cache.push(entry);
     Some(hit)
 }
 
@@ -113,10 +113,10 @@ pub(crate) fn remember_master(
     stamp: FileStamp,
     img: Arc<image::DynamicImage>,
 ) {
-    self.master_cache.retain(|((p, e, _), _)| !(p == origin && *e == edge));
-    self.master_cache.push(((origin.to_path_buf(), edge, stamp), img));
-    if self.master_cache.len() > MASTER_CACHE_CAP {
-        self.master_cache.remove(0); // least-recent first
+    self.open.master_cache.retain(|((p, e, _), _)| !(p == origin && *e == edge));
+    self.open.master_cache.push(((origin.to_path_buf(), edge, stamp), img));
+    if self.open.master_cache.len() > MASTER_CACHE_CAP {
+        self.open.master_cache.remove(0); // least-recent first
     }
 }
 
@@ -279,15 +279,15 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
         return true;
     }
     let want = autoshade::render::BasePart::of(&self.recipe);
-    if want == self.source_part {
+    if want == self.open.source_part {
         return true;
     }
-    if self.source_part_inflight.as_ref() == Some(&want) {
+    if self.open.source_part_inflight.as_ref() == Some(&want) {
         return false;
     }
     let Some(path) = self.src_path.clone() else { return true };
     let edge = self.preview_edge.clamp(640, 8192);
-    self.source_part_inflight = Some(want.clone());
+    self.open.source_part_inflight = Some(want.clone());
     let (p, part) = (path.clone(), want.clone());
     self.spawn_worker(
         move || {

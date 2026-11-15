@@ -525,7 +525,7 @@
         let mut app = AutoShadeApp::default();
         assert_eq!(frame(&mut app), Some(true), "a settled panel must be editable");
         // ② mid-open: frozen.
-        app.open_in_flight = true;
+        app.open.open_in_flight = true;
         assert_eq!(
             frame(&mut app),
             Some(false),
@@ -533,7 +533,7 @@
         );
         // ③ busy but NOT opening (a 600 s analyze): still live, or cancelling
         // and re-typing a direction would be impossible for ten minutes.
-        app.open_in_flight = false;
+        app.open.open_in_flight = false;
         app.busy = true;
         assert_eq!(frame(&mut app), Some(true), "a long AI call must not freeze the panel");
     }

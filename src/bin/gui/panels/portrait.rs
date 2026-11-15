@@ -198,7 +198,7 @@ impl AutoShadeApp {
     /// mid-open gate as the shared panels.
     pub(crate) fn portrait_panel(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let editable = !self.open_in_flight;
+        let editable = !self.open.open_in_flight;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, "Portraits"), false, |_| {});
         let mut changed = false;

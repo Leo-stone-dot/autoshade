@@ -663,7 +663,7 @@ impl AutoShadeApp {
         type BatchOverride = (EditRecipe, Option<(PathBuf, bool)>);
         let ai_masks = self.ai_mask_runner();
         let mut overrides: std::collections::HashMap<PathBuf, BatchOverride> = self
-            .nav_stash
+            .open.nav_stash
             .iter()
             .map(|(p, st)| {
                 (
@@ -1093,7 +1093,7 @@ impl AutoShadeApp {
                     self.hist.saved_recipe = self.recipe.clone();
                     self.hist.pixels_on_disk = None;
                     self.hist.saved_strip = None;
-                    self.nav_stash.remove(&path);
+                    self.open.nav_stash.remove(&path);
                     self.forget_open_base();
                     match o.marker_warning {
                         // NEVER a plain success: the store copies are gone, but
@@ -1195,7 +1195,7 @@ impl AutoShadeApp {
             &path,
             autoshade::store::DevelopLockMode::NoWait,
             || -> std::io::Result<()> {
-        if self.open_unresolved {
+        if self.open.open_unresolved {
             // The baseline came from an open that could not READ the saved
             // develop — snapshot whatever is on disk before overwriting it
             // (v<N> copy). Refusing on a failed snapshot beats destroying a
@@ -1282,7 +1282,7 @@ impl AutoShadeApp {
         })();
         match committed {
             Ok(()) => {
-                self.open_unresolved = false;
+                self.open.open_unresolved = false;
                 let rp = autoshade::store::recipe_target(&path);
                 let pixel_note: Option<String> = origin.is_some().then(|| {
                     tr(
@@ -1297,7 +1297,7 @@ impl AutoShadeApp {
                 self.hist.saved_strip = strip_rec;
                 self.gal.edited_badge.clear(); // the open photo just gained its badge
                 self.hist.saved_recipe = self.recipe.clone();
-                self.nav_stash.remove(&path);
+                self.open.nav_stash.remove(&path);
                 self.hist.pixels_on_disk = origin;
                 let mut s = if generated {
                     // No sidecar reproduces AI pixels: the projection member
@@ -1532,7 +1532,7 @@ impl AutoShadeApp {
         // worker writes this exact recipe to the open photo's store, so
         // leaving `saved_recipe` behind kept a false "● unsaved" lit for
         // edits that were already on disk.
-        self.pasted_open = None;
+        self.open.pasted_open = None;
         if let Some(open) = self.src_path.clone()
             && targets.iter().any(|t| t == &open)
         {
@@ -1564,7 +1564,7 @@ impl AutoShadeApp {
             // Wholesale recipe replacement: disarm index-carrying tools and
             // refresh derived display, like every other whole-swap path.
             self.resync_recipe_display();
-            self.pasted_open = Some((open, live));
+            self.open.pasted_open = Some((open, live));
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
         self.busy = true;
