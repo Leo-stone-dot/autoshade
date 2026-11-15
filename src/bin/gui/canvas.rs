@@ -10,9 +10,9 @@ impl AutoShadeApp {
     /// every test green; this method IS the behaviour now, and update() is
     /// one call.
     pub(crate) fn apply_zoom_glide(&mut self, ctx: &egui::Context) {
-        if self.zoom != self.zoom_target {
+        if self.view.zoom != self.view.zoom_target {
             let dt = ctx.input(|i| i.stable_dt);
-            self.zoom = glide_step(self.zoom, self.zoom_target, dt);
+            self.view.zoom = glide_step(self.view.zoom, self.view.zoom_target, dt);
             ctx.request_repaint(); // keep stepping while in flight
         }
     }
@@ -407,19 +407,19 @@ impl AutoShadeApp {
             ),
             _ => egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
         };
-        let half = 0.5 / self.zoom.clamp(1.0, 12.0);
-        self.pan = egui::vec2(
-            self.pan.x.clamp(half, 1.0 - half),
-            self.pan.y.clamp(half, 1.0 - half),
+        let half = 0.5 / self.view.zoom.clamp(1.0, 12.0);
+        self.view.pan = egui::vec2(
+            self.view.pan.x.clamp(half, 1.0 - half),
+            self.view.pan.y.clamp(half, 1.0 - half),
         );
         egui::Rect::from_min_max(
             egui::pos2(
-                win.min.x + (self.pan.x - half) * win.width(),
-                win.min.y + (self.pan.y - half) * win.height(),
+                win.min.x + (self.view.pan.x - half) * win.width(),
+                win.min.y + (self.view.pan.y - half) * win.height(),
             ),
             egui::pos2(
-                win.min.x + (self.pan.x + half) * win.width(),
-                win.min.y + (self.pan.y + half) * win.height(),
+                win.min.x + (self.view.pan.x + half) * win.width(),
+                win.min.y + (self.view.pan.y + half) * win.height(),
             ),
         )
     }
@@ -488,7 +488,7 @@ impl AutoShadeApp {
             vis_px,
             max_w,
             avail_y,
-            if self.zoom > 1.0 { f32::INFINITY } else { 4.0 },
+            if self.view.zoom > 1.0 { f32::INFINITY } else { 4.0 },
         );
         // PHYSICAL pixels per image pixel: disp is measured in egui logical
         // points — without pixels_per_point a "100%" readout on a 2× display
@@ -503,15 +503,15 @@ impl AutoShadeApp {
         // vis on small images, so that form varied with live zoom (Codex
         // 阶段5 F2). Pane-bound displays give the identical value; a photo
         // already coarser than 1:1 at fit clamps to 1 (fit is closest).
-        let w_tex = vis_px * self.zoom;
+        let w_tex = vis_px * self.view.zoom;
         let disp_fit = fit_in(w_tex, max_w, avail_y);
-        self.zoom_one_to_one = (w_tex.x / (disp_fit.x * ppp)).clamp(1.0, 12.0);
+        self.view.one_to_one = (w_tex.x / (disp_fit.x * ppp)).clamp(1.0, 12.0);
 
         // Caption row: mode hint left, zoom readout + Fit / 1:1 right. Every
         // armed-tool hint names its exit (Esc), and the placement hint speaks
         // the armed KIND's language instead of calling a radial a gradient.
         let hint = if comparing {
-            if self.before_latch {
+            if self.view.before {
                 // The latch came from \ — "release B" was a lie there (M21).
                 tr(lang, "Before (source) — press \\ again (or Esc) to return to editing")
             } else {
@@ -563,14 +563,14 @@ impl AutoShadeApp {
                     // ppp: 1:1 means one texel per PHYSICAL pixel — the value
                     // computed above, shared with the `1` key. Target only:
                     // the update() glide carries `zoom` there.
-                    self.zoom_target = self.zoom_one_to_one;
+                    self.view.zoom_target = self.view.one_to_one;
                 }
                 // "Fit" is natural language, unlike its "1:1" sibling — it
                 // must route through `tr` like every user-facing literal
                 // (the i18n module contract; the audit now flags bypasses).
                 if action(ui, true, tr(lang, "Fit")).on_hover_text(tr(lang, "Fit the whole image to the canvas (double-click the image to toggle; key: 0)")).clicked() {
-                    self.zoom_target = 1.0; // glides; the pan clamp eases the rest
-                    self.pan = egui::vec2(0.5, 0.5);
+                    self.view.zoom_target = 1.0; // glides; the pan clamp eases the rest
+                    self.view.pan = egui::vec2(0.5, 0.5);
                 }
                 if glyph_toggle(ui, self.show_clipping, "▲")
                     .on_hover_text(tr(lang, "Clipping warning (J): red = highlight clip, blue = shadow crush (judged on export pixels)"))
@@ -657,23 +657,23 @@ impl AutoShadeApp {
             if scroll.abs() > 0.1
                 && let Some(p) = resp.hover_pos()
             {
-                let half = 0.5 / self.zoom;
+                let half = 0.5 / self.view.zoom;
                 let (fx, fy) = (
                     ((p.x - rect.min.x) / rect.width().max(1.0)).clamp(0.0, 1.0),
                     ((p.y - rect.min.y) / rect.height().max(1.0)).clamp(0.0, 1.0),
                 );
                 // Cursor's point in crop-window coords, kept stationary across the zoom.
                 let q = egui::vec2(
-                    self.pan.x - half + fx * 2.0 * half,
-                    self.pan.y - half + fy * 2.0 * half,
+                    self.view.pan.x - half + fx * 2.0 * half,
+                    self.view.pan.y - half + fy * 2.0 * half,
                 );
                 // Scroll stays INSTANT (it is already incremental, and the
                 // cursor-anchored pan re-solve needs the immediate zoom) —
                 // the target follows so no stale glide fights the wheel.
-                self.zoom = (self.zoom * (scroll * 0.003).exp()).clamp(1.0, 12.0);
-                self.zoom_target = self.zoom;
-                let nh = 0.5 / self.zoom;
-                self.pan = q - egui::vec2((fx - 0.5) * 2.0 * nh, (fy - 0.5) * 2.0 * nh);
+                self.view.zoom = (self.view.zoom * (scroll * 0.003).exp()).clamp(1.0, 12.0);
+                self.view.zoom_target = self.view.zoom;
+                let nh = 0.5 / self.view.zoom;
+                self.view.pan = q - egui::vec2((fx - 0.5) * 2.0 * nh, (fy - 0.5) * 2.0 * nh);
             }
         }
         let tool_active = self.tool_armed();
@@ -682,15 +682,15 @@ impl AutoShadeApp {
         // to teleport the view instead of reaching the tool. Targets only —
         // the update() glide replaces the old teleport with a ~120 ms ease.
         if resp.double_clicked() && !tool_active {
-            if self.zoom_target > 1.01 {
-                self.zoom_target = 1.0;
-                self.pan = egui::vec2(0.5, 0.5);
+            if self.view.zoom_target > 1.01 {
+                self.view.zoom_target = 1.0;
+                self.view.pan = egui::vec2(0.5, 0.5);
             } else {
                 // Same physical-pixel 1:1 target as the button above — the
                 // zoom-invariant form computed at the top of this fn (the
                 // old `vis_px.x / (disp.x*ppp)` was only right at zoom≈1,
                 // which the pre-glide branch guard used to guarantee).
-                self.zoom_target = self.zoom_one_to_one;
+                self.view.zoom_target = self.view.one_to_one;
             }
             // The pair's FIRST release cleared the AI region through the
             // plain-click path — a double-click means "toggle zoom", so put
@@ -728,7 +728,7 @@ impl AutoShadeApp {
                 resp.hover_pos().is_some_and(hits)
                     || ui.input(|i| i.pointer.press_origin()).is_some_and(hits)
             });
-        let zoom_pan = self.zoom > 1.001
+        let zoom_pan = self.view.zoom > 1.001
             && !tool_active
             && !ctrl
             && !over_knob
@@ -737,8 +737,8 @@ impl AutoShadeApp {
             || ((space || zoom_pan) && resp.dragged_by(egui::PointerButton::Primary));
         if panning {
             let d = resp.drag_delta();
-            let ext = 1.0 / self.zoom; // visible extent in crop-window coords
-            self.pan -= egui::vec2(
+            let ext = 1.0 / self.view.zoom; // visible extent in crop-window coords
+            self.view.pan -= egui::vec2(
                 d.x / rect.width().max(1.0) * ext,
                 d.y / rect.height().max(1.0) * ext,
             );

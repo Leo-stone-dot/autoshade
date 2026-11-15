@@ -200,12 +200,19 @@
     #[test]
     fn the_zoom_glide_seam_moves_toward_the_target() {
         let ctx = egui::Context::default();
-        let mut app = AutoShadeApp { zoom: 1.0, zoom_target: 4.0, ..Default::default() };
+        let mut app = AutoShadeApp {
+            view: ViewState {
+                zoom: 1.0,
+                zoom_target: 4.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.apply_zoom_glide(ctx));
         assert!(
-            app.zoom > 1.0 && app.zoom < 4.0,
+            app.view.zoom > 1.0 && app.view.zoom < 4.0,
             "one glide step moved toward the target: {}",
-            app.zoom
+            app.view.zoom
         );
     }
 

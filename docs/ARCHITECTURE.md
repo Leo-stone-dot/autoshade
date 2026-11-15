@@ -7659,7 +7659,10 @@ switch, hovered row, cached range reference, region gesture), one `overlay`
 field; the app struct is at 189 fields. `model::MaskEditState` owns the painting and
 mask-edit state (brush dials, paint buffer and per-owner stash, mask-brush
 session, selected mask/component, placement gesture), one `masks` field; the
-app struct is at 172 fields.
+app struct is at 172 fields. `model::ViewState` owns the canvas view (zoom/pan and
+their glide target, the 1:1 scale, the controls-panel rect, the latched Before
+view and the compare/single switch), one `view` field; the app struct is at 166
+fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

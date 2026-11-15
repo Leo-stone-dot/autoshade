@@ -840,14 +840,14 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.overlay.region = None; // and a fresh local-edit selection
                         self.overlay.region_drag = None;
                         // View + tool state is per-photo.
-                        self.zoom = 1.0;
-                        self.zoom_target = 1.0; // instant — no glide across photos
-                        self.pan = egui::vec2(0.5, 0.5);
+                        self.view.zoom = 1.0;
+                        self.view.zoom_target = 1.0; // instant — no glide across photos
+                        self.view.pan = egui::vec2(0.5, 0.5);
                         self.disarm_tools();
                         // The \-latch is per-photo transient state:
                         // carried across an open, the new photo arrived
                         // with every tool locked out (M21).
-                        self.before_latch = false;
+                        self.view.before = false;
                         self.masks.sel_mask = None;
                         self.masks.sel_component = None;
                         self.overlay.overlay_ref = None; // the reference develop belongs to ONE base

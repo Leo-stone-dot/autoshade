@@ -483,6 +483,34 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The canvas's view state: zoom and pan (their glide target and the 1:1 scale),
+/// the controls-panel rect the arrow keys read, the latched Before view and the
+/// compare/single switch. Extracted from `AutoShadeApp` so view features do not
+/// add fields to the app struct.
+pub(crate) struct ViewState {
+    pub(crate) zoom: f32,
+    pub(crate) pan: egui::Vec2,
+    pub(crate) one_to_one: f32,
+    pub(crate) zoom_target: f32,
+    pub(crate) controls_rect: Option<egui::Rect>,
+    pub(crate) before: bool,
+    pub(crate) mode: ViewMode,
+}
+
+impl Default for ViewState {
+    fn default() -> Self {
+        Self {
+            zoom: 1.0,
+            pan: egui::vec2(0.5, 0.5),
+            one_to_one: 1.0,
+            zoom_target: 1.0,
+            controls_rect: None,
+            before: false,
+            mode: ViewMode::SideBySide,
+        }
+    }
+}
+
 /// The painting tools and the mask list's edit state: the brush dials, the
 /// paint buffer and its per-owner stash, the mask-brush session, and the
 /// selected mask/component plus the placement gesture. Extracted from
