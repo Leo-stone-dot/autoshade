@@ -2166,3 +2166,43 @@ pub(crate) const BASE_CACHE_CAP: usize = 4;
 /// 1280 edge but ~33 MB each at 4096, so the resident worst case tracks the
 /// px preference.
 pub(crate) const MASTER_CACHE_CAP: usize = 3;
+
+#[cfg(test)]
+mod pixel_identity_tests {
+    use super::*;
+
+    fn step(origin: &str, base: Option<Arc<image::DynamicImage>>) -> UndoStep {
+        UndoStep {
+            recipe: EditRecipe::default(),
+            base,
+            origin: Some(PathBuf::from(origin)),
+            keep_skin: None,
+        }
+    }
+
+    #[test]
+    fn one_master_written_two_ways_is_one_pixel_identity() {
+        let base = Some(Arc::new(image::DynamicImage::new_rgb8(4, 3)));
+        let rel = step("out/_spelling.png", base.clone());
+        let abs = step(&std::path::absolute("out/_spelling.png").unwrap().display().to_string(), base);
+        assert!(rel.same_pixels(&abs), "relative and absolute spellings of one master match");
+    }
+
+    #[test]
+    fn a_different_master_or_base_is_not_the_same_pixel_identity() {
+        let rel = step("out/_spelling.png", Some(Arc::new(image::DynamicImage::new_rgb8(4, 3))));
+        let other_master = step("out/_spelling-2.png", rel.base.clone());
+        assert!(!rel.same_pixels(&other_master), "a different master differs even on one base");
+        let other_base = step("out/_spelling.png", Some(Arc::new(image::DynamicImage::new_rgb8(4, 3))));
+        assert!(!rel.same_pixels(&other_base), "a different Arc base differs even at one path");
+    }
+
+    #[test]
+    fn no_base_on_either_side_matches_on_the_master() {
+        let a = step("out/_spelling.png", None);
+        let b = step("out/_spelling.png", None);
+        assert!(a.same_pixels(&b));
+        let c = step("out/_other.png", None);
+        assert!(!a.same_pixels(&c));
+    }
+}
