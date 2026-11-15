@@ -7534,8 +7534,8 @@ core catalogue spelling and the double-click reset, the slider BAND is read
 from `advisor::catalogue::global_control` (the table `EditRecipe::clamp` is
 pinned to), and `panels/develop_forms.rs` turns a table into sliders in one
 loop (`render_rows`: plain, fine and companion rows) — the Tone, Presence,
-Effects, HDR, Crop, Detail and Transform sections no longer spell a range, a
-feel or a companion default by hand. The labels stay literal `tr()` calls per id in that file's
+Effects, HDR, Crop, Detail, Transform and Lens sections no longer spell a
+range, a feel, a hint line or a companion default by hand. The labels stay literal `tr()` calls per id in that file's
 `label`, so the i18n audit still checks every key. The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
