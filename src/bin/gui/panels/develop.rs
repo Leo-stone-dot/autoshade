@@ -1405,7 +1405,7 @@ impl AutoShadeApp {
                     // v1.6.0 — Lightroom's 40 on a RAW, none on a baked raster —
                     // radius, the three Details, Smoothness) show the value the
                     // engine renders — Lightroom's default while the recipe
-                    // holds none — and reset to it (`companion_slider`,
+                    // holds none — and reset to it (`companion_slider_edit`,
                     // `sharpening_slider`).
                     let raw_source = self.source_is_raw();
                     changed |= Self::sharpening_slider(ui, lang, tr(lang, "Sharpening"), &mut self.recipe, raw_source);
@@ -1547,7 +1547,7 @@ impl AutoShadeApp {
     /// no pixel" disclosure any more. The five COMPANIONS (Midpoint, Feather,
     /// Style, Grain size and roughness) show the value the engine actually
     /// renders — Lightroom's own default while the recipe holds none — and a
-    /// reset returns them to absent (`companion_slider`).
+    /// reset returns them to absent (`companion_slider_edit` + the command).
     fn dev_effects(&mut self, ui: &mut egui::Ui, effects_active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
