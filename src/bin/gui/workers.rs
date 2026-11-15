@@ -201,11 +201,11 @@ impl AutoShadeApp {
                     );
                 }
                 Msg::StyleInfo(info) => {
-                    self.style_info_loading = false;
-                    self.style_info = Some(*info);
+                    self.ai.style_info_loading = false;
+                    self.ai.style_info = Some(*info);
                 }
                 Msg::StyleBuildProgress { stage, done, total } => {
-                    self.style_build_progress = Some((stage, done, total));
+                    self.ai.style_build_progress = Some((stage, done, total));
                     // The panel's own line renders these counts; the status bar
                     // gets them too, because a minutes-long job must be visible
                     // from wherever the user is looking.
@@ -330,8 +330,8 @@ impl AutoShadeApp {
             // happens to arrive — a single slow 60 MP decode would freeze the
             // counter for as long as it takes. Same reason the two model
             // fetches are on this list.
-            || self.style_build_inflight
-            || self.style_info_loading
+            || self.ai.style_build_inflight
+            || self.ai.style_info_loading
         {
             ctx.request_repaint_after(Duration::from_millis(100));
         }

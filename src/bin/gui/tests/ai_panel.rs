@@ -12,7 +12,13 @@
         use autoshade::library::Summary;
         // ── Nothing built: the entry point, the pointer sentence, AND the
         // slider's own warning.
-        let mut app = AutoShadeApp { style_info: Some(Summary::Absent), ..Default::default() };
+        let mut app = AutoShadeApp {
+            ai: AiState {
+                style_info: Some(Summary::Absent),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         for want in ["No reference library yet", "folder of finished photos", "no library", "Pick folder"] {
             assert!(seen.iter().any(|t| t.contains(want)), "missing {want:?}: {seen:?}");
@@ -23,12 +29,15 @@
         let finished = std::env::temp_dir().join(format!("autoshade-library-{}/finished", std::process::id()));
         let finished_text = finished.display().to_string();
         let mut app = AutoShadeApp {
-            style_info: Some(Summary::Built {
+            ai: AiState {
+                style_info: Some(Summary::Built {
                 photos: 412,
                 phrased: 300, with_settings: 0,
                 dir: finished_text.clone(),
                 age: Some(std::time::Duration::from_secs(5 * 3600)),
             }),
+                ..Default::default()
+            },
             ..Default::default()
         };
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
@@ -41,7 +50,10 @@
 
         // ── Unusable: the loader's reason, before an analysis is paid for.
         let mut app = AutoShadeApp {
-            style_info: Some(Summary::Unusable("it is format v0, this build reads v1".into())),
+            ai: AiState {
+                style_info: Some(Summary::Unusable("it is format v0, this build reads v1".into())),
+                ..Default::default()
+            },
             ..Default::default()
         };
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
@@ -141,13 +153,26 @@
             age: None,
         });
         let warn = "built, but not searched";
-        let mut app = AutoShadeApp { style_info: built.clone(), style_embed: false, ..Default::default() };
+        let mut app = AutoShadeApp {
+            ai: AiState {
+                style_info: built.clone(),
+                ..Default::default()
+            },
+            style_embed: false,
+            ..Default::default()
+        };
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         assert!(seen.iter().any(|t| t.contains(warn)), "{seen:?}");
         app.style_embed = true;
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         assert!(!seen.iter().any(|t| t.contains(warn)), "{seen:?}");
-        let mut app = AutoShadeApp { style_info: Some(autoshade::library::Summary::Absent), ..Default::default() };
+        let mut app = AutoShadeApp {
+            ai: AiState {
+                style_info: Some(autoshade::library::Summary::Absent),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         assert!(!seen.iter().any(|t| t.contains(warn)), "nothing built, nothing to warn about: {seen:?}");
     }
@@ -494,8 +519,11 @@
         // Saved: success toast, folder remembered, search switched on, and a
         // fresh status read armed.
         let mut app = AutoShadeApp {
-            style_build_inflight: true,
-            style_build_progress: Some((stage, 7, 9)),
+            ai: AiState {
+                style_build_inflight: true,
+                style_build_progress: Some((stage, 7, 9)),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(!app.style_embed, "premise: the search ships off");
@@ -503,19 +531,26 @@
             .send(Msg::StyleBuilt(Box::new(StyleBuildOutcome::Saved { total: 412, dir: dir.clone(), phrased: 0 })))
             .unwrap();
         app.poll_workers(&ctx);
-        assert!(!app.style_build_inflight, "the button re-arms");
-        assert_eq!(app.style_build_progress, None, "the counter belongs to ONE build");
+        assert!(!app.ai.style_build_inflight, "the button re-arms");
+        assert_eq!(app.ai.style_build_progress, None, "the counter belongs to ONE build");
         assert!(app.status.contains("412") && !app.status.contains("look phrases"), "{}", app.status);
         assert_eq!(app.style_src_dir.as_deref(), Some(dir.as_path()), "the folder is remembered");
         assert!(app.style_embed, "a built library is a searched library");
         // The landing ARMS a fresh status read on a real worker thread, which
         // may already have answered inside this drain: in flight OR answered.
-        assert!(app.style_info_loading || app.style_info.is_some(), "a build invalidates the cached status");
+        assert!(app.ai.style_info_loading || app.ai.style_info.is_some(), "a build invalidates the cached status");
         assert!(app.toasts.iter().any(|t| matches!(t.kind, ToastKind::Success)));
 
         // The phrase coverage is told when there is some, in both languages.
         for (lang, needle) in [(Lang::En, "with look phrases"), (Lang::Zh, "外观短语")] {
-            let mut app = AutoShadeApp { style_build_inflight: true, lang, ..Default::default() };
+            let mut app = AutoShadeApp {
+                ai: AiState {
+                    style_build_inflight: true,
+                    ..Default::default()
+                },
+                lang,
+                ..Default::default()
+            };
             app.tx
                 .send(Msg::StyleBuilt(Box::new(StyleBuildOutcome::Saved { total: 412, dir: dir.clone(), phrased: 400 })))
                 .unwrap();
@@ -524,21 +559,33 @@
         }
 
         // Failed: the cause, an error toast, button re-armed, nothing else.
-        let mut app = AutoShadeApp { style_build_inflight: true, ..Default::default() };
+        let mut app = AutoShadeApp {
+            ai: AiState {
+                style_build_inflight: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         app.tx
             .send(Msg::StyleBuilt(Box::new(StyleBuildOutcome::Failed { err: "read the folder: access denied".into() })))
             .unwrap();
         app.poll_workers(&ctx);
-        assert!(!app.style_build_inflight);
+        assert!(!app.ai.style_build_inflight);
         assert!(app.status.contains("access denied"), "{}", app.status);
         assert!(app.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)));
-        assert!(!app.style_embed && app.style_src_dir.is_none() && !app.style_info_loading, "a failed build changes nothing");
+        assert!(!app.style_embed && app.style_src_dir.is_none() && !app.ai.style_info_loading, "a failed build changes nothing");
 
         // Progress ticks land as counts, not as a worker-built sentence.
-        let mut app = AutoShadeApp { style_build_inflight: true, ..Default::default() };
+        let mut app = AutoShadeApp {
+            ai: AiState {
+                style_build_inflight: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         app.tx.send(Msg::StyleBuildProgress { stage, done: 40, total: 300 }).unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.style_build_progress, Some((stage, 40, 300)));
+        assert_eq!(app.ai.style_build_progress, Some((stage, 40, 300)));
         assert!(app.status.contains("40") && app.status.contains("300"), "{}", app.status);
     }
 

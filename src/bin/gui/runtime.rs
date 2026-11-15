@@ -100,7 +100,7 @@ impl AutoShadeApp {
                     logic::ai::AiAction::RefreshLibraryStatus => {
                         // Not in tests: a headless frame would spawn a worker
                         // reading the developer's own store.
-                        if !cfg!(test) && self.style_info.is_none() && !self.style_info_loading {
+                        if !cfg!(test) && self.ai.style_info.is_none() && !self.ai.style_info_loading {
                             self.start_style_info();
                         }
                     }

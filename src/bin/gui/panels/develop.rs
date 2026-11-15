@@ -1096,8 +1096,8 @@ impl AutoShadeApp {
                         ui.label(egui::RichText::new(tr(lang, "B&W mix")).weak().small());
                     } else {
                         for (i, name) in ["Hue", "Saturation", "Luminance"].iter().enumerate() {
-                            if ui.selectable_label(self.hsl_tab == i, tr(lang, name)).clicked() {
-                                self.hsl_tab = i;
+                            if ui.selectable_label(self.ai.hsl_tab == i, tr(lang, name)).clicked() {
+                                self.ai.hsl_tab = i;
                             }
                         }
                     }
@@ -1117,7 +1117,7 @@ impl AutoShadeApp {
                         changed = true;
                     }
                 });
-                let tab = self.hsl_tab;
+                let tab = self.ai.hsl_tab;
                 for (b, name) in HSL_BANDS.iter().enumerate() {
                     // ONE row shape for both mixers: same band, same swatch,
                     // same ±100 track — only the number behind it changes.
@@ -1368,8 +1368,8 @@ impl AutoShadeApp {
                     let gap = ui.spacing().item_spacing.x;
                     let w = ((ui.available_width().min(FIELD_W_MAX) - row_h(ui) - 2.0 * gap) / 2.0).floor();
                     for (i, name) in GRADE_VIEWS.iter().enumerate() {
-                        if toggle_in(ui, egui::vec2(w, row_h(ui)), self.grade_region == i, tr(lang, name)).clicked() {
-                            self.grade_region = i;
+                        if toggle_in(ui, egui::vec2(w, row_h(ui)), self.ai.grade_region == i, tr(lang, name)).clicked() {
+                            self.ai.grade_region = i;
                         }
                     }
                     // R38: a glyph square — the same reset in every mixer row.
@@ -1391,7 +1391,7 @@ impl AutoShadeApp {
                     c
                 };
                 let avail = ui.available_width();
-                if self.grade_region == 0 {
+                if self.ai.grade_region == 0 {
                     // Midtones on top, centred; shadows and highlights under it.
                     let half = ((avail - ui.spacing().item_spacing.x) / 2.0).floor();
                     ui.horizontal(|ui| {

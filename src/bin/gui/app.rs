@@ -121,22 +121,17 @@ pub(crate) struct AutoShadeApp {
     /// The reference library's status as last READ (`library::summary`),
     /// cached: it parses a file that can reach tens of MB, so it must never
     /// happen per frame. `None` = not read yet.
-    pub(crate) style_info: Option<autoshade::library::Summary>,
+    /// The AI section's run/library/tab state; see [`AiState`].
+    pub(crate) ai: AiState,
     /// A status read is on a worker thread (keeps the first draw off the disk).
-    pub(crate) style_info_loading: bool,
     /// A library BUILD is running. Its own flag, never the global `busy`:
     /// building measures every photo in a folder and takes minutes, and freezing
     /// the whole app for that would be worse than the missing entry point this
     /// closes. Only the build button gates on it.
-    pub(crate) style_build_inflight: bool,
     /// The running build's `(stage, completed, total)` — typed facts, worded
     /// at draw time (L12#4). The STAGE is named because the build is four
     /// phases over the whole folder: a bare pair would sweep 0..N more than
     /// once with nothing to say which sweep the user was looking at.
-    pub(crate) style_build_progress: Option<(autoshade::library::BuildStage, usize, usize)>,
-    pub(crate) hsl_tab: usize, // Color Mixer property tab: 0=Hue 1=Saturation 2=Luminance
-    pub(crate) grade_region: usize,
-    pub(crate) guidance: String, // free-text direction for the AI ("warmer, moodier")
     // Delivery format + depth (阶段4) — replaces the old save_jpeg bool.
     /// The Export panel's dials and delivery facts; see [`ExportState`].
     pub(crate) exp: ExportState,
@@ -1629,13 +1624,7 @@ impl Default for AutoShadeApp {
             style_src_dir: None,
             style_raw_dir: None,
             direction_adherence: autoshade::recipe::DirectionAdherence::DEFAULT,
-            style_info: None,
-            style_info_loading: false,
-            style_build_inflight: false,
-            style_build_progress: None,
-            hsl_tab: 0,
-            grade_region: 0,
-            guidance: String::new(),
+            ai: AiState::default(),
             exp: ExportState::default(),
             // ./out — the CLI's and the batch renderer's own root; mirror
             // Prefs::default so a missing pref key means exactly this.

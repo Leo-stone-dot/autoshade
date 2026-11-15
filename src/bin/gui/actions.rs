@@ -4016,10 +4016,10 @@ impl AutoShadeApp {
     /// process rebuilding the shared library mid-session is the one staleness
     /// this accepts — the alternative is a stat per frame forever).
     pub(crate) fn start_style_info(&mut self) {
-        if self.style_info_loading {
+        if self.ai.style_info_loading {
             return;
         }
-        self.style_info_loading = true;
+        self.ai.style_info_loading = true;
         self.spawn_worker(
             || Msg::StyleInfo(Box::new(autoshade::library::summary())),
             // A read that PANICS must still clear the flag, or the status line
@@ -4038,11 +4038,11 @@ impl AutoShadeApp {
     /// library is published atomically (`Library::save`), so a killed process
     /// leaves the previous library intact.
     pub(crate) fn start_style_build(&mut self, dir: PathBuf) {
-        if self.style_build_inflight {
+        if self.ai.style_build_inflight {
             return;
         }
-        self.style_build_inflight = true;
-        self.style_build_progress = None;
+        self.ai.style_build_inflight = true;
+        self.ai.style_build_progress = None;
         self.status = trf(
             self.lang,
             "Building the reference library from {path} … the first build measures every photo, so a big folder takes minutes",

@@ -6,8 +6,8 @@ use crate::*;
 
 impl AutoShadeApp {
 pub(crate) fn on_style_built(&mut self, lang: Lang, outcome: StyleBuildOutcome) {
-    self.style_build_inflight = false;
-    self.style_build_progress = None;
+    self.ai.style_build_inflight = false;
+    self.ai.style_build_progress = None;
     // The words are the logic layer's; the state below is this landing's.
     let (words, dir) = match &outcome {
         StyleBuildOutcome::Saved { total, dir, phrased } => (

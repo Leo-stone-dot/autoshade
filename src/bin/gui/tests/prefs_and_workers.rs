@@ -558,10 +558,10 @@
             // Text long enough that a field free to grow would want to: the
             // singleline clip keeps this from mattering, the cap is about the
             // BOX, and a filled buffer also exercises the hover-tooltip arm.
-            app.guidance = "warmer and moodier, lift the shadows a lot, and keep the sky honest".into();
-            app.reimagine_prompt = app.guidance.clone();
-            app.adjust_prompt = app.guidance.clone();
-            app.fill_prompt = app.guidance.clone();
+            app.ai.guidance = "warmer and moodier, lift the shadows a lot, and keep the sky honest".into();
+            app.reimagine_prompt = app.ai.guidance.clone();
+            app.adjust_prompt = app.ai.guidance.clone();
+            app.fill_prompt = app.ai.guidance.clone();
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let input = || egui::RawInput {
