@@ -61,6 +61,7 @@ mod actions;
 mod logic;
 mod app;
 mod budget;
+mod ai_start_actions;
 mod canvas;
 mod canvas_masters;
 mod export;

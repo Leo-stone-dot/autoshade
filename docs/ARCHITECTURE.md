@@ -7714,7 +7714,12 @@ in `open_actions.rs`. The edit history and the pixel re-develops it drives
 (the undo/redo stacks and commits, `apply_step`, the pixel refresh/rebind and the
 quarter-turn rotate/sync) live in `history_actions.rs`. The Settings form and the model/Python rows
 (load/save prefs, the catalogue fetch, the Python install/probe) live in
-`settings_actions.rs`.
+`settings_actions.rs`. The AI starts and the modal dialogs (analyze spawn,
+`start_fit`, the reference-library build/info starts, the legacy import, the
+cancel token, the fit-prompt and quit-confirm layers) live in
+`ai_start_actions.rs`. B is done: `actions.rs` went from 4664 to 995 lines and now
+holds only the app's construction/prefs restore, the open-baseline and dirty
+helpers, the save/export group and the status helpers.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

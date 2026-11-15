@@ -812,7 +812,7 @@
         let decoded: Prefs = serde_json::from_str(&older).expect("an older prefs file loads");
         assert_eq!(decoded.fit_strength, autoshade::recipe::GradeStrength::DEFAULT);
         // …and the worker reads the fit's own dial, at both fit entry points.
-        let worker = include_str!("../actions.rs");
+        let worker = concat!(include_str!("../actions.rs"), include_str!("../ai_start_actions.rs"));
         assert!(
             worker.contains("let fit_strength = self.fit_strength();"),
             "the reverse-fit block must read its own dial through fit_strength()"
