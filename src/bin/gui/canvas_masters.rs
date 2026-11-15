@@ -155,7 +155,7 @@ pub(crate) fn install_master(
 /// session — and every scroll-back after texture eviction — a ~1 ms JPEG
 /// read instead of a full decode.
 pub(crate) fn request_thumb(&mut self, idx: usize) {
-    if self.thumbs.contains_key(&idx) || self.thumb_requested.contains(&idx) {
+    if self.gal.thumbs.contains_key(&idx) || self.gal.thumb_requested.contains(&idx) {
         return;
     }
     // A BOUNDED retry, because both extremes are wrong. Dropping the
@@ -166,16 +166,16 @@ pub(crate) fn request_thumb(&mut self, idx: usize) {
     // under that size never retried at all. Three attempts covers the
     // transient causes (AV lock, a slow share) and stops dead on a file
     // that simply cannot be decoded.
-    if self.thumb_fail.get(&idx).is_some_and(|n| *n >= 3) {
+    if self.gal.thumb_fail.get(&idx).is_some_and(|n| *n >= 3) {
         return;
     }
-    if self.thumb_inflight >= MAX_THUMB_INFLIGHT {
+    if self.gal.thumb_inflight >= MAX_THUMB_INFLIGHT {
         return;
     }
-    let Some(path) = self.gallery.get(idx).cloned() else { return };
-    self.thumb_requested.insert(idx);
-    self.thumb_inflight += 1;
-    let generation = self.gallery_gen;
+    let Some(path) = self.gal.gallery.get(idx).cloned() else { return };
+    self.gal.thumb_requested.insert(idx);
+    self.gal.thumb_inflight += 1;
+    let generation = self.gal.gallery_gen;
     self.spawn_worker(
         move || {
             let res = (|| -> anyhow::Result<image::DynamicImage> {

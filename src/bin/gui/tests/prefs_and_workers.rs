@@ -715,9 +715,9 @@
                 egui::TextureOptions::LINEAR,
             );
             // One row, its texture already resident: the loaded branch.
-            app.gallery = vec![PathBuf::from("r22-thumb-geometry.arw")];
-            app.gallery_dir = Some(PathBuf::from("."));
-            app.thumbs.insert(0, tex);
+            app.gal.gallery = vec![PathBuf::from("r22-thumb-geometry.arw")];
+            app.gal.gallery_dir = Some(PathBuf::from("."));
+            app.gal.thumbs.insert(0, tex);
             let input = egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
@@ -730,8 +730,8 @@
                     .default_width(260.0)
                     .show(ctx, |ui| app.gallery_panel(ui));
             });
-            let slot = app.gallery_slot_rect.expect("the gallery records its thumb slot (test seam)");
-            let draw = app.gallery_thumb_rect.expect("the gallery records the drawn image (test seam)");
+            let slot = app.gal.gallery_slot_rect.expect("the gallery records its thumb slot (test seam)");
+            let draw = app.gal.gallery_thumb_rect.expect("the gallery records the drawn image (test seam)");
             eprintln!("gallery thumb [{tag}]: slot={slot:?} draw={draw:?}");
             // ① the image is drawn at the TEXTURE's aspect ratio
             let want = tw as f32 / th as f32;

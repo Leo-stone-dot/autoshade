@@ -192,9 +192,9 @@ impl AutoShadeApp {
             return;
         }
         let targets: Vec<PathBuf> = {
-            let mut idx: Vec<usize> = self.multi_sel.iter().copied().collect();
+            let mut idx: Vec<usize> = self.gal.multi_sel.iter().copied().collect();
             idx.sort_unstable();
-            idx.into_iter().filter_map(|i| self.gallery.get(i).cloned()).collect()
+            idx.into_iter().filter_map(|i| self.gal.gallery.get(i).cloned()).collect()
         };
         if targets.is_empty() {
             return;

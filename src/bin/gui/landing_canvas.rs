@@ -928,7 +928,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.source_part_inflight = None;
                         self.before_tex = None;
                         self.after_tex = None;
-                        self.selected = None;
+                        self.gal.selected = None;
                         // …and its HISTORY, which this arm used to leave
                         // standing: the steps hold the dead photo's
                         // rasters and its recipe, so an undo here restored
@@ -965,8 +965,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
 pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usize, img: anyhow::Result<image::DynamicImage>) {
                 // Ignore thumbnails from a previous folder generation (their
                 // inflight count was already discarded when the folder changed).
-                if generation == self.gallery_gen {
-                    self.thumb_inflight = self.thumb_inflight.saturating_sub(1);
+                if generation == self.gal.gallery_gen {
+                    self.gal.thumb_inflight = self.gal.thumb_inflight.saturating_sub(1);
                     match img {
                         Ok(im) => {
                             let tex = ctx.load_texture(
@@ -974,7 +974,7 @@ pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usi
                                 to_color_image(&im),
                                 egui::TextureOptions::LINEAR,
                             );
-                            self.thumbs.insert(idx, tex);
+                            self.gal.thumbs.insert(idx, tex);
                         }
                         Err(_) => {
                             // Count the failure and release the queue slot:
@@ -983,8 +983,8 @@ pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usi
                             // share) still recovers on a later frame while
                             // an undecodable file stops for good instead of
                             // respawning decode threads every frame.
-                            *self.thumb_fail.entry(idx).or_insert(0) += 1;
-                            self.thumb_requested.remove(&idx);
+                            *self.gal.thumb_fail.entry(idx).or_insert(0) += 1;
+                            self.gal.thumb_requested.remove(&idx);
                         }
                     }
                 }

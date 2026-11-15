@@ -483,6 +483,28 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The gallery's own state: the folder scan, the bounded thumbnail cache, the
+/// selection, and the two measured rects the layout tests read. Extracted from
+/// `AutoShadeApp` so gallery features do not add fields to the app struct.
+#[derive(Default)]
+pub(crate) struct GalleryState {
+    pub(crate) gallery: Vec<PathBuf>, // sources in the working folder (sorted)
+    pub(crate) gallery_dir: Option<PathBuf>, // the working folder
+    pub(crate) gallery_gen: u64, // bumped on every folder load (thumb invalidation)
+    pub(crate) gallery_scroll_to: Option<usize>,
+    pub(crate) thumbs: HashMap<usize, egui::TextureHandle>, // decoded thumbnails by index
+    pub(crate) thumb_requested: HashSet<usize>, // indices already queued/decoded
+    pub(crate) thumb_fail: std::collections::HashMap<usize, u8>,
+    pub(crate) thumb_inflight: usize, // live thumbnail-decode threads
+    pub(crate) edited_badge: HashMap<usize, bool>, // cached "● edited" sidecar stat per index
+    pub(crate) selected: Option<usize>, // index of the open gallery photo (for highlight)
+    pub(crate) multi_sel: HashSet<usize>, // Ctrl+click gallery multi-selection
+    #[cfg(test)]
+    pub(crate) gallery_slot_rect: Option<egui::Rect>, // test seam: first drawn gallery thumb's SLOT
+    #[cfg(test)]
+    pub(crate) gallery_thumb_rect: Option<egui::Rect>, // test seam: … and the image drawn inside it
+}
+
 /// The question a whole-frame「AI generate」landing asks (v1.17.0): reverse-fit
 /// the new ✨ card, and from which negative (`fit_prompt_layer`).
 pub(crate) struct FitPrompt {

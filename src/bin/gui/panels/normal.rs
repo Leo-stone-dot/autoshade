@@ -390,7 +390,7 @@ impl AutoShadeApp {
         };
         let full = self.export_dest_dir().map(|d| abs_display(&d)).unwrap_or_default();
         ui.label(egui::RichText::new(place).weak().small()).on_hover_text(full);
-        let all = action_row(ui, ready && !self.gallery.is_empty(), tr(lang, "Apply this look to every photo in the folder"))
+        let all = action_row(ui, ready && !self.gal.gallery.is_empty(), tr(lang, "Apply this look to every photo in the folder"))
             .on_hover_text(tr(lang, "Gives every photo in the open folder this look and saves each one as a jpg."))
             .on_disabled_hover_text(tr(lang, "Open a folder first — the library on the left."))
             .clicked();

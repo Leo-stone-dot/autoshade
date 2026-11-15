@@ -7645,7 +7645,10 @@ business panels and the two pure widgets), `canvas.rs` and the frame `app.rs`
 are in the guard; `workers.rs` is the message pump and worker starts, with the
 landings in `landing_*.rs` and the business mutations in `*_actions.rs`; no view
 file contains `rfd::`, a worker spawn, a develop-store write or a direct
-`start_*` call.
+`start_*` call. The app struct is being split by feature state as
+well: `model::GalleryState` owns the gallery's scan, thumbnail cache, selection
+and test-seam rects, so `AutoShadeApp` keeps one `gal` field instead of
+thirteen and a gallery feature no longer edits the app struct.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

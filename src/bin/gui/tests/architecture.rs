@@ -96,8 +96,8 @@
         for needle in common.into_iter().chain([
             "open_gallery_index",
             "request_thumb(",
-            "self.thumbs.retain",
-            "self.thumb_requested",
+            "self.gal.thumbs.retain",
+            "self.gal.thumb_requested",
             "multi_sel.insert",
             "multi_sel.remove",
             "multi_sel.clear",

@@ -219,7 +219,7 @@ impl AutoShadeApp {
 
         // --- the library-wide verbs ------------------------------------------
         let sel = self.recipe_sel.clone();
-        let targets = self.multi_sel.len();
+        let targets = self.gal.multi_sel.len();
         let busy = self.busy;
         ui.horizontal_wrapped(|ui| {
             if action(

@@ -103,7 +103,7 @@ match autoshade::store::with_develop_lock(
         })();
         match commit_res {
             Ok(()) => {
-                self.edited_badge.clear();
+                self.gal.edited_badge.clear();
                 // The ● baseline lives in CANVAS
                 // coordinates: on a baked variant
                 // the canvas copy dropped the

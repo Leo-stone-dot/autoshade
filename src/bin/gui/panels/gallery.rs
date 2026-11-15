@@ -21,9 +21,9 @@ impl AutoShadeApp {
                 )]);
             }
         });
-        if let Some(d) = &self.gallery_dir {
+        if let Some(d) = &self.gal.gallery_dir {
             let dir = d.display().to_string();
-            let cnt = self.gallery.len().to_string();
+            let cnt = self.gal.gallery.len().to_string();
             ui.label(
                 egui::RichText::new(trf(lang, "{dir} · {count} photos", &[("dir", &dir), ("count", &cnt)]))
                     .weak()
@@ -50,7 +50,7 @@ impl AutoShadeApp {
         {
             self.apply_actions(vec![logic::Action::Gallery(logic::gallery::GalleryAction::CopyRecipe)]);
         }
-        let n = self.multi_sel.len();
+        let n = self.gal.multi_sel.len();
         let n_s = n.to_string();
         if action_in(ui, cell, self.copied.is_some() && n > 0 && !self.busy, trf(lang, "Paste to selected ({n})", &[("n", &n_s)]))
             .on_hover_text(tr(lang, "Writes each photo's develop into your develop store (recipe JSON; RAW also gets a Lightroom XMP). Leaves library files untouched, renders nothing."))
@@ -102,11 +102,11 @@ impl AutoShadeApp {
             )]);
         }
         ui.separator();
-        if self.gallery.is_empty() {
+        if self.gal.gallery.is_empty() {
             // Two different situations, two different messages: "no folder"
             // invites opening one; "empty folder" says the folder itself has
             // nothing to show (the old shared line read as a broken open).
-            let hint = if self.gallery_dir.is_some() {
+            let hint = if self.gal.gallery_dir.is_some() {
                 tr(lang, "No photos in this folder — RAW / JPEG / PNG / TIFF would show up here.")
             } else {
                 tr(lang, "Open a folder to browse your photos here.")
@@ -116,14 +116,14 @@ impl AutoShadeApp {
             return;
         }
 
-        let count = self.gallery.len();
+        let count = self.gal.gallery.len();
         // Borrow only the fields the row closure reads; collect actions to apply
         // after (a thumb request and an open both need &mut self).
-        let thumbs = &self.thumbs;
-        let edited_badge = &mut self.edited_badge;
-        let gallery = &self.gallery;
-        let selected = self.selected;
-        let multi_sel = &self.multi_sel;
+        let thumbs = &self.gal.thumbs;
+        let edited_badge = &mut self.gal.edited_badge;
+        let gallery = &self.gal.gallery;
+        let selected = self.gal.selected;
+        let multi_sel = &self.gal.multi_sel;
         let colors = self.theme.colors();
         // A row click is an action; the decision (open vs toggle) is the
         // logic layer's, applied after the row closure ends.
@@ -137,7 +137,7 @@ impl AutoShadeApp {
         #[cfg(test)]
         let mut thumb_geom: Option<(egui::Rect, egui::Rect)> = None;
         let mut scroll = egui::ScrollArea::vertical().auto_shrink([false, false]);
-        if let Some(i) = self.gallery_scroll_to.take() {
+        if let Some(i) = self.gal.gallery_scroll_to.take() {
             // Keyboard navigation moved the selection: jump the viewport so the
             // highlighted row sits roughly centred. show_rows only lays out
             // visible rows, so scroll_to_me can never reach an off-screen row —
@@ -268,8 +268,8 @@ impl AutoShadeApp {
         #[cfg(test)]
         {
             if let Some((slot, draw)) = thumb_geom {
-                self.gallery_slot_rect = Some(slot);
-                self.gallery_thumb_rect = Some(draw);
+                self.gal.gallery_slot_rect = Some(slot);
+                self.gal.gallery_thumb_rect = Some(draw);
             }
         }
         if !to_request.is_empty() {
@@ -282,7 +282,7 @@ impl AutoShadeApp {
         // Bounded GPU memory: the window is the logic layer's, the retains
         // are the runtime's (`GalleryAction::Trim`).
         if let Some(keep) =
-            logic::gallery::trim_window(visible.clone(), self.thumbs.len(), logic::gallery::THUMB_TEX_CAP)
+            logic::gallery::trim_window(visible.clone(), self.gal.thumbs.len(), logic::gallery::THUMB_TEX_CAP)
         {
             self.apply_actions(vec![logic::Action::Gallery(
                 logic::gallery::GalleryAction::Trim { start: keep.start, end: keep.end },
