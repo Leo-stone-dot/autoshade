@@ -452,6 +452,10 @@
             thumb: None,
         };
         let mut app = AutoShadeApp {
+            cards: CardsState {
+                versions: vec![1],
+                ..Default::default()
+            },
             gal: GalleryState {
                 multi_sel: [0usize].into_iter().collect(),
             
@@ -461,7 +465,6 @@
             src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/_buttons.ARW", std::process::id()))),
             variants: vec![mk(VariantKind::Original), mk(VariantKind::Generated)],
             active: 1,
-            versions: vec![1],
             fit_ref: Some(std::env::temp_dir().join(format!("autoshade-library-{}/_buttons-reference.png", std::process::id()))),
             ..Default::default()
         };

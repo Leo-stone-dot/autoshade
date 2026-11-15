@@ -14,7 +14,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                 // FACT agrees the flight was same-path: a stale request
                 // must never graft the outgoing photo's whole canvas,
                 // strip and history onto an incoming photo.
-                let keep = std::mem::take(&mut self.keep_recipe) && self.open.open_same_path;
+                let keep = std::mem::take(&mut self.cards.keep_recipe) && self.open.open_same_path;
                 let edge_revert = self.open.edge_before_flight.take();
                 self.open.open_in_flight = false; // both arms: the transition ended
                 match *boxed {

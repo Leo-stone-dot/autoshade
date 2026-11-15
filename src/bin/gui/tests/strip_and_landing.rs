@@ -375,7 +375,7 @@
         // unreachable key.
         app.src_path =
             Some(std::env::temp_dir().join(format!("autoshade-keepfact-{}/__autoshade_keepfact__.ARW", std::process::id())));
-        app.keep_recipe = true;
+        app.cards.keep_recipe = true;
         app.open.open_same_path = false; // stale request, cross-photo fact
         let base = Arc::new(image::DynamicImage::new_rgb8(8, 6));
         app.tx
@@ -393,7 +393,7 @@
         assert_eq!(app.variants.len(), 1, "fresh arm: the strip is rebuilt, never grafted");
         // ...and an HONOURED request (fact agrees) preserves the strip.
         app.variants = vec![mk(), mk()];
-        app.keep_recipe = true;
+        app.cards.keep_recipe = true;
         app.open.open_same_path = true;
         app.tx
             .send(Msg::Opened(Box::new(Ok((
@@ -414,7 +414,7 @@
         // reload never happens and the one-shot request goes sticky — and
         // fails the assert.
         app.variants = vec![mk(), mk()];
-        app.keep_recipe = false;
+        app.cards.keep_recipe = false;
         app.open.open_same_path = true;
         app.tx
             .send(Msg::Opened(Box::new(Ok((
@@ -441,7 +441,7 @@
         // this is what keeps it honest.) The memo seam keeps this
         // decodable-RAW-free — the repair consults the memo before
         // estimating, so a primed answer makes the gate's verdict visible
-        // as the era stamp. Deleting `&& self.keep_recipe` at the
+        // as the era stamp. Deleting `&& self.cards.keep_recipe` at the
         // apply_step gate repairs phase 1's install and fails its assert.
         let mut app = AutoShadeApp::default();
         let ctx = egui::Context::default();
@@ -472,13 +472,13 @@
         // Same-path FRESH reopen in flight: fact without request — refused.
         app.open.open_in_flight = true;
         app.open.open_same_path = true;
-        app.keep_recipe = false;
+        app.cards.keep_recipe = false;
         app.undo(&ctx);
         assert_eq!(app.recipe.version, 1, "fresh-reopen flight: the install is NOT repaired");
         assert_eq!(app.recipe.base_curve, washy, "…and the washed curve is untouched");
         // Same-path keep-flight: request AND fact — admitted, and the memo's
         // primed answer is adopted with its era stamp.
-        app.keep_recipe = true;
+        app.cards.keep_recipe = true;
         app.redo(&ctx);
         assert_eq!(
             app.recipe.version,
@@ -513,6 +513,11 @@
         // old-edge canvas). Three outcomes, three asserts.
         let ctx = egui::Context::default();
         let armed = |base: Option<Arc<image::DynamicImage>>, origin: Option<PathBuf>| AutoShadeApp {
+            cards: CardsState {
+                // ...and armed the flight
+                keep_recipe: true,
+                ..Default::default()
+            },
             open: OpenState {
                 // the combo already switched...
                 edge_before_flight: Some(1280),
@@ -533,8 +538,6 @@
                 thumb: None,
             }],
             preview_edge: 4096,
-            // ...and armed the flight
-keep_recipe: true,
             // What open_path leaves on the bar for the whole flight.
 status: "decoding … ".to_string(),
             ..Default::default()

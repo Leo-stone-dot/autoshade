@@ -660,14 +660,14 @@ impl AutoShadeApp {
                                 let card_id = self.variants[i].id.clone();
                                 let named = self.variants[i].name.clone();
                                 let editing = active
-                                    && self.variant_name_buf.as_ref().is_some_and(|(p, id, ..)| {
+                                    && self.cards.variant_name_buf.as_ref().is_some_and(|(p, id, ..)| {
                                         *id == card_id
                                             && Some(p.as_path()) == self.src_path.as_deref()
                                     });
                                 if editing {
                                     let resp = {
                                         let buf =
-                                            &mut self.variant_name_buf.as_mut().expect("checked just above").3;
+                                            &mut self.cards.variant_name_buf.as_mut().expect("checked just above").3;
                                         ui.add(
                                             // Keyed by the CARD's id, like
                                             // the buffer: an index key made
@@ -696,7 +696,7 @@ impl AutoShadeApp {
                                     }
                                     if resp.lost_focus() {
                                         self.commit_variant_name_buf();
-                                        self.variant_name_buf = None;
+                                        self.cards.variant_name_buf = None;
                                     } else if !resp.has_focus() {
                                         resp.request_focus();
                                     }
@@ -835,7 +835,7 @@ impl AutoShadeApp {
         // second deletes — the button says which, because a deleted card
         // cannot be brought back (unlike a version, whose number the registry
         // keeps burned rather than the card recoverable).
-        let armed = self.variant_delete_confirm == Some(i);
+        let armed = self.cards.variant_delete_confirm == Some(i);
         if self.variants.len() > 1
             && kind != VariantKind::Original
             && glyph(ui, true, if armed { "✕?" } else { "✕" })
@@ -3192,7 +3192,7 @@ impl AutoShadeApp {
         // Versions previously opened with a bare sibling-section fence while
         // being the head of a different KIND of group.
         group_caption(ui, tr(lang, "Versions & Export"));
-        let n_ver = self.versions.len();
+        let n_ver = self.cards.versions.len();
         let n_ver_s = n_ver.to_string();
         // Deferred like the strip's, and dispatched through the same owner
         // after the section's closures release `self` (R24-5).
@@ -3354,8 +3354,8 @@ impl AutoShadeApp {
                 // a shrinking list is never mistaken for lost versions.
                 let active_id = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
                 let active_kind = self.active_variant().map(|v| v.kind);
-                if !self.versions.is_empty() {
-                    ui.checkbox(&mut self.versions_current_only, tr(lang, "Only this variant"))
+                if !self.cards.versions.is_empty() {
+                    ui.checkbox(&mut self.cards.versions_current_only, tr(lang, "Only this variant"))
                         .on_hover_text(tr(
                             lang,
                             "Show only snapshots taken from the variant you are on. Versions with no recorded source (saved before this) are hidden while it is on.",
@@ -3367,11 +3367,11 @@ impl AutoShadeApp {
                 let mut hidden = 0usize;
                 // The list is cloned so the rows may borrow `self` mutably
                 // (the rename buffer) — it is a handful of u32.
-                let versions = self.versions.clone();
+                let versions = self.cards.versions.clone();
                 let photo = self.src_path.clone();
                 for n in versions {
-                    let meta = self.version_meta.get(&n).cloned();
-                    if self.versions_current_only
+                    let meta = self.cards.version_meta.get(&n).cloned();
+                    if self.cards.versions_current_only
                         && !Self::version_is_from(meta.as_ref(), &active_id, active_kind)
                     {
                         hidden += 1;
@@ -3381,7 +3381,7 @@ impl AutoShadeApp {
                     self.seams.edit_list_rows.push(format!("version:{n}"));
                     let named = meta.as_ref().and_then(|m| m.name.clone());
                     let editing = self
-                        .version_name_buf
+                        .cards.version_name_buf
                         .as_ref()
                         .is_some_and(|(p, j, ..)| *j == n && Some(p) == photo.as_ref());
                     ui.horizontal(|ui| {
@@ -3390,7 +3390,7 @@ impl AutoShadeApp {
                         if editing {
                             let resp = {
                                 let buf = &mut self
-                                    .version_name_buf
+                                    .cards.version_name_buf
                                     .as_mut()
                                     .expect("checked just above")
                                     .3;
@@ -3409,7 +3409,7 @@ impl AutoShadeApp {
                             // for focus below and never give it back.
                             if resp.lost_focus() {
                                 self.commit_version_name_buf();
-                                self.version_name_buf = None;
+                                self.cards.version_name_buf = None;
                             } else if !resp.has_focus() {
                                 // The frame the box first appears in: the
                                 // click that opened it landed on the LABEL
@@ -3489,11 +3489,11 @@ impl AutoShadeApp {
                     // rule, made structural by keying on the number.
                     self.commit_version_name_buf();
                     let cur = self
-                        .version_meta
+                        .cards.version_meta
                         .get(&n)
                         .and_then(|m| m.name.clone())
                         .unwrap_or_default();
-                    self.version_name_buf = Some((p, n, cur.clone(), cur));
+                    self.cards.version_name_buf = Some((p, n, cur.clone(), cur));
                 }
                 if let Some(n) = load {
                     self.apply_actions(vec![logic::Action::Develop(
@@ -3508,9 +3508,9 @@ impl AutoShadeApp {
                     // name for a number that no longer exists and can never
                     // be re-issued — a record only the next delete would
                     // clean up.
-                    if self.version_name_buf.as_ref().is_some_and(|(p, j, ..)| *j == n && *p == src)
+                    if self.cards.version_name_buf.as_ref().is_some_and(|(p, j, ..)| *j == n && *p == src)
                     {
-                        self.version_name_buf = None;
+                        self.cards.version_name_buf = None;
                     }
                     self.apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::DeleteVersion(n),
