@@ -151,7 +151,7 @@ impl AutoShadeApp {
                     }
                     logic::settings::SettingsAction::PickDeliveryFolder => {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                            self.settings.out_dir = dir.display().to_string();
+                            self.ui.settings.out_dir = dir.display().to_string();
                         }
                     }
                     logic::settings::SettingsAction::SaveForm => self.save_settings_form(),

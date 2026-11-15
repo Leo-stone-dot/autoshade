@@ -126,9 +126,9 @@ impl AutoShadeApp {
         app.lang = prefs.lang;
         // Restore the theme and re-apply it — main() installed the Dark
         // default before prefs were readable (same shape as the greeting).
-        app.theme = prefs.theme;
-        app.accent = prefs.accent;
-        install_look(&app.egui_ctx, app.theme, app.accent);
+        app.ui.theme = prefs.theme;
+        app.ui.accent = prefs.accent;
+        install_look(&app.egui_ctx, app.ui.theme, app.ui.accent);
         // The greeting was set by default() BEFORE the language was known —
         // re-issue it, or a Chinese install opens with one English line.
         app.status =
@@ -2763,7 +2763,7 @@ impl AutoShadeApp {
     /// A modal layer is up — the quit confirm or the fit prompt — and owns
     /// the keyboard and the pointer (D13).
     pub(crate) fn modal_up(&self) -> bool {
-        self.confirm_quit || self.fit.fit_prompt.is_some()
+        self.ui.confirm_quit || self.fit.fit_prompt.is_some()
     }
 
     /// Raise the fit prompt after a whole-frame reimagine landed and the strip
@@ -2985,7 +2985,7 @@ impl AutoShadeApp {
         let orphan_variants = self.inactive_dirty_variants();
         if pending.is_empty() && orphan_variants == 0 {
             // Saved (or discarded) since the guard fired — nothing to protect.
-            self.confirm_quit = false;
+            self.ui.confirm_quit = false;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
         }
@@ -3316,7 +3316,7 @@ impl AutoShadeApp {
                 None => {
                     self.open.nav_stash.clear();
                     self.hist.saved_recipe = self.recipe.clone();
-                    self.confirm_quit = false;
+                    self.ui.confirm_quit = false;
                     // The close guard re-checks on the way out. Everything
                     // above just persisted, so the re-check passes — but if
                     // anything is STILL dirty (logic drift, a future writer
@@ -3353,7 +3353,7 @@ impl AutoShadeApp {
                     let t = trf(lang, "save failed: {err}", &[("err", &e)]);
                     self.status = t.clone();
                     self.toast(ToastKind::Error, t);
-                    self.confirm_quit = false;
+                    self.ui.confirm_quit = false;
                 }
             }
         } else if discard_quit {
@@ -3364,10 +3364,10 @@ impl AutoShadeApp {
             // nowhere to be saved, so nothing can make them "clean" — only
             // the user's decision can end the question.
             self.open.discard_requested = true;
-            self.confirm_quit = false;
+            self.ui.confirm_quit = false;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         } else if cancel || !open {
-            self.confirm_quit = false;
+            self.ui.confirm_quit = false;
         }
     }
 
@@ -3524,13 +3524,13 @@ impl AutoShadeApp {
         // zeroing it mid-fetch stopped the repaint pump AND re-armed the fetch
         // button (duplicate requests, stalled status). The catalogues also
         // carry the per-role auto-fetch guards and generation stamps.
-        let image_models = std::mem::take(&mut self.settings.image_models);
-        let analysis_models = std::mem::take(&mut self.settings.analysis_models);
+        let image_models = std::mem::take(&mut self.ui.settings.image_models);
+        let analysis_models = std::mem::take(&mut self.ui.settings.analysis_models);
         // ONE read of the settings file for the two fields below that show the
         // file's own spelling rather than the resolved value.
         let local = autoshade::config::load_local_settings();
         let comfy = autoshade::comfy::Settings::load();
-        self.settings = SettingsForm {
+        self.ui.settings = SettingsForm {
             analysis_provider_api: cfg.analysis_is_api(),
             image_provider_oauth: cfg.image_is_oauth(),
             analysis_model: cfg.analysis_model.clone(),
@@ -3599,14 +3599,14 @@ impl AutoShadeApp {
     /// the role that became eligible five minutes later — key saved, provider
     /// flipped to `api` — was never probed on any later open.
     pub(crate) fn autofetch_models_once(&mut self, cfg: &autoshade::config::Config) {
-        if cfg.openai_api_key.is_some() && !self.settings.image_models.autofetched {
+        if cfg.openai_api_key.is_some() && !self.ui.settings.image_models.autofetched {
             self.fetch_models(ModelRole::Image);
         }
         // The analysis endpoint only has a catalogue to fetch in `api` mode —
         // the OAuth verifier is the `claude` CLI, which serves no /models.
         if cfg.analysis_is_api()
             && cfg.analysis_api_key.is_some()
-            && !self.settings.analysis_models.autofetched
+            && !self.ui.settings.analysis_models.autofetched
         {
             self.fetch_models(ModelRole::Analysis);
         }
@@ -3619,7 +3619,7 @@ impl AutoShadeApp {
         // lock (`config::update_local_settings`): this panel and the serve
         // process merge onto the same file, and the old unlocked cycle here
         // let a save that landed between its load and its rename be erased.
-        let form = &self.settings;
+        let form = &self.ui.settings;
         let saved = autoshade::config::update_local_settings(|cur| {
             cur.analysis_provider =
                 Some(if form.analysis_provider_api { "api" } else { "oauth" }.to_string());
@@ -3692,13 +3692,13 @@ impl AutoShadeApp {
         // install must not block saving the AI settings above.
         {
             let mut comfy = autoshade::comfy::Settings::load();
-            comfy.cli = self.settings.comfy_cli.trim().to_string();
-            comfy.workspace = self.settings.comfy_workspace.trim().to_string();
-            comfy.base_dir = self.settings.comfy_base_dir.trim().to_string();
-            comfy.reimagine_workflow = self.settings.comfy_reimagine_workflow.trim().to_string();
-            comfy.fill_workflow = self.settings.comfy_fill_workflow.trim().to_string();
+            comfy.cli = self.ui.settings.comfy_cli.trim().to_string();
+            comfy.workspace = self.ui.settings.comfy_workspace.trim().to_string();
+            comfy.base_dir = self.ui.settings.comfy_base_dir.trim().to_string();
+            comfy.reimagine_workflow = self.ui.settings.comfy_reimagine_workflow.trim().to_string();
+            comfy.fill_workflow = self.ui.settings.comfy_fill_workflow.trim().to_string();
             if let Err(e) = comfy.save() {
-                self.settings.status = trf(
+                self.ui.settings.status = trf(
                     self.lang,
                     "settings saved, but the ComfyUI paths failed to save: {err}",
                     &[("err", &e.to_string())],
@@ -3708,18 +3708,18 @@ impl AutoShadeApp {
         // Did the user type a key on this save? Asked BEFORE the fields are
         // cleared, so the refusal check below can tell "typed and rejected"
         // from "left blank on purpose".
-        let typed_image = !self.settings.image_api_key.trim().is_empty();
-        let typed_analysis = !self.settings.analysis_api_key.trim().is_empty();
+        let typed_image = !self.ui.settings.image_api_key.trim().is_empty();
+        let typed_analysis = !self.ui.settings.analysis_api_key.trim().is_empty();
         match saved {
             Ok(p) => {
-                self.settings.analysis_api_key.clear();
-                self.settings.image_api_key.clear();
+                self.ui.settings.analysis_api_key.clear();
+                self.ui.settings.image_api_key.clear();
                 // Presence reflects the RESOLVED config (file merged with env) —
                 // deriving it from the file alone told a user whose key lives in
                 // OPENAI_API_KEY that no key was set right after saving.
                 let cfg = autoshade::config::Config::load();
-                self.settings.analysis_key_present = cfg.analysis_api_key.is_some();
-                self.settings.image_key_present = cfg.openai_api_key.is_some();
+                self.ui.settings.analysis_key_present = cfg.analysis_api_key.is_some();
+                self.ui.settings.image_key_present = cfg.openai_api_key.is_some();
                 // Normal's sidebar says whether its looks use the AI.
                 self.normal.key_present = Some(cfg.openai_api_key.is_some());
                 // A key that cannot appear in an HTTP header is REFUSED by
@@ -3728,8 +3728,8 @@ impl AutoShadeApp {
                 // stderr, which the windowed GUI does not show, so "saved"
                 // beside a still-empty key state was the whole story the user
                 // got. Say it here instead.
-                let refused = (typed_image && !self.settings.image_key_present)
-                    || (typed_analysis && !self.settings.analysis_key_present);
+                let refused = (typed_image && !self.ui.settings.image_key_present)
+                    || (typed_analysis && !self.ui.settings.analysis_key_present);
                 // The file's HOME decides what `Config::load` reads back:
                 // under the shared temp root (no per-user data directory on
                 // this machine) it is not trusted with a key or an endpoint,
@@ -3738,7 +3738,7 @@ impl AutoShadeApp {
                 // never shows, so "saved" was the whole story until 2026-09-24.
                 let shared = autoshade::config::load_local_settings_from().1
                     == autoshade::config::SettingsOrigin::SharedRoot;
-                self.settings.status = if refused {
+                self.ui.settings.status = if refused {
                     tr(self.lang, "saved, but the key was not accepted — it contains characters that cannot appear in an HTTP header (a stray space or newline from a copy/paste?). Re-copy it and save again.").into()
                 } else if shared {
                     trf(self.lang, "saved → {path} — but this file sits in the shared temp folder, which is not trusted with keys: the API key and base URL fields will be ignored (only the models are read). Set AUTOSHADE_DATA_DIR to a folder only you can write and save again.", &[("path", &p.display().to_string())])
@@ -3755,7 +3755,7 @@ impl AutoShadeApp {
                 }
             }
             Err(e) => {
-                self.settings.status =
+                self.ui.settings.status =
                     trf(self.lang, "save failed: {err}", &[("err", &e.to_string())])
             }
         }
@@ -3772,12 +3772,12 @@ impl AutoShadeApp {
     pub(crate) fn fetch_models(&mut self, role: ModelRole) {
         let (form_key, form_base) = match role {
             ModelRole::Image => (
-                self.settings.image_api_key.trim().to_string(),
-                self.settings.image_base_url.trim().to_string(),
+                self.ui.settings.image_api_key.trim().to_string(),
+                self.ui.settings.image_base_url.trim().to_string(),
             ),
             ModelRole::Analysis => (
-                self.settings.analysis_api_key.trim().to_string(),
-                self.settings.analysis_base_url.trim().to_string(),
+                self.ui.settings.analysis_api_key.trim().to_string(),
+                self.ui.settings.analysis_base_url.trim().to_string(),
             ),
         };
         let cfg = autoshade::config::Config::load();
@@ -3815,7 +3815,7 @@ impl AutoShadeApp {
         cat.from_base = base.clone();
         cat.from_key = key_fingerprint(&key);
         let generation = cat.generation;
-        self.settings.status = tr(self.lang, "fetching models…").into();
+        self.ui.settings.status = tr(self.lang, "fetching models…").into();
         // spawn_worker's catch_unwind guarantees the UI's `fetching` flag
         // always clears — a panic still delivers Msg::Models(role, gen, Err)
         // (this site used to hand-roll a Drop guard for exactly that; the
@@ -3828,8 +3828,8 @@ impl AutoShadeApp {
 
     pub(crate) fn catalogue_mut(&mut self, role: ModelRole) -> &mut ModelCatalogue {
         match role {
-            ModelRole::Image => &mut self.settings.image_models,
-            ModelRole::Analysis => &mut self.settings.analysis_models,
+            ModelRole::Image => &mut self.ui.settings.image_models,
+            ModelRole::Analysis => &mut self.ui.settings.analysis_models,
         }
     }
 
@@ -3851,7 +3851,7 @@ impl AutoShadeApp {
             }
         };
         self.busy = true;
-        self.python_env_line = None;
+        self.ui.python_env_line = None;
         self.status = tr(
             lang,
             "Preparing the Python environment (uv)… the download is a few gigabytes",
@@ -3876,7 +3876,7 @@ impl AutoShadeApp {
         self.busy = false;
         match res {
             Ok(path) => {
-                self.python_env_line = Some(path.clone());
+                self.ui.python_env_line = Some(path.clone());
                 self.status = trf(lang, "Python environment ready: {path}", &[("path", &path)]);
                 // The environment is ready now: re-measure so the Settings row
                 // and any later note describe the new interpreter.
@@ -3884,7 +3884,7 @@ impl AutoShadeApp {
             }
             Err(e) => {
                 let t = format!("{e:#}");
-                self.python_env_line = Some(t.clone());
+                self.ui.python_env_line = Some(t.clone());
                 self.status = t.clone();
                 self.toast(ToastKind::Error, t);
             }
@@ -3897,7 +3897,7 @@ impl AutoShadeApp {
     pub(crate) fn refresh_python_check(&mut self) -> Option<String> {
         let check = autoshade::python_env::inspect(&autoshade::config::Config::load());
         let words = crate::panels::settings::python_startup_words(self.lang, &check);
-        self.python_check = Some(check);
+        self.ui.python_check = Some(check);
         words
     }
 

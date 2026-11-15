@@ -8,7 +8,7 @@
     fn window_frame(app: &mut AutoShadeApp, size: egui::Vec2) -> (Vec<String>, Vec<crate::buttons::Drawn>, image::RgbaImage) {
         use crate::buttons::DRAWN;
         let theme = crate::theme::ThemePref::Dark;
-        app.theme = theme;
+        app.ui.theme = theme;
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
         crate::theme::install_theme(&ctx, theme);

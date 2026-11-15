@@ -552,7 +552,7 @@ impl AutoShadeApp {
         let armed = !comparing && self.tool_armed();
         ui.horizontal(|ui| {
             if armed {
-                ui.label(egui::RichText::new(hint).color(self.theme.colors().armed_hint).small());
+                ui.label(egui::RichText::new(hint).color(self.ui.theme.colors().armed_hint).small());
             } else {
                 ui.label(egui::RichText::new(hint).weak().small());
             }

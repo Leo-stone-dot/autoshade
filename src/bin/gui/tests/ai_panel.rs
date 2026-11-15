@@ -748,7 +748,7 @@
             );
             assert!(seen.iter().any(|t| t == verb), "{lang:?}: an overflowing analysis offers {verb:?}: {seen:?}");
 
-            app.show_analysis_full = true;
+            app.ui.show_analysis_full = true;
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             // A window spends its first frame measuring itself (egui's sizing
@@ -769,7 +769,7 @@
                 window.iter().any(|t| t.contains("END-OF-RATIONALE")),
                 "{lang:?}: the window must draw the whole rationale"
             );
-            assert!(app.show_analysis_full, "{lang:?}: the window stays open while there is text");
+            assert!(app.ui.show_analysis_full, "{lang:?}: the window stays open while there is text");
 
             let mut short = AutoShadeApp { lang, rationale: "Balanced.".into(), ..Default::default() };
             let seen = tall_frame(&mut short, |a, ui| a.ai_panel(ui));

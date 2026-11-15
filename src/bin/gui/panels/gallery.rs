@@ -124,7 +124,7 @@ impl AutoShadeApp {
         let gallery = &self.gal.gallery;
         let selected = self.gal.selected;
         let multi_sel = &self.gal.multi_sel;
-        let colors = self.theme.colors();
+        let colors = self.ui.theme.colors();
         // A row click is an action; the decision (open vs toggle) is the
         // logic layer's, applied after the row closure ends.
         let mut clicked: Option<(usize, bool)> = None;

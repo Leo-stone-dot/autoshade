@@ -99,7 +99,7 @@ impl AutoShadeApp {
                     self.normal.build_progress = Some((done, total));
                 }
                 Msg::OneClickBuilt(res) => self.on_one_click_built(lang, res),
-                Msg::PythonEnvLine(line) => self.python_env_line = Some(line),
+                Msg::PythonEnvLine(line) => self.ui.python_env_line = Some(line),
                 Msg::PythonEnvReady(res) => self.on_python_env_ready(lang, res),
                 Msg::PortraitFound(found) => self.on_portrait_found(lang, *found),
                 Msg::Exported(Ok(outcome)) => {
@@ -321,8 +321,8 @@ impl AutoShadeApp {
     pub(crate) fn pump_repaint_gate(&mut self, ctx: &egui::Context) {
         if self.busy
             || self.gal.thumb_inflight > 0
-            || self.settings.image_models.fetching
-            || self.settings.analysis_models.fetching
+            || self.ui.settings.image_models.fetching
+            || self.ui.settings.analysis_models.fetching
             || !self.open.master_loads.is_empty()
             // R23-2: the style-library build is NOT busy-gated (it runs for
             // minutes and the app stays usable), so without it here the

@@ -224,7 +224,7 @@
                 }
                 let mut app = app_with_every_button(lang);
                 with_long_analysis(&mut app);
-                app.show_analysis_full = true;
+                app.ui.show_analysis_full = true;
                 window_shot(&mut app, theme).save(dir.join(format!("analysis-window-{lang:?}-{theme:?}.png"))).unwrap();
             }
         }
@@ -282,7 +282,7 @@
     /// ones that need a live window (drops, title, sheets).
     fn full_window_shot(app: &mut AutoShadeApp, theme: crate::theme::ThemePref, size: egui::Vec2) -> image::RgbaImage {
         // The app reads its own theme field for the bars and the canvas bed.
-        app.theme = theme;
+        app.ui.theme = theme;
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
         crate::theme::install_theme(&ctx, theme);
