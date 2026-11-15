@@ -384,16 +384,6 @@
         // A behavioural assertion is out of reach here (the develop path is a
         // paid network chain), so the invariant is that the old door is gone
         // and the new one is the only read.
-        let pipeline = include_str!("../../../pipeline.rs");
-        assert!(
-            !pipeline.contains("embedding_effective"),
-            "the pipeline must not resolve the switch itself"
-        );
-        assert_eq!(
-            pipeline.matches("req.embed.on()").count(),
-            1,
-            "exactly one read of the request's switch"
-        );
     }
 
     /// User feedback 2026-09-11: the deep-thinking working listed INLINE in

@@ -1315,4 +1315,95 @@
         develops_at_film(src, "pub(crate) fn build_preview(", "film_short_edge", "develop_preview_film(");
         let serve = include_str!("../../../serve.rs");
         develops_at_film(serve, "fn api_develop(", "decode::film_short_edge(&src)", "develop_preview_film(");
+
+        // The toolbar and the window's own decorations agree on the custom
+        // chrome; a frame that decorates itself while buttons are drawn over
+        // it would leave both sets on screen.
+        assert!(
+            src.contains(".with_decorations(!window_chrome::CUSTOM_CHROME)"),
+            "the frame and the drawn buttons must agree"
+        );
+
+        // The reverse-fit prompt and its panel share ONE source menu builder.
+        let body = |head: &str| -> &str {
+            let from = src.find(head).unwrap_or_else(|| panic!("{head} moved"));
+            let rest = &src[from..];
+            &rest[..rest.find("\n    }").unwrap()]
+        };
+        assert!(body("fn ai_reverse_fit(").contains("self.fit_source_menu()"), "the panel builds its own source list again");
+        let layer = body("pub(crate) fn fit_prompt_layer(");
+        assert!(layer.contains("self.fit_source_menu()"), "the prompt builds its own source list again");
+        assert!(layer.contains("self.start_fit()"), "the prompt runs a fit of its own");
+
+        // Each denoise verb reads ITS fold's dial and no literal strength.
+        let now = &src[src.find("pub(crate) fn start_ai_denoise(").expect("start_ai_denoise moved")..];
+        let now = &now[..now.find("pub(crate) fn start_clone(").expect("start_clone moved")];
+        assert!(now.contains("let strength = self.selected_denoise_strength(false);"));
+        assert!(now.contains("DenoiseOpts::from_config(&cfg, None, strength)"));
+        assert!(!now.contains("save_denoise_strength"), "「AI Denoise now」 must not read the Export dial");
+        let export = &src[src.find("pub(crate) fn start_render_to(").expect("start_render_to moved")..];
+        let export = &export[..export.find("\n    pub(crate) fn ").unwrap()];
+        assert!(export.contains("let denoise_strength = self.selected_denoise_strength(true);"));
+        assert!(!export.contains("self.exp.denoise_strength"), "the export must not read the Detail dial");
+        for (name, text) in [("start_ai_denoise", now), ("start_render_to", export)] {
+            assert!(
+                !text.contains("None, 1.0)") && !text.contains("None, 0.5)"),
+                "{name}: a literal strength bypasses the dial"
+            );
+        }
+
+        // The reverse-fit block reads its own dial at both entry points; the
+        // Analysis dial is read once, in `analysis_strength`.
+        let worker = &src[src.find("pub(crate) fn start_fit(").expect("start_fit moved")..];
+        let worker = &worker[..worker.find("\n    pub(crate) fn ").unwrap()];
+        assert!(worker.contains("let fit_strength = self.fit_strength();"), "the reverse-fit block must read its own dial through fit_strength()");
+        assert_eq!(worker.matches("strength: fit_strength,").count(), 2, "both fit entry points (zoned and global) must receive the fit's dial");
+        let fit_strength = &src[src.find("pub(crate) fn fit_strength(").expect("fit_strength moved")..];
+        assert_eq!(fit_strength.matches("GradeStrength::new(self.aip.fit_strength)").count(), 1, "exactly one reading of the fit's dial: fit_strength() itself");
+        let analysis_strength = &src[src.find("pub(crate) fn analysis_strength(").expect("analysis_strength moved")..];
+        assert_eq!(analysis_strength.matches("GradeStrength::new(self.aip.grade_strength)").count(), 1, "exactly one reading of the Analysis dial: analysis_strength() itself");
+        assert!(!src.contains("fn panel_strength") && !src.contains("self.panel_strength()"), "no shared reading is left (the name may survive in prose, never as code)");
+
+        // Both range-reference callers go through the one builder.
+        for head in ["pub(crate) fn refresh_mask_overlay(", "pub(crate) fn handle_range_pick("] {
+            let body = &src[src.find(head).unwrap_or_else(|| panic!("{head} moved"))..];
+            let end = body[head.len()..].find("\n    pub(crate) fn ").expect("the next method") + head.len();
+            assert!(body[..end].contains("self.range_reference_recipe("), "{head} builds its own reference copy again");
+        }
+
+        // A retouch landing clears through `consumed_area`, never by hand.
+        assert!(src.contains("if let Some(owner) = note.consumed_area()"), "the landing clears through consumed_area");
+
+        // Every window in the frame carries a fixed egui id: the localised
+        // title would reset its state on a language switch.
+        let mut seen = 0;
+        for (start, _) in src.match_indices("egui::Window::") {
+            let end = src[start..].find(".show(ctx").expect("the window's show call") + start;
+            let builder = &src[start..end];
+            assert!(builder.contains(".id(egui::Id::new("), "a window whose id is its localised title, so its state resets with the language");
+            seen += 1;
+        }
+        assert!(seen >= 2, "premise: the Settings and Shortcuts windows are both built here ({seen} found)");
+
+        // The pipeline READS the request's embedding switch instead of
+        // resolving its own; a behavioural assertion is out of reach (paid
+        // network chain), so the old door is gone and the new one is the only read.
+        let pipeline = include_str!("../../../pipeline.rs");
+        assert!(!pipeline.contains("embedding_effective"), "the pipeline must not resolve the switch itself");
+        assert_eq!(pipeline.matches("req.embed.on()").count(), 1, "exactly one read of the request's switch");
+
+        // Normal's "first download" size is the sum the denoise script really pulls.
+        let py = include_str!("../../../../python/denoise.py");
+        let number = |after: &str| -> u64 {
+            let at = py.find(after).unwrap_or_else(|| panic!("{after} moved")) + after.len();
+            py[at..].chars().skip_while(|c| !c.is_ascii_digit()).take_while(char::is_ascii_digit).collect::<String>().parse().unwrap()
+        };
+        let weight = {
+            let block = &py[py.find("WEIGHT_BYTES = {").expect("WEIGHT_BYTES")..];
+            let line = block.lines().find(|l| l.contains("\"color_real_psnr\"")).expect("the default model's size");
+            line.chars().filter(char::is_ascii_digit).collect::<String>().parse::<u64>().unwrap()
+        };
+        let network = number("NETWORK_BYTES =");
+        let mb = ((weight + network) as f64 / 1e6).round() as u32;
+        assert_eq!(mb, crate::panels::normal::DENOISE_FIRST_DOWNLOAD_MB, "{weight} + {network} bytes");
     }

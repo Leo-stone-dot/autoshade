@@ -359,26 +359,6 @@
         assert_eq!(app.recipe.exposure_ev, 0.0, "Ctrl+Z goes back");
     }
 
-    /// The first-download size the noise switch names is the rendered-image
-    /// denoiser's own: its weight plus its network file, as the sidecar pins
-    /// them.
-    #[test]
-    fn the_noise_switch_names_the_downloads_real_size() {
-        let py = include_str!("../../../../python/denoise.py");
-        let number = |after: &str| -> u64 {
-            let at = py.find(after).unwrap_or_else(|| panic!("{after} moved")) + after.len();
-            py[at..].chars().skip_while(|c| !c.is_ascii_digit()).take_while(char::is_ascii_digit).collect::<String>().parse().unwrap()
-        };
-        let weight = {
-            let block = &py[py.find("WEIGHT_BYTES = {").expect("WEIGHT_BYTES")..];
-            let line = block.lines().find(|l| l.contains("\"color_real_psnr\"")).expect("the default model's size");
-            line.chars().filter(char::is_ascii_digit).collect::<String>().parse::<u64>().unwrap()
-        };
-        let network = number("NETWORK_BYTES =");
-        let mb = ((weight + network) as f64 / 1e6).round() as u32;
-        assert_eq!(mb, crate::panels::normal::DENOISE_FIRST_DOWNLOAD_MB, "{weight} + {network} bytes");
-    }
-
     /// Poll the app's workers until nothing is running.
     fn land_all(app: &mut AutoShadeApp, ctx: &egui::Context) {
         let start = std::time::Instant::now();

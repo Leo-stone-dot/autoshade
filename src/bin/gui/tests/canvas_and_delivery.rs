@@ -670,8 +670,6 @@
                 );
             }
         }
-        let main = gui_source();
-        assert!(main.contains(".with_decorations(!window_chrome::CUSTOM_CHROME)"), "the frame and the drawn buttons must agree");
     }
 
     /// User request 2026-10-13 (画笔羽化 / 流量): Feather fades the disc's
