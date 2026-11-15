@@ -7,16 +7,16 @@ use crate::*;
 impl AutoShadeApp {
     /// Open the window (the Library panel's 「Recipe library…」 button).
     pub(crate) fn open_recipe_library(&mut self) {
-        self.show_recipes = true;
+        self.rlib.show_recipes = true;
         self.apply_actions(vec![logic::Action::Recipe(logic::recipes::RecipeAction::Refresh)]);
     }
 
     /// One `recipe_library` window frame.
     pub(crate) fn recipe_library_window(&mut self, ctx: &egui::Context) {
-        if !self.show_recipes {
+        if !self.rlib.show_recipes {
             return;
         }
-        if !self.recipes_loaded {
+        if !self.rlib.recipes_loaded {
             self.refresh_recipes();
         }
         let lang = self.lang;
@@ -30,14 +30,14 @@ impl AutoShadeApp {
             .open(&mut open)
             .show(ctx, |ui| self.recipe_library_ui(ui));
         if !open {
-            self.show_recipes = false;
+            self.rlib.show_recipes = false;
         }
     }
 
     fn recipe_library_ui(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         let colors = self.theme.colors();
-        let n = self.recipes.len();
+        let n = self.rlib.recipes.len();
         ui.set_min_width(540.0);
 
         // --- new recipe ------------------------------------------------------
@@ -60,7 +60,7 @@ impl AutoShadeApp {
             let field_w = (ui.available_width() - button_w - ui.spacing().item_spacing.x).max(180.0);
             let resp = ui.add_sized(
                 [field_w, row_h(ui)],
-                egui::TextEdit::singleline(&mut self.recipe_name_buf).hint_text(tr(lang, "Recipe name")),
+                egui::TextEdit::singleline(&mut self.rlib.recipe_name_buf).hint_text(tr(lang, "Recipe name")),
             );
             // Enter in the name field saves, like every other name box in the
             // app (the U10 boundary rule): a typed name plus Enter is the
@@ -82,19 +82,19 @@ impl AutoShadeApp {
         ui.separator();
 
         // --- filter ----------------------------------------------------------
-        let filter_empty = self.recipes_filter.trim().is_empty();
+        let filter_empty = self.rlib.recipes_filter.trim().is_empty();
         ui.horizontal(|ui| {
             let clear_w = if filter_empty { 0.0 } else { row_h(ui) + ui.spacing().item_spacing.x };
             let count_w = 80.0;
             let w = (ui.available_width() - clear_w - count_w - ui.spacing().item_spacing.x).max(140.0);
             ui.add_sized(
                 [w, row_h(ui)],
-                egui::TextEdit::singleline(&mut self.recipes_filter).hint_text(tr(lang, "Filter")),
+                egui::TextEdit::singleline(&mut self.rlib.recipes_filter).hint_text(tr(lang, "Filter")),
             );
             if !filter_empty
                 && glyph(ui, true, "✕").on_hover_text(tr(lang, "Clear filter")).clicked()
             {
-                self.recipes_filter.clear();
+                self.rlib.recipes_filter.clear();
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
@@ -104,9 +104,9 @@ impl AutoShadeApp {
         });
 
         // --- list ------------------------------------------------------------
-        let filter = self.recipes_filter.trim().to_lowercase();
+        let filter = self.rlib.recipes_filter.trim().to_lowercase();
         let rows: Vec<(String, Option<String>, usize, Option<String>)> = self
-            .recipes
+            .rlib.recipes
             .iter()
             .filter(|r| filter.is_empty() || r.name.to_lowercase().contains(&filter))
             .map(|r| {
@@ -124,7 +124,7 @@ impl AutoShadeApp {
         egui::ScrollArea::vertical().id_salt("recipe_list").max_height(260.0).show(ui, |ui| {
             if rows.is_empty() {
                 ui.add_space(SPACE_LG);
-                let (headline, hint) = if self.recipes.is_empty() {
+                let (headline, hint) = if self.rlib.recipes.is_empty() {
                     (
                         tr(lang, "No recipes yet"),
                         tr(lang, "Save this photo's look, or import a recipe.json / .xmp file."),
@@ -144,20 +144,20 @@ impl AutoShadeApp {
                 ui.add_space(SPACE_LG);
             }
             for (name, age, masks, error) in &rows {
-                let selected = self.recipe_sel.as_deref() == Some(name.as_str());
-                let editing = self.recipe_rename.as_ref().is_some_and(|(n, _)| n == name);
+                let selected = self.rlib.recipe_sel.as_deref() == Some(name.as_str());
+                let editing = self.rlib.recipe_rename.as_ref().is_some_and(|(n, _)| n == name);
                 if editing {
-                    let mut buf = self.recipe_rename.as_ref().map(|(_, b)| b.clone()).unwrap_or_default();
+                    let mut buf = self.rlib.recipe_rename.as_ref().map(|(_, b)| b.clone()).unwrap_or_default();
                     let resp = ui.add_sized(
                         [ui.available_width(), RECIPE_ROW_H],
                         egui::TextEdit::singleline(&mut buf)
                             .id(egui::Id::new(("recipe_rename", name))),
                     );
-                    if let Some((_, b)) = self.recipe_rename.as_mut() {
+                    if let Some((_, b)) = self.rlib.recipe_rename.as_mut() {
                         *b = buf;
                     }
                     if resp.lost_focus() {
-                        commit_rename = self.recipe_rename.take();
+                        commit_rename = self.rlib.recipe_rename.take();
                     } else if !resp.has_focus() {
                         // The frame the box first appears in: put the caret
                         // here or the user's next keystroke goes nowhere
@@ -205,20 +205,20 @@ impl AutoShadeApp {
             })]);
         }
         if let Some(name) = picked {
-            self.recipe_sel = Some(name);
-            self.recipe_delete_armed = None;
+            self.rlib.recipe_sel = Some(name);
+            self.rlib.recipe_delete_armed = None;
         }
         ui.separator();
         // The selected entry: what it looks like on this photo, what it
         // changes, and the verbs that act on IT (the library-wide verbs —
         // paste onto the selection, open the folder — stay below).
-        if let Some(name) = self.recipe_sel.clone() {
+        if let Some(name) = self.rlib.recipe_sel.clone() {
             self.recipe_details_pane(ui, &name);
             ui.separator();
         }
 
         // --- the library-wide verbs ------------------------------------------
-        let sel = self.recipe_sel.clone();
+        let sel = self.rlib.recipe_sel.clone();
         let targets = self.gal.multi_sel.len();
         let busy = self.busy;
         ui.horizontal_wrapped(|ui| {
@@ -376,9 +376,9 @@ impl AutoShadeApp {
                 .on_hover_text(tr(lang, "Rename this recipe (the file moves with it)"))
                 .clicked()
             {
-                self.recipe_rename = Some((name.to_string(), name.to_string()));
+                self.rlib.recipe_rename = Some((name.to_string(), name.to_string()));
             }
-            let armed = self.recipe_delete_armed.as_deref() == Some(name);
+            let armed = self.rlib.recipe_delete_armed.as_deref() == Some(name);
             let del = if armed { tr(lang, "⚠ Confirm delete") } else { tr(lang, "🗑 Delete") };
             if action(ui, ok && !busy, del)
                 .on_hover_text(tr(
@@ -392,7 +392,7 @@ impl AutoShadeApp {
                         logic::recipes::RecipeAction::Delete(name.to_owned()),
                     )]);
                 } else {
-                    self.recipe_delete_armed = Some(name.to_string());
+                    self.rlib.recipe_delete_armed = Some(name.to_string());
                 }
             }
         });
@@ -419,7 +419,7 @@ impl AutoShadeApp {
             src.display(),
             std::sync::Arc::as_ptr(&base)
         );
-        if let Some(p) = &self.recipe_preview
+        if let Some(p) = &self.rlib.recipe_preview
             && p.key == key
         {
             return Some((p.texture.id(), p.texture.size_vec2()));
@@ -439,7 +439,7 @@ impl AutoShadeApp {
             egui::TextureOptions::LINEAR,
         );
         let shown = (texture.id(), texture.size_vec2());
-        self.recipe_preview = Some(RecipePreview { key, texture });
+        self.rlib.recipe_preview = Some(RecipePreview { key, texture });
         Some(shown)
     }
 

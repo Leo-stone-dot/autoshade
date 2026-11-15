@@ -11,13 +11,13 @@ impl AutoShadeApp {
     /// Re-read the library from disk. Synchronous and cheap: the folder holds
     /// a handful of small JSON files.
     pub(crate) fn refresh_recipes(&mut self) {
-        self.recipes = autoshade::recipe_library::list();
-        if let Some(sel) = self.recipe_sel.clone()
-            && !self.recipes.iter().any(|r| r.name == sel)
+        self.rlib.recipes = autoshade::recipe_library::list();
+        if let Some(sel) = self.rlib.recipe_sel.clone()
+            && !self.rlib.recipes.iter().any(|r| r.name == sel)
         {
-            self.recipe_sel = None;
-            self.recipe_rename = None;
-            self.recipe_delete_armed = None;
+            self.rlib.recipe_sel = None;
+            self.rlib.recipe_rename = None;
+            self.rlib.recipe_delete_armed = None;
         }
     }
 
@@ -84,7 +84,7 @@ impl AutoShadeApp {
         }
         // Every other persistence-shaped verb commits open name boxes first.
         self.commit_pending_names();
-        let typed = self.recipe_name_buf.trim();
+        let typed = self.rlib.recipe_name_buf.trim();
         let name = if typed.is_empty() { self.recipe_default_name() } else { typed.to_string() };
         let name = match autoshade::recipe_library::check_name(&name) {
             Ok(name) => name,
@@ -103,9 +103,9 @@ impl AutoShadeApp {
         match autoshade::recipe_library::create(&name, &entry) {
             Ok(()) => {
                 let _ = src;
-                self.recipe_name_buf.clear();
+                self.rlib.recipe_name_buf.clear();
                 self.refresh_recipes();
-                self.recipe_sel = Some(name.clone());
+                self.rlib.recipe_sel = Some(name.clone());
                 let base = trf(self.lang, "Saved recipe 「{name}」", &[("name", &name)]);
                 let text = if losses.is_empty() {
                     base
@@ -262,7 +262,7 @@ impl AutoShadeApp {
         match autoshade::recipe_library::rename(from, &to) {
             Ok(()) => {
                 self.refresh_recipes();
-                self.recipe_sel = Some(to.clone());
+                self.rlib.recipe_sel = Some(to.clone());
                 let text = trf(self.lang, "Renamed to 「{name}」", &[("name", &to)]);
                 self.recipe_status(true, text);
             }
@@ -279,8 +279,8 @@ impl AutoShadeApp {
         match autoshade::recipe_library::delete(name) {
             Ok(()) => {
                 self.refresh_recipes();
-                self.recipe_sel = None;
-                self.recipe_delete_armed = None;
+                self.rlib.recipe_sel = None;
+                self.rlib.recipe_delete_armed = None;
                 let text = trf(self.lang, "Deleted recipe 「{name}」", &[("name", name)]);
                 self.recipe_status(true, text);
             }

@@ -483,6 +483,38 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The named-recipe library panel: whether it is open, the loaded list and its
+/// read/filter/selection, the name field, the inline rename and delete-armed
+/// rows, and the preview pane's texture. Extracted from `AutoShadeApp` so
+/// recipe-library work does not add fields to the app struct.
+pub(crate) struct RecipeLibraryState {
+    pub(crate) show_recipes: bool,
+    pub(crate) recipes: Vec<autoshade::recipe_library::Stored>,
+    pub(crate) recipes_loaded: bool,
+    pub(crate) recipes_filter: String,
+    pub(crate) recipe_sel: Option<String>,
+    pub(crate) recipe_name_buf: String,
+    pub(crate) recipe_rename: Option<(String, String)>,
+    pub(crate) recipe_delete_armed: Option<String>,
+    pub(crate) recipe_preview: Option<RecipePreview>,
+}
+
+impl Default for RecipeLibraryState {
+    fn default() -> Self {
+        Self {
+            show_recipes: false,
+            recipes: Vec::new(),
+            recipes_loaded: false,
+            recipes_filter: String::new(),
+            recipe_sel: None,
+            recipe_name_buf: String::new(),
+            recipe_rename: None,
+            recipe_delete_armed: None,
+            recipe_preview: None,
+        }
+    }
+}
+
 /// The reverse-fit state: the persisted dials (zoned fit, the four-region
 /// expansion, the AI judge, deep think, reimagine retry, ask-after-generate)
 /// plus the reference path, its label and the prompt dialog. Five of the dials

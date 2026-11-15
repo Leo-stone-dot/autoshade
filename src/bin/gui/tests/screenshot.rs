@@ -413,18 +413,18 @@
                     }
                 }),
             )));
-            app.recipes = rows();
-            app.recipes_loaded = true;
-            app.show_recipes = true;
-            app.recipe_sel = Some(names[0].into());
+            app.rlib.recipes = rows();
+            app.rlib.recipes_loaded = true;
+            app.rlib.show_recipes = true;
+            app.rlib.recipe_sel = Some(names[0].into());
             full_window_shot(&mut app, crate::theme::ThemePref::Dark, egui::vec2(1400.0, 880.0))
                 .save(dir.join(format!("recipe-library-{lang:?}.png")))
                 .unwrap();
             // …and the empty library, whose state has to invite the first save.
             let mut empty = app_with_every_button(lang);
-            empty.recipes.clear();
-            empty.recipes_loaded = true;
-            empty.show_recipes = true;
+            empty.rlib.recipes.clear();
+            empty.rlib.recipes_loaded = true;
+            empty.rlib.show_recipes = true;
             full_window_shot(&mut empty, crate::theme::ThemePref::Dark, egui::vec2(1400.0, 880.0))
                 .save(dir.join(format!("recipe-library-empty-{lang:?}.png")))
                 .unwrap();
