@@ -81,7 +81,7 @@ impl AutoShadeApp {
             // ① Generation: the ● means this photo has a generated card in
             // play (the prompt is a remembered preference, not photo state —
             // see `ai_section_active`).
-            let generated = self.active_on_ai_pixels();
+            let generated = self.editor.active_on_ai_pixels();
             self.ai_section(ui, "sec_ai_gen", tr(lang, K_AI_AI_GENERATION_REVERSE_FIT), generated, |app, ui| {
                 app.ai_generate(ui);
                 app.ai_adjust(ui);
@@ -525,8 +525,7 @@ impl AutoShadeApp {
                     intent.typed = self.workspace.genai().adjust_edit_prompt.clone();
                     intent.region = self.workspace.overlay().region;
                     intent.base = Some(self.editor.doc().recipe.clone());
-                    intent.pixels = self
-                        .active_on_ai_pixels()
+                    intent.pixels = self.editor.active_on_ai_pixels()
                         .then(|| self.editor.active_variant().and_then(|v| v.origin.clone()))
                         .flatten();
                     self.apply_actions(vec![logic::Action::Look(intent)]);
@@ -878,7 +877,7 @@ impl AutoShadeApp {
     /// Adjust owns every input, its painted area included (`BrushOwner::Adjust`).
     /// Generated and Edited both read AI pixels; the negative never does.
     pub(crate) fn can_adjust(&self) -> bool {
-        !self.workspace.busy() && self.active_on_ai_pixels()
+        !self.workspace.busy() && self.editor.active_on_ai_pixels()
             && (self.area_painted(BrushOwner::Adjust) || !self.workspace.genai().adjust_prompt.trim().is_empty())
     }
 
@@ -911,7 +910,7 @@ impl AutoShadeApp {
                 // This fold's own brush and painted area (2026-09-27): it used
                 // to read the Retouch panel's shared mask with no control here.
                 self.brush_row(ui, BrushOwner::Adjust);
-                let note = if !self.active_on_ai_pixels() {
+                let note = if !self.editor.active_on_ai_pixels() {
                     tr(lang, K_AI_SELECT_A_AI_GENERATED_CARD_OR_ITS_EDIT_FIRST)
                 } else if self.area_painted(BrushOwner::Adjust) {
                     tr(lang, K_AI_PAINTED_AREA_ONLY)

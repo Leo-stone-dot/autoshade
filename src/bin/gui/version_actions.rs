@@ -340,7 +340,7 @@ impl AutoShadeApp {
                 // branch that needs it.
                 let restamped = reconcile_snapshot_calibration(
                     &mut r,
-                    self.active_on_ai_pixels(),
+                    self.editor.active_on_ai_pixels(),
                     || {
                         let (k, t) = autoshade::pipeline::fresh_as_shot_wb(&src);
                         (

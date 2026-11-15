@@ -332,7 +332,7 @@ rationale: "stale rationale".into(),
             }; editor } , ..Default::default() };
 
         // Hop 1 (live strip → record) and hop 2 (record → live strip).
-        let rec = app.current_strip_record().expect("a two-card strip is worth recording");
+        let rec = app.editor.current_strip_record().expect("a two-card strip is worth recording");
         assert_eq!(rec.active_id.as_deref(), Some("card-b"));
         assert_eq!(rec.active_name.as_deref(), Some("偏暖"));
         assert_eq!(rec.others[0].id.as_deref(), Some("card-a"));
@@ -419,7 +419,7 @@ rationale: "stale rationale".into(),
         app.editor.doc_mut().variants.truncate(1);
         app.editor.doc_mut().active = 0;
         let rec = app
-            .current_strip_record()
+            .editor.current_strip_record()
             .expect("a NAMED lone Original still needs its record");
         assert_eq!(rec.active_name.as_deref(), Some("base"));
         assert_eq!(rec.active_id.as_deref(), Some("card-a"));
@@ -428,7 +428,7 @@ rationale: "stale rationale".into(),
         // negative's fixed id is reconstructed by every reader.
         app.editor.doc_mut().variants[0].name = None;
         app.editor.doc_mut().variants[0].id = crate::model::ORIGINAL_VARIANT_ID.to_string();
-        assert!(app.current_strip_record().is_none());
+        assert!(app.editor.current_strip_record().is_none());
     }
 
     /// R24-3 (#7): 「apply to Original」 copies a card's develop PARAMETERS
@@ -844,7 +844,7 @@ rationale: "stale rationale".into(),
 
         // Unsaved-work accounting: the mirror still holds the pre-rename
         // record, so quitting has to warn.
-        app.editor.session_mut().hist.saved_strip = app.current_strip_record();
+        app.editor.session_mut().hist.saved_strip = app.editor.current_strip_record();
         assert_eq!(app.editor.open_dirty_variants(), 0, "premise: the mirror is current");
         app.editor.doc_mut().variants[2].name = Some("dawn".into());
         assert!(app.editor.open_dirty_variants() >= 1, "renaming the ACTIVE card is unsaved work");

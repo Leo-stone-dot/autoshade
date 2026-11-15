@@ -68,7 +68,7 @@ pub(crate) fn on_analyzed(
                     let shaped = logic::analysis_landing::shape(
                         recipe,
                         self.skin_held(),
-                        self.active_on_ai_pixels(),
+                        self.editor.active_on_ai_pixels(),
                     );
                     let stamped = shaped.stamped;
                     self.editor.doc_mut().recipe = shaped.canvas;

@@ -100,20 +100,8 @@ impl AutoShadeApp {
         resp: &egui::Response,
         xf: ViewXform,
     ) -> Option<logic::Action> {
-        let (nx, ny) = self.clicked_orig_norm(ui, resp, xf)?;
+        let (nx, ny) = self.editor.clicked_orig_norm(ui, resp, xf)?;
         Some(logic::Action::Lens(logic::lens_blur::LensAction::FocusPicked([nx, ny])))
     }
 
-    /// The focus point as a small ring while the pick is armed, so the
-    /// photographer sees where the current focus sits before moving it.
-    pub(crate) fn draw_lens_focus(&self, ui: &egui::Ui, xf: ViewXform) {
-        let Some(lb) = self.editor.doc().recipe.lens_blur.as_ref() else { return };
-        let ((bw, bh), deg, dist) = self.editor.geom_ctx();
-        let (vx, vy) = orig_norm_to_view(lb.focus[0], lb.focus[1], (bw, bh), deg, &dist);
-        let c = xf.to_screen(vx, vy);
-        let p = ui.painter();
-        p.circle_stroke(c, 9.0, egui::Stroke::new(3.0, egui::Color32::from_black_alpha(150)));
-        p.circle_stroke(c, 9.0, egui::Stroke::new(1.5, egui::Color32::from_white_alpha(235)));
-        p.circle_filled(c, 2.0, egui::Color32::WHITE);
-    }
 }

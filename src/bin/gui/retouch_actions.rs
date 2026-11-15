@@ -54,7 +54,7 @@ pub(crate) fn start_fill(&mut self) {
         // card's OWN pixel source (a ✨/✎ card → its raster, ▣/◭ → the
         // negative) is what its recipe develops in the worker below.
         let Some(src) = self.editor.photo().src_path.clone() else { return };
-        let Some(path) = self.active_source_path() else { return };
+        let Some(path) = self.editor.active_source_path() else { return };
         if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
@@ -160,7 +160,7 @@ pub(crate) fn start_fill(&mut self) {
 
 pub(crate) fn start_adjust(&mut self) {
         let Some(src) = self.editor.photo().src_path.clone() else { return };
-        let Some(path) = self.active_source_path() else { return };
+        let Some(path) = self.editor.active_source_path() else { return };
         if !self.can_adjust() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
@@ -233,7 +233,7 @@ pub(crate) fn start_adjust(&mut self) {
 
 pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         // Heal the ACTIVE variant's pixels (Generated → its origin PNG).
-        let Some(path) = self.active_source_path() else { return };
+        let Some(path) = self.editor.active_source_path() else { return };
         if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
@@ -338,7 +338,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
 pub(crate) fn start_ai_denoise(&mut self) {
         // Denoise the ACTIVE variant's pixels (a Generated variant → its
         // origin PNG), same source rule as heal/clone.
-        let Some(path) = self.active_source_path() else { return };
+        let Some(path) = self.editor.active_source_path() else { return };
         // R27 gate (`refuse_pixel_work_on_a_turned_photo`): the ◈ master
         // would land in the EXIF frame, and a baked card cannot be turned.
         if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
@@ -393,7 +393,7 @@ pub(crate) fn start_ai_denoise(&mut self) {
     }
 
 pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
-        let Some(path) = self.active_source_path() else { return };
+        let Some(path) = self.editor.active_source_path() else { return };
         // R27 gate (`refuse_pixel_work_on_a_turned_photo`): the ▦ master
         // would land in the EXIF frame, and a baked card cannot be turned.
         if self.workspace.busy() || extra.is_empty() || self.refuse_pixel_work_on_a_turned_photo() {
@@ -475,7 +475,7 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
 
 pub(crate) fn start_clone(&mut self) {
         // Clone within the ACTIVE variant's pixels (Generated → its origin PNG).
-        let Some(path) = self.active_source_path() else { return };
+        let Some(path) = self.editor.active_source_path() else { return };
         // The R27 gate heal and fill take (`refuse_pixel_work_on_a_turned_photo`):
         // `retouch::clone_stamp` re-develops the photo through `render::source_pixels`
         // (the un-turned frame) while the mask comes from the turned canvas, so

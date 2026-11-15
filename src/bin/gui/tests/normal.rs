@@ -595,7 +595,7 @@
         app.services.tx.send(Msg::Retouched(app.workspace.tools().gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
-        assert_eq!(app.active_source_path().as_deref(), Some(master.as_path()), "…and is what a save renders");
+        assert_eq!(app.editor.active_source_path().as_deref(), Some(master.as_path()), "…and is what a save renders");
         assert!(app.normal_denoise_on());
         let made = app.editor.doc().variants[app.editor.doc().active].id.clone();
         assert_eq!(app.workspace.normal_mut().denoise_pair.as_ref().and_then(|d| d.denoised.clone()), Some(made.clone()), "remembered");
@@ -605,7 +605,7 @@
         app.set_normal_denoise(false);
         assert!(!app.workspace.busy());
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, ORIGINAL_VARIANT_ID, "back to the un-denoised card");
-        assert_eq!(app.active_source_path().as_deref(), Some(src.as_path()));
+        assert_eq!(app.editor.active_source_path().as_deref(), Some(src.as_path()));
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.7, "the look rides across");
         assert!(!app.normal_denoise_on());
         assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_AI_DENOISE_OFF));

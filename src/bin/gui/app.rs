@@ -596,7 +596,7 @@ impl AutoShadeApp {
                         // carry the look); an InPlace retouch master is a NEUTRAL
                         // develop that still needs the calibration on top —
                         // stripping there turned Reset into "go dark".
-                        let generated = self.active_on_ai_pixels();
+                        let generated = self.editor.active_on_ai_pixels();
                         // The fresh START (v1.17.0): the canvas profile and
                         // Look, or the camera curve where they cannot render.
                         let start =
@@ -1298,7 +1298,7 @@ impl AutoShadeApp {
             // against Reset / undo / paste forever. A Generated canvas
             // recipe's curve is empty by construction, so this compare is
             // simply quiet there.
-            && !self.active_on_ai_pixels()
+            && !self.editor.active_on_ai_pixels()
             && self.editor.doc().recipe.start_only() != self.workspace.open().before_start
             && let Some(b) = self.editor.photo().base_preview.clone()
         {

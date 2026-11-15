@@ -565,7 +565,7 @@ impl AutoShadeApp {
             return;
         }
         let Some(src) = self.editor.photo().src_path.clone() else { return };
-        let Some(guide_src) = self.active_source_path() else { return };
+        let Some(guide_src) = self.editor.active_source_path() else { return };
         let Some(path) = self.editor.doc().recipe
             .masks
             .get(i)

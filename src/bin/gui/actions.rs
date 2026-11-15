@@ -175,7 +175,7 @@ impl AutoShadeApp {
     /// The active card's actual pixels choose the path, including generated
     /// masters under a RAW original. An unopened app displays the RAW dials.
     pub(crate) fn denoise_uses_raw(&self) -> bool {
-        crate::logic::noise::uses_raw(self.active_source_path().as_deref())
+        crate::logic::noise::uses_raw(self.editor.active_source_path().as_deref())
     }
 
     pub(crate) fn selected_denoise_strength(&self, on_export: bool) -> f32 {
@@ -337,20 +337,12 @@ impl AutoShadeApp {
     }
 
 
-    /// The ONE owner for the persisted `(recipe, origin)` of the active card.
-    /// A card created after the last save has no baseline and is therefore
-    /// unsaved. With no strip record, only the trivial lone Original maps to
-    /// `recipe.json` / `pixels.json`.
-    pub(crate) fn active_baseline(&self) -> Option<ActiveBaseline<'_>> {
-        let saved = self.editor.persisted_card_for(self.editor.doc().active)?;
-        Some(ActiveBaseline { recipe: saved.recipe, origin: saved.origin })
-    }
 
     fn active_canvas_dirty(&self) -> bool {
         if self.editor.photo().src_path.is_none() || self.editor.active_variant().is_none() {
             return false;
         }
-        self.active_baseline().is_none_or(|saved| {
+        self.editor.active_baseline().is_none_or(|saved| {
             dirty_vs(&self.editor.doc().recipe, saved.recipe)
                 || !same_master_opt(
                     self.editor.active_variant().and_then(|v| v.origin.as_deref()),
@@ -393,47 +385,6 @@ impl AutoShadeApp {
         self.editor.open_dirty_variants() + stashed
     }
 
-    /// The live strip as a persistable [`store::VariantsRecord`]: `None` when
-    /// the strip is trivial ([`crate::model::strip_is_trivial`] — recipe.json
-    /// plus pixels.json already say everything, and a record would be pure
-    /// sidecar noise). Since R24-3 a lone Original card that carries a NAME or
-    /// a minted identity is no longer trivial: the record is the only home
-    /// either of those has.
-    pub(crate) fn current_strip_record(&self) -> Option<autoshade::store::VariantsRecord> {
-        let ak = self.editor.active_variant().map_or(VariantKind::Original, |v| v.kind);
-        if crate::model::strip_is_trivial(
-            ak,
-            self.editor.active_variant().map_or("", |v| v.id.as_str()),
-            self.editor.active_variant().and_then(|v| v.name.as_deref()),
-            self.editor.doc().variants.len().saturating_sub(1),
-        ) {
-            return None;
-        }
-        Some(autoshade::store::VariantsRecord {
-            extra: Default::default(),
-            v: 1,
-            active_kind: ak.store_str().to_string(),
-            active_pos: self.editor.doc().active,
-            others: self.editor.doc().variants
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| *i != self.editor.doc().active)
-                .map(|(_, v)| autoshade::store::VariantEntry {
-                    extra: Default::default(),
-                    kind: v.kind.store_str().to_string(),
-                    recipe: v.recipe.clone(),
-                    origin: v.origin.clone(),
-                    // Hop 1 of 6 (R24-2): the live strip's identities + names
-                    // to disk. An EMPTY id is written as absent — the record
-                    // must not claim an identity the card does not have.
-                    id: crate::model::variant_id_field(&v.id),
-                    name: v.name.clone(),
-                })
-                .collect(),
-            active_id: self.editor.active_variant().and_then(|v| crate::model::variant_id_field(&v.id)),
-            active_name: self.editor.active_variant().and_then(|v| v.name.clone()),
-        })
-    }
 
     /// Persist the open photo's strip beside recipe.json/pixels.json and
     /// advance the mirror. Trivial strip ⇒ clear (no noise file). An error
@@ -444,7 +395,7 @@ impl AutoShadeApp {
     /// primitive the guard tests drive in isolation.
     #[cfg(test)]
     pub(crate) fn persist_strip(&mut self, path: &std::path::Path) -> std::io::Result<()> {
-        match self.current_strip_record() {
+        match self.editor.current_strip_record() {
             Some(rec) => {
                 autoshade::store::write_variants(path, &rec)?;
                 self.editor.session_mut().hist.saved_strip = Some(rec);
@@ -458,33 +409,7 @@ impl AutoShadeApp {
     }
 
 
-    /// The on-disk PIXEL SOURCE the active variant renders / retouches /
-    /// exports FROM. Any variant whose pixels are baked into a ./out raster — a
-    /// reimagine or fill (Generated), OR an in-place heal/clone/denoise on ANY variant —
-    /// carries that full-resolution artifact in `origin` and renders from it;
-    /// a pristine source-based variant (原片 / 反推 with no pixel retouch) has
-    /// `origin = None` and renders from `src_path` (the RAW / loaded image)
-    /// developed by the recipe. Retouch and export key off THIS — not raw
-    /// `src_path` — so what exports matches what's on screen (WYSIWYG), never
-    /// the untouched negative underneath a generated / retouched rendition.
-    pub(crate) fn active_source_path(&self) -> Option<PathBuf> {
-        match self.editor.active_variant() {
-            Some(v) => v.origin.clone().or_else(|| self.editor.photo().src_path.clone()),
-            None => self.editor.photo().src_path.clone(),
-        }
-    }
 
-    /// Does the active card develop an AI-generated raster — the pristine
-    /// 「✨ AI generated」 card or a 「✎ Edited AI image」 over the same
-    /// pixels ([`VariantKind::on_ai_pixels`])? Such a canvas carries no
-    /// calibration (the raster already has the camera look, the lens
-    /// geometry and a baked white balance), projects to no Lightroom XMP (no
-    /// sidecar reproduces AI pixels), and is what the `pixels.json` flag
-    /// records. The one place the two kinds part — the ✨ card is immutable,
-    /// the ✎ card is where its edits live — asks `== Generated` directly.
-    pub(crate) fn active_on_ai_pixels(&self) -> bool {
-        self.editor.active_variant().is_some_and(|v| v.kind.on_ai_pixels())
-    }
 
     /// Uniform failure disclosure for a foreground persist compound — the
     /// single mapper the NoWait develop-lock wrappers report through
@@ -705,7 +630,7 @@ impl AutoShadeApp {
     /// already there; a file picked in the save window is replaced, as that
     /// window confirmed.
     pub(crate) fn start_normal_save(&mut self) {
-        if self.active_source_path().is_none() || self.workspace.busy() {
+        if self.editor.active_source_path().is_none() || self.workspace.busy() {
             return;
         }
         let name = self.export_file_name_as("jpg");

@@ -564,8 +564,7 @@ impl AutoShadeApp {
                         })
                         .response
                         .on_hover_text(tr(lang, K_AI_GPT_IMAGE_RENDER_QUALITY_HIGHER_LOOKS_BETTER_AND));
-                    let src_is_raw = self
-                        .active_source_path()
+                    let src_is_raw = self.editor.active_source_path()
                         .is_some_and(|p| autoshade::decode::is_raw(&p));
                     // Each 「Full-res」 names its verb (R22 #16): fill / heal /
                     // clone / denoise had four identically-labelled checkboxes

@@ -156,7 +156,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // the worker already name it on stderr.
                             let canvas_master =
                                 self.editor.active_variant().and_then(|v| v.origin.clone());
-                            let t = if self.active_on_ai_pixels() {
+                            let t = if self.editor.active_on_ai_pixels() {
                                 tr(
                                     lang,
                                     K_CANVAS_PREVIEW_RESOLUTION_KEPT_A_GENERATED_VARIANT_S_PI,

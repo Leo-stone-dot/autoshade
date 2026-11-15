@@ -313,7 +313,7 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
 /// same path included. `None` (no photo, an unreadable header) develops the
 /// canvas as its own film, which is what every build before v1.5.0 did.
 pub(crate) fn film_short_edge(&mut self) -> Option<u32> {
-    let path = self.active_source_path()?;
+    let path = self.editor.active_source_path()?;
     let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
     if let Some((cached, when, edge)) = &self.editor.photo().film_edge
         && *cached == path
@@ -333,14 +333,14 @@ pub(crate) fn film_short_edge(&mut self) -> Option<u32> {
 /// develops the canvas's pixels passes this beside the film edge. No
 /// photo is a baked raster: nothing to sharpen by default.
 pub(crate) fn source_is_raw(&self) -> bool {
-    self.active_source_path().is_some_and(|p| autoshade::decode::is_raw(&p))
+    self.editor.active_source_path().is_some_and(|p| autoshade::decode::is_raw(&p))
 }
 
 /// The frame of the active card's pixel source (v1.17.0): a RAW, or a
 /// baked file with the lens geometry its own marker says is in it
 /// (`render::SourceFrame::of`, cached per file for the process).
 pub(crate) fn source_frame(&self) -> anyhow::Result<autoshade::render::SourceFrame> {
-    match self.active_source_path() {
+    match self.editor.active_source_path() {
         Some(p) => autoshade::render::SourceFrame::of(&p),
         None => Ok(autoshade::render::SourceFrame::Baked(None)),
     }

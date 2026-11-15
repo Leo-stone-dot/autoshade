@@ -11,6 +11,7 @@
 
 use crate::*;
 use crate::actions::PersistedCard;
+use crate::actions::ActiveBaseline;
 
 pub(crate) struct Editor {
 
@@ -344,4 +345,113 @@ impl Editor {
         self.doc().recipe.colour_field.as_ref().is_some_and(|f| f.renderable())
             || self.doc().recipe.masks.iter().any(mask_active)
 }
+}
+
+impl Editor {
+    /// The ONE owner for the persisted `(recipe, origin)` of the active card.
+    /// A card created after the last save has no baseline and is therefore
+    /// unsaved. With no strip record, only the trivial lone Original maps to
+    /// `recipe.json` / `pixels.json`.
+    pub(crate) fn active_baseline(&self) -> Option<ActiveBaseline<'_>> {
+        let saved = self.persisted_card_for(self.doc().active)?;
+        Some(ActiveBaseline { recipe: saved.recipe, origin: saved.origin })
+    }
+
+    /// The live strip as a persistable [`store::VariantsRecord`]: `None` when
+    /// the strip is trivial ([`crate::model::strip_is_trivial`] — recipe.json
+    /// plus pixels.json already say everything, and a record would be pure
+    /// sidecar noise). Since R24-3 a lone Original card that carries a NAME or
+    /// a minted identity is no longer trivial: the record is the only home
+    /// either of those has.
+    pub(crate) fn current_strip_record(&self) -> Option<autoshade::store::VariantsRecord> {
+        let ak = self.active_variant().map_or(VariantKind::Original, |v| v.kind);
+        if crate::model::strip_is_trivial(
+            ak,
+            self.active_variant().map_or("", |v| v.id.as_str()),
+            self.active_variant().and_then(|v| v.name.as_deref()),
+            self.doc().variants.len().saturating_sub(1),
+        ) {
+            return None;
+        }
+        Some(autoshade::store::VariantsRecord {
+            extra: Default::default(),
+            v: 1,
+            active_kind: ak.store_str().to_string(),
+            active_pos: self.doc().active,
+            others: self.doc().variants
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i != self.doc().active)
+                .map(|(_, v)| autoshade::store::VariantEntry {
+                    extra: Default::default(),
+                    kind: v.kind.store_str().to_string(),
+                    recipe: v.recipe.clone(),
+                    origin: v.origin.clone(),
+                    // Hop 1 of 6 (R24-2): the live strip's identities + names
+                    // to disk. An EMPTY id is written as absent — the record
+                    // must not claim an identity the card does not have.
+                    id: crate::model::variant_id_field(&v.id),
+                    name: v.name.clone(),
+                })
+                .collect(),
+            active_id: self.active_variant().and_then(|v| crate::model::variant_id_field(&v.id)),
+            active_name: self.active_variant().and_then(|v| v.name.clone()),
+        })
+    }
+
+    /// The on-disk PIXEL SOURCE the active variant renders / retouches /
+    /// exports FROM. Any variant whose pixels are baked into a ./out raster — a
+    /// reimagine or fill (Generated), OR an in-place heal/clone/denoise on ANY variant —
+    /// carries that full-resolution artifact in `origin` and renders from it;
+    /// a pristine source-based variant (原片 / 反推 with no pixel retouch) has
+    /// `origin = None` and renders from `src_path` (the RAW / loaded image)
+    /// developed by the recipe. Retouch and export key off THIS — not raw
+    /// `src_path` — so what exports matches what's on screen (WYSIWYG), never
+    /// the untouched negative underneath a generated / retouched rendition.
+    pub(crate) fn active_source_path(&self) -> Option<PathBuf> {
+        match self.active_variant() {
+            Some(v) => v.origin.clone().or_else(|| self.photo().src_path.clone()),
+            None => self.photo().src_path.clone(),
+        }
+    }
+
+    /// Does the active card develop an AI-generated raster — the pristine
+    /// 「✨ AI generated」 card or a 「✎ Edited AI image」 over the same
+    /// pixels ([`VariantKind::on_ai_pixels`])? Such a canvas carries no
+    /// calibration (the raster already has the camera look, the lens
+    /// geometry and a baked white balance), projects to no Lightroom XMP (no
+    /// sidecar reproduces AI pixels), and is what the `pixels.json` flag
+    /// records. The one place the two kinds part — the ✨ card is immutable,
+    /// the ✎ card is where its edits live — asks `== Generated` directly.
+    pub(crate) fn active_on_ai_pixels(&self) -> bool {
+        self.active_variant().is_some_and(|v| v.kind.on_ai_pixels())
+    }
+
+    /// The one door every click-on-the-photo tool shares: a crosshair while
+    /// armed, and on a click the point in the ORIGINAL frame (the frame
+    /// the develop and every raster live in), mapped out of the transformed
+    /// view. `None` until the click. A tool that samples the canvas base reads
+    /// it at [`Self::orig_to_base_norm`] of this point.
+    pub(crate) fn clicked_orig_norm(&self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) -> Option<(f32, f32)> {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+        if !resp.clicked() {
+            return None;
+        }
+        let (nx, ny) = xf.to_norm(resp.interact_pointer_pos()?);
+        let ((bw, bh), deg, dist) = self.geom_ctx();
+        Some(view_norm_to_orig(nx, ny, (bw, bh), deg, &dist))
+    }
+
+    /// The focus point as a small ring while the pick is armed, so the
+    /// photographer sees where the current focus sits before moving it.
+    pub(crate) fn draw_lens_focus(&self, ui: &egui::Ui, xf: ViewXform) {
+        let Some(lb) = self.doc().recipe.lens_blur.as_ref() else { return };
+        let ((bw, bh), deg, dist) = self.geom_ctx();
+        let (vx, vy) = orig_norm_to_view(lb.focus[0], lb.focus[1], (bw, bh), deg, &dist);
+        let c = xf.to_screen(vx, vy);
+        let p = ui.painter();
+        p.circle_stroke(c, 9.0, egui::Stroke::new(3.0, egui::Color32::from_black_alpha(150)));
+        p.circle_stroke(c, 9.0, egui::Stroke::new(1.5, egui::Color32::from_white_alpha(235)));
+        p.circle_filled(c, 2.0, egui::Color32::WHITE);
+    }
 }

@@ -772,7 +772,7 @@
         app.editor.doc_mut().variants[active].recipe = recipe;
         app.editor.session_mut().hist.saved_recipe = app.editor.doc().recipe.clone();
         app.editor.session_mut().hist.pixels_on_disk = app.editor.active_variant().and_then(|v| v.origin.clone());
-        app.editor.session_mut().hist.saved_strip = app.current_strip_record();
+        app.editor.session_mut().hist.saved_strip = app.editor.current_strip_record();
         assert!(!app.unsaved_marker_dirty(), "saving on card Y advances Y's baseline");
         assert_eq!(app.editor.open_dirty_variants(), 0, "the whole strip is clean after that save");
 

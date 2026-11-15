@@ -696,7 +696,7 @@ impl AutoShadeApp {
         } else if self.workspace.tools().point_color_picking {
             self.handle_point_color_pick(ui, &resp, xf);
         } else if self.workspace.tools().lens_focus_picking {
-            self.draw_lens_focus(ui, xf);
+            self.editor.draw_lens_focus(ui, xf);
             if let Some(action) = self.handle_lens_focus_pick(ui, &resp, xf) {
                 self.apply_actions(vec![action]);
             }
@@ -883,23 +883,9 @@ impl AutoShadeApp {
         })
     }
 
-    /// The one door every click-on-the-photo tool shares: a crosshair while
-    /// armed, and on a click the point in the ORIGINAL frame (the frame
-    /// the develop and every raster live in), mapped out of the transformed
-    /// view. `None` until the click. A tool that samples the canvas base reads
-    /// it at [`Self::orig_to_base_norm`] of this point.
-    pub(crate) fn clicked_orig_norm(&self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) -> Option<(f32, f32)> {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
-        if !resp.clicked() {
-            return None;
-        }
-        let (nx, ny) = xf.to_norm(resp.interact_pointer_pos()?);
-        let ((bw, bh), deg, dist) = self.editor.geom_ctx();
-        Some(view_norm_to_orig(nx, ny, (bw, bh), deg, &dist))
-    }
 
     pub(crate) fn handle_wb_pick(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
-        let Some(orig) = self.clicked_orig_norm(ui, resp, xf) else { return };
+        let Some(orig) = self.editor.clicked_orig_norm(ui, resp, xf) else { return };
         let (nx, ny) = self.orig_to_base_norm(orig);
         let px = {
             let Some(base) = &self.editor.photo().base_preview else { return };
@@ -918,7 +904,7 @@ impl AutoShadeApp {
     /// shared through `overlay_ref`: with the overlay on, a click is a 5×5
     /// read; a miss pays one preview-sized develop ≈ one slider tick.
     pub(crate) fn handle_range_pick(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
-        let Some((nx, ny)) = self.clicked_orig_norm(ui, resp, xf) else { return };
+        let Some((nx, ny)) = self.editor.clicked_orig_norm(ui, resp, xf) else { return };
         let Some(mi) = self.workspace.tools().range_picking.filter(|&i| i < self.editor.doc().recipe.masks.len()) else {
             self.workspace.tools_mut().range_picking = None; // stale index (mask deleted mid-pick)
             return;
@@ -977,7 +963,7 @@ impl AutoShadeApp {
     /// and the film edge are that build's too (no geometry stage, the canvas's
     /// own film edge), and the click maps back to the original frame first.
     pub(crate) fn handle_point_color_pick(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
-        let Some((nx, ny)) = self.clicked_orig_norm(ui, resp, xf) else { return };
+        let Some((nx, ny)) = self.editor.clicked_orig_norm(ui, resp, xf) else { return };
         let px = {
             let Some(base) = self.editor.photo().base_preview.clone() else { return };
             let reference = autoshade::render::point_color_sampling_recipe(&self.editor.doc().recipe);

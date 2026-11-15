@@ -339,7 +339,7 @@ impl AutoShadeApp {
     /// [`export_file_name`](Self::export_file_name) with the container given
     /// (Normal's Save group always delivers a jpg).
     pub(crate) fn export_file_name_as(&self, ext: &str) -> String {
-        let src = self.active_source_path();
+        let src = self.editor.active_source_path();
         let stem = src
             .as_deref()
             .and_then(|p| p.file_stem())
@@ -399,7 +399,7 @@ impl AutoShadeApp {
         denoise_asked: bool,
         name: OutName,
     ) -> bool {
-        let Some(path) = self.active_source_path() else { return false };
+        let Some(path) = self.editor.active_source_path() else { return false };
         if self.workspace.busy() {
             return false;
         }
@@ -633,7 +633,7 @@ impl AutoShadeApp {
         if let Some(p) = self.editor.photo().src_path.clone() {
             let pix = self.editor.active_variant()
                 .and_then(|v| v.origin.clone())
-                .map(|o| (o, self.active_on_ai_pixels()));
+                .map(|o| (o, self.editor.active_on_ai_pixels()));
             overrides.insert(p, (self.editor.doc().recipe.clone(), pix));
         }
         self.spawn_worker(
@@ -1012,7 +1012,7 @@ impl AutoShadeApp {
         // cards.
         if self.editor.doc().recipe.is_noop()
             && self.editor.active_variant().is_none_or(|v| v.origin.is_none())
-            && self.current_strip_record().is_none()
+            && self.editor.current_strip_record().is_none()
         {
             // NoWait wrapper: clear_develop locks internally, but with Wait —
             // on this UI thread a develop held by another process must fail
@@ -1151,8 +1151,8 @@ impl AutoShadeApp {
         // SEMANTICS — what a reopen restores — not write outcomes) or fails
         // whole, with every unsaved protection still armed.
         let origin = self.editor.active_variant().and_then(|v| v.origin.clone());
-        let strip_rec = self.current_strip_record();
-        let generated = self.active_on_ai_pixels();
+        let strip_rec = self.editor.current_strip_record();
+        let generated = self.editor.active_on_ai_pixels();
         // A canvas on AI pixels is the STRIPPED form — no calibration, the
         // raster carries it. The DISK form keeps the RAW's (the Analyze
         // saver's and Save-all's rule, from the same one-snapshot source):
@@ -1485,7 +1485,7 @@ impl AutoShadeApp {
             // its pixels already carry the look (the load_version /
             // open-restore strip rule). The ● baseline (pasted_open) is
             // normalized the same way: canvas coordinates.
-            if self.active_on_ai_pixels() {
+            if self.editor.active_on_ai_pixels() {
                 live.strip_baked_start();
                 // Anchor follows the strip rule (baked WB → relative model).
                 live.as_shot_k = None;

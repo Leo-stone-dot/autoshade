@@ -150,7 +150,7 @@ impl AutoShadeApp {
         if self.skin_held_for(&src) {
             autoshade::face::keep_skin_natural_in(&mut live);
         }
-        if self.active_on_ai_pixels() {
+        if self.editor.active_on_ai_pixels() {
             live.strip_baked_start();
             live.as_shot_k = None;
             live.as_shot_tint = None;

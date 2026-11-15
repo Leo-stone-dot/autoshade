@@ -208,7 +208,7 @@
         app.services.tx.send(lost(&gone)).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.editor.doc().variants[0].origin, None, "the ▣ card let go of the deleted master");
-        assert_eq!(app.active_source_path(), Some(photo.clone()), "AI denoise now reads the photo");
+        assert_eq!(app.editor.active_source_path(), Some(photo.clone()), "AI denoise now reads the photo");
         assert_eq!(app.editor.doc().variants[1].origin.as_deref(), Some(gone.as_path()), "a ◈ card keeps its link");
 
         app.editor.doc_mut().variants[0].origin = Some(broken.clone());

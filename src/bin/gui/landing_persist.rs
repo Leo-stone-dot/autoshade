@@ -54,8 +54,8 @@ match autoshade::store::with_develop_lock(
         // mirror below on success.
         let origin = self.editor.active_variant()
             .and_then(|v| v.origin.clone());
-        let generated = self.active_on_ai_pixels();
-        let strip_rec = self.current_strip_record();
+        let generated = self.editor.active_on_ai_pixels();
+        let strip_rec = self.editor.current_strip_record();
         // The projection is a member of the same
         // generation (2026-09-13) — and for a
         // GENERATED canvas it CLEARS: this landing

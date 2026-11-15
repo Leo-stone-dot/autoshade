@@ -242,12 +242,12 @@ impl AutoShadeApp {
             // or Save-all had nothing to write and the guard's re-check
             // bounced the close forever (the v0.21 dead-button livelock).
             if self.pending_save_gate_dirty() {
-                let pix = origin.map(|o| (o, self.active_on_ai_pixels()));
+                let pix = origin.map(|o| (o, self.editor.active_on_ai_pixels()));
                 pending.push(PendingSave {
                     photo: p,
                     recipe: self.editor.doc().recipe.clone(),
                     pixels: pix,
-                    strip: self.current_strip_record(),
+                    strip: self.editor.current_strip_record(),
                 });
             }
         }

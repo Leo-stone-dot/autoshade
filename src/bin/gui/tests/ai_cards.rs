@@ -265,7 +265,7 @@
                 assert_eq!(app.editor.doc().variants[0].recipe, source_recipe, "the source keeps its recipe");
                 assert!(Arc::ptr_eq(app.editor.doc().variants[0].base.as_ref().unwrap(), &base));
                 assert_eq!(app.editor.doc().variants[1].origin.as_ref(), Some(&out));
-                assert_eq!(app.active_source_path().as_ref(), Some(&out), "the next adjust follows this master");
+                assert_eq!(app.editor.active_source_path().as_ref(), Some(&out), "the next adjust follows this master");
                 assert!(app.editor.doc().recipe.is_noop() && app.editor.doc().variants[1].recipe.is_noop());
                 assert_eq!(app.fit_target().as_ref(), Some(&out), "reverse-fit reads the new generated card");
                 let note = match (lang, region) {
@@ -661,7 +661,7 @@
         );
         assert_eq!(VariantKind::from_store_str("edited"), Some(VariantKind::Edited));
         assert_eq!(VariantKind::Edited.store_str(), "edited");
-        let rec = app.current_strip_record().expect("a three-card strip has a record");
+        let rec = app.editor.current_strip_record().expect("a three-card strip has a record");
         assert_eq!(rec.active_kind, "edited");
 
         // Ctrl+S persists the split; the same door then reopens it as it is.
@@ -911,7 +911,7 @@
         assert_eq!(app.negative_origin().as_deref(), Some(out.as_path()), "the negative is now the ◈ master");
         assert_eq!(app.negative_path().as_deref(), Some(out.as_path()), "the reimagine input follows");
         assert_eq!(
-            app.active_source_path().as_deref(),
+            app.editor.active_source_path().as_deref(),
             Some(out.as_path()),
             "and the ◈ card's own source is the same file — one negative"
         );
@@ -963,7 +963,7 @@
         app.editor.doc_mut().recipe = developed.clone();
         assert_eq!(VariantKind::Denoised.store_str(), "denoised");
         assert_eq!(VariantKind::from_store_str("denoised"), Some(VariantKind::Denoised));
-        let rec = app.current_strip_record().expect("a two-card strip has a record");
+        let rec = app.editor.current_strip_record().expect("a two-card strip has a record");
         assert_eq!(rec.active_kind, "denoised");
         assert_eq!(rec.active_id.as_deref(), Some("dn-1"));
         assert_eq!(rec.active_name.as_deref(), Some("clean"));
@@ -1202,7 +1202,7 @@
         // the fill path for strokes and the whole-image path otherwise.
         let start = src.find("pub(crate) fn start_adjust(").expect("start_adjust moved");
         let adjust = &src[start..src[start..].find("pub(crate) fn start_heal(").unwrap() + start];
-        assert!(adjust.contains("self.active_source_path()"), "the card supplies its own raster");
+        assert!(adjust.contains("self.editor.active_source_path()"), "the card supplies its own raster");
         assert!(adjust.contains("self.editor.doc().recipe.clone()"), "the live recipe is captured at the click");
         assert!(adjust.contains("developed_card_pixels(&path, &recipe, false)"));
         let split = adjust.find("if let Some(mask_png) = mask_png").unwrap();
