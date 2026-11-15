@@ -190,7 +190,7 @@ impl AutoShadeApp {
             if let Err(e) = comfy.save() {
                 self.ui.settings.status = trf(
                     self.lang,
-                    "settings saved, but the ComfyUI paths failed to save: {err}",
+                    K_ACTIONS_SETTINGS_SAVED_BUT_THE_COMFYUI_PATHS_FAILED_TO_S,
                     &[("err", &e.to_string())],
                 );
             }
@@ -229,13 +229,13 @@ impl AutoShadeApp {
                 let shared = autoshade::config::load_local_settings_from().1
                     == autoshade::config::SettingsOrigin::SharedRoot;
                 self.ui.settings.status = if refused {
-                    tr(self.lang, "saved, but the key was not accepted — it contains characters that cannot appear in an HTTP header (a stray space or newline from a copy/paste?). Re-copy it and save again.").into()
+                    tr(self.lang, K_ACTIONS_SAVED_BUT_THE_KEY_WAS_NOT_ACCEPTED_IT_CONTAINS_C).into()
                 } else if shared {
-                    trf(self.lang, "saved → {path} — but this file sits in the shared temp folder, which is not trusted with keys: the API key and base URL fields will be ignored (only the models are read). Set AUTOSHADE_DATA_DIR to a folder only you can write and save again.", &[("path", &p.display().to_string())])
+                    trf(self.lang, K_ACTIONS_SAVED_BUT_THIS_FILE_SITS_IN_THE_SHARED_TEMP_FOLD, &[("path", &p.display().to_string())])
                 } else {
-                    trf(self.lang, "saved → {path}", &[("path", &p.display().to_string())])
+                    trf(self.lang, K_ACTIONS_SAVED, &[("path", &p.display().to_string())])
                 };
-                self.status = tr(self.lang, "settings saved — applies to the next AI call (Analyze / Fill / Generate image)").into();
+                self.status = tr(self.lang, K_ACTIONS_SETTINGS_SAVED_APPLIES_TO_THE_NEXT_AI_CALL_ANALY).into();
                 // The interpreter field may have just changed: measure it now
                 // and let the note ride the same line (a wrong one would fail
                 // every sidecar later with a different error).
@@ -246,7 +246,7 @@ impl AutoShadeApp {
             }
             Err(e) => {
                 self.ui.settings.status =
-                    trf(self.lang, "save failed: {err}", &[("err", &e.to_string())])
+                    trf(self.lang, K_ACTIONS_SAVE_FAILED, &[("err", &e.to_string())])
             }
         }
     }
@@ -305,7 +305,7 @@ impl AutoShadeApp {
         cat.from_base = base.clone();
         cat.from_key = key_fingerprint(&key);
         let generation = cat.generation;
-        self.ui.settings.status = tr(self.lang, "fetching models…").into();
+        self.ui.settings.status = tr(self.lang, K_ACTIONS_FETCHING_MODELS).into();
         // spawn_worker's catch_unwind guarantees the UI's `fetching` flag
         // always clears — a panic still delivers Msg::Models(role, gen, Err)
         // (this site used to hand-roll a Drop guard for exactly that; the
@@ -344,7 +344,7 @@ impl AutoShadeApp {
         self.ui.python_env_line = None;
         self.status = tr(
             lang,
-            "Preparing the Python environment (uv)… the download is a few gigabytes",
+            K_ACTIONS_PREPARING_THE_PYTHON_ENVIRONMENT_UV_THE_DOWNLOAD,
         )
         .into();
         let tx = self.services.tx.clone();
@@ -367,7 +367,7 @@ impl AutoShadeApp {
         match res {
             Ok(path) => {
                 self.ui.python_env_line = Some(path.clone());
-                self.status = trf(lang, "Python environment ready: {path}", &[("path", &path)]);
+                self.status = trf(lang, K_ACTIONS_PYTHON_ENVIRONMENT_READY, &[("path", &path)]);
                 // The environment is ready now: re-measure so the Settings row
                 // and any later note describe the new interpreter.
                 self.refresh_python_check();

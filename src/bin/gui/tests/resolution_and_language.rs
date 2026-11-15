@@ -778,7 +778,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         ] {
             let en = trf(crate::i18n::Lang::En, note.key, &[]);
             let zh = trf(crate::i18n::Lang::Zh, note.key, &[]);
-            assert_eq!(en, note.key, "English is the key itself");
+            assert_eq!(en, autoshade::text::english(note.key), "English is the key's text");
             assert!(en.contains("not measurable"), "the English clause says so: {en}");
             assert_ne!(zh, en, "the Chinese clause must not fall back to English: {zh}");
             assert!(zh.contains("无法测量"), "…and must say the same thing: {zh}");
@@ -807,15 +807,15 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // back to English SILENTLY, so equality-with-key would be the only
         // symptom). Literal keys on purpose — the audit treats non-literal
         // tr() arguments as dynamic sites needing registration.
-        assert_eq!(tr(Lang::Zh, "Accept"), "接受");
-        assert_eq!(tr(Lang::Zh, "Revise"), "修订");
-        assert_eq!(tr(Lang::Zh, "Reject"), "驳回");
-        assert_eq!(tr(Lang::En, "Accept"), "Accept");
+        assert_eq!(tr(Lang::Zh, K_LOGIC_ACCEPT), "接受");
+        assert_eq!(tr(Lang::Zh, K_LANDING_REVISE), "修订");
+        assert_eq!(tr(Lang::Zh, K_GUI_REJECT), "驳回");
+        assert_eq!(tr(Lang::En, K_LOGIC_ACCEPT), "Accept");
         // The verdict line skeleton interpolates both halves.
         let line = trf(
             Lang::Zh,
-            "{decision} — {reasons}",
-            &[("decision", tr(Lang::Zh, "Revise")), ("reasons", "太亮")],
+            K_AI_TEXT,
+            &[("decision", tr(Lang::Zh, K_LANDING_REVISE)), ("reasons", "太亮")],
         );
         assert_eq!(line, "修订 — 太亮");
     }

@@ -18,7 +18,7 @@ impl AutoShadeApp {
             // Refusal must be visible (the switch_variant rule: a silent
             // no-op reads as a dead UI) — the EMPTY-STATE picker button has
             // no busy gate, so this arm IS user-reachable (L11-4).
-            let t = tr(self.lang, "busy — the photo opens when the current task finishes");
+            let t = tr(self.lang, K_ACTIONS_BUSY_THE_PHOTO_OPENS_WHEN_THE_CURRENT_TASK_FINIS);
             self.toast(ToastKind::Error, t);
             return;
         }
@@ -134,7 +134,7 @@ impl AutoShadeApp {
         // Lightroom sidecar with no warning at all. Same reasoning as the
         // version list above.
         self.exp.xmp_beside_confirm = false;
-        self.status = trf(lang, "decoding {path} …", &[("path", &path.display().to_string())]);
+        self.status = trf(lang, K_ACTIONS_DECODING, &[("path", &path.display().to_string())]);
         // Working-preview size is a user choice now (gap batch E): 1280 keeps
         // sliders fluid; 2560/4096 trade tick latency for real 1:1 detail when
         // checking focus / noise.
@@ -331,7 +331,7 @@ impl AutoShadeApp {
         }
         let lang = self.lang;
         self.busy = true;
-        self.status = trf(lang, "scanning {path} …", &[("path", &dir.display().to_string())]);
+        self.status = trf(lang, K_ACTIONS_SCANNING, &[("path", &dir.display().to_string())]);
         self.spawn_worker(
             move || {
                 let res = autoshade::pipeline::find_sources_counted(&dir)

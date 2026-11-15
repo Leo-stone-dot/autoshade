@@ -3296,7 +3296,7 @@ mod tests {
             report.err_after,
             report.recipe.rationale,
         );
-        let key_present = |key: &str| report.notes.iter().any(|note| note.key == key);
+        let key_present = |key: crate::text::Key| report.notes.iter().any(|note| note.key == key);
         assert!(key_present(crate::rationale::keys::COLOUR_RANGE_PROPOSED));
         assert!(key_present(crate::rationale::keys::COLOUR_RANGE_ATTACHED));
         // Native in the sidecar: the sentinel host and the colour range are
@@ -3375,7 +3375,7 @@ mod tests {
         // between the proposal and the recipe without a refusal naming it
         // would be a correction the fit dropped in silence, which is the
         // one outcome the disclosure channels exist to prevent.
-        let bands_named = |key: &'static str| {
+        let bands_named = |key: crate::text::Key| {
             report
                 .notes
                 .iter()

@@ -3,6 +3,8 @@
 //!
 //! The view (`panels/lens_blur.rs`, `canvas.rs`) never mutates a recipe: it
 //! emits [`super::Action`]s, and the reach-through into the develop is here.
+use autoshade::text::generated::*;
+
 
 use super::{Effect, UiText};
 use autoshade::recipe::EditRecipe;
@@ -65,7 +67,7 @@ pub(crate) fn apply(
             }
             effects.push(Effect::ArmFocusPick(false));
             effects.push(Effect::Status(UiText::of(
-                "Focus set — the blur follows the distance of what you clicked",
+                K_LOGIC_FOCUS_SET_THE_BLUR_FOLLOWS_THE_DISTANCE_OF_WHAT,
             )));
             effects
         }
@@ -77,7 +79,7 @@ pub(crate) fn apply(
             }
             let Some((photo, base)) = start else { return Vec::new() };
             vec![
-                Effect::Status(UiText::of("AI estimating depth… (the first run downloads the model)")),
+                Effect::Status(UiText::of(K_LOGIC_AI_ESTIMATING_DEPTH_THE_FIRST_RUN_DOWNLOADS_THE)),
                 Effect::EstimateDepth { photo, base },
             ]
         }
@@ -115,7 +117,7 @@ pub(crate) fn landed(recipe: &mut EditRecipe, res: anyhow::Result<PathBuf>) -> V
         Ok(path) => path,
         Err(e) => {
             return vec![Effect::ToastError(UiText::with(
-                "Depth estimate failed: {e}",
+                K_LOGIC_DEPTH_ESTIMATE_FAILED,
                 &[("e", &format!("{e:#}"))],
             ))];
         }
@@ -129,11 +131,11 @@ pub(crate) fn landed(recipe: &mut EditRecipe, res: anyhow::Result<PathBuf>) -> V
         effects.push(Effect::DisarmTools);
         effects.push(Effect::ArmFocusPick(true));
         effects.push(Effect::Status(UiText::of(
-            "Depth estimated — click the photo to choose what stays sharp",
+            K_LOGIC_DEPTH_ESTIMATED_CLICK_THE_PHOTO_TO_CHOOSE_WHAT_S,
         )));
     } else {
         effects.push(Effect::Status(UiText::of(
-            "Depth re-estimated — the focus point and sliders are kept",
+            K_LOGIC_DEPTH_RE_ESTIMATED_THE_FOCUS_POINT_AND_SLIDERS_A,
         )));
     }
     effects
@@ -149,7 +151,7 @@ mod tests {
         PathBuf::from(name)
     }
 
-    fn statuses(effects: &[Effect]) -> Vec<&'static str> {
+    fn statuses(effects: &[Effect]) -> Vec<autoshade::text::Key> {
         effects
             .iter()
             .filter_map(|e| match e {
@@ -250,6 +252,9 @@ mod tests {
         let effects = apply(&mut recipe, LensAction::FocusPicked([1.7, -0.4]), None, false);
         assert_eq!(recipe.lens_blur.as_ref().unwrap().focus, [1.0, 0.0]);
         assert!(effects.iter().any(|e| matches!(e, Effect::ArmFocusPick(false))));
-        assert!(matches!(statuses(&effects)[..], ["Focus set — the blur follows the distance of what you clicked"]));
+        assert_eq!(
+            autoshade::text::english(statuses(&effects)[0]),
+            "Focus set — the blur follows the distance of what you clicked",
+        );
     }
 }

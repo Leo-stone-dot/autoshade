@@ -2109,7 +2109,7 @@ fn an_atmosphere_report_states_the_population_its_white_balance_came_from() {
 fn the_unpaired_share_reads_as_unmeasured_when_there_is_no_field() {
     let (src, tgt) = structural_permutation_pair();
     let bare = fit_recipe(&src, &tgt);
-    let has = |r: &FitReport, k: &str| r.notes.iter().any(|n| n.key == k);
+    let has = |r: &FitReport, k: crate::text::Key| r.notes.iter().any(|n| n.key == k);
     assert!(
         has(&bare, crate::rationale::keys::FIT_ATMOSPHERE_REFERENCE_UNMEASURED),
         "no provider: the share is unmeasured, not zero: {}",
@@ -2503,7 +2503,7 @@ fn a_thin_paired_target_keeps_the_whole_frame_reading_and_says_so() {
         ),
         other => panic!("expected a thin verdict, got {other:?}"),
     }
-    let has = |r: &FitReport, k: &str| r.notes.iter().any(|n| n.key == k);
+    let has = |r: &FitReport, k: crate::text::Key| r.notes.iter().any(|n| n.key == k);
     assert!(has(&thin, crate::rationale::keys::FIT_ATMOSPHERE_REFERENCE_POPULATION));
     assert!(has(&thin, crate::rationale::keys::FIT_ATMOSPHERE_REFERENCE_THIN));
     assert!(!has(&thin, crate::rationale::keys::FIT_ATMOSPHERE_REFERENCE_SHARED));
@@ -2575,7 +2575,7 @@ fn a_confident_field_answering_only_a_corner_is_thin_on_the_target_side() {
             "a fat source and a cornered target must refuse, got {other:?}"
         ),
     }
-    let has = |r: &FitReport, k: &str| r.notes.iter().any(|n| n.key == k);
+    let has = |r: &FitReport, k: crate::text::Key| r.notes.iter().any(|n| n.key == k);
     assert!(has(&skewed, crate::rationale::keys::FIT_ATMOSPHERE_REFERENCE_THIN));
     assert!(!has(&skewed, crate::rationale::keys::FIT_ATMOSPHERE_REFERENCE_SHARED));
     assert_eq!(
@@ -2602,7 +2602,7 @@ fn the_reference_disclosure_names_exactly_one_population() {
         Ok(corresponding_field())
     };
     let paired = atmosphere_fit(&src, &tgt, Some(&field));
-    let has = |r: &FitReport, k: &str| r.notes.iter().any(|n| n.key == k);
+    let has = |r: &FitReport, k: crate::text::Key| r.notes.iter().any(|n| n.key == k);
     assert!(has(&paired, crate::rationale::keys::FIT_ATMOSPHERE_REFERENCE_SHARED));
     assert!(
         !has(&paired, crate::rationale::keys::FIT_ATMOSPHERE_REFERENCE_POPULATION),
@@ -4058,7 +4058,7 @@ fn two_temperature_coast() -> DynamicImage {
 }
 
 /// The projection's readings off a finished report, by note key.
-fn projection_arg(report: &FitReport, key: &str, arg: &str) -> Option<f32> {
+fn projection_arg(report: &FitReport, key: crate::text::Key, arg: &str) -> Option<f32> {
     report
         .notes
         .iter()
@@ -4128,7 +4128,7 @@ fn cast_curves_that_fan_a_coherent_sky_are_shrunk_not_shipped() {
         "…and the projection must have found a milder cast to ship: {}",
         rep.recipe.rationale
     );
-    let arg = |key: &str, name: &str| {
+    let arg = |key: crate::text::Key, name: &str| {
         projection_arg(&rep, key, name)
             .unwrap_or_else(|| panic!("the note carries {name}: {}", rep.recipe.rationale))
     };
@@ -4527,7 +4527,7 @@ fn a_projected_cast_is_never_also_disclosed_as_an_admitted_one() {
         ("admitted", haze_pair().0, haze_pair().1),
     ] {
         let rep = fit_recipe(&src, &tgt);
-        let has = |key: &str| rep.notes.iter().any(|n| n.key == key);
+        let has = |key: crate::text::Key| rep.notes.iter().any(|n| n.key == key);
         assert!(
             !(has(keys::FIT_NOTE_CAST_PROJECTED) && has(keys::FIT_NOTE_CAST_ADMITTED)),
             "{name}: one cast, two accounts of itself: {}",
@@ -5239,7 +5239,7 @@ fn an_unmeasured_cast_reading_says_so_instead_of_printing_a_zero() {
         rehued: 0.0,
         fan: None,
     });
-    let keys_of: Vec<&str> = abstained.iter().map(|n| n.key).collect();
+    let keys_of: Vec<crate::text::Key> = abstained.iter().map(|n| n.key).collect();
     assert_eq!(
         keys_of,
         vec![
@@ -6387,7 +6387,7 @@ fn an_adjusted_recipe_gets_re_derived_notes_not_the_solves() {
     moved.clamp();
     let rep =
         rescore_report(&src, &tgt, &moved, &EditRecipe::default(), solved.err_before, &prior);
-    let has = |k: &str| rep.notes.iter().any(|n| n.key == k);
+    let has = |k: crate::text::Key| rep.notes.iter().any(|n| n.key == k);
 
     // (1) The terminal-reset verdict must NOT survive. This is the arm with
     // teeth: the GUI raises 「THE REVERSE-FIT WAS DISCARDED … reset to
@@ -7767,11 +7767,11 @@ fn one_sided_band_pair() -> (DynamicImage, DynamicImage) {
     )
 }
 
-fn hsl_note<'a>(report: &'a FitReport, key: &str) -> Option<&'a crate::rationale::Note> {
+fn hsl_note<'a>(report: &'a FitReport, key: crate::text::Key) -> Option<&'a crate::rationale::Note> {
     report.notes.iter().find(|n| n.key == key)
 }
 
-fn note_arg(report: &FitReport, key: &str, arg: &str) -> String {
+fn note_arg(report: &FitReport, key: crate::text::Key, arg: &str) -> String {
     hsl_note(report, key)
         .and_then(|n| n.args.iter().find(|(k, _)| *k == arg))
         .map(|(_, v)| v.clone())
@@ -8567,7 +8567,7 @@ fn an_unmeasured_projected_reading_says_so_instead_of_printing_a_zero() {
         rehued: 0.0,
         foreign: None,
     });
-    let keys_of: Vec<&str> = abstained.iter().map(|n| n.key).collect();
+    let keys_of: Vec<crate::text::Key> = abstained.iter().map(|n| n.key).collect();
     assert_eq!(
         keys_of,
         vec![

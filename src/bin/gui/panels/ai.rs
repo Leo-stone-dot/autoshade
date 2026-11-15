@@ -82,7 +82,7 @@ impl AutoShadeApp {
             // play (the prompt is a remembered preference, not photo state —
             // see `ai_section_active`).
             let generated = self.active_on_ai_pixels();
-            self.ai_section(ui, "sec_ai_gen", tr(lang, "AI generation & reverse-fit"), generated, |app, ui| {
+            self.ai_section(ui, "sec_ai_gen", tr(lang, K_AI_AI_GENERATION_REVERSE_FIT), generated, |app, ui| {
                 app.ai_generate(ui);
                 app.ai_adjust(ui);
                 app.ai_reverse_fit(ui);
@@ -92,7 +92,7 @@ impl AutoShadeApp {
             // as the single heading it grew out of, so an open state a user
             // already has carries over.
             let analysed = self.ai_section_active();
-            self.ai_section(ui, "sec_ai", tr(lang, "AI analysis & auto develop"), analysed, |app, ui| {
+            self.ai_section(ui, "sec_ai", tr(lang, K_AI_AI_ANALYSIS_AUTO_DEVELOP), analysed, |app, ui| {
                 #[cfg(test)]
                 {
                     // The gate's own witness: a comment cannot keep it here.
@@ -106,7 +106,7 @@ impl AutoShadeApp {
                 // otherwise, and the pixel-level tools are deliberately
                 // elsewhere.
                 ui.add_space(SPACE_XS);
-                explainer(ui, lang, tr(lang, "Pixel-level AI tools stay at their tools: select subject / select sky in Local Masks, denoise in Detail, heal and fill in Retouch."));
+                explainer(ui, lang, tr(lang, K_AI_PIXEL_LEVEL_AI_TOOLS_STAY_AT_THEIR_TOOLS_SELECT));
             });
         });
         ui.add_space(SPACE_MD); // fence to the Develop heading below
@@ -162,16 +162,16 @@ impl AutoShadeApp {
         use autoshade::rationale::keys;
         let lang = self.lang;
         ui.add_space(SPACE_SM);
-        ui.label(egui::RichText::new(tr(lang, "Deep thinking · its working")).small().strong());
+        ui.label(egui::RichText::new(tr(lang, K_AI_DEEP_THINKING_ITS_WORKING)).small().strong());
         for n in working {
             // The lead is OURS (one catalogue literal per key, so the i18n
             // audit sees each); the body is the note's single arg, the
             // model's sentence.
             let lead = match n.key {
-                keys::THINK_SCENE => tr(lang, "What it saw:"),
-                keys::THINK_LOOK => tr(lang, "The look it aimed for:"),
-                keys::THINK_CRITIQUE => tr(lang, "Its own critique against your strength target:"),
-                keys::PIXEL_TOOLS => tr(lang, "Pixel tools it suggests (nothing was run):"),
+                keys::THINK_SCENE => tr(lang, K_AI_WHAT_IT_SAW),
+                keys::THINK_LOOK => tr(lang, K_AI_THE_LOOK_IT_AIMED_FOR),
+                keys::THINK_CRITIQUE => tr(lang, K_AI_ITS_OWN_CRITIQUE_AGAINST_YOUR_STRENGTH_TARGET),
+                keys::PIXEL_TOOLS => tr(lang, K_AI_PIXEL_TOOLS_IT_SUGGESTS_NOTHING_WAS_RUN),
                 _ => continue,
             };
             let Some((_, body)) = n.args.first() else { continue };
@@ -206,7 +206,7 @@ impl AutoShadeApp {
             };
             let text = trf(
                 lang,
-                "{decision} — {reasons}",
+                K_AI_TEXT,
                 &[
                     ("decision", tr(lang, autoshade::advisor::decision_key(d))),
                     ("reasons", &reasons.join("; ")),
@@ -267,7 +267,7 @@ impl AutoShadeApp {
             return;
         }
         let mut open = self.has_analysis_output();
-        egui::Window::new(tr(self.lang, "AI analysis · full text"))
+        egui::Window::new(tr(self.lang, K_AI_AI_ANALYSIS_FULL_TEXT))
             // Fixed id: the title varies with the language, and egui keys
             // the window's position and size off the id.
             .id(egui::Id::new("analysis_full_window"))
@@ -294,7 +294,7 @@ impl AutoShadeApp {
     /// Default OPEN: it is the panel's first read.
     fn ai_analysis(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Analysis · paid API"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_AI_ANALYSIS_PAID_API))
             .id_salt("sec_ai_analysis")
             .default_open(true)
             // Headless layout tests must see these rows — a test frame never
@@ -323,7 +323,7 @@ impl AutoShadeApp {
                     self.seams.analysis_box_rect = Some(out.inner_rect);
                 }
                 if out.content_size.y > out.inner_rect.height() + 0.5
-                    && action_row(ui, true, tr(lang, "View full text…")).clicked()
+                    && action_row(ui, true, tr(lang, K_AI_VIEW_FULL_TEXT)).clicked()
                 {
                     self.ui.show_analysis_full = true;
                 }
@@ -332,14 +332,14 @@ impl AutoShadeApp {
             // the controls it chooses between, and greys the other side.
             use autoshade::pipeline::Guide;
             ui.horizontal_wrapped(|ui| {
-                ui.label(tr(lang, "Guided by"));
-                ui.radio_value(&mut self.aip.guide, Guide::Library, tr(lang, "Reference library")).on_hover_text(tr(
+                ui.label(tr(lang, K_AI_GUIDED_BY));
+                ui.radio_value(&mut self.aip.guide, Guide::Library, tr(lang, K_AI_REFERENCE_LIBRARY)).on_hover_text(tr(
                     lang,
-                    "The AI follows the finished photos in your reference library closest to this one; the Direction text is not sent.",
+                    K_AI_THE_AI_FOLLOWS_THE_FINISHED_PHOTOS_IN_YOUR_REFER,
                 ));
-                ui.radio_value(&mut self.aip.guide, Guide::Direction, tr(lang, "Direction")).on_hover_text(tr(
+                ui.radio_value(&mut self.aip.guide, Guide::Direction, tr(lang, K_AI_DIRECTION)).on_hover_text(tr(
                     lang,
-                    "The AI follows the Direction you type; the reference library is not read.",
+                    K_AI_THE_AI_FOLLOWS_THE_DIRECTION_YOU_TYPE_THE_REFERE,
                 ));
             });
             let by_direction = self.aip.guide == Guide::Direction;
@@ -350,7 +350,7 @@ impl AutoShadeApp {
                 let _field = prompt_field(
                     ui,
                     &mut self.ai.guidance,
-                    tr(lang, "e.g. warmer and moodier, lift the shadows"),
+                    tr(lang, K_AI_E_G_WARMER_AND_MOODIER_LIFT_THE_SHADOWS),
                 );
                 #[cfg(test)]
                 {
@@ -375,21 +375,15 @@ impl AutoShadeApp {
                 if waiting {
                     ui.on_hover_text(tr(
                         lang,
-                        "the cancelled AI call is still running (and still billed) — this re-arms when it finishes or times out",
+                        K_AI_THE_CANCELLED_AI_CALL_IS_STILL_RUNNING_AND_STILL,
                     ))
                 } else {
                     ui
                 }
             };
-            if why(primary_row(ui, ready, tr(lang, "AI Analyze"))
+            if why(primary_row(ui, ready, tr(lang, K_AI_AI_ANALYZE))
                 .on_hover_text(tr(lang,
-                    "AI proposes a recipe from scratch (the configured service proposes, the \
-                     recipe is validated, then a visual critic reviews: the result is RENDERED \
-                     and judged by the vision model, which may buy one guided revision), \
-                     written into the sliders — undoable. Uses the reference library or the \
-                     Direction above (the switch picks one); Strength steers it. Ticking \
-                     「Deep thinking」 below OR pushing Strength above 70% lets it take more \
-                     steps.",
+                    K_AI_AI_PROPOSES_A_RECIPE_FROM_SCRATCH_THE_CONFIGURED,
                 )))
                 .clicked()
             {
@@ -425,11 +419,11 @@ impl AutoShadeApp {
                 Self::slider_pct_hinted(
                     ui,
                     lang,
-                    tr(lang, "Style"),
+                    tr(lang, K_AI_STYLE),
                     &mut self.aip.style_strength,
                     1.0,
                     STYLE_STRENGTH_DEFAULT,
-                    tr(lang, "How far AI proposals follow the looks in your reference library: below 85% they stay within its grading, from 85% they reproduce its look (0 = ignore it). Greyed while the Direction guides."),
+                    tr(lang, K_AI_HOW_FAR_AI_PROPOSALS_FOLLOW_THE_LOOKS_IN_YOUR_RE),
                 );
                 // R23-2: a slider that provably cannot do anything must not read as
                 // live. The old one showed 30% and a tooltip about "your past XMP
@@ -442,12 +436,12 @@ impl AutoShadeApp {
                     Some(autoshade::library::Summary::Absent | autoshade::library::Summary::Unusable(_))
                 ) {
                     ui.label(
-                        egui::RichText::new(tr(lang, "⚠ no library"))
+                        egui::RichText::new(tr(lang, K_AI_NO_LIBRARY))
                             .color(ui.visuals().warn_fg_color)
                             .small(),
                     )
                     .on_hover_text(tr(lang,
-                        "This slider does nothing until a reference library is built — the 「Reference library」 section below builds one.",
+                        K_AI_THIS_SLIDER_DOES_NOTHING_UNTIL_A_REFERENCE_LIBRA,
                     ));
                 }
             }));
@@ -459,12 +453,12 @@ impl AutoShadeApp {
             Self::slider_pct_hinted(
                 ui,
                 lang,
-                tr(lang, "Strength"),
+                tr(lang, K_AI_STRENGTH),
                 &mut self.aip.grade_strength,
                 1.0,
                 GRADE_STRENGTH_DEFAULT,
                 tr(lang,
-                    "How bold the AI's edit is — a different axis from Style, which asks how closely it copies your references. From 41% up the AI must decide each colour control explicitly; the default 65% (double-click to reset) leans a little bolder. Above 70% it is told to use its controls at a strength a viewer can see, and the visual review may run up to 3 rounds — the same ceiling 「Deep thinking」 raises it to; either one alone makes the worst case 17 API calls (10 carrying images). The clipping and white-point safeguards never loosen.",
+                    K_AI_HOW_BOLD_THE_AI_S_EDIT_IS_A_DIFFERENT_AXIS_FROM,
                 ),
             );
             let has_direction = by_direction && !self.ai.guidance.trim().is_empty();
@@ -478,19 +472,19 @@ impl AutoShadeApp {
                 Self::slider_pct_hinted(
                     ui,
                     lang,
-                    tr(lang, "Adherence"),
+                    tr(lang, K_AI_ADHERENCE),
                     &mut self.aip.direction_adherence,
                     1.0,
                     autoshade::recipe::DirectionAdherence::DEFAULT,
-                    tr(lang, "How closely the AI follows your direction; disabled until the Direction guides and has text. At 40% or below it is a Hint; from 40% to 70% it is followed (Direct); above 70% it is a firm Brief. It changes only what the AI is asked, never a slider limit."),
+                    tr(lang, K_AI_HOW_CLOSELY_THE_AI_FOLLOWS_YOUR_DIRECTION_DISABL),
                 );
             });
             // R23-4 (feedback #13): the THIRD analysis-side control, under the two
             // dials it modifies — the target score and round budget it unlocks are
             // read off the Strength band directly above it.
-            ui.checkbox(&mut self.aip.deep_think, tr(lang, "Deep thinking"))
+            ui.checkbox(&mut self.aip.deep_think, tr(lang, K_AI_DEEP_THINKING))
                 .on_hover_text(tr(lang,
-                    "Make the AI show its work and let it iterate. The proposal must first name what it sees, decide EACH tool family (tone / white balance / presence / HSL / colour grading / curves / detail / framing / masks) with a reason, state the look it is going for, and end by critiquing its own answer — those three sentences land in the 「Deep thinking」 box under the rationale. It also asks the image model for one step more reasoning effort (only when a tier other than 「provider default」 is set in Settings), and lets the visual judge keep going until it scores well enough: 2 rounds at a balanced Strength, 3 above 70%. COST: a normal analyze is at worst 11 API calls (6 with images, 8 high-detail frames); with this box ticked OR Strength above 70% — either one alone is enough — it is at worst 17 calls (10 with images, 14 high-detail), plus roughly 10-20% more output tokens per proposal. Batch and the eval harness never do this.",
+                    K_AI_MAKE_THE_AI_SHOW_ITS_WORK_AND_LET_IT_ITERATE_THE,
                 ));
             });
     }
@@ -506,16 +500,16 @@ impl AutoShadeApp {
     fn ai_adjust_edit(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         ui.add_space(SPACE_XS);
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Adjust the selected variant · paid API"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_AI_ADJUST_THE_SELECTED_VARIANT_PAID_API))
             .id_salt("sec_ai_adjust_edit")
             .default_open(true)
             .open(fold_open_in_tests())
             , |ui| {
-                explainer(ui, lang, tr(lang, "Type what to change on the selected card; the AI adjusts its develop with the full control set and masks cut by content (sky, subject, an object)."));
+                explainer(ui, lang, tr(lang, K_AI_TYPE_WHAT_TO_CHANGE_ON_THE_SELECTED_CARD_THE_AI));
                 let _field = prompt_field(
                     ui,
                     &mut self.genai.adjust_edit_prompt,
-                    tr(lang, "e.g. darken the sky a little, warm the faces, more texture on the rocks"),
+                    tr(lang, K_AI_E_G_DARKEN_THE_SKY_A_LITTLE_WARM_THE_FACES_MORE),
                 );
                 #[cfg(test)]
                 {
@@ -523,15 +517,9 @@ impl AutoShadeApp {
                 }
                 let ready = self.photo.src_path.is_some() && !self.busy && !self.tools.analyze_inflight;
                 let asked = ready && !self.genai.adjust_edit_prompt.trim().is_empty();
-                let resp = primary_row(ui, asked, tr(lang, "🤖 AI adjust"))
+                let resp = primary_row(ui, asked, tr(lang, K_AI_AI_ADJUST))
                     .on_hover_text(tr(lang,
-                        "Adjust the SELECTED card's develop as you ask: the AI sees the card as it looks \
-                         now and its current recipe, returns the complete recipe that replaces it \
-                         (written into the sliders — undoable), uses every develop control, and selects \
-                         parts by content — sky, subject, an object — through masks the local segmenter \
-                         cuts. Same chain and COST as AI Analyze (worst case 11 API calls; 17 with \
-                         「Deep thinking」 or Strength above 70%), plus seconds of local segmentation \
-                         per mask it asks for. Enabled once the request box has text.",
+                        K_AI_ADJUST_THE_SELECTED_CARD_S_DEVELOP_AS_YOU_ASK_TH,
                     ));
                 #[cfg(test)]
                 {
@@ -574,7 +562,7 @@ impl AutoShadeApp {
         // about what "reads a library" means.
         let by_direction = self.aip.guide == autoshade::pipeline::Guide::Direction;
         let reads_a_library = !by_direction && self.aip.style_strength > 0.0;
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Reference library · local"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_AI_REFERENCE_LIBRARY_LOCAL))
             .id_salt("sec_ai_libraries")
             .default_open(false)
             // Headless layout tests must see these rows: a test frame never
@@ -588,9 +576,9 @@ impl AutoShadeApp {
                     // Outside the disabled scope below: the sentence that
                     // explains a greyed control must not itself be greyed.
                     let why = if by_direction {
-                        tr(lang, "Guided by the Direction: the analysis reads no library")
+                        tr(lang, K_AI_GUIDED_BY_THE_DIRECTION_THE_ANALYSIS_READS_NO_LI)
                     } else {
-                        tr(lang, "Style is at 0%: the analysis reads no library")
+                        tr(lang, K_AI_STYLE_IS_AT_0_THE_ANALYSIS_READS_NO_LIBRARY)
                     };
                     ui.label(egui::RichText::new(why).weak().small());
                 }
@@ -611,12 +599,12 @@ impl AutoShadeApp {
             Some(autoshade::library::Summary::Built { photos, phrased, with_settings, dir, age }) => {
                 let mut t = trf(
                     lang,
-                    "{n} finished photos · from {path} · {m} with look phrases",
+                    K_AI_FINISHED_PHOTOS_FROM_WITH_LOOK_PHRASES,
                     &[("n", &photos.to_string()), ("path", dir), ("m", &phrased.to_string())],
                 );
                 if *with_settings > 0 {
                     t.push_str(" · ");
-                    t.push_str(&trf(lang, "{k} with RAW settings", &[("k", &with_settings.to_string())]));
+                    t.push_str(&trf(lang, K_AI_WITH_RAW_SETTINGS, &[("k", &with_settings.to_string())]));
                 }
                 if let Some(age) = age {
                     // Coarse buckets, no calendar arithmetic: "how stale is my
@@ -626,29 +614,29 @@ impl AutoShadeApp {
                     let secs = age.as_secs();
                     t.push_str(" · ");
                     t.push_str(&if secs < 48 * HOUR {
-                        trf(lang, "built {hours}h ago", &[("hours", &(secs / HOUR).to_string())])
+                        trf(lang, K_AI_BUILT_H_AGO, &[("hours", &(secs / HOUR).to_string())])
                     } else {
-                        trf(lang, "built {days}d ago", &[("days", &(secs / (24 * HOUR)).to_string())])
+                        trf(lang, K_AI_BUILT_D_AGO, &[("days", &(secs / (24 * HOUR)).to_string())])
                     });
                 }
                 egui::RichText::new(t).small()
             }
             Some(autoshade::library::Summary::Unusable(err)) => egui::RichText::new(trf(
                 lang,
-                "The reference library could not be read ({err}) — rebuild it below.",
+                K_AI_THE_REFERENCE_LIBRARY_COULD_NOT_BE_READ_REBUILD,
                 &[("err", err)],
             ))
             .color(ui.visuals().warn_fg_color)
             .small(),
             Some(autoshade::library::Summary::Absent) => egui::RichText::new(tr(lang,
-                "No reference library yet — the Style slider above has nothing to follow. Pick a folder of finished photos whose look you like (JPEG, TIFF or PNG exports).",
+                K_AI_NO_REFERENCE_LIBRARY_YET_THE_STYLE_SLIDER_ABOVE,
             ))
             .small(),
-            None => egui::RichText::new(tr(lang, "reading the reference library…")).weak().small(),
+            None => egui::RichText::new(tr(lang, K_AI_READING_THE_REFERENCE_LIBRARY)).weak().small(),
         };
         ui.label(line).on_hover_text(trf(
             lang,
-            "Library file: {path}",
+            K_AI_LIBRARY_FILE,
             &[("path", &abs_display(&autoshade::library::path()))],
         ));
     }
@@ -669,9 +657,9 @@ impl AutoShadeApp {
             // embedded font subset covers it already (📂 is not in it).
             let cell = columns(ui, 2);
             ui.horizontal(|ui| {
-            if action_in(ui, cell, true, tr(lang, "🗂 Pick folder…"))
+            if action_in(ui, cell, true, tr(lang, K_AI_PICK_FOLDER))
                 .on_hover_text(tr(lang,
-                    "Choose a folder of finished photos whose look you like — your own exports or anyone's. Nothing reads their .xmp: each photo is measured from its pixels. Building starts as soon as you choose.",
+                    K_AI_CHOOSE_A_FOLDER_OF_FINISHED_PHOTOS_WHOSE_LOOK_YO,
                 ))
                 .clicked()
             {
@@ -679,13 +667,13 @@ impl AutoShadeApp {
             }
             // Rebuilding needs a folder: the remembered one, or one picked now.
             let have = self.aip.style_src_dir.clone().filter(|d| d.is_dir());
-            let label = if building { tr(lang, "building…") } else { tr(lang, "🔄 Build / rebuild") };
+            let label = if building { tr(lang, K_AI_BUILDING) } else { tr(lang, K_AI_BUILD_REBUILD) };
             let resp = primary_in(ui, cell, have.is_some(), label).on_hover_text(if have.is_some() {
                 tr(lang,
-                    "Measure every finished photo in that folder (local compute, no API cost). A rebuild measures only new or changed photos. It cannot be cancelled, and a failed build leaves your existing library untouched.",
+                    K_AI_MEASURE_EVERY_FINISHED_PHOTO_IN_THAT_FOLDER_LOCA,
                 )
             } else {
-                tr(lang, "Pick a folder first")
+                tr(lang, K_AI_PICK_A_FOLDER_FIRST)
             });
             if resp.clicked() {
                 build = have;
@@ -695,16 +683,16 @@ impl AutoShadeApp {
             // read on the next build.
             let mut pick_raw = false;
             ui.horizontal(|ui| {
-            if action_in(ui, cell, true, tr(lang, "🗂 RAW folder…"))
+            if action_in(ui, cell, true, tr(lang, K_AI_RAW_FOLDER))
                 .on_hover_text(tr(lang,
-                    "Optional: the folder your RAWs live in. On the next build each finished photo's RAW is found by its file name; when the RAW's .xmp develops to the finished photo, its settings go to the AI beside that reference. A .xmp that develops to a different picture (an older version, or work done later in Photoshop) is ignored.",
+                    K_AI_OPTIONAL_THE_FOLDER_YOUR_RAWS_LIVE_IN_ON_THE_NEX,
                 ))
                 .clicked()
             {
                 pick_raw = true;
             }
-            if action_in(ui, cell, self.aip.style_raw_dir.is_some(), tr(lang, "✕ Clear"))
-                .on_hover_text(tr(lang, "Stop looking for RAW settings"))
+            if action_in(ui, cell, self.aip.style_raw_dir.is_some(), tr(lang, K_AI_CLEAR))
+                .on_hover_text(tr(lang, K_AI_STOP_LOOKING_FOR_RAW_SETTINGS))
                 .clicked()
             {
                 self.aip.style_raw_dir = None;
@@ -712,22 +700,22 @@ impl AutoShadeApp {
             });
             let raw_note = match &self.aip.style_raw_dir {
                 Some(d) => abs_display(d),
-                None => tr(lang, "no RAW folder: references go without settings").to_string(),
+                None => tr(lang, K_AI_NO_RAW_FOLDER_REFERENCES_GO_WITHOUT_SETTINGS).to_string(),
             };
             ui.label(egui::RichText::new(raw_note).small().weak());
             if pick_raw {
                 self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::PickRawFolder)]);
             }
-            ui.checkbox(&mut self.aip.style_describe, tr(lang, "Write look phrases (local model)"))
+            ui.checkbox(&mut self.aip.style_describe, tr(lang, K_AI_WRITE_LOOK_PHRASES_LOCAL_MODEL))
                 .on_hover_text(tr(lang,
-                    "A local model (Qwen3-VL-2B, 4.3 GB, downloaded once; builds get slower) writes a few phrases per photo about its GRADE — \"warm, faded, low contrast\" — which go to the AI beside each reference. Nothing leaves this machine and nothing is billed. Off = the references go without words.",
+                    K_AI_A_LOCAL_MODEL_QWEN3_VL_2B_4_3_GB_DOWNLOADED_ONCE,
                 ));
         });
         if let Some((stage, done, total)) = self.ai.style_build_progress {
             ui.label(
                 egui::RichText::new(trf(
                     lang,
-                    "{stage}: {done} / {total} photos",
+                    K_AI_PHOTOS,
                     &[("stage", tr(lang, stage.label())), ("done", &done.to_string()), ("total", &total.to_string())],
                 ))
                 .weak()
@@ -749,25 +737,25 @@ impl AutoShadeApp {
     fn ai_library_use(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         let built = matches!(self.ai.style_info, Some(autoshade::library::Summary::Built { .. }));
-        ui.checkbox(&mut self.aip.style_embed, tr(lang, "Search the library when analysing"))
+        ui.checkbox(&mut self.aip.style_embed, tr(lang, K_AI_SEARCH_THE_LIBRARY_WHEN_ANALYSING))
             .on_hover_text(tr(lang,
-                "Each analysis measures this photo with a local model (SigLIP 2, 1.5 GB, downloaded once) and picks the closest references. Building a library turns this on, since the build has already downloaded the model.",
+                K_AI_EACH_ANALYSIS_MEASURES_THIS_PHOTO_WITH_A_LOCAL_M,
             ));
         if built && !self.aip.style_embed {
             ui.label(
-                egui::RichText::new(tr(lang, "built, but not searched: the switch above is off"))
+                egui::RichText::new(tr(lang, K_AI_BUILT_BUT_NOT_SEARCHED_THE_SWITCH_ABOVE_IS_OFF))
                     .color(ui.visuals().warn_fg_color)
                     .small(),
             );
         }
         ui.add_enabled_ui(built && self.aip.style_embed, |ui| {
-            ui.checkbox(&mut self.aip.send_style_ref_image, tr(lang, "Also show the model the reference photos"))
+            ui.checkbox(&mut self.aip.send_style_ref_image, tr(lang, K_AI_ALSO_SHOW_THE_MODEL_THE_REFERENCE_PHOTOS))
                 .on_hover_text(if built {
                     tr(lang,
-                        "WILL UPLOAD UP TO 3 MORE IMAGES per analysis call: the closest reference photos, so the model can match their look by eye as well as by words. COST: each is billed as one more image — and a revision round sends them again. They are never stored by the provider (store:false), and the rationale says how many went. Off = the references go as words only.",
+                        K_AI_WILL_UPLOAD_UP_TO_3_MORE_IMAGES_PER_ANALYSIS_CAL,
                     )
                 } else {
-                    tr(lang, "Build a reference library first — there is no reference photo to send")
+                    tr(lang, K_AI_BUILD_A_REFERENCE_LIBRARY_FIRST_THERE_IS_NO_REFE)
                 });
         });
     }
@@ -788,7 +776,7 @@ impl AutoShadeApp {
     fn ai_generate(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         ui.add_space(SPACE_XS);
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Generate whole image · paid API"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_AI_GENERATE_WHOLE_IMAGE_PAID_API))
             .id_salt("sec_ai_reimagine")
             .default_open(false)
             // Headless layout tests must see this row: it carries the R19
@@ -817,7 +805,7 @@ impl AutoShadeApp {
                     // is therefore pinned HERE and handed to the widget, so
                     // the arithmetic and the widget can never disagree.
                     const TE_MARGIN: egui::Margin = egui::Margin::symmetric(4, 2);
-                    let btn_label = tr(lang, "✨ Generate image");
+                    let btn_label = tr(lang, K_AI_GENERATE_IMAGE);
                     let btn_w = ui
                         .painter()
                         .layout_no_wrap(
@@ -855,7 +843,7 @@ impl AutoShadeApp {
                         egui::TextEdit::singleline(&mut self.genai.reimagine_prompt)
                             .margin(TE_MARGIN)
                             .desired_width(field_w)
-                            .hint_text(tr(lang, "style to repaint toward — e.g. golden-hour glow, moody film look")),
+                            .hint_text(tr(lang, K_AI_STYLE_TO_REPAINT_TOWARD_E_G_GOLDEN_HOUR_GLOW_MOO)),
                     );
                     #[cfg(test)]
                     {
@@ -869,11 +857,7 @@ impl AutoShadeApp {
                         }
                         if resp
                             .on_hover_text(tr(lang,
-                                "Repaint the whole image with gpt-image, styled by the prompt on the left \
-                                 (empty = a neutral finished develop). Repainted pixels = not faithful; the \
-                                 result is added as an 「AI generated」 variant at the bottom and switched to; \
-                                 it stays as generated, and your tweaks continue on an ✎ card beside it. Models that accept any size \
-                                 (gpt-image-2) reach ~8MP, others ~1.5K. Needs an image API (OPENAI_API_KEY, or the OAuth image bridge in Settings).",
+                                K_AI_REPAINT_THE_WHOLE_IMAGE_WITH_GPT_IMAGE_STYLED_BY,
                             ))
                             .clicked()
                         {
@@ -885,18 +869,14 @@ impl AutoShadeApp {
                 // prompt+button row re-opens the R19 width arithmetic.
                 ui.checkbox(
                     &mut self.fit.reimagine_retry,
-                    tr(lang, "auto-retry once if the result diverges"),
+                    tr(lang, K_AI_AUTO_RETRY_ONCE_IF_THE_RESULT_DIVERGES),
                 )
                 .on_hover_text(trf(
                     lang,
-                    "After generating, the structural divergence D vs the original is measured. \
-                     If D ≥ {limit} (the reverse-fit's atmosphere threshold), buy ONE more \
-                     generation — a second paid image — and keep the closer result. \
-                     Off = never spend extra.",
+                    K_AI_AFTER_GENERATING_THE_STRUCTURAL_DIVERGENCE_D_VS,
                     &[("limit", &format!("{:.2}", autoshade::fit::DIVERGENCE_GLOBAL))],
                 ));
-                explainer(ui, lang, tr(lang, "After generating, use 「Reverse-fit recipe」 to turn the look into sliders + XMP \
-                         (the full-resolution way)."));
+                explainer(ui, lang, tr(lang, K_AI_AFTER_GENERATING_USE_REVERSE_FIT_RECIPE_TO_TURN));
             });
     }
 
@@ -910,7 +890,7 @@ impl AutoShadeApp {
     fn ai_adjust(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         ui.add_space(SPACE_XS);
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Adjust generated image · paid API"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_AI_ADJUST_GENERATED_IMAGE_PAID_API))
             .id_salt("sec_ai_adjust")
             .default_open(false)
             .open(fold_open_in_tests())
@@ -918,7 +898,7 @@ impl AutoShadeApp {
                 let _field = prompt_field(
                     ui,
                     &mut self.genai.adjust_prompt,
-                    tr(lang, "what to change — e.g. make the sky bluer, remove the wires on the left; blank with a painted area = remove"),
+                    tr(lang, K_AI_WHAT_TO_CHANGE_E_G_MAKE_THE_SKY_BLUER_REMOVE_THE),
                 );
                 #[cfg(test)]
                 {
@@ -927,26 +907,26 @@ impl AutoShadeApp {
                 egui::ComboBox::from_id_salt("adjust_quality")
                     .selected_text(tr(lang, ["high", "medium", "low"][self.genai.adjust_quality.min(2)]))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.genai.adjust_quality, 0, tr(lang, "high"));
-                        ui.selectable_value(&mut self.genai.adjust_quality, 1, tr(lang, "medium"));
-                        ui.selectable_value(&mut self.genai.adjust_quality, 2, tr(lang, "low"));
+                        ui.selectable_value(&mut self.genai.adjust_quality, 0, tr(lang, K_AI_HIGH));
+                        ui.selectable_value(&mut self.genai.adjust_quality, 1, tr(lang, K_AI_MEDIUM));
+                        ui.selectable_value(&mut self.genai.adjust_quality, 2, tr(lang, K_AI_LOW));
                     })
                     .response
-                    .on_hover_text(tr(lang, "gpt-image render quality — higher looks better and costs more per image"));
+                    .on_hover_text(tr(lang, K_AI_GPT_IMAGE_RENDER_QUALITY_HIGHER_LOOKS_BETTER_AND));
                 // This fold's own brush and painted area (2026-09-27): it used
                 // to read the Retouch panel's shared mask with no control here.
                 self.brush_row(ui, BrushOwner::Adjust);
                 let note = if !self.active_on_ai_pixels() {
-                    tr(lang, "select a ✨ AI generated card (or its ✎ edit) first")
+                    tr(lang, K_AI_SELECT_A_AI_GENERATED_CARD_OR_ITS_EDIT_FIRST)
                 } else if self.area_painted(BrushOwner::Adjust) {
-                    tr(lang, "painted area only")
+                    tr(lang, K_AI_PAINTED_AREA_ONLY)
                 } else {
-                    tr(lang, "whole image (paint an area to limit it)")
+                    tr(lang, K_AI_WHOLE_IMAGE_PAINT_AN_AREA_TO_LIMIT_IT)
                 };
                 ui.label(egui::RichText::new(note).weak().small());
-                let resp = primary_row(ui, self.can_adjust(), tr(lang, "✨ Adjust"))
+                let resp = primary_row(ui, self.can_adjust(), tr(lang, K_AI_ADJUST))
                     .on_hover_text(tr(lang,
-                        "Change the generated picture with the prompt: the whole image, or only the painted area when this section's brush has strokes (blank = remove there). One gpt-image call per adjust — costs per image. The result is a new ✨ AI generated card; this card stays as it is; crop / straighten are not carried (set them on the new card). Needs an image API (OPENAI_API_KEY, or the OAuth image bridge in Settings).",
+                        K_AI_CHANGE_THE_GENERATED_PICTURE_WITH_THE_PROMPT_THE,
                     ));
                 #[cfg(test)]
                 {
@@ -975,16 +955,14 @@ impl AutoShadeApp {
     /// hover and the fit prompt says it in its body.
     pub(crate) fn fit_explainer(lang: Lang) -> &'static str {
         tr(lang,
-            "Statistical fit: reverse the freshly generated look into editable develop params \
-             (local, no API cost). Sliders update (undoable), and for RAW a Lightroom XMP goes \
-             into this photo's develop store; hit Export to render the full-resolution result.",
+            K_AI_STATISTICAL_FIT_REVERSE_THE_FRESHLY_GENERATED_LO,
         )
     }
 
     fn ai_reverse_fit(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         ui.add_space(SPACE_XS);
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Match a look (reverse-fit) · local"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_AI_MATCH_A_LOOK_REVERSE_FIT_LOCAL))
             .id_salt("sec_ai_reverse_fit")
             .default_open(true)
             // Same reason as the folds above: a headless frame never clicks a
@@ -1003,10 +981,10 @@ impl AutoShadeApp {
                     self.active_variant().is_some_and(|v| v.kind == VariantKind::Edited);
                 let note = if on_edited {
                     tr(lang,
-                        "Reverse-fit reads the ✨ AI generated card's pixels — select that card; your ✎ edits are sliders over the same pixels and stay where they are.")
+                        K_AI_REVERSE_FIT_READS_THE_AI_GENERATED_CARD_S_PIXELS)
                 } else {
                     tr(lang,
-                        "Pick a reference below, or generate an image and stay on that variant, to reverse-fit a recipe.")
+                        K_AI_PICK_A_REFERENCE_BELOW_OR_GENERATE_AN_IMAGE_AND)
                 };
                 ui.label(egui::RichText::new(note).weak().small());
             }
@@ -1016,7 +994,7 @@ impl AutoShadeApp {
             // source was a rule nobody could see (`negative_index`).
             let (auto, sources) = self.fit_source_menu();
             let to = (self.fit.fit_ref.is_none() && self.fit_target().is_some())
-                .then(|| trf(lang, "To: {card}", &[("card", &self.numbered_card_label(self.doc.active))]));
+                .then(|| trf(lang, K_ACTIONS_TO, &[("card", &self.numbered_card_label(self.doc.active))]));
             if !sources.is_empty() {
                 let shown = match self.fit.fit_from.as_deref() {
                     Some(id) => sources.iter().find(|(s, _)| s == id).map(|(_, l)| l.clone()),
@@ -1032,7 +1010,7 @@ impl AutoShadeApp {
                     // `available_width()` alone stretched it across a wide
                     // panel (2026-10-01 user report).
                     let row = columns(ui, 1).x;
-                    let label = ui.label(tr(lang, "From:")).rect.width();
+                    let label = ui.label(tr(lang, K_ACTIONS_FROM)).rect.width();
                     let menu = (row - label - ui.spacing().item_spacing.x).max(FIELD_W_MIN);
                     let _menu = ui.add_enabled_ui(!busy, |ui| {
                         egui::ComboBox::from_id_salt("fit_from")
@@ -1052,7 +1030,7 @@ impl AutoShadeApp {
                             })
                             .response
                             .on_hover_text(tr(lang,
-                                "The negative the reverse-fit starts FROM: the ▣ original, or a ◈ denoised / ▦ stacked master. Automatic = the ◈ / ▦ card you stand on, else the first one in the strip, else ▣.",
+                                K_AI_THE_NEGATIVE_THE_REVERSE_FIT_STARTS_FROM_THE_ORI,
                             ))
                     });
                     #[cfg(test)]
@@ -1079,14 +1057,9 @@ impl AutoShadeApp {
                 // Two cells of the grid, measured at the row's start: the
                 // verb, then the file name with its ✕ (2026-09-27, 2026-10-14).
                 let cell = columns(ui, 2);
-                if action_in(ui, cell, !self.busy, tr(lang, "Choose reference…"))
+                if action_in(ui, cell, !self.busy, tr(lang, K_AI_CHOOSE_REFERENCE))
                     .on_hover_text(tr(lang,
-                        "Reverse-fit toward ANY finished version of THIS SAME photo — your own \
-                         Lightroom/Capture One export, the camera's JPEG, a TIFF, or another RAW \
-                         (developed neutrally first). The fit solves the develop parameters that \
-                         reproduce that file's look and leaves your pixels untouched. It must be \
-                         the same frame: a different picture is warned about, not refused, and \
-                         its result means nothing.",
+                        K_AI_REVERSE_FIT_TOWARD_ANY_FINISHED_VERSION_OF_THIS,
                     ))
                     .clicked()
                 {
@@ -1112,7 +1085,7 @@ impl AutoShadeApp {
                         // translated.
                         if glyph(ui, true, "✕")
                             .on_hover_text(tr(lang,
-                                "Forget this reference and go back to reverse-fitting the active generated variant",
+                                K_AI_FORGET_THIS_REFERENCE_AND_GO_BACK_TO_REVERSE_FIT,
                             ))
                             .clicked()
                         {
@@ -1140,32 +1113,30 @@ impl AutoShadeApp {
             Self::slider_pct_hinted(
                 ui,
                 lang,
-                tr(lang, "Reverse-fit strength"),
+                tr(lang, K_AI_REVERSE_FIT_STRENGTH),
                 &mut self.aip.fit_strength,
                 1.0,
                 autoshade::recipe::GradeStrength::DEFAULT,
                 tr(lang,
-                    "How far the fit may move sliders on weak evidence. At the default 65% it only moves what both images clearly support; higher values let it go further and flag those moves in the notes. This is separate from the Analysis Strength above. Double-click to reset.",
+                    K_AI_HOW_FAR_THE_FIT_MAY_MOVE_SLIDERS_ON_WEAK_EVIDENC,
                 ),
             );
             ui.horizontal_wrapped(|ui| {
                 let cell = columns(ui, 2);
                 let can = !self.busy && can_fit;
-                if primary_in(ui, cell, can, tr(lang, "Reverse-fit recipe"))
+                if primary_in(ui, cell, can, tr(lang, K_AI_REVERSE_FIT_RECIPE))
                     .on_hover_text(format!(
                         "{}{}",
                         Self::fit_explainer(lang),
-                        tr(lang, " Uses the Reverse-fit strength dial above as its honesty budget."),
+                        tr(lang, K_AI_USES_THE_REVERSE_FIT_STRENGTH_DIAL_ABOVE_AS_ITS),
                     ))
                     .clicked()
                 {
                     self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::ReverseFit)]);
                 }
-                if action_in(ui, cell, can, tr(lang, "Extract style"))
+                if action_in(ui, cell, can, tr(lang, K_AI_EXTRACT_STYLE))
                     .on_hover_text(tr(lang,
-                        "Compare the original / generated images and have the vision model write a reusable \
-                         style prompt: auto-fills the Generate image prompt (ready to restyle other photos) and \
-                         saves <stem>.style.txt in the delivery folder.",
+                        K_AI_COMPARE_THE_ORIGINAL_GENERATED_IMAGES_AND_HAVE_T,
                     ))
                     .clicked()
                 {
@@ -1186,14 +1157,9 @@ impl AutoShadeApp {
             // has run away once before).
             ui.horizontal(|ui| {
                 ui.add_enabled_ui(!self.busy, |ui| {
-                    ui.checkbox(&mut self.fit.fit_ai_judge, tr(lang, "AI review"))
+                    ui.checkbox(&mut self.fit.fit_ai_judge, tr(lang, K_AI_AI_REVIEW))
                         .on_hover_text(tr(lang,
-                            "After the fit, show the target and the fitted render to the vision model and \
-                             have it SCORE the match (0-100) with a short critique — LLM as a judge. One \
-                             paid vision call per fit (needs the image API key); the fit itself stays \
-                             local and free. The score, its critique AND its suggestion land in the \
-                             status line below — nothing is changed for you. No cancel: like the fit \
-                             itself, the app stays busy until the review returns.",
+                            K_AI_AFTER_THE_FIT_SHOW_THE_TARGET_AND_THE_FITTED_REN,
                         ));
                 });
                 // R23-6 D: the review can now also ACT, when asked. Beside
@@ -1201,33 +1167,33 @@ impl AutoShadeApp {
                 // plus a loop — a checkbox that silently switched the other one
                 // on would be two settings pretending to be one.
                 ui.add_enabled_ui(!self.busy && self.fit.fit_ai_judge, |ui| {
-                    ui.checkbox(&mut self.fit.fit_deep, tr(lang, "Retry once"))
+                    ui.checkbox(&mut self.fit.fit_deep, tr(lang, K_AI_RETRY_ONCE))
                         .on_hover_text(if self.fit.fit_ai_judge {
                             tr(lang,
-                                "Retry once: runs the AI review before saving; if the review suggests a fix, tries it once and keeps whichever scores higher. Costs up to two paid vision calls instead of one, and the save waits for them; there is no cancel, as for the review itself. Off = the reviewed fit is saved first and the score is a note.",
+                                K_AI_RETRY_ONCE_RUNS_THE_AI_REVIEW_BEFORE_SAVING_IF_T,
                             )
                         } else {
-                            tr(lang, "Turn on 「AI review」 first — 「Retry once」 repeats that review")
+                            tr(lang, K_AI_TURN_ON_AI_REVIEW_FIRST_RETRY_ONCE_REPEATS_THAT)
                         });
                 });
             });
             // The way back from the fit prompt's 「Don't ask again」 (v1.17.0),
             // beside the verb it asks about. A preference, so no gate.
-            ui.checkbox(&mut self.fit.ask_fit_after_generate, tr(lang, "Ask after each AI generation"))
+            ui.checkbox(&mut self.fit.ask_fit_after_generate, tr(lang, K_AI_ASK_AFTER_EACH_AI_GENERATION))
                 .on_hover_text(tr(lang,
-                    "When 「AI generate」 lands a new ✨ card, ask whether to reverse-fit it and from which negative (the ▣ original unless you pick another).",
+                    K_AI_WHEN_AI_GENERATE_LANDS_A_NEW_CARD_ASK_WHETHER_TO,
                 ));
             // Migrated from Settings (#4): a switch that only ever changes what
             // the button above does. Same rule as 「AI review」 — a persisted
             // preference, so no can_fit gate (and, as in Settings, no busy gate:
             // `start_fit` reads the flag when it runs).
             let zoned_rows = |app: &mut Self, ui: &mut egui::Ui| {
-                ui.checkbox(&mut app.fit.zoned_fit, tr(lang, "Fit local areas too")).on_hover_text(tr(
+                ui.checkbox(&mut app.fit.zoned_fit, tr(lang, K_AI_FIT_LOCAL_AREAS_TOO)).on_hover_text(tr(
                     lang,
-                    "After the global fit, tries extra local masks where the photo differs region by region: the sky, bright and dark ranges, and up to four tiles of a 4×4 grid. Each mask is kept only if it brings the result closer without making any area worse. Sky masks go to Lightroom as its own Select Sky; other masks Lightroom cannot hold are named when you save. Needs Python with transformers and torch; without them only the tonal ranges are tried.",
+                    K_AI_AFTER_THE_GLOBAL_FIT_TRIES_EXTRA_LOCAL_MASKS_WHE,
                 ));
-                ui.checkbox(&mut app.fit.zoned_four_regions, tr(lang, "Up to four semantic regions"))
-                    .on_hover_text(tr(lang, "Opt in to semantic regions beyond the historical sky/land pass; this costs one OneFormer pass per frame and may take longer."));
+                ui.checkbox(&mut app.fit.zoned_four_regions, tr(lang, K_AI_UP_TO_FOUR_SEMANTIC_REGIONS))
+                    .on_hover_text(tr(lang, K_AI_OPT_IN_TO_SEMANTIC_REGIONS_BEYOND_THE_HISTORICAL));
             };
             zoned_rows(self, ui);
             });
@@ -1246,7 +1212,7 @@ pub(crate) const ANALYSIS_BOX_MAX_H: f32 = 160.0;
 /// three sentences + R23-1b's pixel-tool line): the model's working, as
 /// opposed to the deterministic tail every analysis carries. ONE list, so the
 /// box and the sentence agree on who takes which note.
-fn is_working_note(key: &str) -> bool {
+fn is_working_note(key: autoshade::text::Key) -> bool {
     use autoshade::rationale::keys as k;
     [k::THINK_SCENE, k::THINK_LOOK, k::THINK_CRITIQUE, k::PIXEL_TOOLS].contains(&key)
 }

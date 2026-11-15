@@ -59,7 +59,7 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
             }
         }
         Err(e) => {
-            self.fail(tr(lang, "AI segmentation failed"), e);
+            self.fail(tr(lang, K_LANDING_AI_SEGMENTATION_FAILED), e);
         }
     }
 }
@@ -97,7 +97,7 @@ pub(crate) fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRef
             self.run_effects(landed.effects);
         }
         Err(e) => {
-            self.fail(tr(lang, "mask refine failed"), e);
+            self.fail(tr(lang, K_LANDING_MASK_REFINE_FAILED), e);
         }
     }
 }
@@ -135,7 +135,7 @@ pub(crate) fn on_folder(&mut self, lang: Lang, res: anyhow::Result<(PathBuf, Vec
                     self.disclose_undrawable_names();
                 }
                 Err(e) => {
-                    self.fail(tr(lang, "scan failed"), e);
+                    self.fail(tr(lang, K_LANDING_SCAN_FAILED), e);
                 }
             }
 }
@@ -187,13 +187,13 @@ pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo
                             let t = if dropped {
                                 trf(
                                     lang,
-                                    "the ▣ Original card's retouch master {path} was deleted — the card now works from the photo file itself (Ctrl+S saves that)",
+                                    K_LANDING_THE_ORIGINAL_CARD_S_RETOUCH_MASTER_WAS_DELETED_T,
                                     &[("path", &origin.display().to_string())],
                                 )
                             } else {
                                 trf(
                                     lang,
-                                    "this variant's saved master could not be loaded ({err}) — showing the un-retouched source develop instead",
+                                    K_CANVAS_THIS_VARIANT_S_SAVED_MASTER_COULD_NOT_BE_LOADED,
                                     &[("err", &e.to_string())],
                                 )
                             };
@@ -409,11 +409,11 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                     if let Some(none) = e.downcast_ref::<autoshade::retouch::NoSpotInsideLimit>() {
                         self.done(trf(
                             lang,
-                            "No spots on the face to heal — nothing was changed ({n} found elsewhere were left alone)",
+                            K_LANDING_NO_SPOTS_ON_THE_FACE_TO_HEAL_NOTHING_WAS_CHANGED,
                             &[("n", &none.found.to_string())],
                         ));
                     } else {
-                        self.fail(tr(lang, "retouch failed"), e);
+                        self.fail(tr(lang, K_LANDING_RETOUCH_FAILED), e);
                     }
                 }
                 }
@@ -422,7 +422,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
 pub(crate) fn render_fit_note(lang: Lang, n: &FitNote) -> String {
     let mut out = String::new();
     for piece in logic::fit::note_words(n) {
-        if piece.key.starts_with(" · ") {
+        if autoshade::text::english(piece.key).starts_with(" · ") {
             out.push_str(&crate::i18n::text(lang, &piece));
         } else {
             out.push_str(" · ");
@@ -505,7 +505,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // The pre-fit snapshot may exist even when the fit
                     // errored — keep the Versions list truthful.
                     self.refresh_versions();
-                    self.fail(tr(lang, "Reverse-fit failed"), e);
+                    self.fail(tr(lang, K_LANDING_REVERSE_FIT_FAILED), e);
                 }
             }
 }
@@ -553,11 +553,11 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
         Ok(out) => {
             self.open.pasted_open = None;
             let msg = crate::i18n::text(lang, &logic::paste::partial_words(out.ok, &out.errs));
-            self.fail(tr(lang, "batch paste"), anyhow::anyhow!("{}", msg));
+            self.fail(tr(lang, K_LANDING_BATCH_PASTE), anyhow::anyhow!("{}", msg));
         }
         Err(e) => {
             self.open.pasted_open = None;
-            self.fail(tr(lang, "batch paste"), e);
+            self.fail(tr(lang, K_LANDING_BATCH_PASTE), e);
         }
     }
 }

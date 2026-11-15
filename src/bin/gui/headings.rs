@@ -100,7 +100,7 @@ pub(crate) fn paint_chevron(ui: &mut egui::Ui, openness: f32, response: &egui::R
 /// where it used to show three to six. Status lines and warnings stay plain
 /// labels — only explanation goes here.
 pub(crate) fn explainer(ui: &mut egui::Ui, lang: Lang, text: &str) -> egui::Response {
-    ui.label(egui::RichText::new(tr(lang, "ⓘ How this works")).small().weak()).on_hover_ui(|ui| {
+    ui.label(egui::RichText::new(tr(lang, K_HEADING_HOW_THIS_WORKS)).small().weak()).on_hover_ui(|ui| {
         ui.set_max_width(EXPLAINER_W);
         ui.label(text);
     })

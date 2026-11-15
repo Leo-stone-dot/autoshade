@@ -74,13 +74,13 @@
             let mut app = AutoShadeApp { lang, ..Default::default() };
             let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
             let want = [
-                tr(lang, "AI generation & reverse-fit"),
-                tr(lang, "Generate whole image · paid API"),
-                tr(lang, "Match a look (reverse-fit) · local"),
-                tr(lang, "AI analysis & auto develop"),
-                tr(lang, "Analysis · paid API"),
-                tr(lang, "Adjust the selected variant · paid API"),
-                tr(lang, "Reference library · local"),
+                tr(lang, K_AI_AI_GENERATION_REVERSE_FIT),
+                tr(lang, K_AI_GENERATE_WHOLE_IMAGE_PAID_API),
+                tr(lang, K_AI_MATCH_A_LOOK_REVERSE_FIT_LOCAL),
+                tr(lang, K_AI_AI_ANALYSIS_AUTO_DEVELOP),
+                tr(lang, K_AI_ANALYSIS_PAID_API),
+                tr(lang, K_AI_ADJUST_THE_SELECTED_VARIANT_PAID_API),
+                tr(lang, K_AI_REFERENCE_LIBRARY_LOCAL),
             ];
             let mut at = 0usize;
             for w in want {
@@ -450,11 +450,11 @@
                 );
             }
             for lead in [
-                tr(lang, "Deep thinking · its working"),
-                tr(lang, "What it saw:"),
-                tr(lang, "The look it aimed for:"),
-                tr(lang, "Its own critique against your strength target:"),
-                tr(lang, "Pixel tools it suggests (nothing was run):"),
+                tr(lang, K_AI_DEEP_THINKING_ITS_WORKING),
+                tr(lang, K_AI_WHAT_IT_SAW),
+                tr(lang, K_AI_THE_LOOK_IT_AIMED_FOR),
+                tr(lang, K_AI_ITS_OWN_CRITIQUE_AGAINST_YOUR_STRENGTH_TARGET),
+                tr(lang, K_AI_PIXEL_TOOLS_IT_SUGGESTS_NOTHING_WAS_RUN),
             ] {
                 assert!(seen.iter().any(|t| t == lead), "{lang:?}: {lead:?} is missing: {seen:?}");
             }
@@ -467,7 +467,7 @@
  ..Default::default() };
         app.doc.recipe.rationale = rationale.clone();
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
-        let title = tr(app.lang, "Deep thinking · its working");
+        let title = tr(app.lang, K_AI_DEEP_THINKING_ITS_WORKING);
         assert!(
             seen.iter().any(|t| t.starts_with("“Prose.") && working.iter().all(|w| t.contains(w))),
             "without notes the working stays inside the raw sentence: {seen:?}"
@@ -682,7 +682,7 @@
     fn a_long_analysis_scrolls_in_its_box_and_opens_whole_in_a_window() {
         let long = format!("{}END-OF-RATIONALE", "The sky is lifted and the shadows are opened a little. ".repeat(60));
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
-            let verb = tr(lang, "View full text…");
+            let verb = tr(lang, K_AI_VIEW_FULL_TEXT);
             let mut app = AutoShadeApp { lang, analysis: AnalysisSession {
      rationale: long.clone(),
      ..Default::default()

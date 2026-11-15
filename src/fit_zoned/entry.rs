@@ -559,7 +559,7 @@ fn fit_recipe_zoned_multi_inner(
         // The two key FAMILIES first (R34 §D2): one outcome each, two
         // carriers each, and `is_colour_refusal`/`is_tone_refusal` are the one
         // place that knows it — a match arm per key would be a second place.
-        let verdict_name = |key: &str| {
+        let verdict_name = |key: crate::text::Key| {
             if is_colour_refusal(key) {
                 return "ZONE_EVIDENCE_WITHHELD_COLOUR";
             }

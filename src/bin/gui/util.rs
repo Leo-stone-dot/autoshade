@@ -145,7 +145,7 @@ pub(crate) fn draw_mask_overlay(
             p.text(
                 xf.rect.left_top() + egui::vec2(10.0, 10.0),
                 egui::Align2::LEFT_TOP,
-                tr(lang, "▨ Bitmap mask"),
+                tr(lang, K_GUI_BITMAP_MASK),
                 egui::FontId::proportional(14.0),
                 ACCENT,
             );
@@ -159,7 +159,7 @@ pub(crate) fn draw_mask_overlay(
             p.text(
                 xf.rect.left_top() + egui::vec2(10.0, 10.0),
                 egui::Align2::LEFT_TOP,
-                tr(lang, "▨ Brush mask (drawn from our measured model)"),
+                tr(lang, K_GUI_BRUSH_MASK_DRAWN_FROM_OUR_MEASURED_MODEL),
                 egui::FontId::proportional(14.0),
                 ACCENT,
             );
@@ -175,9 +175,9 @@ pub(crate) fn draw_mask_overlay(
                 xf.rect.left_top() + egui::vec2(10.0, 10.0),
                 egui::Align2::LEFT_TOP,
                 if raster.is_some() {
-                    tr(lang, "▨ AI mask (re-derived locally, not Adobe's raster)")
+                    tr(lang, K_GUI_AI_MASK_RE_DERIVED_LOCALLY_NOT_ADOBE_S_RASTER)
                 } else {
-                    tr(lang, "▨ AI mask (carried, not yet re-derived)")
+                    tr(lang, K_GUI_AI_MASK_CARRIED_NOT_YET_RE_DERIVED)
                 },
                 egui::FontId::proportional(14.0),
                 ACCENT,
@@ -265,7 +265,7 @@ pub(crate) fn fit_in_capped(tex_size: egui::Vec2, max_w: f32, avail_y: f32, cap:
 /// rewritten ones, and one tooltip per widget — a second `on_hover_text` on
 /// the same response stacks two bubbles (see `slider_hinted`).
 pub(crate) fn ai_xref(lang: Lang, tip: &str) -> String {
-    format!("{tip}\n\n{}", tr(lang, "More AI features are in the AI area at the top of this panel"))
+    format!("{tip}\n\n{}", tr(lang, K_GUI_MORE_AI_FEATURES_ARE_IN_THE_AI_AREA_AT_THE_TOP_O))
 }
 
 /// Fold-state override for every collapsible whose body a headless test has to
@@ -398,7 +398,7 @@ fn rotation_degrees(lang: Lang, degs: impl Iterator<Item = i32>) -> Option<Strin
     let list = crate::logic::xmp_disclosure::rotation_list(degs)?;
     let mut shown = list.shown.iter().map(|d| d.to_string()).collect::<Vec<_>>().join(", ");
     if list.more > 0 {
-        shown = format!("{shown}, {}", trf(lang, "+{n} more", &[("n", &list.more.to_string())]));
+        shown = format!("{shown}, {}", trf(lang, K_CANVAS_MORE, &[("n", &list.more.to_string())]));
     }
     Some(shown)
 }
@@ -447,12 +447,12 @@ pub(crate) fn xmp_loss_line(
             .iter()
             // A mask may legitimately have no name; an empty slot in a
             // comma list reads as a rendering bug.
-            .map(|n| if n.trim().is_empty() { tr(lang, "(unnamed)").to_string() } else { n.to_string() })
+            .map(|n| if n.trim().is_empty() { tr(lang, K_GUI_UNNAMED).to_string() } else { n.to_string() })
             .collect::<Vec<_>>()
             .join(", ");
         match more {
             0 => list,
-            _ => format!("{list}, {}", trf(lang, "+{n} more", &[("n", &more.to_string())])),
+            _ => format!("{list}, {}", trf(lang, K_CANVAS_MORE, &[("n", &more.to_string())])),
         }
     }
     let mut parts: Vec<String> = Vec::new();
@@ -471,9 +471,9 @@ pub(crate) fn xmp_loss_line(
         }
         let n = n.to_string();
         let head = match reason {
-            R::Bitmap => trf(lang, "bitmap masks ×{n}", &[("n", &n)]),
-            R::Disabled => trf(lang, "muted masks ×{n}", &[("n", &n)]),
-            R::ComponentsFlattened => trf(lang, "bitmap components omitted ×{n}", &[("n", &n)]),
+            R::Bitmap => trf(lang, K_GUI_BITMAP_MASKS, &[("n", &n)]),
+            R::Disabled => trf(lang, K_GUI_MUTED_MASKS, &[("n", &n)]),
+            R::ComponentsFlattened => trf(lang, K_GUI_BITMAP_COMPONENTS_OMITTED, &[("n", &n)]),
             // The one entry in this list that is NOT about the XMP: the brush
             // rides out COMPLETE, so the frame sentence 「the Lightroom XMP
             // does not carry:」 would be a lie about this item alone. Its own
@@ -482,7 +482,7 @@ pub(crate) fn xmp_loss_line(
             // brush」 rather than 「we did not draw it」.
             R::BrushRendered => trf(
                 lang,
-                "brush masks ×{n} drawn from our measured model, not Adobe's raster",
+                K_GUI_BRUSH_MASKS_DRAWN_FROM_OUR_MEASURED_MODEL_NOT_AD,
                 &[("n", &n)],
             ),
             // The other non-XMP entry, and the sharper one: the INTENT rides
@@ -492,7 +492,7 @@ pub(crate) fn xmp_loss_line(
             // round trip, which it is not in either direction.
             R::AiMaskRecomputed => trf(
                 lang,
-                "AI masks ×{n} re-derived locally — not Adobe's raster",
+                K_PERSIST_AI_MASKS_RE_DERIVED_LOCALLY_NOT_ADOBE_S_RASTER,
                 &[("n", &n)],
             ),
             // R25 P5: the rotation loss SAYS THE ANGLE and says why. 「radial
@@ -510,16 +510,16 @@ pub(crate) fn xmp_loss_line(
             ) {
                 Some(a) => trf(
                     lang,
-                    "Rotation {a}° not written to XMP (frame size unknown)",
+                    K_GUI_ROTATION_NOT_WRITTEN_TO_XMP_FRAME_SIZE_UNKNOWN,
                     &[("a", &a)],
                 ),
-                None => trf(lang, "radial rotation ×{n}", &[("n", &n)]),
+                None => trf(lang, K_GUI_RADIAL_ROTATION, &[("n", &n)]),
             },
-            R::Recolour => trf(lang, "recolour past Temp/Tint's reach ×{n}", &[("n", &n)]),
+            R::Recolour => trf(lang, K_GUI_RECOLOUR_PAST_TEMP_TINT_S_REACH, &[("n", &n)]),
             // v1.3.1: the payload could not carry a raster this mask rides on
             // (unreadable, or over the embed budget) — Lightroom never saw it
             // either way; this is about what the sidecar gives BACK.
-            R::RasterNotEmbedded => trf(lang, "mask rasters not embedded ×{n}", &[("n", &n)]),
+            R::RasterNotEmbedded => trf(lang, K_GUI_MASK_RASTERS_NOT_EMBEDDED, &[("n", &n)]),
         };
         parts.push(format!("{head} ({})", named(lang, losses, reason)));
     }
@@ -528,19 +528,19 @@ pub(crate) fn xmp_loss_line(
     // says WHICH control, which is the whole point.
     for g in globals {
         parts.push(match *g {
-            "base_curve" => tr(lang, "camera base curve").to_string(),
-            "lens_profile" => tr(lang, "lens profile correction").to_string(),
-            "colour_field" => tr(lang, "colour field").to_string(),
-            "pixel_layers" => tr(lang, "fill layers").to_string(),
-            "lens_blur" => tr(lang, "lens blur").to_string(),
-            "lens_profile_vignetting_scale" => tr(lang, "profile vignetting amount (no Adobe lens profile here to name)").to_string(),
-            "lens_profile_distortion_scale" => tr(lang, "profile distortion amount (no Adobe lens profile here to name)").to_string(),
+            "base_curve" => tr(lang, K_GUI_CAMERA_BASE_CURVE).to_string(),
+            "lens_profile" => tr(lang, K_GUI_LENS_PROFILE_CORRECTION).to_string(),
+            "colour_field" => tr(lang, K_GUI_COLOUR_FIELD).to_string(),
+            "pixel_layers" => tr(lang, K_GUI_FILL_LAYERS).to_string(),
+            "lens_blur" => tr(lang, K_GUI_LENS_BLUR).to_string(),
+            "lens_profile_vignetting_scale" => tr(lang, K_GUI_PROFILE_VIGNETTING_AMOUNT_NO_ADOBE_LENS_PROFILE).to_string(),
+            "lens_profile_distortion_scale" => tr(lang, K_GUI_PROFILE_DISTORTION_AMOUNT_NO_ADOBE_LENS_PROFILE).to_string(),
             other => other.to_string(),
         });
     }
     Some(trf(
         lang,
-        "the Lightroom XMP does not carry: {list} (recipe.json keeps all of it)",
+        K_GUI_THE_LIGHTROOM_XMP_DOES_NOT_CARRY_RECIPE_JSON_KEE,
         &[("list", &parts.join(" · "))],
     ))
 }
@@ -586,14 +586,14 @@ pub(crate) fn render_gap_line(lang: Lang, gaps: &[&'static str]) -> Option<Strin
     let labels: Vec<String> = sections
         .into_iter()
         .map(|section| match section {
-            GapSection::Effects => tr(lang, "Effects").to_string(),
-            GapSection::Lens => tr(lang, "Lens").to_string(),
+            GapSection::Effects => tr(lang, K_DEVELOP_EFFECTS).to_string(),
+            GapSection::Lens => tr(lang, K_DEVELOP_LENS).to_string(),
             GapSection::Raw(name) => name.to_string(),
         })
         .collect();
     Some(format!(
         "{}: {}",
-        tr(lang, "Carried to Lightroom, not rendered here"),
+        tr(lang, K_GUI_CARRIED_TO_LIGHTROOM_NOT_RENDERED_HERE),
         labels.join(", ")
     ))
 }
@@ -635,7 +635,7 @@ pub(crate) fn xmp_import_line(
                 // A correction may legitimately have no name; an empty slot in
                 // a comma list reads as a rendering bug.
                 if l.name.trim().is_empty() {
-                    tr(lang, "(unnamed)").to_string()
+                    tr(lang, K_GUI_UNNAMED).to_string()
                 } else {
                     l.name.clone()
                 }
@@ -652,10 +652,10 @@ pub(crate) fn xmp_import_line(
         let label: String = match reason {
             R::Unrepresentable => tr(
                 lang,
-                "AI / brush masks cannot be imported — Lightroom recomputes them from a digest",
+                K_GUI_AI_BRUSH_MASKS_CANNOT_BE_IMPORTED_LIGHTROOM_RECO,
             )
             .into(),
-            R::OutOfModel => tr(lang, "Beyond this engine's model").into(),
+            R::OutOfModel => tr(lang, K_GUI_BEYOND_THIS_ENGINE_S_MODEL).into(),
             // R25 P5, the import twin of the export line's rotation head: say
             // the angle Lightroom wrote and why it did not survive, instead of
             // a bare category. Falls back to the plain label when there is no
@@ -669,35 +669,35 @@ pub(crate) fn xmp_import_line(
             ) {
                 Some(a) => trf(
                     lang,
-                    "Rotation {a}° read as 0 (frame size unknown)",
+                    K_GUI_ROTATION_READ_AS_0_FRAME_SIZE_UNKNOWN,
                     &[("a", &a)],
                 ),
-                None => tr(lang, "Rotation angle").into(),
+                None => tr(lang, K_GUI_ROTATION_ANGLE).into(),
             },
-            R::BlendMode => tr(lang, "Blend mode").into(),
-            R::MultiComponent => tr(lang, "Extra shapes").into(),
+            R::BlendMode => tr(lang, K_GUI_BLEND_MODE).into(),
+            R::MultiComponent => tr(lang, K_GUI_EXTRA_SHAPES).into(),
             // NOT a loss of the mask: the strokes arrived, they round-trip,
             // and since R29 Batch-6b they are DRAWN. What the label must not
             // let the reader assume is that the alpha is Adobe's — the sidecar
             // carries no alpha at all, so ours comes from a measured model of
             // Lightroom's kernel and its edges are ours.
-            R::BrushRendered => tr(lang, "Brush mask (drawn from our measured model)").into(),
+            R::BrushRendered => tr(lang, K_GUI_BRUSH_MASK_DRAWN_FROM_OUR_MEASURED_MODEL__2).into(),
             // NOT a loss either — the correction arrived, and so did every
             // shape standing beside it (the 78-correction gain). What the
             // label must not let the reader assume is that the ALPHA came from
             // Lightroom: the sidecar carries no raster, so ours is a
             // re-derivation with different edges.
             R::AiMaskRecomputed => {
-                tr(lang, "AI mask (re-derived locally, not Adobe's raster)").into()
+                tr(lang, K_GUI_AI_MASK_RE_DERIVED_LOCALLY_NOT_ADOBE_S_RASTER__2).into()
             }
-            R::AiMaskUnresolved => tr(lang, "AI mask (carried, not yet re-derived)").into(),
-            R::ForeignRangeMask => tr(lang, "Range mask (from Lightroom)").into(),
+            R::AiMaskUnresolved => tr(lang, K_GUI_AI_MASK_CARRIED_NOT_YET_RE_DERIVED__2).into(),
+            R::ForeignRangeMask => tr(lang, K_GUI_RANGE_MASK_FROM_LIGHTROOM).into(),
             // R25 P6 narrowed this verdict from "we do not model local point
             // curves" to "this one could not be READ" — the label moved with
             // it, because the old phrase now describes a feature that works.
-            R::LocalCurve => tr(lang, "Local point curve (unreadable)").into(),
+            R::LocalCurve => tr(lang, K_GUI_LOCAL_POINT_CURVE_UNREADABLE).into(),
             R::CurveRefineSaturation | R::InertLocal(_) | R::UnknownLocalKey => {
-                tr(lang, "Unmodelled slider").into()
+                tr(lang, K_GUI_UNMODELLED_SLIDER).into()
             }
         };
         match parts.iter_mut().find(|(l, _)| *l == label) {
@@ -715,7 +715,7 @@ pub(crate) fn xmp_import_line(
             let mut list = names[..shown].join(", ");
             if more > 0 {
                 let more = more.to_string();
-                list.push_str(&format!(", {}", trf(lang, "+{n} more", &[("n", &more)])));
+                list.push_str(&format!(", {}", trf(lang, K_CANVAS_MORE, &[("n", &more)])));
             }
             format!("{label} ({list})")
         })
@@ -724,7 +724,7 @@ pub(crate) fn xmp_import_line(
         "{}: {}",
         trf(
             lang,
-            "Imported {n} Lightroom mask(s), {m} feature(s) not modelled",
+            K_GUI_IMPORTED_LIGHTROOM_MASK_S_FEATURE_S_NOT_MODELLED,
             &[("n", &imported.to_string()), ("m", &rendered.len().to_string())],
         ),
         rendered.join(" · ")
@@ -905,7 +905,7 @@ pub(crate) fn same_base(a: &str, b: &str) -> bool {
 /// A model picker: a dropdown of `options` that writes the chosen id into `value`,
 /// next to a text field so any custom id can still be typed. Both edit `value`.
 pub(crate) fn model_picker(ui: &mut egui::Ui, salt: &str, value: &mut String, options: &[String], lang: Lang) {
-    let sel = if value.trim().is_empty() { tr(lang, "Select…").to_owned() } else { value.clone() };
+    let sel = if value.trim().is_empty() { tr(lang, K_GUI_SELECT).to_owned() } else { value.clone() };
     egui::ComboBox::from_id_salt(salt)
         .selected_text(sel)
         .width(200.0)
@@ -917,7 +917,7 @@ pub(crate) fn model_picker(ui: &mut egui::Ui, salt: &str, value: &mut String, op
     ui.add(
         egui::TextEdit::singleline(value)
             .desired_width(170.0)
-            .hint_text(tr(lang, "or type a custom id")),
+            .hint_text(tr(lang, K_GUI_OR_TYPE_A_CUSTOM_ID)),
     );
 }
 
@@ -937,7 +937,7 @@ pub(crate) fn effort_picker(
     lang: Lang,
 ) {
     let sel = if value.trim().is_empty() {
-        tr(lang, "provider default").to_owned()
+        tr(lang, K_GUI_PROVIDER_DEFAULT).to_owned()
     } else {
         value.clone()
     };
@@ -945,7 +945,7 @@ pub(crate) fn effort_picker(
         .selected_text(sel)
         .width(200.0)
         .show_ui(ui, |ui| {
-            ui.selectable_value(value, String::new(), tr(lang, "provider default"));
+            ui.selectable_value(value, String::new(), tr(lang, K_GUI_PROVIDER_DEFAULT));
             for t in tiers {
                 ui.selectable_value(value, (*t).to_string(), *t);
             }
@@ -953,11 +953,11 @@ pub(crate) fn effort_picker(
     ui.add(
         egui::TextEdit::singleline(value)
             .desired_width(170.0)
-            .hint_text(tr(lang, "or type a tier")),
+            .hint_text(tr(lang, K_GUI_OR_TYPE_A_TIER)),
     )
     .on_hover_text(tr(
         lang,
-        "How hard the model is asked to think. Higher tiers cost more and take longer; blank leaves the choice to the provider. An endpoint that does not know the tier is retried without it.",
+        K_GUI_HOW_HARD_THE_MODEL_IS_ASKED_TO_THINK_HIGHER_TIER,
     ));
 }
 
@@ -966,9 +966,9 @@ pub(crate) fn effort_picker(
 /// takes none and the field is best left blank.
 pub(crate) fn tiers_note(ui: &mut egui::Ui, none: bool, lang: Lang) {
     let text = if none {
-        tr(lang, "this model takes no tier, per /models — leave blank")
+        tr(lang, K_GUI_THIS_MODEL_TAKES_NO_TIER_PER_MODELS_LEAVE_BLANK)
     } else {
-        tr(lang, "tiers per /models")
+        tr(lang, K_GUI_TIERS_PER_MODELS)
     };
     ui.label(egui::RichText::new(text).weak().small());
 }
@@ -1001,7 +1001,7 @@ pub(crate) fn api_family_picker(ui: &mut egui::Ui, value: &mut String, lang: Lan
         .response
         .on_hover_text(tr(
             lang,
-            "Which request shape the image role sends. Auto tries the Responses API first and, when the endpoint answers 404 or 405 there, sends the same call as a Chat Completion and remembers that until the app closes. Choose Chat Completions for an endpoint that serves only /chat/completions (most OpenAI-compatible endpoints); Responses API pins the original shape.",
+            K_GUI_WHICH_REQUEST_SHAPE_THE_IMAGE_ROLE_SENDS_AUTO_TR,
         ));
 }
 

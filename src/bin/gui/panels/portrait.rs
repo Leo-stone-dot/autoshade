@@ -173,15 +173,15 @@ impl AutoShadeApp {
         /// The first group's line, in the session language.
     pub(crate) fn portrait_line_text(&self, lang: Lang) -> String {
         match &self.portrait.line {
-            PortraitLine::Idle => tr(lang, "Find the people first: the skin, eyes and background tools work on what is found.").into(),
-            PortraitLine::Finding => tr(lang, "Finding the people and faces…").into(),
-            PortraitLine::Found { faces: 0, .. } => tr(lang, "No face found in this photo").into(),
-            PortraitLine::Found { faces: 1, .. } => tr(lang, "Found 1 face").into(),
-            PortraitLine::Found { faces, .. } => trf(lang, "Found {n} faces", &[("n", &faces.to_string())]),
+            PortraitLine::Idle => tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_FIRST_THE_SKIN_EYES_AND_BACKGROU).into(),
+            PortraitLine::Finding => tr(lang, K_PORTRAIT_FINDING_THE_PEOPLE_AND_FACES).into(),
+            PortraitLine::Found { faces: 0, .. } => tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO).into(),
+            PortraitLine::Found { faces: 1, .. } => tr(lang, K_PORTRAIT_FOUND_1_FACE).into(),
+            PortraitLine::Found { faces, .. } => trf(lang, K_PORTRAIT_FOUND_FACES, &[("n", &faces.to_string())]),
             PortraitLine::Failed(why) => why.clone(),
-            PortraitLine::Looking if self.tools.analyze_inflight => tr(lang, "Making the portrait look…").into(),
-            PortraitLine::Looking => tr(lang, "Find the people first: the skin, eyes and background tools work on what is found.").into(),
-            PortraitLine::Looked => tr(lang, "Done — Ctrl+Z goes back").into(),
+            PortraitLine::Looking if self.tools.analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_PORTRAIT_LOOK).into(),
+            PortraitLine::Looking => tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_FIRST_THE_SKIN_EYES_AND_BACKGROU).into(),
+            PortraitLine::Looked => tr(lang, K_NORMAL_DONE_CTRL_Z_GOES_BACK).into(),
         }
     }
 
@@ -191,7 +191,7 @@ impl AutoShadeApp {
             return None;
         }
         let searched = self.portrait.found.as_ref().is_some_and(|(p, n)| self.photo.src_path.as_ref() == Some(p) && *n == 0);
-        Some(if searched { tr(lang, "No face found in this photo") } else { tr(lang, "Find the people and faces first (the first group).") })
+        Some(if searched { tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO) } else { tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP) })
     }
 
     /// The panel: a first-level heading and the four groups, behind the same
@@ -200,7 +200,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         let editable = !self.open.open_in_flight;
         ui.add_space(SPACE_LG);
-        panel_heading(ui, tr(lang, "Portraits"), false, |_| {});
+        panel_heading(ui, tr(lang, K_PORTRAIT_PORTRAITS), false, |_| {});
         let mut changed = false;
         ui.add_enabled_ui(editable, |ui| {
             self.portrait_people(ui);
@@ -225,27 +225,27 @@ impl AutoShadeApp {
     /// Group 1 — the people and the background, and the AI portrait look.
     fn portrait_people(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        Self::portrait_group(ui, tr(lang, "People and background"));
+        Self::portrait_group(ui, tr(lang, K_PORTRAIT_PEOPLE_AND_BACKGROUND));
         let ready = self.photo.src_path.is_some() && self.photo.base_preview.is_some() && !self.busy && !self.tools.analyze_inflight;
         let mut find = false;
         let mut look = false;
         ui.horizontal(|ui| {
             let cell = columns(ui, 2);
-            find = action_in(ui, cell, ready, tr(lang, "🤖 Find people and faces"))
-                .on_hover_text(tr(lang, "Finds the person and every face on this computer (MediaPipe finds the faces and eyes — install it with pip install mediapipe). The first run downloads the models."))
+            find = action_in(ui, cell, ready, tr(lang, K_PORTRAIT_FIND_PEOPLE_AND_FACES))
+                .on_hover_text(tr(lang, K_PORTRAIT_FINDS_THE_PERSON_AND_EVERY_FACE_ON_THIS_COMPUTER))
                 .clicked();
-            look = action_in(ui, cell, ready, tr(lang, "✨ AI portrait look"))
-                .on_hover_text(tr(lang, "The AI looks at this photo and gives it a portrait look: softer skin, brighter eyes, a calmer background — Ctrl+Z goes back. Needs a service key in Settings (⚙)."))
+            look = action_in(ui, cell, ready, tr(lang, K_PORTRAIT_AI_PORTRAIT_LOOK))
+                .on_hover_text(tr(lang, K_PORTRAIT_THE_AI_LOOKS_AT_THIS_PHOTO_AND_GIVES_IT_A_PORTRA))
                 .clicked();
         });
         Self::slider_pct_hinted(
             ui,
             lang,
-            tr(lang, "Look strength"),
+            tr(lang, K_NORMAL_LOOK_STRENGTH),
             &mut self.aip.grade_strength,
             1.0,
             GRADE_STRENGTH_DEFAULT,
-            tr(lang, "How strong the look is. Double-click to reset."),
+            tr(lang, K_NORMAL_HOW_STRONG_THE_LOOK_IS_DOUBLE_CLICK_TO_RESET),
         );
         let line = self.portrait_line_text(lang);
         ui.horizontal_wrapped(|ui| {
@@ -267,7 +267,7 @@ impl AutoShadeApp {
     /// Group 2 — the skin: soften, warmth, colour, the guardrail switch.
     fn portrait_skin(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
-        Self::portrait_group(ui, tr(lang, "Skin"));
+        Self::portrait_group(ui, tr(lang, K_PORTRAIT_SKIN));
         let gate = self.portrait_face_gate(lang);
         let guarded = self.keep_skin_on();
         let mut changed = false;
@@ -276,21 +276,21 @@ impl AutoShadeApp {
             let m = skin_target(&mut self.doc.recipe).unwrap_or(&mut probe);
             let mut soften = soften_of(m);
             let soft_max = logic::portrait::reach(guarded, -autoshade::face::SKIN_TEXTURE_MIN, 100.0);
-            if Self::slider_hinted(ui, lang, tr(lang, "Soften skin"), &mut soften, 0.0, soft_max, 0.0, tr(lang, "Smooths the skin's fine texture; the face's shape and the eyes stay as they are.")) {
+            if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SOFTEN_SKIN), &mut soften, 0.0, soft_max, 0.0, tr(lang, K_PORTRAIT_SMOOTHS_THE_SKIN_S_FINE_TEXTURE_THE_FACE_S_SHAPE)) {
                 set_soften(m, soften);
                 changed = true;
             }
             let warm = logic::portrait::reach(guarded, autoshade::face::SKIN_TEMPERATURE_MAX, 100.0);
-            changed |= Self::slider_hinted(ui, lang, tr(lang, "Skin warmth"), &mut m.temperature, -warm, warm, 0.0, tr(lang, "Cooler to the left, warmer to the right — on the skin only."));
+            changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SKIN_WARMTH), &mut m.temperature, -warm, warm, 0.0, tr(lang, K_PORTRAIT_COOLER_TO_THE_LEFT_WARMER_TO_THE_RIGHT_ON_THE_SK));
             let rich = logic::portrait::reach(guarded, autoshade::face::SKIN_SATURATION_MAX, 100.0);
-            changed |= Self::slider_hinted(ui, lang, tr(lang, "Skin colour intensity"), &mut m.saturation, -100.0, rich, 0.0, tr(lang, "Paler to the left, richer to the right — on the skin only."));
+            changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SKIN_COLOUR_INTENSITY), &mut m.saturation, -100.0, rich, 0.0, tr(lang, K_PORTRAIT_PALER_TO_THE_LEFT_RICHER_TO_THE_RIGHT_ON_THE_SKI));
         });
         let mut on = guarded;
         let flipped = ui
-            .checkbox(&mut on, tr(lang, "Keep skin natural"))
+            .checkbox(&mut on, tr(lang, K_PORTRAIT_KEEP_SKIN_NATURAL))
             .on_hover_text(tr(
                 lang,
-                "On: skin colour can be made only a little richer, warmer, cooler or shifted in tone, softening stops before the skin looks fake, and skin is never sharpened. This holds for your own changes and for the AI's.",
+                K_PORTRAIT_ON_SKIN_COLOUR_CAN_BE_MADE_ONLY_A_LITTLE_RICHER,
             ))
             .changed();
         if flipped {
@@ -299,10 +299,10 @@ impl AutoShadeApp {
             )]);
         }
         let can_heal = face_raster(&self.doc.recipe).is_some() && !self.busy && self.photo.src_path.is_some();
-        if action_row(ui, can_heal, tr(lang, "🤖 Remove blemishes"))
+        if action_row(ui, can_heal, tr(lang, K_PORTRAIT_REMOVE_BLEMISHES))
             .on_hover_text(tr(
                 lang,
-                "The AI finds small spots and blemishes on the face, and each is healed from the skin around it; only spots on the face are healed, and the heal of a spot at the face's edge reaches a little past it — Ctrl+Z goes back. Needs a service key in Settings (⚙).",
+                K_PORTRAIT_THE_AI_FINDS_SMALL_SPOTS_AND_BLEMISHES_ON_THE_FA,
             ))
             .clicked()
         {
@@ -319,17 +319,17 @@ impl AutoShadeApp {
     /// Group 3 — the eyes: brighten, crisp.
     fn portrait_eyes(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
-        Self::portrait_group(ui, tr(lang, "Eyes"));
+        Self::portrait_group(ui, tr(lang, K_PORTRAIT_EYES));
         let gate = self.portrait_face_gate(lang).or_else(|| {
-            (!self.doc.recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, "Find the people and faces first (the first group)."))
+            (!self.doc.recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP))
         });
         let mut changed = false;
         ui.add_enabled_ui(gate.is_none(), |ui| {
             let mut probe = LocalAdjustment::default();
             let m = role_mask(&mut self.doc.recipe, MaskRole::Eyes).unwrap_or(&mut probe);
-            changed |= Self::slider_hinted(ui, lang, tr(lang, "Brighten eyes"), &mut m.exposure_ev, 0.0, EYES_BRIGHTEN_MAX_EV, 0.0, tr(lang, "Lifts the eyes a little."));
+            changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_BRIGHTEN_EYES), &mut m.exposure_ev, 0.0, EYES_BRIGHTEN_MAX_EV, 0.0, tr(lang, K_PORTRAIT_LIFTS_THE_EYES_A_LITTLE));
             let mut crisp = crisp_of(m);
-            if Self::slider_hinted(ui, lang, tr(lang, "Crisp eyes"), &mut crisp, 0.0, 100.0, 0.0, tr(lang, "Brings out the detail in the eyes.")) {
+            if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_CRISP_EYES), &mut crisp, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_BRINGS_OUT_THE_DETAIL_IN_THE_EYES)) {
                 set_crisp(m, crisp);
                 changed = true;
             }
@@ -344,26 +344,26 @@ impl AutoShadeApp {
     /// darken / fade on the background mask.
     fn portrait_background(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
-        Self::portrait_group(ui, tr(lang, "Background"));
+        Self::portrait_group(ui, tr(lang, K_PORTRAIT_BACKGROUND));
         let mut changed = false;
         let subject = subject_raster(&self.doc.recipe);
         if self.doc.recipe.lens_blur.is_none() {
             let can = !self.busy && self.photo.base_preview.is_some() && self.photo.src_path.is_some() && depth_helper_available();
-            if action_row(ui, can, tr(lang, "🤖 Prepare the background blur"))
-                .on_hover_text(tr(lang, "Measures how far away every part of the photo is, on this computer (the first run downloads a 1.3 GB model); then the blur sliders appear."))
+            if action_row(ui, can, tr(lang, K_PORTRAIT_PREPARE_THE_BACKGROUND_BLUR))
+                .on_hover_text(tr(lang, K_PORTRAIT_MEASURES_HOW_FAR_AWAY_EVERY_PART_OF_THE_PHOTO_IS))
                 .clicked()
             {
                 self.portrait.blur_from_panel = true;
                 self.apply_actions(vec![logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth)]);
             }
         } else if let Some(lb) = self.doc.recipe.lens_blur.as_mut() {
-            changed |= Self::slider(ui, lang, tr(lang, "Blur amount"), &mut lb.amount, 0.0, 100.0, 50.0);
-            changed |= Self::slider_hinted(ui, lang, tr(lang, "Sharp range"), &mut lb.range, 0.0, 100.0, 10.0, tr(lang, "How deep the sharp part of the picture is, around the face."));
+            changed |= Self::slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut lb.amount, 0.0, 100.0, 50.0);
+            changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SHARP_RANGE), &mut lb.range, 0.0, 100.0, 10.0, tr(lang, K_PORTRAIT_HOW_DEEP_THE_SHARP_PART_OF_THE_PICTURE_IS_AROUND));
             let mut keep = lb.protect.is_some();
             let toggled = ui
-                .add_enabled(subject.is_some() || keep, egui::Checkbox::new(&mut keep, tr(lang, "Keep the person sharp")))
-                .on_hover_text(tr(lang, "The whole person stays sharp, however far the blur reaches."))
-                .on_disabled_hover_text(tr(lang, "Find the people and faces first (the first group)."))
+                .add_enabled(subject.is_some() || keep, egui::Checkbox::new(&mut keep, tr(lang, K_PORTRAIT_KEEP_THE_PERSON_SHARP)))
+                .on_hover_text(tr(lang, K_PORTRAIT_THE_WHOLE_PERSON_STAYS_SHARP_HOWEVER_FAR_THE_BLU))
+                .on_disabled_hover_text(tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP))
                 .changed();
             if toggled {
                 self.apply_actions(vec![logic::Action::Portrait(
@@ -376,18 +376,18 @@ impl AutoShadeApp {
             let mut probe = LocalAdjustment::default();
             let m = role_mask(&mut self.doc.recipe, MaskRole::Background).unwrap_or(&mut probe);
             let mut darken = darken_of(m);
-            if Self::slider_hinted(ui, lang, tr(lang, "Darken background"), &mut darken, 0.0, 100.0, 0.0, tr(lang, "Everything but the person, a little darker.")) {
+            if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_DARKEN_BACKGROUND), &mut darken, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_EVERYTHING_BUT_THE_PERSON_A_LITTLE_DARKER)) {
                 set_darken(m, darken);
                 changed = true;
             }
             let mut fade = fade_of(m);
-            if Self::slider_hinted(ui, lang, tr(lang, "Fade background colour"), &mut fade, 0.0, 100.0, 0.0, tr(lang, "Everything but the person, a little greyer.")) {
+            if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_FADE_BACKGROUND_COLOUR), &mut fade, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_EVERYTHING_BUT_THE_PERSON_A_LITTLE_GREYER)) {
                 set_fade(m, fade);
                 changed = true;
             }
         });
         if !has_bg {
-            ui.label(egui::RichText::new(tr(lang, "Find the people and faces first (the first group).")).weak().small());
+            ui.label(egui::RichText::new(tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP)).weak().small());
         }
         changed
     }

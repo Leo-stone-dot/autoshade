@@ -18,7 +18,7 @@ impl AutoShadeApp {
         ui.add_space(SPACE_MD);
         card_fold(
             ui,
-            egui::CollapsingHeader::new(section_title(tr(lang, "Lens Blur"), active))
+            egui::CollapsingHeader::new(section_title(tr(lang, K_LENS_LENS_BLUR), active))
                 .id_salt("sec_lens_blur")
                 .default_open(false),
             |ui| actions = self.lens_blur_body(ui),
@@ -32,11 +32,11 @@ impl AutoShadeApp {
         let has_helper = depth_helper_available();
         let can_run = !self.busy && self.photo.base_preview.is_some() && self.photo.src_path.is_some() && has_helper;
         let has_blur = self.doc.recipe.lens_blur.is_some();
-        let verb = if has_blur { tr(lang, "🤖 Re-estimate depth") } else { tr(lang, "🤖 Estimate depth") };
+        let verb = if has_blur { tr(lang, K_LENS_RE_ESTIMATE_DEPTH) } else { tr(lang, K_LENS_ESTIMATE_DEPTH) };
         let tip = if has_helper {
-            ai_xref(lang, tr(lang, "MoGe-2 estimates how far away every part of the photo is (Python helper; the first run downloads a ~1.3 GB model). Then click the photo to choose what stays sharp."))
+            ai_xref(lang, tr(lang, K_LENS_MOGE_2_ESTIMATES_HOW_FAR_AWAY_EVERY_PART_OF_THE))
         } else {
-            tr(lang, "This feature needs AutoShade's Python helper, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_DEPTH_SCRIPT to the path of depth.py").to_string()
+            tr(lang, K_LENS_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPER_WHI).to_string()
         };
         if action_row(ui, can_run, verb).on_hover_text(tip).clicked() {
             actions.push(logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth));
@@ -44,22 +44,22 @@ impl AutoShadeApp {
         // The card's current values, copied out so the draw below never holds a
         // borrow into the recipe the facade is about to change.
         let Some((enabled, amount, range)) = self.doc.recipe.lens_blur.as_ref().map(|l| (l.enabled, l.amount, l.range)) else {
-            let hint = tr(lang, "Estimate the depth first, then click the photo to choose what stays sharp.");
+            let hint = tr(lang, K_LENS_ESTIMATE_THE_DEPTH_FIRST_THEN_CLICK_THE_PHOTO_TO);
             ui.label(egui::RichText::new(hint).weak().small());
             return actions;
         };
         let picking = self.tools.lens_focus_picking;
         ui.horizontal(|ui| {
-            let mute = tr(lang, "Show/mute the lens blur without losing its settings");
+            let mute = tr(lang, K_LENS_SHOW_MUTE_THE_LENS_BLUR_WITHOUT_LOSING_ITS_SETTI);
             if glyph_toggle(ui, enabled, "👁").on_hover_text(mute).clicked() {
                 actions.push(logic::Action::Lens(logic::lens_blur::LensAction::ToggleLensBlur(!enabled)));
             }
             let cell = egui::vec2(ui.available_width() - row_h(ui) - ui.spacing().item_spacing.x, row_h(ui));
-            let how = tr(lang, "Click the photo: whatever is at that distance stays sharp; nearer and farther blur by how far they are from it.");
-            if toggle_in(ui, cell, picking, tr(lang, "🎯 Pick focus")).on_hover_text(how).clicked() {
+            let how = tr(lang, K_LENS_CLICK_THE_PHOTO_WHATEVER_IS_AT_THAT_DISTANCE_STA);
+            if toggle_in(ui, cell, picking, tr(lang, K_LENS_PICK_FOCUS)).on_hover_text(how).clicked() {
                 actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusPicking(!picking)));
             }
-            if glyph(ui, true, "🗑").on_hover_text(tr(lang, "Remove the lens blur")).clicked() {
+            if glyph(ui, true, "🗑").on_hover_text(tr(lang, K_LENS_REMOVE_THE_LENS_BLUR)).clicked() {
                 actions.push(logic::Action::Lens(logic::lens_blur::LensAction::RemoveLensBlur));
             }
         });
@@ -67,15 +67,15 @@ impl AutoShadeApp {
         // touch, the recipe change goes through the action.
         ui.add_enabled_ui(enabled, |ui| {
             let mut next = amount;
-            if Self::slider(ui, lang, tr(lang, "Blur amount"), &mut next, 0.0, 100.0, 50.0) {
+            if Self::slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut next, 0.0, 100.0, 50.0) {
                 actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetBlurAmount(next)));
             }
             let mut next = range;
-            if Self::slider(ui, lang, tr(lang, "Focus range"), &mut next, 0.0, 100.0, 10.0) {
+            if Self::slider(ui, lang, tr(lang, K_LENS_FOCUS_RANGE), &mut next, 0.0, 100.0, 10.0) {
                 actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusRange(next)));
             }
         });
-        let carried = tr(lang, "Rendered here and in every export from this app; Lightroom's sidecar cannot carry it.");
+        let carried = tr(lang, K_LENS_RENDERED_HERE_AND_IN_EVERY_EXPORT_FROM_THIS_APP);
         ui.label(egui::RichText::new(carried).weak().small());
         actions
     }

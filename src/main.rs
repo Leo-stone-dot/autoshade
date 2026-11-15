@@ -3561,16 +3561,27 @@ mod tests {
         // kind of thing that must never be silent: the rationale names the FILE
         // that went and the extra cost it bought, on every surface that renders
         // a rationale.
-        let note = autoshade::rationale::keys::STYLE_REF_IMAGE.replace("{n}", "3");
+        let note = autoshade::text::tr(
+            autoshade::text::Lang::En,
+            autoshade::rationale::keys::STYLE_REF_IMAGE,
+        )
+        .replace("{n}", "3");
         assert!(note.contains("3 reference photo(s)"), "the note must COUNT the photos: {note}");
         assert!(note.contains("extra images on each call"), "the cost is disclosed: {note}");
         assert!(!note.contains("{n}"), "every placeholder must be filled: {note}");
         // …and the failure arm says that reference went as words rather than
         // leaving the user to assume a photo went.
         assert!(
-            autoshade::rationale::keys::STYLE_REF_IMAGE_FAILED.contains("it went as words only"),
+            autoshade::text::tr(
+                autoshade::text::Lang::En,
+                autoshade::rationale::keys::STYLE_REF_IMAGE_FAILED
+            )
+            .contains("it went as words only"),
             "{}",
-            autoshade::rationale::keys::STYLE_REF_IMAGE_FAILED
+            autoshade::text::tr(
+                autoshade::text::Lang::En,
+                autoshade::rationale::keys::STYLE_REF_IMAGE_FAILED
+            ),
         );
     }
 

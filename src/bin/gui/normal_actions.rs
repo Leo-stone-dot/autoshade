@@ -29,7 +29,7 @@ impl AutoShadeApp {
         self.start_batch_render_for(targets, "jpg".into(), export, dest, true);
         if self.busy {
             self.normal.delivering = true;
-            self.status = tr(lang, "Saving every photo in the folder…").into();
+            self.status = tr(lang, K_ACTIONS_SAVING_EVERY_PHOTO_IN_THE_FOLDER).into();
         }
     }
 
@@ -44,15 +44,15 @@ impl AutoShadeApp {
             ExportOutcome::Single { out, .. } => {
                 let dir = out.parent().map(folder_name).unwrap_or_default();
                 let file = out.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                Some(trf(lang, "Saved {file} to {folder}", &[("file", &file), ("folder", &dir)]))
+                Some(trf(lang, K_ACTIONS_SAVED_TO, &[("file", &file), ("folder", &dir)]))
             }
             ExportOutcome::Batch { ok, errs, dest, renamed, .. } if errs.is_empty() => {
-                let saved = trf(lang, "{n} photos saved to {folder}", &[("n", &ok.to_string()), ("folder", &folder_name(dest))]);
+                let saved = trf(lang, K_ACTIONS_PHOTOS_SAVED_TO, &[("n", &ok.to_string()), ("folder", &folder_name(dest))]);
                 Some(if renamed.is_empty() {
                     saved
                 } else {
                     let k = renamed.len().to_string();
-                    let numbered = trf(lang, "{k} of them have a number added to the name, so no earlier photo was replaced.", &[("k", &k)]);
+                    let numbered = trf(lang, K_ACTIONS_OF_THEM_HAVE_A_NUMBER_ADDED_TO_THE_NAME_SO_NO_EA, &[("k", &k)]);
                     format!("{saved}. {numbered}")
                 })
             }
@@ -131,13 +131,13 @@ impl AutoShadeApp {
             let made = pair.filter(|d| d.plain == active).and_then(|d| d.denoised).and_then(|id| self.card_index(&id));
             if let Some(idx) = made {
                 self.show_card_keeping_look(idx);
-                self.status = tr(lang, "AI denoise on").into();
+                self.status = tr(lang, K_ACTIONS_AI_DENOISE_ON).into();
                 return;
             }
             self.normal.denoise_pair = Some(DenoisePair { photo, plain: active, denoised: None });
             self.start_ai_denoise();
             if self.busy {
-                self.status = tr(lang, "Removing the grain… this takes a moment.").into();
+                self.status = tr(lang, K_ACTIONS_REMOVING_THE_GRAIN_THIS_TAKES_A_MOMENT).into();
             } else {
                 // Refused before it ran: its own line stands.
                 self.normal.denoise_pair = None;
@@ -151,7 +151,7 @@ impl AutoShadeApp {
             // Remembered, so turning it on again shows this ◈ card.
             self.normal.denoise_pair = Some(DenoisePair { photo, plain: self.doc.variants[idx].id.clone(), denoised: Some(active) });
             self.show_card_keeping_look(idx);
-            self.status = tr(lang, "AI denoise off").into();
+            self.status = tr(lang, K_ACTIONS_AI_DENOISE_OFF).into();
         }
     }
 
@@ -180,6 +180,6 @@ impl AutoShadeApp {
         if let Some(h) = history {
             self.carry_look_history(h);
         }
-        self.reword_landing(tr(lang, "AI denoise done. Turn the switch off to see the photo without it.").into());
+        self.reword_landing(tr(lang, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P).into());
     }
 }

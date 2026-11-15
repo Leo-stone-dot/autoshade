@@ -21,7 +21,7 @@ impl AutoShadeApp {
         }
         let lang = self.lang;
         let mut open = true;
-        egui::Window::new(tr(lang, "Recipe library"))
+        egui::Window::new(tr(lang, K_RECIPES_RECIPE_LIBRARY))
             // Fixed id: the title varies with the language and egui keys
             // window state (position, size) off the id.
             .id(egui::Id::new("recipe_library_window"))
@@ -42,10 +42,10 @@ impl AutoShadeApp {
 
         // --- new recipe ------------------------------------------------------
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(tr(lang, "New recipe")).weak().small());
+            ui.label(egui::RichText::new(tr(lang, K_RECIPES_NEW_RECIPE)).weak().small());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if action(ui, true, tr(lang, "Import file…"))
-                    .on_hover_text(tr(lang, "Add a recipe.json or a Lightroom / Camera Raw .xmp sidecar to the library"))
+                if action(ui, true, tr(lang, K_RECIPES_IMPORT_FILE))
+                    .on_hover_text(tr(lang, K_RECIPES_ADD_A_RECIPE_JSON_OR_A_LIGHTROOM_CAMERA_RAW_XMP))
                     .clicked()
                 {
                     self.apply_actions(vec![logic::Action::Recipe(
@@ -60,18 +60,18 @@ impl AutoShadeApp {
             let field_w = (ui.available_width() - button_w - ui.spacing().item_spacing.x).max(180.0);
             let resp = ui.add_sized(
                 [field_w, row_h(ui)],
-                egui::TextEdit::singleline(&mut self.rlib.recipe_name_buf).hint_text(tr(lang, "Recipe name")),
+                egui::TextEdit::singleline(&mut self.rlib.recipe_name_buf).hint_text(tr(lang, K_RECIPES_RECIPE_NAME)),
             );
             // Enter in the name field saves, like every other name box in the
             // app (the U10 boundary rule): a typed name plus Enter is the
             // shortest path from "this look" to "a named look".
             let entered = resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-            let clicked = primary_in(ui, egui::vec2(button_w, row_h(ui)), ready, tr(lang, "＋ Save"))
+            let clicked = primary_in(ui, egui::vec2(button_w, row_h(ui)), ready, tr(lang, K_RECIPES_SAVE))
                 .on_hover_text(tr(
                     lang,
-                    "Saves this photo's look under the name in the field (blank = the photo's name). Crop, and the parts whose pixels belong to this photo, are left out.",
+                    K_RECIPES_SAVES_THIS_PHOTO_S_LOOK_UNDER_THE_NAME_IN_THE_FI,
                 ))
-                .on_disabled_hover_text(tr(lang, "Open a photo first — this saves the open photo's look"))
+                .on_disabled_hover_text(tr(lang, K_RECIPES_OPEN_A_PHOTO_FIRST_THIS_SAVES_THE_OPEN_PHOTO_S_L))
                 .clicked();
             if ready && (clicked || entered) {
                 self.apply_actions(vec![logic::Action::Recipe(
@@ -89,16 +89,16 @@ impl AutoShadeApp {
             let w = (ui.available_width() - clear_w - count_w - ui.spacing().item_spacing.x).max(140.0);
             ui.add_sized(
                 [w, row_h(ui)],
-                egui::TextEdit::singleline(&mut self.rlib.recipes_filter).hint_text(tr(lang, "Filter")),
+                egui::TextEdit::singleline(&mut self.rlib.recipes_filter).hint_text(tr(lang, K_RECIPES_FILTER)),
             );
             if !filter_empty
-                && glyph(ui, true, "✕").on_hover_text(tr(lang, "Clear filter")).clicked()
+                && glyph(ui, true, "✕").on_hover_text(tr(lang, K_RECIPES_CLEAR_FILTER)).clicked()
             {
                 self.rlib.recipes_filter.clear();
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(
-                    egui::RichText::new(trf(lang, "{n} saved", &[("n", &n.to_string())])).weak().small(),
+                    egui::RichText::new(trf(lang, K_RECIPES_SAVED, &[("n", &n.to_string())])).weak().small(),
                 );
             });
         });
@@ -126,13 +126,13 @@ impl AutoShadeApp {
                 ui.add_space(SPACE_LG);
                 let (headline, hint) = if self.rlib.recipes.is_empty() {
                     (
-                        tr(lang, "No recipes yet"),
-                        tr(lang, "Save this photo's look, or import a recipe.json / .xmp file."),
+                        tr(lang, K_RECIPES_NO_RECIPES_YET),
+                        tr(lang, K_RECIPES_SAVE_THIS_PHOTO_S_LOOK_OR_IMPORT_A_RECIPE_JSON_X),
                     )
                 } else {
                     (
-                        tr(lang, "No recipe matches this filter."),
-                        tr(lang, "Clear the filter to see the whole library."),
+                        tr(lang, K_RECIPES_NO_RECIPE_MATCHES_THIS_FILTER),
+                        tr(lang, K_RECIPES_CLEAR_THE_FILTER_TO_SEE_THE_WHOLE_LIBRARY),
                     )
                 };
                 ui.vertical_centered(|ui| {
@@ -169,16 +169,16 @@ impl AutoShadeApp {
                 // The meta sits at the right edge; a file that does not parse
                 // says so there in the error colour instead of hiding.
                 let meta = match error {
-                    Some(_) => tr(lang, "unreadable").to_string(),
+                    Some(_) => tr(lang, K_RECIPES_UNREADABLE).to_string(),
                     None => {
                         let mut meta = age.clone().unwrap_or_default();
                         if *masks == 1 {
-                            meta = format!("{} · {}", meta, tr(lang, "1 mask"));
+                            meta = format!("{} · {}", meta, tr(lang, K_RECIPES_1_MASK));
                         } else if *masks > 1 {
                             meta = format!(
                                 "{} · {}",
                                 meta,
-                                trf(lang, "{n} masks", &[("n", &masks.to_string())])
+                                trf(lang, K_RECIPES_MASKS, &[("n", &masks.to_string())])
                             );
                         }
                         meta
@@ -189,7 +189,7 @@ impl AutoShadeApp {
                 // only when the file did not parse. A tooltip on every row
                 // was a sentence following the pointer across the list.
                 let resp = match (error, truncated) {
-                    (Some(err), _) => resp.on_hover_text(trf(lang, "unreadable: {err}", &[("err", err)])),
+                    (Some(err), _) => resp.on_hover_text(trf(lang, K_RECIPES_UNREADABLE__2, &[("err", err)])),
                     (None, true) => resp.on_hover_text(name.as_str()),
                     (None, false) => resp,
                 };
@@ -225,16 +225,16 @@ impl AutoShadeApp {
             if action(
                 ui,
                 sel.is_some() && targets > 0 && !busy,
-                trf(lang, "Apply to selected ({n})", &[("n", &targets.to_string())]),
+                trf(lang, K_RECIPES_APPLY_TO_SELECTED, &[("n", &targets.to_string())]),
             )
             .on_hover_text(tr(
                 lang,
-                "Writes each photo's develop into your develop store (recipe JSON; RAW also gets a Lightroom XMP). Leaves library files untouched, renders nothing.",
+                K_GALLERY_WRITES_EACH_PHOTO_S_DEVELOP_INTO_YOUR_DEVELOP_ST,
             ))
             .on_disabled_hover_text(if targets == 0 {
-                tr(lang, "Ctrl/⌘+click photos in the Library first")
+                tr(lang, K_RECIPES_CTRL_CLICK_PHOTOS_IN_THE_LIBRARY_FIRST)
             } else {
-                tr(lang, "A task is running — wait for it to finish")
+                tr(lang, K_RECIPES_A_TASK_IS_RUNNING_WAIT_FOR_IT_TO_FINISH)
             })
             .clicked()
                 && let Some(name) = &sel
@@ -244,14 +244,14 @@ impl AutoShadeApp {
                 )]);
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if action(ui, true, tr(lang, "🗂 Show library folder"))
-                    .on_hover_text(tr(lang, "Opens the folder that holds these recipe files"))
+                if action(ui, true, tr(lang, K_RECIPES_SHOW_LIBRARY_FOLDER))
+                    .on_hover_text(tr(lang, K_RECIPES_OPENS_THE_FOLDER_THAT_HOLDS_THESE_RECIPE_FILES))
                     .clicked()
                     && let Err(e) = reveal_folder(&autoshade::recipe_library::library_dir())
                 {
                     self.recipe_status(
                         false,
-                        trf(lang, "The library folder could not be opened: {err}", &[("err", &e.to_string())]),
+                        trf(lang, K_RECIPES_THE_LIBRARY_FOLDER_COULD_NOT_BE_OPENED, &[("err", &e.to_string())]),
                     );
                 }
             });
@@ -286,7 +286,7 @@ impl AutoShadeApp {
                         );
                         if let Some(stem) = &photo_stem {
                             ui.label(
-                                egui::RichText::new(trf(lang, "On {photo}", &[("photo", stem)]))
+                                egui::RichText::new(trf(lang, K_RECIPES_ON, &[("photo", stem)]))
                                     .weak()
                                     .small(),
                             );
@@ -297,7 +297,7 @@ impl AutoShadeApp {
                         ui.painter().text(
                             rect.center(),
                             egui::Align2::CENTER_CENTER,
-                            tr(lang, "Open a photo to see this recipe on it."),
+                            tr(lang, K_RECIPES_OPEN_A_PHOTO_TO_SEE_THIS_RECIPE_ON_IT),
                             egui::TextStyle::Small.resolve(ui.style()),
                             ui.visuals().weak_text_color(),
                         );
@@ -311,7 +311,7 @@ impl AutoShadeApp {
                         let facts = self.recipe_facts(r);
                         if facts.is_empty() {
                             ui.label(
-                                egui::RichText::new(tr(lang, "No edits — this recipe is neutral.")).weak().small(),
+                                egui::RichText::new(tr(lang, K_RECIPES_NO_EDITS_THIS_RECIPE_IS_NEUTRAL)).weak().small(),
                             );
                         } else {
                             egui::Grid::new("recipe_facts")
@@ -333,7 +333,7 @@ impl AutoShadeApp {
                     }
                     Err(e) => {
                         ui.label(
-                            egui::RichText::new(trf(lang, "unreadable: {err}", &[("err", &e.to_string())]))
+                            egui::RichText::new(trf(lang, K_RECIPES_UNREADABLE__2, &[("err", &e.to_string())]))
                                 .color(colors.toast_err_fg)
                                 .small(),
                         );
@@ -345,17 +345,17 @@ impl AutoShadeApp {
         let has_photo = self.photo.src_path.is_some();
         let busy = self.busy;
         ui.add_space(SPACE_XS);
-        let running = tr(lang, "A task is running — wait for it to finish");
+        let running = tr(lang, K_RECIPES_A_TASK_IS_RUNNING_WAIT_FOR_IT_TO_FINISH);
         let needs_photo = || {
             if has_photo {
                 running
             } else {
-                tr(lang, "Open a photo first")
+                tr(lang, K_RECIPES_OPEN_A_PHOTO_FIRST)
             }
         };
         ui.horizontal_wrapped(|ui| {
-            if primary(ui, ok && has_photo && !busy, tr(lang, "✓ Apply to this photo"))
-                .on_hover_text(tr(lang, "Replaces what is on the canvas; Ctrl+Z undoes it. Nothing is saved until Ctrl+S."))
+            if primary(ui, ok && has_photo && !busy, tr(lang, K_RECIPES_APPLY_TO_THIS_PHOTO))
+                .on_hover_text(tr(lang, K_RECIPES_REPLACES_WHAT_IS_ON_THE_CANVAS_CTRL_Z_UNDOES_IT))
                 .on_disabled_hover_text(needs_photo())
                 .clicked()
             {
@@ -363,8 +363,8 @@ impl AutoShadeApp {
                     logic::recipes::RecipeAction::ApplyToOpen(name.to_owned()),
                 )]);
             }
-            if action(ui, ok && has_photo && !busy, tr(lang, "Write back to this recipe"))
-                .on_hover_text(tr(lang, "Saves what is on the canvas into this entry, keeping its name — the way an edit on the photo becomes part of the library"))
+            if action(ui, ok && has_photo && !busy, tr(lang, K_RECIPES_WRITE_BACK_TO_THIS_RECIPE))
+                .on_hover_text(tr(lang, K_RECIPES_SAVES_WHAT_IS_ON_THE_CANVAS_INTO_THIS_ENTRY_KEEP))
                 .on_disabled_hover_text(needs_photo())
                 .clicked()
             {
@@ -372,18 +372,18 @@ impl AutoShadeApp {
                     logic::recipes::RecipeAction::UpdateFromOpen(name.to_owned()),
                 )]);
             }
-            if action(ui, ok && !busy, tr(lang, "✎ Rename"))
-                .on_hover_text(tr(lang, "Rename this recipe (the file moves with it)"))
+            if action(ui, ok && !busy, tr(lang, K_RECIPES_RENAME))
+                .on_hover_text(tr(lang, K_RECIPES_RENAME_THIS_RECIPE_THE_FILE_MOVES_WITH_IT))
                 .clicked()
             {
                 self.rlib.recipe_rename = Some((name.to_string(), name.to_string()));
             }
             let armed = self.rlib.recipe_delete_armed.as_deref() == Some(name);
-            let del = if armed { tr(lang, "⚠ Confirm delete") } else { tr(lang, "🗑 Delete") };
+            let del = if armed { tr(lang, K_RECIPES_CONFIRM_DELETE) } else { tr(lang, K_RECIPES_DELETE) };
             if action(ui, ok && !busy, del)
                 .on_hover_text(tr(
                     lang,
-                    "Deletes this recipe file from the library. Photos it was applied to keep their own saved develops.",
+                    K_RECIPES_DELETES_THIS_RECIPE_FILE_FROM_THE_LIBRARY_PHOTOS,
                 ))
                 .clicked()
             {
@@ -451,7 +451,7 @@ impl AutoShadeApp {
         let d = EditRecipe::default();
         let mut out: Vec<(String, String)> = Vec::new();
         if (r.exposure_ev - d.exposure_ev).abs() > 1e-4 {
-            out.push((tr(lang, "Exposure").to_string(), format!("{:+.2}", r.exposure_ev)));
+            out.push((tr(lang, K_DEVELOP_EXPOSURE).to_string(), format!("{:+.2}", r.exposure_ev)));
         }
         for (label, v, neutral) in [
             ("Contrast", r.contrast, d.contrast),
@@ -473,29 +473,29 @@ impl AutoShadeApp {
             }
         }
         if let Some(k) = r.temperature_k.filter(|k| *k > 0.0) {
-            out.push((tr(lang, "Temperature").to_string(), format!("{k:.0} K")));
+            out.push((tr(lang, K_RECIPES_TEMPERATURE).to_string(), format!("{k:.0} K")));
         }
         let points = r.tone_curve.len() + r.red_curve.len() + r.green_curve.len() + r.blue_curve.len();
         if points > 0 {
             out.push((
-                tr(lang, "Curve").to_string(),
-                trf(lang, "{n} points", &[("n", &points.to_string())]),
+                tr(lang, K_DEVELOP_CURVE).to_string(),
+                trf(lang, K_RECIPES_POINTS, &[("n", &points.to_string())]),
             ));
         }
         if r.convert_to_grayscale {
-            out.push((tr(lang, "Black & white").to_string(), "✓".to_string()));
+            out.push((tr(lang, K_NORMAL_BLACK_WHITE).to_string(), "✓".to_string()));
         }
         if r.hsl != d.hsl {
-            out.push((tr(lang, "Color Mixer (HSL)").to_string(), "✓".to_string()));
+            out.push((tr(lang, K_DEVELOP_COLOR_MIXER_HSL).to_string(), "✓".to_string()));
         }
         if r.color_grade != d.color_grade {
-            out.push((tr(lang, "Color Grading").to_string(), "✓".to_string()));
+            out.push((tr(lang, K_DEVELOP_COLOR_GRADING).to_string(), "✓".to_string()));
         }
         if !r.point_colors.is_empty() {
-            out.push((tr(lang, "Point Color").to_string(), r.point_colors.len().to_string()));
+            out.push((tr(lang, K_DEVELOP_POINT_COLOR).to_string(), r.point_colors.len().to_string()));
         }
         if !r.masks.is_empty() {
-            out.push((tr(lang, "Masks").to_string(), r.masks.len().to_string()));
+            out.push((tr(lang, K_RECIPES_MASKS__2).to_string(), r.masks.len().to_string()));
         }
         out
     }
@@ -598,15 +598,15 @@ const RECIPE_ROW_H: f32 = 34.0;
 fn age_text(lang: Lang, t: std::time::SystemTime) -> Option<String> {
     let days = t.elapsed().ok()?.as_secs() / 86_400;
     Some(if days == 0 {
-        tr(lang, "today").to_string()
+        tr(lang, K_RECIPES_TODAY).to_string()
     } else if days == 1 {
-        tr(lang, "yesterday").to_string()
+        tr(lang, K_RECIPES_YESTERDAY).to_string()
     } else if days < 30 {
-        trf(lang, "{n} days ago", &[("n", &days.to_string())])
+        trf(lang, K_RECIPES_DAYS_AGO, &[("n", &days.to_string())])
     } else if days < 365 {
-        trf(lang, "{n} months ago", &[("n", &(days / 30).to_string())])
+        trf(lang, K_RECIPES_MONTHS_AGO, &[("n", &(days / 30).to_string())])
     } else {
-        trf(lang, "{n} years ago", &[("n", &(days / 365).to_string())])
+        trf(lang, K_RECIPES_YEARS_AGO, &[("n", &(days / 365).to_string())])
     })
 }
 

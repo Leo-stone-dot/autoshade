@@ -59,7 +59,7 @@ pub(crate) fn grade_wheel(
         let (rect, resp) = ui.allocate_exact_size(egui::vec2(diameter, diameter), egui::Sense::click_and_drag());
         let resp = resp.on_hover_text(tr(
             lang,
-            "Drag: angle = hue, distance from the centre = saturation · Shift for fine control · double-click to reset",
+            K_GRADING_DRAG_ANGLE_HUE_DISTANCE_FROM_THE_CENTRE_SATURATI,
         ));
         let c = rect.center();
         let r = diameter * 0.5 - 2.0;
@@ -90,7 +90,7 @@ pub(crate) fn grade_wheel(
             paint_wheel(ui, c, r, *hue, *sat, resp.hovered() || resp.dragged());
         }
         ui.label(
-            egui::RichText::new(format!("{} {:.0}°  ·  {} {:.0}", tr(lang, "Hue"), hue, tr(lang, "Saturation"), sat))
+            egui::RichText::new(format!("{} {:.0}°  ·  {} {:.0}", tr(lang, K_DEVELOP_HUE), hue, tr(lang, K_DEVELOP_SATURATION), sat))
                 .small()
                 .color(ui.visuals().weak_text_color()),
         );

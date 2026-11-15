@@ -186,7 +186,7 @@ impl AutoShadeApp {
         if self.active_variant().is_some_and(|v| v.kind == VariantKind::Generated) {
             let t = tr(
                 lang,
-                "A pristine ✨ AI generated card has no develop to snapshot — move a slider to start an ✎ Edited AI image card, or run 「Reverse-fit」",
+                K_ACTIONS_A_PRISTINE_AI_GENERATED_CARD_HAS_NO_DEVELOP_TO_S,
             );
             self.status = t.into();
             self.toast(ToastKind::Error, t);
@@ -211,7 +211,7 @@ impl AutoShadeApp {
         let (n, vpath) = match autoshade::store::claim_version(&src) {
             Ok(v) => v,
             Err(e) => {
-                let t = trf(lang, "Save version failed: {err}", &[("err", &e.to_string())]);
+                let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
                 self.status = t.clone();
                 self.toast(ToastKind::Error, t);
                 return Ok(());
@@ -224,7 +224,7 @@ impl AutoShadeApp {
         let mut snap = self.doc.recipe.clone();
         if let Err(e) = autoshade::store::snapshot_rasters(&mut snap, &dev, n) {
             let _ = std::fs::remove_file(&vpath); // release the claim
-            let t = trf(lang, "Save version failed: {err}", &[("err", &e.to_string())]);
+            let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
             self.status = t.clone();
             self.toast(ToastKind::Error, t);
             return Ok(());
@@ -257,12 +257,12 @@ impl AutoShadeApp {
                 self.refresh_versions();
                 self.status = trf(
                     lang,
-                    "Version v{n} saved → {path}",
+                    K_ACTIONS_VERSION_V_SAVED,
                     &[("n", &n.to_string()), ("path", &p.display().to_string())],
                 );
             }
             Err(e) => {
-                let t = trf(lang, "Save version failed: {err}", &[("err", &e.to_string())]);
+                let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
                 self.status = t.clone();
                 self.toast(ToastKind::Error, t);
             }
@@ -339,7 +339,7 @@ impl AutoShadeApp {
                     // and all four loss kinds, like the open toast.
                     let t = trf(
                         lang,
-                        "recipe limits discarded {n} mask(s), {m} component(s), {c} curve point(s) and {s} string byte(s) on restore — the saved file exceeds the app's caps",
+                        K_CANVAS_RECIPE_LIMITS_DISCARDED_MASK_S_COMPONENT_S_CURVE,
                         &[
                             ("n", &dropped.dropped_masks.to_string()),
                             ("m", &dropped.dropped_components.to_string()),
@@ -403,7 +403,7 @@ impl AutoShadeApp {
                 // any other: it lands on a new ✎ card (the immutability rule),
                 // and the load announcement below names that card's canvas.
                 self.fork_edited_card();
-                let loaded = trf(lang, "Loaded version v{n} — Ctrl+Z returns to before the load", &[("n", &n.to_string())]);
+                let loaded = trf(lang, K_ACTIONS_LOADED_VERSION_V_CTRL_Z_RETURNS_TO_BEFORE_THE_LO, &[("n", &n.to_string())]);
                 if restamped {
                     // Said out loud, in the same channel the other
                     // calibration correction uses: the snapshot on disk holds
@@ -412,7 +412,7 @@ impl AutoShadeApp {
                         ToastKind::Success,
                         tr(
                             lang,
-                            "this snapshot was taken on a generated variant, whose look lives in its pixels — the photo's own camera base look was applied so it renders on the negative",
+                            K_ACTIONS_THIS_SNAPSHOT_WAS_TAKEN_ON_A_GENERATED_VARIANT_W,
                         )
                         .to_string(),
                     );
@@ -436,7 +436,7 @@ impl AutoShadeApp {
                         "{loaded} — {}",
                         tr(
                             lang,
-                            "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
+                            K_EXPORT_CAMERA_BASE_LOOK_RE_ESTIMATED_THIS_PHOTO_WAS_SAV,
                         )
                     )
                 } else {
@@ -446,7 +446,7 @@ impl AutoShadeApp {
             Err(e) => {
                 let t = trf(
                     lang,
-                    "Load v{n} failed: {err}",
+                    K_ACTIONS_LOAD_V_FAILED,
                     &[("n", &n.to_string()), ("err", &e.to_string())],
                 );
                 self.status = t.clone();
@@ -466,7 +466,7 @@ impl AutoShadeApp {
         ) {
             Ok(()) => {
                 self.refresh_versions();
-                self.status = trf(lang, "Version v{n} deleted", &[("n", &n.to_string())]);
+                self.status = trf(lang, K_ACTIONS_VERSION_V_DELETED, &[("n", &n.to_string())]);
             }
             Err(e) => {
                 self.persist_postponed(&e, "Delete v{n} failed: {err}", &[("n", &n.to_string())]);

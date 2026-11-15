@@ -15,6 +15,8 @@
 //! This is the reflection layer, not a second business core: the model, the
 //! request type, the presets and the WB/library rules are the library's; this
 //! module maps a view verb onto them and back.
+use autoshade::text::generated::*;
+
 
 use super::{Effect, UiText};
 use autoshade::advisor::Verdict;
@@ -222,7 +224,7 @@ pub(crate) fn plan(
             guidance,
             DEFAULT_NAME,
             Keep::None,
-            UiText::of("analyzing with the configured AI service…"),
+            UiText::of(K_LOGIC_ANALYZING_WITH_THE_CONFIGURED_AI_SERVICE),
             None,
         ),
         LookKind::Adjust => (
@@ -230,7 +232,7 @@ pub(crate) fn plan(
             guidance,
             DEFAULT_NAME,
             Keep::None,
-            UiText::of("adjusting the selected variant with AI…"),
+            UiText::of(K_LOGIC_ADJUSTING_THE_SELECTED_VARIANT_WITH_AI),
             None,
         ),
         LookKind::OneClick(OneClick::Preset(id)) => (
@@ -246,7 +248,7 @@ pub(crate) fn plan(
             autoshade::advisor::presets::preset_guidance(id).map(str::to_owned),
             NORMAL_NAME,
             Keep::OneClick,
-            UiText::of("Making the look…"),
+            UiText::of(K_LOGIC_MAKING_THE_LOOK),
             Some(LookLine::Working),
         ),
         LookKind::OneClick(OneClick::References) => (
@@ -264,7 +266,7 @@ pub(crate) fn plan(
             None,
             NORMAL_NAME,
             Keep::OneClick,
-            UiText::of("Making the look…"),
+            UiText::of(K_LOGIC_MAKING_THE_LOOK),
             Some(LookLine::Working),
         ),
         LookKind::Portrait => (
@@ -283,7 +285,7 @@ pub(crate) fn plan(
                 masks: intent.kept_masks.clone(),
                 blur: intent.kept_blur.clone(),
             },
-            UiText::of("Making the portrait look…"),
+            UiText::of(K_LOGIC_MAKING_THE_PORTRAIT_LOOK),
             Some(LookLine::Working),
         ),
     };
@@ -388,7 +390,7 @@ pub(crate) fn references_start(
     }
     let Some(photo) = photo else { return Vec::new() };
     vec![
-        Effect::Status(UiText::of("Reading your reference photos…")),
+        Effect::Status(UiText::of(K_LOGIC_READING_YOUR_REFERENCE_PHOTOS)),
         Effect::LookLine { kind: LookKind::OneClick(OneClick::References), line: LookLine::Idle },
         Effect::ReferenceBuild { photo: photo.to_path_buf(), dir },
     ]
@@ -411,12 +413,12 @@ pub(crate) fn references_built(
         Ok(_) => vec![
             // Status FIRST: the failure line shows the status the landing wrote.
             Effect::Status(UiText::of(
-                "Your reference photos are read, but the look could not start. Click 「Match my reference photos…」 again.",
+                K_LOGIC_YOUR_REFERENCE_PHOTOS_ARE_READ_BUT_THE_LOOK_COUL,
             )),
             Effect::LookLine { kind, line: LookLine::Failed },
         ],
         Err(err) => {
-            let text = UiText::with("Could not read your reference photos: {err}", &[("err", err)]);
+            let text = UiText::with(K_LOGIC_COULD_NOT_READ_YOUR_REFERENCE_PHOTOS, &[("err", err)]);
             vec![
                 Effect::Status(text.clone()),
                 Effect::LookLine { kind, line: LookLine::Failed },

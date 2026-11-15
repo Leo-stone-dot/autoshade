@@ -4,6 +4,8 @@
 //! and the frame transform); the DECISION — solve the white balance, re-key a
 //! range mask's colour, add a Point Color swatch, keep or drop the tool — and
 //! the words live here, so each arm is tested without a frame.
+use autoshade::text::generated::*;
+
 
 use super::{Effect, UiText};
 use autoshade::recipe::{EditRecipe, MAX_POINT_COLORS, RangeMask};
@@ -38,7 +40,7 @@ pub(crate) fn apply(recipe: &mut EditRecipe, action: PickAction) -> Vec<Effect> 
                 Effect::DisarmPicker(Picker::WhiteBalance),
                 Effect::MarkDirty,
                 Effect::Status(UiText::with(
-                    "WB eyedropper: {k} K · tint {tint} — fine-tune in the Tone section",
+                    K_LOGIC_WB_EYEDROPPER_K_TINT_FINE_TUNE_IN_THE_TONE_SECTI,
                     &[("k", &format!("{k:.0}")), ("tint", &format!("{tint:+.0}"))],
                 )),
             ]
@@ -60,7 +62,7 @@ pub(crate) fn apply(recipe: &mut EditRecipe, action: PickAction) -> Vec<Effect> 
                 Effect::DisarmPicker(Picker::Range),
                 Effect::MarkDirty,
                 Effect::Status(UiText::of(
-                    "Color range: sampled — the 「Tolerance」 slider adjusts the selection width",
+                    K_LOGIC_COLOR_RANGE_SAMPLED_THE_TOLERANCE_SLIDER_ADJUSTS,
                 )),
             ]
         }
@@ -69,7 +71,7 @@ pub(crate) fn apply(recipe: &mut EditRecipe, action: PickAction) -> Vec<Effect> 
                 return vec![
                     Effect::DisarmPicker(Picker::PointColor),
                     Effect::Status(UiText::with(
-                        "Point Color: at most {n} swatches",
+                        K_LOGIC_POINT_COLOR_AT_MOST_SWATCHES,
                         &[("n", &MAX_POINT_COLORS.to_string())],
                     )),
                 ];
@@ -79,7 +81,7 @@ pub(crate) fn apply(recipe: &mut EditRecipe, action: PickAction) -> Vec<Effect> 
             // so say why and stay armed for the retry.
             let Some(swatch) = autoshade::render::point_color_at(px) else {
                 return vec![Effect::Status(UiText::of(
-                    "Point Color: that spot is almost grey, so no swatch could move it — pick a more colourful spot",
+                    K_LOGIC_POINT_COLOR_THAT_SPOT_IS_ALMOST_GREY_SO_NO_SWATC,
                 ))];
             };
             recipe.point_colors.push(swatch);
@@ -88,7 +90,7 @@ pub(crate) fn apply(recipe: &mut EditRecipe, action: PickAction) -> Vec<Effect> 
                 Effect::DisarmPicker(Picker::PointColor),
                 Effect::MarkDirty,
                 Effect::Status(UiText::with(
-                    "Point Color: swatch {n} added — its sliders are in the Color Mixer section",
+                    K_LOGIC_POINT_COLOR_SWATCH_ADDED_ITS_SLIDERS_ARE_IN_THE,
                     &[("n", &n)],
                 )),
             ]

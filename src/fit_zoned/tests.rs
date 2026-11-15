@@ -1483,7 +1483,7 @@ fn calibration_local_field_discloses_ceiling_and_realized_share() {
     // pixels, so the disclosure must read exactly 0.000 before any producer.
     assert_eq!(number("realized"), 0.0, "{}", report.recipe.rationale);
     // The quadtree must run under the cap the analyzer disclosed, end to end.
-    let arg = |key: &str, name: &str| report.notes.iter().find(|note| note.key == key)
+    let arg = |key: crate::text::Key, name: &str| report.notes.iter().find(|note| note.key == key)
         .and_then(|note| note.args.iter().find_map(|(k, v)| (*k == name).then(|| v.clone())));
     assert_eq!(arg(crate::rationale::keys::LOCAL_SHAPE, "cap"),
         arg(crate::rationale::keys::TILE_DEPTH_CAP, "cap"),
@@ -2114,7 +2114,7 @@ fn assert_colour_verdict_matches_recipe(
     label: &str,
     gains: Option<[f32; 3]>,
 ) {
-    let says = |key_matches: &dyn Fn(&str) -> bool| {
+    let says = |key_matches: &dyn Fn(crate::text::Key) -> bool| {
         report.notes.iter().any(|note| {
             key_matches(note.key)
                 && note.args.iter().any(|(name, value)| *name == "label" && value == label)
@@ -2644,7 +2644,7 @@ fn a_region_inside_its_admitted_frame_budget_is_kept_by_the_boundary_gate() {
         report
     };
     let first = run(None, "region-frame-tol-a");
-    let has = |report: &fit::FitReport, key: &str| report.notes.iter().any(|n| n.key == key);
+    let has = |report: &fit::FitReport, key: crate::text::Key| report.notes.iter().any(|n| n.key == key);
     assert!(
         has(&first, crate::rationale::keys::ZONE_BOUNDARY_PASSED)
             && !has(&first, crate::rationale::keys::ZONE_STRICTLY_BETTER),
@@ -4483,9 +4483,9 @@ fn a_rescored_zoned_report_still_carries_every_note_its_producers_wrote() {
     let mask_path = fixture_mask_path("rescore-carry-mask");
     sky_mask.save(mask_path.path()).unwrap();
     let mut report = fit::fit_recipe(&src, &tgt);
-    let global_only: Vec<&'static str> = report.notes.iter().map(|n| n.key).collect();
+    let global_only: Vec<crate::text::Key> = report.notes.iter().map(|n| n.key).collect();
     attach_zones(&src, &tgt, &mut report, &sky_mask, &sky_mask, &mask_path);
-    let produced: Vec<&'static str> = report
+    let produced: Vec<crate::text::Key> = report
         .notes
         .iter()
         .map(|n| n.key)
@@ -4510,8 +4510,8 @@ fn a_rescored_zoned_report_still_carries_every_note_its_producers_wrote() {
         &report.notes,
     );
 
-    let after: Vec<&'static str> = rescored.notes.iter().map(|n| n.key).collect();
-    let surviving: Vec<&'static str> =
+    let after: Vec<crate::text::Key> = rescored.notes.iter().map(|n| n.key).collect();
+    let surviving: Vec<crate::text::Key> =
         after.iter().copied().filter(|k| produced.contains(k)).collect();
     assert_eq!(
         surviving, produced,
@@ -6124,7 +6124,7 @@ fn a_zoned_fits_confidence_is_read_on_the_render_that_ships() {
     let mut report = fit::fit_recipe(&source, &target);
     let global_confidence = report.recipe.confidence;
     attach_zones(&source, &target, &mut report, &sky_mask, &sky_mask, &mask_path);
-    let position = |key: &str| report.notes.iter().position(|n| n.key == key);
+    let position = |key: crate::text::Key| report.notes.iter().position(|n| n.key == key);
     let bands = position(crate::rationale::keys::ZONE_SUBZONES_ATTACHED)
         .expect("premise: the bands replace a single zone on the calibration pair");
     let verdict = position(crate::rationale::keys::ZONE_CONFIDENCE).expect("the zone stage states its confidence");

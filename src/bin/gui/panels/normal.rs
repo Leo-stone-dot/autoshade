@@ -54,9 +54,9 @@ impl SaveQuality {
 
     pub(crate) fn label(self, lang: Lang) -> &'static str {
         match self {
-            SaveQuality::High => tr(lang, "High"),
-            SaveQuality::Medium => tr(lang, "Medium"),
-            SaveQuality::Small => tr(lang, "Small file"),
+            SaveQuality::High => tr(lang, K_NORMAL_HIGH),
+            SaveQuality::Medium => tr(lang, K_NORMAL_MEDIUM),
+            SaveQuality::Small => tr(lang, K_NORMAL_SMALL_FILE),
         }
     }
 
@@ -147,18 +147,18 @@ impl AutoShadeApp {
             return match self.normal.build_progress {
                 Some((done, total)) => trf(
                     lang,
-                    "Reading your reference photos… {done} / {total}",
+                    K_NORMAL_READING_YOUR_REFERENCE_PHOTOS,
                     &[("done", &done.to_string()), ("total", &total.to_string())],
                 ),
-                None => tr(lang, "Reading your reference photos…").into(),
+                None => tr(lang, K_LOGIC_READING_YOUR_REFERENCE_PHOTOS).into(),
             };
         }
         match &self.normal.line {
             // A cancelled one-click leaves no worker behind to say so.
-            NormalLine::Working if self.tools.analyze_inflight => tr(lang, "Making the look…").into(),
-            NormalLine::Idle | NormalLine::Working => tr(lang, "Pick a look, or match your own reference photos.").into(),
-            NormalLine::Done => tr(lang, "Done — Ctrl+Z goes back").into(),
-            NormalLine::BuiltIn => tr(lang, "No AI key set — built-in look used").into(),
+            NormalLine::Working if self.tools.analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_LOOK).into(),
+            NormalLine::Idle | NormalLine::Working => tr(lang, K_NORMAL_PICK_A_LOOK_OR_MATCH_YOUR_OWN_REFERENCE_PHOTOS).into(),
+            NormalLine::Done => tr(lang, K_NORMAL_DONE_CTRL_Z_GOES_BACK).into(),
+            NormalLine::BuiltIn => tr(lang, K_NORMAL_NO_AI_KEY_SET_BUILT_IN_LOOK_USED).into(),
             NormalLine::Failed(why) => why.clone(),
         }
     }
@@ -182,15 +182,15 @@ impl AutoShadeApp {
     fn normal_one_click(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
-        panel_heading(ui, tr(lang, "One-click look"), false, |_| {});
+        panel_heading(ui, tr(lang, K_NORMAL_ONE_CLICK_LOOK), false, |_| {});
         let ready = self.photo.src_path.is_some() && !self.busy && !self.tools.analyze_inflight && !self.normal.building;
         let names: [&str; 6] = [
-            tr(lang, "Natural"),
-            tr(lang, "Bright & clean"),
-            tr(lang, "Warm"),
-            tr(lang, "Cool night"),
-            tr(lang, "Film"),
-            tr(lang, "Black & white"),
+            tr(lang, K_NORMAL_NATURAL),
+            tr(lang, K_NORMAL_BRIGHT_CLEAN),
+            tr(lang, K_NORMAL_WARM),
+            tr(lang, K_NORMAL_COOL_NIGHT),
+            tr(lang, K_NORMAL_FILM),
+            tr(lang, K_NORMAL_BLACK_WHITE),
         ];
         let presets = &autoshade::advisor::presets::PRESETS;
         let mut asked: Option<OneClick> = None;
@@ -201,7 +201,7 @@ impl AutoShadeApp {
                 for col in 0..2 {
                     let i = row * 2 + col;
                     if action_in(ui, cell, ready, names[i])
-                        .on_hover_text(tr(lang, "The AI looks at this photo and gives it this look — Ctrl+Z goes back"))
+                        .on_hover_text(tr(lang, K_NORMAL_THE_AI_LOOKS_AT_THIS_PHOTO_AND_GIVES_IT_THIS_LOO))
                         .clicked()
                     {
                         asked = Some(OneClick::Preset(presets[i].id));
@@ -209,25 +209,25 @@ impl AutoShadeApp {
                 }
             });
         }
-        ui.vertical_centered(|ui| ui.label(egui::RichText::new(tr(lang, "or")).weak().small()));
-        let pick = action_row(ui, ready, tr(lang, "Match my reference photos…"))
+        ui.vertical_centered(|ui| ui.label(egui::RichText::new(tr(lang, K_NORMAL_OR)).weak().small()));
+        let pick = action_row(ui, ready, tr(lang, K_NORMAL_MATCH_MY_REFERENCE_PHOTOS))
             .on_hover_text(tr(
                 lang,
-                "Pick a folder of photos whose look you like. They are read on this computer (the first time, a 1.5 GB model is downloaded for it); then the AI looks at this photo and up to 3 of them, each billed as one more picture.",
+                K_NORMAL_PICK_A_FOLDER_OF_PHOTOS_WHOSE_LOOK_YOU_LIKE_THEY,
             ))
             .clicked();
         if let Some(dir) = &self.normal.ref_dir {
             let name = dir.file_name().map_or_else(|| abs_display(dir), |n| n.to_string_lossy().into_owned());
-            ui.label(egui::RichText::new(trf(lang, "Chosen: {name}", &[("name", &name)])).weak().small());
+            ui.label(egui::RichText::new(trf(lang, K_NORMAL_CHOSEN, &[("name", &name)])).weak().small());
         }
         Self::slider_pct_hinted(
             ui,
             lang,
-            tr(lang, "Look strength"),
+            tr(lang, K_NORMAL_LOOK_STRENGTH),
             &mut self.aip.grade_strength,
             1.0,
             GRADE_STRENGTH_DEFAULT,
-            tr(lang, "How strong the look is. Double-click to reset."),
+            tr(lang, K_NORMAL_HOW_STRONG_THE_LOOK_IS_DOUBLE_CLICK_TO_RESET),
         );
         let line = self.normal_line_text(lang);
         ui.horizontal_wrapped(|ui| {
@@ -238,7 +238,7 @@ impl AutoShadeApp {
         });
         if self.normal.key_present == Some(false) {
             ui.label(
-                egui::RichText::new(tr(lang, "To make looks with AI, add a service key in Settings (⚙)."))
+                egui::RichText::new(tr(lang, K_NORMAL_TO_MAKE_LOOKS_WITH_AI_ADD_A_SERVICE_KEY_IN_SETTI))
                     .weak()
                     .small(),
             );
@@ -262,34 +262,34 @@ impl AutoShadeApp {
     fn normal_fine_tune(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
-        panel_heading(ui, tr(lang, "Fine-tune"), false, |_| {});
+        panel_heading(ui, tr(lang, K_NORMAL_FINE_TUNE), false, |_| {});
         let mut changed = false;
         let r = &mut self.doc.recipe;
-        changed |= Self::slider(ui, lang, tr(lang, "Brightness"), &mut r.exposure_ev, -5.0, 5.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Contrast"), &mut r.contrast, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_BRIGHTNESS), &mut r.exposure_ev, -5.0, 5.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_CONTRAST), &mut r.contrast, -100.0, 100.0, 0.0);
         let mut warmth = r.warmth();
         if Self::slider_hinted(
             ui,
             lang,
-            tr(lang, "Warmth"),
+            tr(lang, K_NORMAL_WARMTH),
             &mut warmth,
             -100.0,
             100.0,
             0.0,
-            tr(lang, "Cooler to the left, warmer to the right; 0 is the camera's own colour."),
+            tr(lang, K_NORMAL_COOLER_TO_THE_LEFT_WARMER_TO_THE_RIGHT_0_IS_THE),
         ) {
             let kelvin = r.kelvin_at_warmth(warmth);
             r.temperature_k = Some(kelvin);
             changed = true;
         }
-        changed |= Self::slider(ui, lang, tr(lang, "Vividness"), &mut r.saturation, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_NORMAL_VIVIDNESS), &mut r.saturation, -100.0, 100.0, 0.0);
         let back = self
             .normal
             .result
             .as_ref()
             .filter(|(p, f)| self.photo.src_path.as_ref() == Some(p) && *f != FineTune::of(&self.doc.recipe))
             .map(|(_, f)| *f);
-        if action_row(ui, back.is_some(), tr(lang, "Back to the one-click result")).clicked()
+        if action_row(ui, back.is_some(), tr(lang, K_NORMAL_BACK_TO_THE_ONE_CLICK_RESULT)).clicked()
             && let Some(f) = back
         {
             f.apply(&mut self.doc.recipe);
@@ -306,7 +306,7 @@ impl AutoShadeApp {
     fn normal_noise(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
-        panel_heading(ui, tr(lang, "Noise"), false, |_| {});
+        panel_heading(ui, tr(lang, K_NORMAL_NOISE), false, |_| {});
         // A run that ended without its card (failed, cancelled) leaves no
         // pair behind.
         if !self.busy && self.normal.denoise_pair.as_ref().is_some_and(|d| d.denoised.is_none()) {
@@ -315,8 +315,8 @@ impl AutoShadeApp {
         let helper = denoise_helper_available();
         let mut on = self.normal_denoise_on();
         let toggled = ui
-            .add_enabled(helper && !self.busy, egui::Checkbox::new(&mut on, tr(lang, "AI denoise")))
-            .on_hover_text(tr(lang, "Cleans the grain out of the photo, and the preview shows the result — it helps night and dark phone photos most; it uses the graphics card when there is one. Turn it off to see the photo without it."))
+            .add_enabled(helper && !self.busy, egui::Checkbox::new(&mut on, tr(lang, K_NORMAL_AI_DENOISE)))
+            .on_hover_text(tr(lang, K_NORMAL_CLEANS_THE_GRAIN_OUT_OF_THE_PHOTO_AND_THE_PREVIE))
             .changed();
         if helper && self.normal.denoise_ready.is_none() {
             let cfg = autoshade::config::Config::load();
@@ -337,14 +337,14 @@ impl AutoShadeApp {
     /// installed (a process-wide probe, so it is passed in).
     pub(crate) fn noise_lines(&self, lang: Lang, helper: bool) -> Vec<String> {
         if !helper {
-            return vec![tr(lang, "This download does not include the noise tool.").into()];
+            return vec![tr(lang, K_NORMAL_THIS_DOWNLOAD_DOES_NOT_INCLUDE_THE_NOISE_TOOL).into()];
         }
         // The switch is the Retouch panel's denoise: the preview shows it.
-        let mut lines = vec![tr(lang, "It takes a moment; the preview then shows the result, and that is what gets saved.").to_string()];
+        let mut lines = vec![tr(lang, K_NORMAL_IT_TAKES_A_MOMENT_THE_PREVIEW_THEN_SHOWS_THE_RES).to_string()];
         if self.normal.denoise_ready != Some(true) && !self.denoise_uses_raw() {
             lines.push(trf(
                 lang,
-                "The first time, the noise model is downloaded (about {mb} MB).",
+                K_NORMAL_THE_FIRST_TIME_THE_NOISE_MODEL_IS_DOWNLOADED_ABO,
                 &[("mb", &DENOISE_FIRST_DOWNLOAD_MB.to_string())],
             ));
         }
@@ -356,16 +356,16 @@ impl AutoShadeApp {
     fn normal_save(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
-        panel_heading(ui, tr(lang, "Save"), false, |_| {});
+        panel_heading(ui, tr(lang, K_NORMAL_SAVE), false, |_| {});
         let ready = self.photo.src_path.is_some() && !self.busy;
         let mut save = false;
         ui.horizontal(|ui| {
             let cell = columns(ui, 2);
-            save = primary_in(ui, cell, ready, tr(lang, "Save as jpg"))
-                .on_hover_text(tr(lang, "Saves the photo with this look as a jpg; the original file is never changed."))
+            save = primary_in(ui, cell, ready, tr(lang, K_NORMAL_SAVE_AS_JPG))
+                .on_hover_text(tr(lang, K_NORMAL_SAVES_THE_PHOTO_WITH_THIS_LOOK_AS_A_JPG_THE_ORIG))
                 .clicked();
             egui::ComboBox::from_id_salt("normal_quality")
-                .selected_text(format!("{} · {}", tr(lang, "Quality"), self.normal.quality.label(lang)))
+                .selected_text(format!("{} · {}", tr(lang, K_NORMAL_QUALITY), self.normal.quality.label(lang)))
                 .width(cell.x)
                 .show_ui(ui, |ui| {
                     for q in SaveQuality::ALL {
@@ -378,21 +378,21 @@ impl AutoShadeApp {
         // reads. (A folder inside the photo library is a valid destination; a
         // save only refuses to REPLACE an existing photo.)
         let place = match (self.exp.dest, self.export_dest_dir()) {
-            (_, None) => tr(lang, "Asks where to save each time").to_string(),
+            (_, None) => tr(lang, K_NORMAL_ASKS_WHERE_TO_SAVE_EACH_TIME).to_string(),
             (ExportDest::LastUsed, Some(d)) => {
-                trf(lang, "Saves to the folder you last saved to: {folder}", &[("folder", &crate::normal_actions::folder_name(&d))])
+                trf(lang, K_NORMAL_SAVES_TO_THE_FOLDER_YOU_LAST_SAVED_TO, &[("folder", &crate::normal_actions::folder_name(&d))])
             }
             (_, Some(d)) => trf(
                 lang,
-                "Saves to the app's output folder {folder} (change it in Settings ⚙)",
+                K_NORMAL_SAVES_TO_THE_APP_S_OUTPUT_FOLDER_CHANGE_IT_IN_SE,
                 &[("folder", &crate::normal_actions::folder_name(&d))],
             ),
         };
         let full = self.export_dest_dir().map(|d| abs_display(&d)).unwrap_or_default();
         ui.label(egui::RichText::new(place).weak().small()).on_hover_text(full);
-        let all = action_row(ui, ready && !self.gal.gallery.is_empty(), tr(lang, "Apply this look to every photo in the folder"))
-            .on_hover_text(tr(lang, "Gives every photo in the open folder this look and saves each one as a jpg."))
-            .on_disabled_hover_text(tr(lang, "Open a folder first — the library on the left."))
+        let all = action_row(ui, ready && !self.gal.gallery.is_empty(), tr(lang, K_NORMAL_APPLY_THIS_LOOK_TO_EVERY_PHOTO_IN_THE_FOLDER))
+            .on_hover_text(tr(lang, K_NORMAL_GIVES_EVERY_PHOTO_IN_THE_OPEN_FOLDER_THIS_LOOK_A))
+            .on_disabled_hover_text(tr(lang, K_NORMAL_OPEN_A_FOLDER_FIRST_THE_LIBRARY_ON_THE_LEFT))
             .clicked();
         if save {
             self.apply_actions(vec![logic::Action::Normal(logic::normal::NormalAction::SaveJpg)]);

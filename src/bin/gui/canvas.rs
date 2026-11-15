@@ -97,7 +97,7 @@ impl AutoShadeApp {
         self.status = match self.baked_canvas_edge() {
             Some(px) => trf(
                 lang,
-                "the canvas pixels stay at {px}px (their own bake) — edits and retouches follow that, not the preview preference",
+                K_CANVAS_THE_CANVAS_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE_EDIT,
                 &[("px", &px.to_string())],
             ),
             None => tr(lang, plain).to_string(),
@@ -464,7 +464,7 @@ impl AutoShadeApp {
             // hang, a spinner reads as work.
             ui.horizontal(|ui| {
                 ui.spinner();
-                ui.label(egui::RichText::new(tr(lang, "Preparing preview…")).weak());
+                ui.label(egui::RichText::new(tr(lang, K_CANVAS_PREPARING_PREVIEW)).weak());
             });
             return;
         };
@@ -506,38 +506,38 @@ impl AutoShadeApp {
         let hint = if comparing {
             if self.view.before {
                 // The latch came from \ — "release B" was a lie there (M21).
-                tr(lang, "Before (source) — press \\ again (or Esc) to return to editing")
+                tr(lang, K_CANVAS_BEFORE_SOURCE_PRESS_AGAIN_OR_ESC_TO_RETURN_TO_ED)
             } else {
-                tr(lang, "Before (source) — release B to return to editing")
+                tr(lang, K_CANVAS_BEFORE_SOURCE_RELEASE_B_TO_RETURN_TO_EDITING)
             }
         } else if self.crop.mode {
-            tr(lang, "Crop — drag corners/edges to resize, inside to move, outside to rotate · Esc to exit")
+            tr(lang, K_CANVAS_CROP_DRAG_CORNERS_EDGES_TO_RESIZE_INSIDE_TO_MOVE)
         } else if let Some((kind, _)) = self.masks.placing_mask {
             match kind {
-                MaskKind::Linear => tr(lang, "Linear gradient — drag from the fully-applied side to the unaffected side (Shift = axis lock) · Esc to exit"),
-                MaskKind::Radial => tr(lang, "Radial gradient — drag to draw an elliptical area · Esc to exit"),
+                MaskKind::Linear => tr(lang, K_CANVAS_LINEAR_GRADIENT_DRAG_FROM_THE_FULLY_APPLIED_SIDE),
+                MaskKind::Radial => tr(lang, K_CANVAS_RADIAL_GRADIENT_DRAG_TO_DRAW_AN_ELLIPTICAL_AREA),
             }
         } else if self.tools.wb_picking {
-            tr(lang, "WB eyedropper — click a spot that should be neutral grey/white · Esc to exit")
+            tr(lang, K_CANVAS_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA)
         } else if self.tools.range_picking.is_some() {
-            tr(lang, "Color range — click the color to pick in the image · Esc to exit")
+            tr(lang, K_CANVAS_COLOR_RANGE_CLICK_THE_COLOR_TO_PICK_IN_THE_IMAGE)
         } else if self.tools.point_color_picking {
-            tr(lang, "Point Color eyedropper — click the colour to adjust · Esc to exit")
+            tr(lang, K_CANVAS_POINT_COLOR_EYEDROPPER_CLICK_THE_COLOUR_TO_ADJUS)
         } else if self.tools.clone_mode {
-            tr(lang, "Stamp — Alt+click to set the source · drag to brush the area to cover · Esc to exit")
+            tr(lang, K_CANVAS_STAMP_ALT_CLICK_TO_SET_THE_SOURCE_DRAG_TO_BRUSH)
         } else if self.masks.paint_mode {
             if self.masks.mask_brush.is_some() {
-                tr(lang, "Mask brush — paint to select · 「Erase」 removes · 「Apply」 bakes · Esc cancels")
+                tr(lang, K_CANVAS_MASK_BRUSH_PAINT_TO_SELECT_ERASE_REMOVES_APPLY_B)
             } else {
                 match self.masks.paint_owner {
-                    BrushOwner::Fill => tr(lang, "Brush — paint the area to remove or fill · Esc to exit"),
-                    BrushOwner::Heal => tr(lang, "Brush — paint the area to heal · Esc to exit"),
-                    BrushOwner::Stamp => tr(lang, "Brush — paint the area to clone over · Esc to exit"),
-                    BrushOwner::Adjust => tr(lang, "Brush — paint the area to adjust · Esc to exit"),
+                    BrushOwner::Fill => tr(lang, K_CANVAS_BRUSH_PAINT_THE_AREA_TO_REMOVE_OR_FILL_ESC_TO_EX),
+                    BrushOwner::Heal => tr(lang, K_CANVAS_BRUSH_PAINT_THE_AREA_TO_HEAL_ESC_TO_EXIT),
+                    BrushOwner::Stamp => tr(lang, K_CANVAS_BRUSH_PAINT_THE_AREA_TO_CLONE_OVER_ESC_TO_EXIT),
+                    BrushOwner::Adjust => tr(lang, K_CANVAS_BRUSH_PAINT_THE_AREA_TO_ADJUST_ESC_TO_EXIT),
                 }
             }
         } else {
-            tr(lang, "After — drag a box = local AI · scroll to zoom · space/middle-drag to pan · hold B to compare")
+            tr(lang, K_CANVAS_AFTER_DRAG_A_BOX_LOCAL_AI_SCROLL_TO_ZOOM_SPACE_M)
         };
         // An armed tool must be visible at NORMAL contrast — .weak().small()
         // is the passive-help style, and it was the only always-on indicator
@@ -550,7 +550,7 @@ impl AutoShadeApp {
                 ui.label(egui::RichText::new(hint).weak().small());
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if action(ui, true, "1:1").on_hover_text(tr(lang, "Preview pixels 1:1 (double-click the image to toggle; key: 1)")).clicked() {
+                if action(ui, true, "1:1").on_hover_text(tr(lang, K_CANVAS_PREVIEW_PIXELS_1_1_DOUBLE_CLICK_THE_IMAGE_TO_TOG)).clicked() {
                     // Same ceiling as the render path (view_uv clamps at 12) —
                     // an unclamped value desynced zoom/pan math from the view.
                     // ppp: 1:1 means one texel per PHYSICAL pixel — the value
@@ -561,12 +561,12 @@ impl AutoShadeApp {
                 // "Fit" is natural language, unlike its "1:1" sibling — it
                 // must route through `tr` like every user-facing literal
                 // (the i18n module contract; the audit now flags bypasses).
-                if action(ui, true, tr(lang, "Fit")).on_hover_text(tr(lang, "Fit the whole image to the canvas (double-click the image to toggle; key: 0)")).clicked() {
+                if action(ui, true, tr(lang, K_CANVAS_FIT)).on_hover_text(tr(lang, K_CANVAS_FIT_THE_WHOLE_IMAGE_TO_THE_CANVAS_DOUBLE_CLICK_T)).clicked() {
                     self.view.zoom_target = 1.0; // glides; the pan clamp eases the rest
                     self.view.pan = egui::vec2(0.5, 0.5);
                 }
                 if glyph_toggle(ui, self.chrome.show_clipping, "▲")
-                    .on_hover_text(tr(lang, "Clipping warning (J): red = highlight clip, blue = shadow crush (judged on export pixels)"))
+                    .on_hover_text(tr(lang, K_CANVAS_CLIPPING_WARNING_J_RED_HIGHLIGHT_CLIP_BLUE_SHADO))
                     .clicked()
                 {
                     let ctx = ui.ctx().clone();
@@ -582,12 +582,12 @@ impl AutoShadeApp {
                         .selected_text(format!("{}px", self.genai.preview_edge))
                         .width(64.0)
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.genai.preview_edge, 1280, tr(lang, "1280px · fluid"));
+                            ui.selectable_value(&mut self.genai.preview_edge, 1280, tr(lang, K_CANVAS_1280PX_FLUID));
                             ui.selectable_value(&mut self.genai.preview_edge, 2560, "2560px");
-                            ui.selectable_value(&mut self.genai.preview_edge, 4096, tr(lang, "4096px · inspect"));
+                            ui.selectable_value(&mut self.genai.preview_edge, 4096, tr(lang, K_CANVAS_4096PX_INSPECT));
                         })
                         .response
-                        .on_hover_text(tr(lang, "Working preview resolution: 1280 is smoothest on the sliders; 2560/4096 for 1:1 focus/noise checks (slower on every adjustment)"));
+                        .on_hover_text(tr(lang, K_CANVAS_WORKING_PREVIEW_RESOLUTION_1280_IS_SMOOTHEST_ON));
                 });
                 if self.genai.preview_edge != before
                     && let Some(p) = self.photo.src_path.clone()
@@ -611,7 +611,7 @@ impl AutoShadeApp {
                         // back with no visible reason.
                         let t = tr(
                             lang,
-                            "busy — the preview-resolution switch was not applied; pick it again when the current task finishes",
+                            K_CANVAS_BUSY_THE_PREVIEW_RESOLUTION_SWITCH_WAS_NOT_APPLI,
                         )
                         .to_string();
                         self.toast(ToastKind::Error, t);
@@ -1565,7 +1565,7 @@ impl AutoShadeApp {
                 PlaceTarget::Component(i, mode) => logic::mask_place::Place::Component(i, mode),
             };
             let n = (self.doc.recipe.masks.len() + 1).to_string();
-            let name = trf(self.lang, "Manual {n}", &[("n", &n)]);
+            let name = trf(self.lang, K_CANVAS_MANUAL, &[("n", &n)]);
             let committed = logic::mask_place::commit(&mut self.doc.recipe, place, geom, name);
             match committed.selection {
                 logic::mask_place::Selection::Keep => {}

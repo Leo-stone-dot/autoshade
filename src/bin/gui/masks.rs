@@ -31,7 +31,7 @@ impl AutoShadeApp {
         self.busy = true;
         self.status = trf(
             lang,
-            "AI segmenting {what}… (first run auto-downloads the model; failures are reported here)",
+            K_GUI_AI_SEGMENTING_FIRST_RUN_AUTO_DOWNLOADS_THE_MODEL,
             &[("what", &disp)],
         );
         self.spawn_worker(
@@ -394,7 +394,7 @@ impl AutoShadeApp {
                 Err(e) => {
                     let t = trf(
                         self.lang,
-                        "could not load this mask's raster ({err}) — starting from an empty brush canvas",
+                        K_GUI_COULD_NOT_LOAD_THIS_MASK_S_RASTER_STARTING_FROM,
                         &[("err", &e.to_string())],
                     );
                     self.toast(ToastKind::Error, t);
@@ -409,7 +409,7 @@ impl AutoShadeApp {
         self.masks.paint_mode = true;
         self.status = tr(
             self.lang,
-            "Brush mask — paint to select; 「Erase」 removes; 「Apply」 bakes it · Esc cancels",
+            K_GUI_BRUSH_MASK_PAINT_TO_SELECT_ERASE_REMOVES_APPLY_B,
         )
         .into();
     }
@@ -425,12 +425,12 @@ impl AutoShadeApp {
         let lang = self.lang;
         if target.is_none() {
             if gray.pixels().all(|p| p[0] == 0) {
-                let t = tr(lang, "nothing painted yet — drag on the image first");
+                let t = tr(lang, K_GUI_NOTHING_PAINTED_YET_DRAG_ON_THE_IMAGE_FIRST);
                 self.toast(ToastKind::Error, t.to_string());
                 return;
             }
             if self.doc.recipe.masks.len() >= 64 {
-                let t = tr(lang, "mask limit reached (64) — delete one first");
+                let t = tr(lang, K_ACTIONS_MASK_LIMIT_REACHED_64_DELETE_ONE_FIRST);
                 self.toast(ToastKind::Error, t.to_string());
                 return;
             }
@@ -467,17 +467,17 @@ impl AutoShadeApp {
                             }
                         }
                         self.masks.sel_mask = Some(i);
-                        self.status = tr(lang, "mask raster updated — its adjustments now apply to the edited area").into();
+                        self.status = tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO).into();
                     }
                     _ => {
                         let n = self.doc.recipe.masks.len();
                         self.doc.recipe.masks.push(autoshade::recipe::LocalAdjustment {
                             mask: MaskGeometry::Bitmap { path: path_s },
-                            name: trf(lang, "Brush {n}", &[("n", &(n + 1).to_string())]),
+                            name: trf(lang, K_GUI_BRUSH, &[("n", &(n + 1).to_string())]),
                             ..Default::default()
                         });
                         self.masks.sel_mask = Some(n);
-                        self.status = tr(lang, "brush mask created — pull its sliders in 「Local Masks」 (all 0 now, no visible effect yet)").into();
+                        self.status = tr(lang, K_GUI_BRUSH_MASK_CREATED_PULL_ITS_SLIDERS_IN_LOCAL_MAS).into();
                     }
                 }
                 self.masks.sel_component = None;
@@ -488,7 +488,7 @@ impl AutoShadeApp {
             Err(e) => {
                 let t = trf(
                     lang,
-                    "could not save the brush mask ({err})",
+                    K_GUI_COULD_NOT_SAVE_THE_BRUSH_MASK,
                     &[("err", &e.to_string())],
                 );
                 self.toast(ToastKind::Error, t);
@@ -542,13 +542,13 @@ impl AutoShadeApp {
                 self.session.dirty = true;
                 self.overlay.overlay_stale = true;
                 self.status =
-                    tr(lang, "mask raster updated — its adjustments now apply to the edited area")
+                    tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO)
                         .into();
             }
             Err(e) => {
                 let t = trf(
                     lang,
-                    "could not edit this mask's raster ({err})",
+                    K_GUI_COULD_NOT_EDIT_THIS_MASK_S_RASTER,
                     &[("err", &e.to_string())],
                 );
                 self.toast(ToastKind::Error, t);
@@ -594,7 +594,7 @@ impl AutoShadeApp {
         };
         self.busy = true;
         self.status =
-            tr(self.lang, "Refining the mask to full resolution (decoding the full-size source) …")
+            tr(self.lang, K_GUI_REFINING_THE_MASK_TO_FULL_RESOLUTION_DECODING_TH)
                 .into();
         let stored_ref = path.clone();
         // The budget precheck below is an AGGREGATE question ("would the refined

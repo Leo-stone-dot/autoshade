@@ -138,7 +138,7 @@
                 });
             }
             let drawn = DRAWN.with_borrow(|d| d.clone());
-            assert!(drawn.iter().any(|d| d.label == tr(lang, "🗂 RAW folder…")), "{lang:?}: the library row was drawn");
+            assert!(drawn.iter().any(|d| d.label == tr(lang, K_AI_RAW_FOLDER)), "{lang:?}: the library row was drawn");
             // A label wider than its cell widens its button, and the row then
             // widens the panel past its fixed width: the panel is the witness.
             assert!(
@@ -891,7 +891,7 @@
         assert!(alpha(&app.doc.recipe).is_some(), "the open card's AI mask has its alpha: {}", app.status);
         assert_eq!(alpha(&app.session.hist.saved_recipe), alpha(&app.doc.recipe), "an alpha is not an edit: ● stays dark");
         assert_eq!(alpha(&app.session.hist.committed.recipe), alpha(&app.doc.recipe), "and Ctrl+Z does not take it away");
-        assert_eq!(app.status, trf(Lang::En, "AI masks ×{n} re-derived locally — not Adobe's raster", &[("n", "1")]));
+        assert_eq!(app.status, trf(Lang::En, K_PERSIST_AI_MASKS_RE_DERIVED_LOCALLY_NOT_ADOBE_S_RASTER, &[("n", "1")]));
         // Export: a card still without its alpha is cut on the export's copy.
         let mean = |p: &std::path::Path| {
             let img = image::open(p).unwrap_or_else(|e| panic!("{}: {e}", p.display())).to_luma8();
@@ -960,7 +960,7 @@
         assert!(!raster(&app.doc.recipe).is_empty(), "the open card's face mask has its raster: {}", app.status);
         assert_eq!(raster(&app.session.hist.saved_recipe), raster(&app.doc.recipe), "a raster is not an edit: ● stays dark");
         assert_eq!(raster(&app.session.hist.committed.recipe), raster(&app.doc.recipe), "and Ctrl+Z does not take it away");
-        assert_eq!(app.status, trf(Lang::En, "Face masks ×{n} outlined on this computer", &[("n", "1")]));
+        assert_eq!(app.status, trf(Lang::En, K_PERSIST_FACE_MASKS_OUTLINED_ON_THIS_COMPUTER, &[("n", "1")]));
         // Export: a card whose face mask still names no raster is drawn on
         // the export's copy, so the jpg carries it.
         let mean = |p: &std::path::Path| {
@@ -985,7 +985,7 @@
         let why = "\"Face\" left out (no face was found in this photo)";
         assert!(app.status.contains(why), "the status line names the mask and the reason: {}", app.status);
         assert!(
-            app.status.starts_with(&trf(Lang::En, "Some masks could not be drawn, so they are not applied: {why}", &[("why", "")])),
+            app.status.starts_with(&trf(Lang::En, K_LANDING_SOME_MASKS_COULD_NOT_BE_DRAWN_SO_THEY_ARE_NOT_AP, &[("why", "")])),
             "{}",
             app.status
         );

@@ -1425,7 +1425,7 @@ mod tests {
     fn the_bands_replace_the_single_zones_account_too() {
         let (source, target, parent, mut report) = fixture(true);
         let target = fit::pixels_of(&target);
-        let own = |label: &str, key: &'static str| crate::rationale::Note::new(key, vec![
+        let own = |label: &str, key: crate::text::Key| crate::rationale::Note::new(key, vec![
             ("label", label.to_string()), ("texture", "1.000".into()),
             ("clip_before", "0.00".into()), ("clip_after", "0.00".into()),
         ]);

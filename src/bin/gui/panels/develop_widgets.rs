@@ -18,7 +18,7 @@ impl AutoShadeApp {
         ui.add_space(SPACE_MD);
         // --- 曲线: master + RGB tone curves (engine + XMP already apply them,
         // this is purely the editing surface — Lightroom's panel order) --------
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Curves"), curves_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_CURVES), curves_active))
             .id_salt("sec_curves")
             .default_open(false)
             , |ui| {
@@ -37,16 +37,16 @@ impl AutoShadeApp {
     /// the curve renders (`EditRecipe::parametric_splits`).
     fn parametric_curve(ui: &mut egui::Ui, lang: Lang, r: &mut EditRecipe) -> bool {
         use autoshade::recipe::{PARAMETRIC_SPLITS, PARAMETRIC_SPLIT_GAP};
-        sub_caption(ui, tr(lang, "Parametric curve"));
+        sub_caption(ui, tr(lang, K_DEVELOP_PARAMETRIC_CURVE));
         let mut changed = false;
-        changed |= Self::slider(ui, lang, tr(lang, "Highlights"), &mut r.param_highlights, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Lights"), &mut r.param_lights, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Darks"), &mut r.param_darks, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Shadows"), &mut r.param_shadows, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_HIGHLIGHTS), &mut r.param_highlights, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_LIGHTS), &mut r.param_lights, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_DARKS), &mut r.param_darks, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_SHADOWS), &mut r.param_shadows, -100.0, 100.0, 0.0);
         let gap = PARAMETRIC_SPLIT_GAP;
         let mut splits = r.parametric_splits();
         let mut moved = false;
-        let labels = [tr(lang, "Shadow split"), tr(lang, "Midtone split"), tr(lang, "Highlight split")];
+        let labels = [tr(lang, K_DEVELOP_SHADOW_SPLIT), tr(lang, K_DEVELOP_MIDTONE_SPLIT), tr(lang, K_DEVELOP_HIGHLIGHT_SPLIT)];
         for (i, label) in labels.into_iter().enumerate() {
             // The reset lands inside the room the neighbours leave: a reset
             // must not cross them either (`slider_impl` resets unclamped).
@@ -76,12 +76,12 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut changed = false;
         ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Color Mixer (HSL)"), hsl_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_COLOR_MIXER_HSL), hsl_active))
             .id_salt("sec_hsl")
             .default_open(false)
             , |ui| {
                 changed |= ui
-                    .checkbox(&mut self.doc.recipe.convert_to_grayscale, tr(lang, "Black & White"))
+                    .checkbox(&mut self.doc.recipe.convert_to_grayscale, tr(lang, K_DEVELOP_BLACK_WHITE))
                     .changed();
                 // What the CANVAS does, not what the checkbox says (v1.5.0 F7):
                 // a monochrome creative profile develops the photograph to grey
@@ -98,7 +98,7 @@ impl AutoShadeApp {
                 // has no tabs — its caption stands where they do.
                 ui.horizontal(|ui| {
                     if mono {
-                        ui.label(egui::RichText::new(tr(lang, "B&W mix")).weak().small());
+                        ui.label(egui::RichText::new(tr(lang, K_DEVELOP_B_W_MIX)).weak().small());
                     } else {
                         for (i, name) in ["Hue", "Saturation", "Luminance"].iter().enumerate() {
                             if ui.selectable_label(self.ai.hsl_tab == i, tr(lang, name)).clicked() {
@@ -109,7 +109,7 @@ impl AutoShadeApp {
                     // R38: a glyph square — the same reset in every mixer row;
                     // as a text button it ran the HSL tab row to 318 px at the
                     // 320 px default and widened the auto-fitting panel.
-                    if glyph(ui, true, "↺").on_hover_text(tr(lang, "Reset all")).clicked() {
+                    if glyph(ui, true, "↺").on_hover_text(tr(lang, K_DEVELOP_RESET_ALL)).clicked() {
                         if mono {
                             for b in 0..HSL_BANDS.len() {
                                 if let Some(v) = self.doc.recipe.gray_mixer_mut(b) {
@@ -171,23 +171,23 @@ impl AutoShadeApp {
             ui.horizontal_wrapped(|ui| {
                 // One cell of the grid beside the caption (2026-09-27).
                 let cell = columns(ui, 2);
-                ui.label(egui::RichText::new(tr(lang, "Point Color")).weak().small());
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_POINT_COLOR)).weak().small());
                 let label = if self.tools.point_color_picking {
-                    tr(lang, "💧 Click in image…")
+                    tr(lang, K_DEVELOP_CLICK_IN_IMAGE)
                 } else {
-                    tr(lang, "💧 Pick a color")
+                    tr(lang, K_DEVELOP_PICK_A_COLOR)
                 };
                 let room = self.doc.recipe.point_colors.len() < MAX_POINT_COLORS;
                 if action_in(ui, cell, room, label)
                     .on_hover_text(tr(lang,
-                        "Click a colour in the image to add a swatch; its sliders then move that colour alone. Click again to cancel.",
+                        K_DEVELOP_CLICK_A_COLOUR_IN_THE_IMAGE_TO_ADD_A_SWATCH_ITS,
                     ))
                     // The limit says itself where the button that hit it is —
                     // the canvas handler repeats it for the click that arrives
                     // after a paste filled the list behind an armed tool.
                     .on_disabled_hover_text(trf(
                         lang,
-                        "Point Color: at most {n} swatches",
+                        K_LOGIC_POINT_COLOR_AT_MOST_SWATCHES,
                         &[("n", &MAX_POINT_COLORS.to_string())],
                     ))
                     .clicked()
@@ -197,7 +197,7 @@ impl AutoShadeApp {
                     self.tools.point_color_picking = on;
                     if on {
                         self.status =
-                            tr(lang, "Point Color eyedropper: click the colour to adjust").into();
+                            tr(lang, K_DEVELOP_POINT_COLOR_EYEDROPPER_CLICK_THE_COLOUR_TO_ADJUS).into();
                     }
                 }
             });
@@ -218,11 +218,11 @@ impl AutoShadeApp {
                         2.0,
                         egui::Color32::from_rgb(rgb[0], rgb[1], rgb[2]),
                     );
-                    ui.label(trf(lang, "Swatch {n}", &[("n", &(i + 1).to_string())]));
+                    ui.label(trf(lang, K_DEVELOP_SWATCH, &[("n", &(i + 1).to_string())]));
                     // 🗑, the vocabulary's DELETE-a-list-row glyph (masks,
                     // versions) — ✕ is "clear / close" and says the wrong thing
                     // about a swatch that is gone for good.
-                    if glyph(ui, true, "🗑").on_hover_text(tr(lang, "Remove swatch")).clicked() {
+                    if glyph(ui, true, "🗑").on_hover_text(tr(lang, K_DEVELOP_REMOVE_SWATCH)).clicked() {
                         remove = Some(i);
                     }
                 });
@@ -239,7 +239,7 @@ impl AutoShadeApp {
                     }
                 }
                 let mut range = p.range_amount;
-                if Self::slider_pct(ui, lang, tr(lang, "Range"), &mut range, 1.0, 0.5) {
+                if Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_RANGE), &mut range, 1.0, 0.5) {
                     p.set_range(range);
                     changed = true;
                 }
@@ -259,7 +259,7 @@ impl AutoShadeApp {
         let mut changed = false;
 
         ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Color Grading"), grade_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_COLOR_GRADING), grade_active))
             .id_salt("sec_grade")
             .default_open(false)
             , |ui| {
@@ -276,7 +276,7 @@ impl AutoShadeApp {
                         }
                     }
                     // R38: a glyph square — the same reset in every mixer row.
-                    if glyph(ui, true, "↺").on_hover_text(tr(lang, "Reset all")).clicked() {
+                    if glyph(ui, true, "↺").on_hover_text(tr(lang, K_DEVELOP_RESET_ALL)).clicked() {
                         self.doc.recipe.color_grade = ColorGrade::default();
                         changed = true;
                     }
@@ -289,7 +289,7 @@ impl AutoShadeApp {
                     ui.vertical(|ui| {
                         ui.set_width(width);
                         c |= grade_wheel(ui, lang, title, (width - 8.0).min(170.0), h, s);
-                        c |= Self::slider(ui, lang, tr(lang, "Luminance"), l, -100.0, 100.0, 0.0);
+                        c |= Self::slider(ui, lang, tr(lang, K_DEVELOP_LUMINANCE), l, -100.0, 100.0, 0.0);
                     });
                     c
                 };
@@ -299,18 +299,18 @@ impl AutoShadeApp {
                     let half = ((avail - ui.spacing().item_spacing.x) / 2.0).floor();
                     ui.horizontal(|ui| {
                         ui.add_space(((avail - half) / 2.0).floor());
-                        changed |= wheel(ui, tr(lang, "Midtones"), half, &mut cg.midtone_hue, &mut cg.midtone_sat, &mut cg.midtone_lum);
+                        changed |= wheel(ui, tr(lang, K_DEVELOP_MIDTONES), half, &mut cg.midtone_hue, &mut cg.midtone_sat, &mut cg.midtone_lum);
                     });
                     ui.add_space(SPACE_SM);
                     ui.horizontal(|ui| {
-                        changed |= wheel(ui, tr(lang, "Shadows"), half, &mut cg.shadow_hue, &mut cg.shadow_sat, &mut cg.shadow_lum);
-                        changed |= wheel(ui, tr(lang, "Highlights"), half, &mut cg.highlight_hue, &mut cg.highlight_sat, &mut cg.highlight_lum);
+                        changed |= wheel(ui, tr(lang, K_DEVELOP_SHADOWS), half, &mut cg.shadow_hue, &mut cg.shadow_sat, &mut cg.shadow_lum);
+                        changed |= wheel(ui, tr(lang, K_DEVELOP_HIGHLIGHTS), half, &mut cg.highlight_hue, &mut cg.highlight_sat, &mut cg.highlight_lum);
                     });
                 } else {
                     let width = (avail * 0.7).floor();
                     ui.horizontal(|ui| {
                         ui.add_space(((avail - width) / 2.0).floor());
-                        changed |= wheel(ui, tr(lang, "Global"), width, &mut cg.global_hue, &mut cg.global_sat, &mut cg.global_lum);
+                        changed |= wheel(ui, tr(lang, K_DEVELOP_GLOBAL), width, &mut cg.global_hue, &mut cg.global_sat, &mut cg.global_lum);
                     });
                 }
                 // Blending/Balance shape the WHOLE grade, not one wheel — a
@@ -318,7 +318,7 @@ impl AutoShadeApp {
                 // two sliders are capability rows: the band and the reset
                 // (blending 50, not 0) come from the core catalogue's nested
                 // colour-grade table, not from this draw site.
-                sub_caption(ui, tr(lang, "All regions"));
+                sub_caption(ui, tr(lang, K_DEVELOP_ALL_REGIONS));
                 changed |= self.capability_rows(ui, crate::logic::capability::GRADE_GLOBALS);
             });
         changed

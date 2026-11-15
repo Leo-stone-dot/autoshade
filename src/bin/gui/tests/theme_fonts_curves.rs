@@ -251,6 +251,18 @@
             let text = std::fs::read_to_string(p).expect("gui source readable");
             literal_chars(&text, &mut syms);
         }
+        // The Chinese text is no longer in the sources: it lives in the
+        // resource bundle (`resources/strings/zh-Hans.toml`). Add every glyph
+        // the translated UI can draw, so the embedded-subset gate still covers
+        // them.
+        for i in 0..autoshade::text::key_count() {
+            let key = autoshade::text::Key::Resource(i as u16);
+            for c in autoshade::text::tr(autoshade::text::Lang::Zh, key).chars() {
+                if !c.is_control() {
+                    syms.insert(c);
+                }
+            }
+        }
         let is_cjk = |c: char| {
             matches!(c as u32, 0x2E80..=0x9FFF | 0xF900..=0xFAFF | 0xFF00..=0xFFEF)
         };

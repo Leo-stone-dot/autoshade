@@ -2,6 +2,8 @@
 //! guard, claim, write) is the worker's; remembering where a batch DELIVERED,
 //! the camera-curve repair and the ● baseline are the runtime's. This module
 //! owns what an outcome says.
+use autoshade::text::generated::*;
+
 
 use super::{UiText, brief_list};
 use std::path::PathBuf;
@@ -39,15 +41,15 @@ pub(crate) struct SingleWords {
 
 /// Word one single export. `path` is the already-displayed target.
 pub(crate) fn single_words(path: &str, relooked: bool, warn: Option<&str>) -> SingleWords {
-    let line = UiText::with("exported → {path}", &[("path", path)]);
+    let line = UiText::with(K_LANDING_EXPORTED, &[("path", path)]);
     let relook = relooked.then(|| {
         UiText::of(
-            "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
+            K_EXPORT_CAMERA_BASE_LOOK_RE_ESTIMATED_THIS_PHOTO_WAS_SAV,
         )
     });
     let warn = warn.map(|why| {
         UiText::with(
-            "Some masks could not be drawn, so they are not applied: {why}",
+            K_LANDING_SOME_MASKS_COULD_NOT_BE_DRAWN_SO_THEY_ARE_NOT_AP,
             &[("why", why)],
         )
     });
@@ -73,10 +75,10 @@ pub(crate) fn batch_words(
     dest: &str,
 ) -> BatchWords {
     let base = if errs.is_empty() {
-        UiText::with("batch {n} done → {path}", &[("n", &ok.to_string()), ("path", dest)])
+        UiText::with(K_LANDING_BATCH_DONE, &[("n", &ok.to_string()), ("path", dest)])
     } else {
         UiText::with(
-            "Batch: {ok} succeeded, {fail} failed: {detail}",
+            K_LANDING_BATCH_SUCCEEDED_FAILED,
             &[
                 ("ok", &ok.to_string()),
                 ("fail", &errs.len().to_string()),
@@ -87,11 +89,11 @@ pub(crate) fn batch_words(
     // Same-stem photos were kept apart — disclose WHICH photo took WHICH name,
     // or the user hunts for an export that "vanished".
     let renamed = (!renamed.is_empty()).then(|| {
-        UiText::with(" · same-name photos kept apart: {list}", &[("list", &renamed.join(", "))])
+        UiText::with(K_LANDING_SAME_NAME_PHOTOS_KEPT_APART, &[("list", &renamed.join(", "))])
     });
     let relooked = (relooked > 0).then(|| {
         UiText::with(
-            " · {n} base look(s) re-estimated (saved by an earlier version)",
+            K_LANDING_BASE_LOOK_S_RE_ESTIMATED_SAVED_BY_AN_EARLIER_VER,
             &[("n", &relooked.to_string())],
         )
     });
@@ -99,7 +101,7 @@ pub(crate) fn batch_words(
     // arms, so a partial failure keeps its disclosures too.
     let develops = (!warns.is_empty()).then(|| {
         UiText::with(
-            " · {n} develop warning(s): {detail}",
+            K_LANDING_DEVELOP_WARNING_S,
             &[("n", &warns.len().to_string()), ("detail", &brief_list(warns))],
         )
     });

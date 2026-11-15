@@ -6,6 +6,8 @@
 //! " — ⚠ " warnings from the engine's typed notes — so the landing only renders
 //! and appends. `RetouchNote` itself lives here because it is data, not a
 //! view type.
+use autoshade::text::generated::*;
+
 
 use super::{Arg, UiText};
 use std::path::PathBuf;
@@ -84,23 +86,23 @@ pub(crate) fn words(note: &RetouchNote) -> RetouchWords {
     let mut warnings = Vec::new();
     let text = match note {
         RetouchNote::Filled(p) => UiText::with(
-            "filled → {path} (a layer over this card's develop — Ctrl+Z takes it off; the card's own pixels are untouched)",
+            K_LOGIC_FILLED_A_LAYER_OVER_THIS_CARD_S_DEVELOP_CTRL_Z_T,
             &[("path", &path_of(p))],
         ),
         RetouchNote::FoundFilled { out: path, coverage } => UiText::with(
-            "changed {pct}% of the picture → {path} (a layer over this card's develop — Ctrl+Z takes it off; the card's own pixels are untouched)",
+            K_LOGIC_CHANGED_OF_THE_PICTURE_A_LAYER_OVER_THIS_CARD_S,
             &[("pct", &format!("{:.0}", coverage * 100.0)), ("path", &path_of(path))],
         ),
         RetouchNote::Adjusted { out: path, region, divergence } => {
             let text = if *region {
-                UiText::of("adjusted → new ✨ card (painted area only)")
+                UiText::of(K_LOGIC_ADJUSTED_NEW_CARD_PAINTED_AREA_ONLY)
             } else if let Some(d) = divergence {
                 UiText::with(
-                    "adjusted → new ✨ card (whole image, divergence D = {d})",
+                    K_LOGIC_ADJUSTED_NEW_CARD_WHOLE_IMAGE_DIVERGENCE_D,
                     &[("d", &format!("{d:.2}"))],
                 )
             } else {
-                UiText::of("adjusted → new ✨ card (whole image)")
+                UiText::of(K_LOGIC_ADJUSTED_NEW_CARD_WHOLE_IMAGE)
             };
             path_suffix = Some(path_of(path));
             text
@@ -122,11 +124,11 @@ pub(crate) fn words(note: &RetouchNote) -> RetouchWords {
                 .collect();
             if *in_face {
                 UiText::with(
-                    "healed {n} spot(s) on the face → {path} (spots elsewhere were left alone — Ctrl+Z goes back)",
+                    K_LOGIC_HEALED_SPOT_S_ON_THE_FACE_SPOTS_ELSEWHERE_WERE_L,
                     &args,
                 )
             } else {
-                UiText::with("healed {n} spot(s) → {path}", &args)
+                UiText::with(K_LOGIC_HEALED_SPOT_S, &args)
             }
         }
         RetouchNote::Stacked { out: path, kind, frames, travel, uncovered, headroom_ev } => {
@@ -136,53 +138,53 @@ pub(crate) fn words(note: &RetouchNote) -> RetouchWords {
             // — an HDR merge only — the stops of highlight it recovered.
             if *travel >= 0.5 {
                 suffixes.push(UiText::with(
-                    " · aligned by up to {px} px",
+                    K_LOGIC_ALIGNED_BY_UP_TO_PX,
                     &[("px", &format!("{travel:.1}"))],
                 ));
             }
             if *uncovered > 0.0 {
                 suffixes.push(UiText::with(
-                    " · {pct}% of the frame was outside at least one source",
+                    K_LOGIC_OF_THE_FRAME_WAS_OUTSIDE_AT_LEAST_ONE_SOURCE,
                     &[("pct", &format!("{:.2}", 100.0 * uncovered))],
                 ));
             }
             if *headroom_ev > 0.0 {
                 suffixes.push(UiText::with(
-                    " · recovered {ev} EV above the first frame's white — the SDR rendition sliders now mean something",
+                    K_LOGIC_RECOVERED_EV_ABOVE_THE_FIRST_FRAME_S_WHITE_THE_S,
                     &[("ev", &format!("{headroom_ev:.2}"))],
                 ));
             }
             UiText::with_args(
-                "stacked {n} frames ({how}) → {path} (new ▦ card; the frame you started from is untouched)",
+                K_LOGIC_STACKED_FRAMES_NEW_CARD_THE_FRAME_YOU_STARTED_FR,
                 &[
                     ("n", Arg::Text(frames.to_string())),
-                    ("how", Arg::Key(kind.label())),
+                    ("how", Arg::Key(kind.label().into())),
                     ("path", Arg::Text(path_of(path))),
                 ],
             )
         }
         RetouchNote::Denoised { out: path, on_mosaic: true } => UiText::with(
-            "AI denoised on the sensor mosaic → {path} (new ◈ card; the card you started from is untouched)",
+            K_LOGIC_AI_DENOISED_ON_THE_SENSOR_MOSAIC_NEW_CARD_THE_CA,
             &[("path", &path_of(path))],
         ),
         RetouchNote::Denoised { out: path, on_mosaic: false } => UiText::with(
-            "AI denoised (a baked source, so SCUNet on developed pixels) → {path} (new ◈ card; the card you started from is untouched)",
+            K_LOGIC_AI_DENOISED_A_BAKED_SOURCE_SO_SCUNET_ON_DEVELOPE,
             &[("path", &path_of(path))],
         ),
         RetouchNote::Cloned { n, out: path } => UiText::with(
-            "Cloned {n} spot(s) → {path}",
+            K_LOGIC_CLONED_SPOT_S,
             &[("n", &n.to_string()), ("path", &path_of(path))],
         ),
         RetouchNote::Reimagined { out: path, divergence, discarded } => {
             suffixes.push(reimagine_fidelity(*divergence));
             if let Some(d0) = discarded {
                 suffixes.push(UiText::with(
-                    " · the opt-in retry kept the closer of two results (discarded D={d0})",
+                    K_LOGIC_THE_OPT_IN_RETRY_KEPT_THE_CLOSER_OF_TWO_RESULTS,
                     &[("d0", &format!("{d0:.3}"))],
                 ));
             }
             UiText::with(
-                "「AI generated」variant created → {path} · edits on it continue on an ✎ card, or 「Reverse-fit」",
+                K_LOGIC_AI_GENERATED_VARIANT_CREATED_EDITS_ON_IT_CONTINU,
                 &[("path", &path_of(path))],
             )
         }
@@ -197,7 +199,7 @@ pub(crate) fn words(note: &RetouchNote) -> RetouchWords {
 pub(crate) fn reimagine_fidelity(divergence: f32) -> UiText {
     if divergence >= autoshade::fit::DIVERGENCE_GLOBAL {
         UiText::with(
-            " · ⚠ structure diverged from the original (D={d} ≥ {limit}) — a reverse-fit will fall back to atmosphere mode",
+            K_LOGIC_STRUCTURE_DIVERGED_FROM_THE_ORIGINAL_D_A_REVERSE,
             &[
                 ("d", &format!("{divergence:.3}")),
                 ("limit", &format!("{:.2}", autoshade::fit::DIVERGENCE_GLOBAL)),
@@ -205,7 +207,7 @@ pub(crate) fn reimagine_fidelity(divergence: f32) -> UiText {
         )
     } else {
         UiText::with(
-            " · faithful to the frame (structural divergence D={d})",
+            K_LOGIC_FAITHFUL_TO_THE_FRAME_STRUCTURAL_DIVERGENCE_D,
             &[("d", &format!("{divergence:.3}"))],
         )
     }
@@ -233,7 +235,7 @@ mod tests {
     #[test]
     fn a_heal_folds_prose_and_typed_notes_into_the_warning_tail() {
         let note = autoshade::rationale::Note {
-            key: "heal skipped {n} spot(s)",
+            key: "heal skipped {n} spot(s)".into(),
             args: vec![("n", "2".to_string())],
         };
         let healed = words(&RetouchNote::Healed {

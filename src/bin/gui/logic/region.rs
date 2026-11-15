@@ -6,6 +6,8 @@
 //! than the rectangle the user drew) and hands them here. This module takes
 //! their bounding box, refuses a box too small to mean anything (a tiny drag
 //! clears the selection, as it always has) and words the result.
+use autoshade::text::generated::*;
+
 
 use super::{Effect, UiText};
 
@@ -37,7 +39,7 @@ pub(crate) fn apply(action: RegionAction) -> Vec<Effect> {
                 vec![
                     Effect::SetRegion(Some([l, t, r, b])),
                     Effect::Status(UiText::with(
-                        "region {w}×{h}% — type a direction, then AI Analyze (click to clear)",
+                        K_LOGIC_REGION_TYPE_A_DIRECTION_THEN_AI_ANALYZE_CLICK_TO,
                         &[("w", &w.to_string()), ("h", &h.to_string())],
                     )),
                 ]

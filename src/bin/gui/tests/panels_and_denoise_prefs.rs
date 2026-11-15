@@ -264,7 +264,7 @@
             let mut clean = AutoShadeApp { lang, ..Default::default() };
             let seen = tall_frame(&mut clean, |a, ui| a.retouch_panel(ui));
             assert!(
-                !seen.iter().any(|t| t == tr(lang, "Imported removal")),
+                !seen.iter().any(|t| t == tr(lang, K_RETOUCH_IMPORTED_REMOVAL)),
                 "{lang:?}: a photo with no retouch draws no group: {seen:?}"
             );
 
@@ -274,11 +274,11 @@
             copied.doc.recipe.retouch = vec![area(SpotOrigin::LightroomHeal)];
             let seen = tall_frame(&mut copied, |a, ui| a.retouch_panel(ui));
             assert!(
-                seen.iter().any(|t| t == tr(lang, "Imported removal")),
+                seen.iter().any(|t| t == tr(lang, K_RETOUCH_IMPORTED_REMOVAL)),
                 "{lang:?}: an imported area names itself: {seen:?}"
             );
             assert!(
-                !seen.iter().any(|t| t == tr(lang, "✨ Regenerate those areas")),
+                !seen.iter().any(|t| t == tr(lang, K_RETOUCH_REGENERATE_THOSE_AREAS)),
                 "{lang:?}: a copied repair gets no generative verb: {seen:?}"
             );
 
@@ -290,7 +290,7 @@
             ];
             let seen = tall_frame(&mut invented, |a, ui| a.retouch_panel(ui));
             assert!(
-                seen.iter().any(|t| t == tr(lang, "✨ Regenerate those areas")),
+                seen.iter().any(|t| t == tr(lang, K_RETOUCH_REGENERATE_THOSE_AREAS)),
                 "{lang:?}: a synthesised area gets the re-solve: {seen:?}"
             );
             // …and the count in the summary is the AREAS, both of them.
@@ -318,7 +318,7 @@
     #[test]
     fn a_stored_sdr_control_lights_the_hdr_section_even_with_the_mode_off() {
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
-            let title = tr(lang, "HDR & SDR").to_string();
+            let title = tr(lang, K_DEVELOP_HDR_SDR).to_string();
             let lit = format!("{title}  ●");
 
             // 1) Nothing: the section is there, and dark.
@@ -397,7 +397,7 @@
             // The analysis section's title (2026-10-21: the verdict and the
             // Direction belong to it; the generation section lights its own
             // dot off the selected card instead).
-            let title = tr(lang, "AI analysis & auto develop");
+            let title = tr(lang, K_AI_AI_ANALYSIS_AUTO_DEVELOP);
             let lit = format!("{title}  ●");
             for (case, has_verdict, guidance, active) in [
                 ("saved dials only", false, "", false),
@@ -491,7 +491,7 @@
             "a moved Strength slider is a preference, not this photo's AI state"
         );
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
-        let title = tr(Lang::En, "AI analysis & auto develop");
+        let title = tr(Lang::En, K_AI_AI_ANALYSIS_AUTO_DEVELOP);
         let lit = format!("{title}  ●");
         assert!(
             seen.iter().any(|t| t == title) && !seen.contains(&lit),
@@ -598,7 +598,7 @@
         app.restore_prefs(Prefs { prefs_era: 2, denoise_strength: 0.65,
             save_denoise_strength: 0.5, ..Prefs::default() });
         assert_eq!((app.exp.denoise_strength, app.exp.save_denoise_strength), (0.65, 0.5));
-        assert_eq!(app.status, tr(Lang::En, "Open a photo, or open a folder to browse your library."));
+        assert_eq!(app.status, tr(Lang::En, K_ACTIONS_OPEN_A_PHOTO_OR_OPEN_A_FOLDER_TO_BROWSE_YOUR_LIB));
         assert!(app.chrome.startup_note.is_none());
     }
 
@@ -611,7 +611,7 @@
         let mut app = AutoShadeApp::default();
         app.restore_prefs(prefs);
         assert_eq!((app.exp.denoise_strength, app.exp.save_denoise_strength), (autoshade::denoise::DEFAULT_STRENGTH_RAW, autoshade::denoise::DEFAULT_STRENGTH_RAW));
-        assert_eq!(app.status, tr(Lang::En, "Open a photo, or open a folder to browse your library."));
+        assert_eq!(app.status, tr(Lang::En, K_ACTIONS_OPEN_A_PHOTO_OR_OPEN_A_FOLDER_TO_BROWSE_YOUR_LIB));
     }
 
     #[test]
@@ -812,11 +812,11 @@
             let mut app = AutoShadeApp { lang, ..Default::default() };
             let seen = tall_frame(&mut app, |a, ui| a.settings_ui(ui));
             assert!(
-                seen.contains(&tr(lang, "Managed Python").to_string()),
+                seen.contains(&tr(lang, K_SETTINGS_MANAGED_PYTHON).to_string()),
                 "{lang:?}: the managed environment row is drawn"
             );
             assert!(
-                seen.contains(&tr(lang, "Prepare Python environment").to_string()),
+                seen.contains(&tr(lang, K_SETTINGS_PREPARE_PYTHON_ENVIRONMENT).to_string()),
                 "{lang:?}: the button that prepares it is drawn"
             );
         }

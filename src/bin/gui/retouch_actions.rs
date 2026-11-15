@@ -69,18 +69,18 @@ pub(crate) fn start_fill(&mut self) {
         // box over an empty canvas has nothing to go on.
         let mask_png = self.export_area_png(BrushOwner::Fill);
         if mask_png.is_none() && prompt.is_empty() {
-            self.status = tr(lang, "write what to change (e.g. remove the wires on the left), or paint the area to remove (🖌 Paint area, in this section)").into();
+            self.status = tr(lang, K_ACTIONS_WRITE_WHAT_TO_CHANGE_E_G_REMOVE_THE_WIRES_ON_THE).into();
             return;
         }
         let Some(out) = unique_out(&src, "fill") else {
-            self.status = tr(lang, "over 999 retouch masters for this photo — clean up the masters folder first").into();
+            self.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
             return;
         };
         self.busy = true;
         self.status = if self.genai.fill_fullres {
-            tr(lang, "generative fill (full-res render)… (slow, minutes)").into()
+            tr(lang, K_ACTIONS_GENERATIVE_FILL_FULL_RES_RENDER_SLOW_MINUTES).into()
         } else {
-            tr(lang, "generative fill via gpt-image… (high quality can run minutes — progress in the status bar; ✕ Cancel to stop)").into()
+            tr(lang, K_ACTIONS_GENERATIVE_FILL_VIA_GPT_IMAGE_HIGH_QUALITY_CAN_R).into()
         };
         let quality = ["high", "medium", "low"][self.genai.fill_quality.min(2)].to_string();
         let full_res = self.genai.fill_fullres;
@@ -169,11 +169,11 @@ pub(crate) fn start_adjust(&mut self) {
         let mask_png = self.export_area_png(BrushOwner::Adjust);
         let region = mask_png.is_some();
         let Some(out) = unique_out(&src, "adjust") else {
-            self.status = tr(lang, "over 999 retouch masters for this photo — clean up the masters folder first").into();
+            self.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
             return;
         };
         self.busy = true;
-        self.status = tr(lang, "adjusting generated image via gpt-image… (high quality can run minutes — progress in the status bar; ✕ Cancel to stop)").into();
+        self.status = tr(lang, K_ACTIONS_ADJUSTING_GENERATED_IMAGE_VIA_GPT_IMAGE_HIGH_QUA).into();
         let quality = ["high", "medium", "low"][self.genai.adjust_quality.min(2)].to_string();
         let recipe = self.doc.recipe.clone();
         let edge = self.canvas_edge();
@@ -243,7 +243,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
                 Some(b) => Some(b),
                 None => {
                     self.status =
-                        tr(lang, "paint the spots first (🖌 Paint area, in this section), then Heal area").into();
+                        tr(lang, K_ACTIONS_PAINT_THE_SPOTS_FIRST_PAINT_AREA_IN_THIS_SECTION).into();
                     return;
                 }
             }
@@ -251,16 +251,16 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
             None
         };
         let Some(out) = unique_out(&path, "heal") else {
-            self.status = tr(lang, "over 999 retouch masters for this photo — clean up the masters folder first").into();
+            self.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
             return;
         };
         self.busy = true;
         self.status = if use_mask {
-            tr(lang, "healing painted area…").into()
+            tr(lang, K_ACTIONS_HEALING_PAINTED_AREA).into()
         } else if limit.is_some() {
-            tr(lang, "Removing blemishes on the face… (~10-30s)").into()
+            tr(lang, K_ACTIONS_REMOVING_BLEMISHES_ON_THE_FACE_10_30S).into()
         } else {
-            tr(lang, "AI healing… (~10-30s)").into()
+            tr(lang, K_ACTIONS_AI_HEALING_10_30S).into()
         };
         #[cfg(test)]
         {
@@ -347,11 +347,11 @@ pub(crate) fn start_ai_denoise(&mut self) {
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
         let Some(out) = unique_out(&path, "denoise") else {
-            self.status = tr(lang, "over 999 retouch masters for this photo — clean up the masters folder first").into();
+            self.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
             return;
         };
         self.busy = true;
-        self.status = tr(lang, "AI denoise (full frame)… (GPU sidecar, can take minutes; first run downloads the model)").into();
+        self.status = tr(lang, K_ACTIONS_AI_DENOISE_FULL_FRAME_GPU_SIDECAR_CAN_TAKE_MINUT).into();
         // Which model the source takes — a FACT for the landing line (L12#4),
         // decided by the same rule the library applies (`decode::is_raw`).
         let on_mosaic = autoshade::decode::is_raw(&path);
@@ -402,7 +402,7 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
         let Some(out) = unique_out(&path, "stack") else {
-            self.status = tr(lang, "over 999 retouch masters for this photo — clean up the masters folder first").into();
+            self.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
             return;
         };
         // This fold's OWN dials, captured at the click like every other input
@@ -414,7 +414,7 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
         self.busy = true;
         self.status = trf(
             lang,
-            "Stacking {n} frames… (local pixel compute, minutes at full resolution)",
+            K_ACTIONS_STACKING_FRAMES_LOCAL_PIXEL_COMPUTE_MINUTES_AT_F,
             &[("n", &frames.to_string())],
         );
         let edge = self.canvas_edge(); // show at the CANVAS's res (canvas_edge)
@@ -486,19 +486,19 @@ pub(crate) fn start_clone(&mut self) {
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
         let Some(src_pt) = self.tools.clone_src else {
-            self.status = tr(lang, "Alt+click to set the clone source first").into();
+            self.status = tr(lang, K_ACTIONS_ALT_CLICK_TO_SET_THE_CLONE_SOURCE_FIRST).into();
             return;
         };
         let Some(mask_png) = self.export_area_png(BrushOwner::Stamp) else {
-            self.status = tr(lang, "Brush the area to clone over first").into();
+            self.status = tr(lang, K_ACTIONS_BRUSH_THE_AREA_TO_CLONE_OVER_FIRST).into();
             return;
         };
         let Some(out) = unique_out(&path, "clone") else {
-            self.status = tr(lang, "over 999 retouch masters for this photo — clean up the masters folder first").into();
+            self.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
             return;
         };
         self.busy = true;
-        self.status = tr(lang, "Cloning… (local pixel compute)").into();
+        self.status = tr(lang, K_ACTIONS_CLONING_LOCAL_PIXEL_COMPUTE).into();
         let full_res = self.tools.clone_fullres;
         let edge = self.canvas_edge(); // bake at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
@@ -565,7 +565,7 @@ pub(crate) fn start_reimagine(&mut self) {
         // reusing an existing origin would cross-wire two variants'
         // export / reverse-fit.
         let Some(out) = unique_out(&path, "reimagine") else {
-            self.status = tr(self.lang, "over 999 generated variants for this photo — clean up the masters folder first").into();
+            self.status = tr(self.lang, K_ACTIONS_OVER_999_GENERATED_VARIANTS_FOR_THIS_PHOTO_CLEAN).into();
             return;
         };
         let prompt = {
@@ -583,7 +583,7 @@ pub(crate) fn start_reimagine(&mut self) {
         self.busy = true;
         let lang = self.lang;
         self.status =
-            tr(lang, "AI generating… (gpt-image; high quality can run minutes — progress in the status bar; ✕ Cancel to stop; hi-res input needs a full-frame develop first)").into();
+            tr(lang, K_ACTIONS_AI_GENERATING_GPT_IMAGE_HIGH_QUALITY_CAN_RUN_MIN).into();
         // The PREFERENCE here, not `canvas_edge`: this is the one bake that
         // renders from src_path (never the canvas — see above) and lands as a
         // NEW variant, so nothing is composited under it and there is no
@@ -655,7 +655,7 @@ pub(crate) fn start_style_prompt(&mut self) {
         // No lang capture: the worker returns FACTS; the landing localises
         // them with the language live at landing time (L12#4).
         self.busy = true;
-        self.status = tr(self.lang, "Extracting style prompt… (vision, ~5-20s)").into();
+        self.status = tr(self.lang, K_ACTIONS_EXTRACTING_STYLE_PROMPT_VISION_5_20S).into();
         self.spawn_worker(
             move || {
                 let res = (|| -> anyhow::Result<(String, StyleNote)> {

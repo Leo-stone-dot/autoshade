@@ -25,7 +25,7 @@ impl AutoShadeApp {
     fn recipe_default_name(&self) -> String {
         match self.photo.src_path.as_deref() {
             Some(p) => autoshade::pipeline::stem(p).to_string(),
-            None => tr(self.lang, "Recipe").to_string(),
+            None => tr(self.lang, K_ACTIONS_RECIPE).to_string(),
         }
     }
 
@@ -33,13 +33,13 @@ impl AutoShadeApp {
     pub(crate) fn recipe_name_error(&self, e: autoshade::recipe_library::NameError) -> String {
         use autoshade::recipe_library::NameError as N;
         match e {
-            N::Empty => tr(self.lang, "A recipe needs a name").to_string(),
+            N::Empty => tr(self.lang, K_ACTIONS_A_RECIPE_NEEDS_A_NAME).to_string(),
             N::TooLong => trf(
                 self.lang,
-                "The name is longer than {n} characters",
+                K_ACTIONS_THE_NAME_IS_LONGER_THAN_CHARACTERS,
                 &[("n", &autoshade::store::MAX_STORE_NAME.to_string())],
             ),
-            N::Illegal(c) => trf(self.lang, "The name cannot contain {char}", &[("char", &c.to_string())]),
+            N::Illegal(c) => trf(self.lang, K_ACTIONS_THE_NAME_CANNOT_CONTAIN, &[("char", &c.to_string())]),
         }
     }
 
@@ -48,19 +48,19 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut parts: Vec<String> = Vec::new();
         if losses.masks > 0 {
-            parts.push(trf(lang, "{n} bitmap mask(s)", &[("n", &losses.masks.to_string())]));
+            parts.push(trf(lang, K_ACTIONS_BITMAP_MASK_S, &[("n", &losses.masks.to_string())]));
         }
         if losses.colour_field {
-            parts.push(tr(lang, "the colour field").to_string());
+            parts.push(tr(lang, K_ACTIONS_THE_COLOUR_FIELD).to_string());
         }
         if losses.layers > 0 {
-            parts.push(trf(lang, "{n} fill layer(s)", &[("n", &losses.layers.to_string())]));
+            parts.push(trf(lang, K_ACTIONS_FILL_LAYER_S, &[("n", &losses.layers.to_string())]));
         }
         if losses.lens_blur {
-            parts.push(tr(lang, "the lens blur").to_string());
+            parts.push(tr(lang, K_ACTIONS_THE_LENS_BLUR).to_string());
         }
         if losses.geometry {
-            parts.push(tr(lang, "crop / straighten").to_string());
+            parts.push(tr(lang, K_ACTIONS_CROP_STRAIGHTEN).to_string());
         }
         parts.join(", ")
     }
@@ -95,7 +95,7 @@ impl AutoShadeApp {
             }
         };
         if autoshade::recipe_library::exists(&name) {
-            let text = trf(self.lang, "A recipe named 「{name}」 already exists", &[("name", &name)]);
+            let text = trf(self.lang, K_ACTIONS_A_RECIPE_NAMED_ALREADY_EXISTS, &[("name", &name)]);
             self.recipe_status(false, text);
             return;
         }
@@ -106,21 +106,21 @@ impl AutoShadeApp {
                 self.rlib.recipe_name_buf.clear();
                 self.refresh_recipes();
                 self.rlib.recipe_sel = Some(name.clone());
-                let base = trf(self.lang, "Saved recipe 「{name}」", &[("name", &name)]);
+                let base = trf(self.lang, K_ACTIONS_SAVED_RECIPE, &[("name", &name)]);
                 let text = if losses.is_empty() {
                     base
                 } else {
                     format!(
                         "{} — {} {}",
                         base,
-                        tr(self.lang, "left out what belongs to the source photo:"),
+                        tr(self.lang, K_ACTIONS_LEFT_OUT_WHAT_BELONGS_TO_THE_SOURCE_PHOTO),
                         self.recipe_losses(losses)
                     )
                 };
                 self.recipe_status(true, text);
             }
             Err(e) => {
-                let text = trf(self.lang, "Recipe 「{name}」 could not be saved: {err}", &[("name", &name), ("err", &e.to_string())]);
+                let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_SAVED, &[("name", &name), ("err", &e.to_string())]);
                 self.recipe_status(false, text);
             }
         }
@@ -139,7 +139,7 @@ impl AutoShadeApp {
         let entry = match autoshade::recipe_library::read(name) {
             Ok(r) => r,
             Err(e) => {
-                let text = trf(self.lang, "Recipe 「{name}」 could not be read: {err}", &[("name", name), ("err", &e.to_string())]);
+                let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_READ, &[("name", name), ("err", &e.to_string())]);
                 self.recipe_status(false, text);
                 return;
             }
@@ -159,7 +159,7 @@ impl AutoShadeApp {
         if !dropped.is_empty() {
             let t = trf(
                 self.lang,
-                "recipe limits discarded {n} mask(s), {m} component(s), {c} curve point(s) and {s} string byte(s) on restore — the saved file exceeds the app's caps",
+                K_CANVAS_RECIPE_LIMITS_DISCARDED_MASK_S_COMPONENT_S_CURVE,
                 &[
                     ("n", &dropped.dropped_masks.to_string()),
                     ("m", &dropped.dropped_components.to_string()),
@@ -181,7 +181,7 @@ impl AutoShadeApp {
         // it lands on a new ✎ card (the immutability rule).
         self.fork_edited_card();
         self.resync_recipe_display();
-        let text = trf(self.lang, "Applied recipe 「{name}」 — Ctrl+Z returns to before", &[("name", name)]);
+        let text = trf(self.lang, K_ACTIONS_APPLIED_RECIPE_CTRL_Z_RETURNS_TO_BEFORE, &[("name", name)]);
         self.recipe_status(true, text);
     }
 
@@ -202,7 +202,7 @@ impl AutoShadeApp {
         let entry = match autoshade::recipe_library::read(name) {
             Ok(r) => r,
             Err(e) => {
-                let text = trf(self.lang, "Recipe 「{name}」 could not be read: {err}", &[("name", name), ("err", &e.to_string())]);
+                let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_READ, &[("name", name), ("err", &e.to_string())]);
                 self.recipe_status(false, text);
                 return;
             }
@@ -221,21 +221,21 @@ impl AutoShadeApp {
         match autoshade::recipe_library::replace(name, &entry) {
             Ok(()) => {
                 self.refresh_recipes();
-                let base = trf(self.lang, "Updated recipe 「{name}」", &[("name", name)]);
+                let base = trf(self.lang, K_ACTIONS_UPDATED_RECIPE, &[("name", name)]);
                 let text = if losses.is_empty() {
                     base
                 } else {
                     format!(
                         "{} — {} {}",
                         base,
-                        tr(self.lang, "left out what belongs to the source photo:"),
+                        tr(self.lang, K_ACTIONS_LEFT_OUT_WHAT_BELONGS_TO_THE_SOURCE_PHOTO),
                         self.recipe_losses(losses)
                     )
                 };
                 self.recipe_status(true, text);
             }
             Err(e) => {
-                let text = trf(self.lang, "Recipe 「{name}」 could not be saved: {err}", &[("name", name), ("err", &e.to_string())]);
+                let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_SAVED, &[("name", name), ("err", &e.to_string())]);
                 self.recipe_status(false, text);
             }
         }
@@ -255,7 +255,7 @@ impl AutoShadeApp {
             return;
         }
         if autoshade::recipe_library::exists(&to) {
-            let text = trf(self.lang, "A recipe named 「{name}」 already exists", &[("name", &to)]);
+            let text = trf(self.lang, K_ACTIONS_A_RECIPE_NAMED_ALREADY_EXISTS, &[("name", &to)]);
             self.recipe_status(false, text);
             return;
         }
@@ -263,11 +263,11 @@ impl AutoShadeApp {
             Ok(()) => {
                 self.refresh_recipes();
                 self.rlib.recipe_sel = Some(to.clone());
-                let text = trf(self.lang, "Renamed to 「{name}」", &[("name", &to)]);
+                let text = trf(self.lang, K_ACTIONS_RENAMED_TO, &[("name", &to)]);
                 self.recipe_status(true, text);
             }
             Err(e) => {
-                let text = trf(self.lang, "Recipe 「{name}」 could not be renamed: {err}", &[("name", from), ("err", &e.to_string())]);
+                let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_RENAMED, &[("name", from), ("err", &e.to_string())]);
                 self.recipe_status(false, text);
             }
         }
@@ -281,11 +281,11 @@ impl AutoShadeApp {
                 self.refresh_recipes();
                 self.rlib.recipe_sel = None;
                 self.rlib.recipe_delete_armed = None;
-                let text = trf(self.lang, "Deleted recipe 「{name}」", &[("name", name)]);
+                let text = trf(self.lang, K_ACTIONS_DELETED_RECIPE, &[("name", name)]);
                 self.recipe_status(true, text);
             }
             Err(e) => {
-                let text = trf(self.lang, "Recipe 「{name}」 could not be deleted: {err}", &[("name", name), ("err", &e.to_string())]);
+                let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_DELETED, &[("name", name), ("err", &e.to_string())]);
                 self.recipe_status(false, text);
             }
         }

@@ -194,7 +194,7 @@ match autoshade::store::with_develop_lock(
                         Err(e) => {
                             let t = trf(
                                 lang,
-                                "recipe saved — but the Lightroom XMP failed: {err}",
+                                K_EXPORT_RECIPE_SAVED_BUT_THE_LIGHTROOM_XMP_FAILED,
                                 &[("err", &e.to_string())],
                             );
                             self.toast(ToastKind::Error, t.clone());

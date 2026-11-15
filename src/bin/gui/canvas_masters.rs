@@ -42,7 +42,7 @@ pub(crate) fn spawn_master_load(
     }
     self.status = tr(
         self.lang,
-        "loading this variant's retouched master… (showing the source develop meanwhile)",
+        K_GUI_LOADING_THIS_VARIANT_S_RETOUCHED_MASTER_SHOWING,
     )
     .into();
     // Identity BEFORE the read (the curve-memo / remember_base rule,
@@ -243,7 +243,7 @@ pub(crate) fn start_redevelop(&mut self) {
         Ok(f) => f,
         Err(e) => {
             self.session.dirty = false;
-            self.status = format!("{}: {e:#}", tr(self.lang, "preview develop failed"));
+            self.status = format!("{}: {e:#}", tr(self.lang, K_GUI_PREVIEW_DEVELOP_FAILED));
             return;
         }
     };
@@ -359,7 +359,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         // which the preview path never set, and a panicking preview worker
         // mid-export used to unlock every busy-gated action.
         Err(e) => {
-            let text = format!("{}: {e}", tr(self.lang, "preview develop failed"));
+            let text = format!("{}: {e}", tr(self.lang, K_GUI_PREVIEW_DEVELOP_FAILED));
             self.status = text.clone();
             self.toast(ToastKind::Error, text);
             return;

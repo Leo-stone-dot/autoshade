@@ -5,6 +5,8 @@
 //! persistence itself (backup gate, one develop commit, XMP half) stays the
 //! runtime's, which is why it reports back as a [`SaveReport`] instead of this
 //! layer reaching for a lock or a file.
+use autoshade::text::generated::*;
+
 
 use super::{Arg, Tone, UiText, Words};
 use autoshade::advisor::{Decision, Verdict};
@@ -62,37 +64,37 @@ pub(crate) fn words(report: &SaveReport) -> Words {
     match report {
         SaveReport::NotAccepted { decision } => {
             let text = UiText::with_args(
-                "AI edit applied — the AI's self-check said: {v}. Not saved yet (Ctrl+S saves, Ctrl+Z undoes)",
-                &[("v", Arg::Key(decision))],
+                K_LANDING_AI_EDIT_APPLIED_THE_AI_S_SELF_CHECK_SAID_NOT_SAV,
+                &[("v", Arg::Key(decision.into()))],
             );
             Words { status: text.clone(), toast: Some((Tone::Success, text)) }
         }
         SaveReport::Saved { backed_up: Some(n) } => Words {
             status: UiText::with(
-                "AI develop applied · saved (previous save backed up as v{n})",
+                K_LANDING_AI_DEVELOP_APPLIED_SAVED_PREVIOUS_SAVE_BACKED_UP,
                 &[("n", &n.to_string())],
             ),
             toast: None,
         },
         SaveReport::Saved { backed_up: None } => Words {
-            status: UiText::of("AI develop applied · saved to recipe.json"),
+            status: UiText::of(K_LANDING_AI_DEVELOP_APPLIED_SAVED_TO_RECIPE_JSON),
             toast: None,
         },
         SaveReport::BackupFailed { err } => {
             let text = UiText::with(
-                "AI develop applied — but NOT saved: backing up your existing save failed ({err}); Ctrl+S overwrites explicitly",
+                K_LANDING_AI_DEVELOP_APPLIED_BUT_NOT_SAVED_BACKING_UP_YOUR,
                 &[("err", err)],
             );
             Words { status: text.clone(), toast: Some((Tone::Error, text)) }
         }
         SaveReport::SidecarFailed { err } => {
             let text = UiText::with(
-                "AI develop applied — but saving the sidecar failed: {err}",
+                K_LANDING_AI_DEVELOP_APPLIED_BUT_SAVING_THE_SIDECAR_FAILED,
                 &[("err", err)],
             );
             Words { status: text.clone(), toast: Some((Tone::Error, text)) }
         }
-        SaveReport::NoPhoto => Words { status: UiText::of("AI develop applied"), toast: None },
+        SaveReport::NoPhoto => Words { status: UiText::of(K_LANDING_AI_DEVELOP_APPLIED), toast: None },
     }
 }
 
@@ -161,7 +163,7 @@ mod tests {
         );
         assert_eq!(
             not_accepted.status.args,
-            vec![("v", Arg::Key("Revise"))],
+            vec![("v", Arg::Key(K_LANDING_REVISE))],
             "the verdict word travels as a KEY — the renderer translates it"
         );
         assert!(matches!(not_accepted.toast, Some((Tone::Success, _))));

@@ -69,7 +69,7 @@
                 let mut app = app_with_fit_sources(lang);
                 ai_panel_at(&mut app, width);
                 let menu = app.seams.fit_from_rect.expect("the From menu was drawn");
-                let extract = tr(lang, "Extract style");
+                let extract = tr(lang, K_AI_EXTRACT_STYLE);
                 let verb = crate::buttons::DRAWN
                     .with_borrow(|d| d.iter().find(|d| d.label == extract).map(|d| d.rect))
                     .expect("the Extract style verb was drawn");
@@ -106,18 +106,18 @@
             // Two first-level sections (2026-10-21), each a Heading over its
             // own folds: generation and reverse-fit first, analysis second,
             // and the adjust fold sits inside the analysis section.
-            let fold = seen[at(tr(lang, "Analysis · paid API"))].1;
-            let titles = [tr(lang, "AI generation & reverse-fit"), tr(lang, "AI analysis & auto develop")];
+            let fold = seen[at(tr(lang, K_AI_ANALYSIS_PAID_API))].1;
+            let titles = [tr(lang, K_AI_AI_GENERATION_REVERSE_FIT), tr(lang, K_AI_AI_ANALYSIS_AUTO_DEVELOP)];
             for title in titles {
                 let size = seen[at(title)].1;
                 assert!(size > fold + 2.0, "{lang:?}: the 「{title}」 title ({size}) does not out-rank its folds ({fold})");
             }
             let order = [
-                at(tr(lang, "AI generation & reverse-fit")),
-                at(tr(lang, "Generate whole image · paid API")),
-                at(tr(lang, "AI analysis & auto develop")),
-                at(tr(lang, "Analysis · paid API")),
-                at(tr(lang, "Adjust the selected variant · paid API")),
+                at(tr(lang, K_AI_AI_GENERATION_REVERSE_FIT)),
+                at(tr(lang, K_AI_GENERATE_WHOLE_IMAGE_PAID_API)),
+                at(tr(lang, K_AI_AI_ANALYSIS_AUTO_DEVELOP)),
+                at(tr(lang, K_AI_ANALYSIS_PAID_API)),
+                at(tr(lang, K_AI_ADJUST_THE_SELECTED_VARIANT_PAID_API)),
             ];
             assert!(order.windows(2).all(|w| w[0] < w[1]), "{lang:?}: section heads out of order: {order:?}");
             // The retired verb, by its two old labels (no longer in the table).

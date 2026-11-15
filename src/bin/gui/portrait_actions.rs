@@ -98,7 +98,7 @@ pub(crate) fn start_find_people(&mut self) {
         let raw_source = self.source_is_raw();
         self.busy = true;
         self.portrait.line = PortraitLine::Finding;
-        self.status = tr(self.lang, "Finding the people and faces… (the first run downloads the models)").into();
+        self.status = tr(self.lang, K_ACTIONS_FINDING_THE_PEOPLE_AND_FACES_THE_FIRST_RUN_DOWNL).into();
         self.spawn_worker(
             move || {
                 Msg::PortraitFound(Box::new(find_people(&original, &base, lens.as_ref(), &photo, &recipe, film, raw_source)))
@@ -152,7 +152,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
         }
         let failed = match (&found.subject, &found.faces) {
             (Err(a), Err(b)) => {
-                let t = trf(lang, "Could not find the people: {err}", &[("err", &format!("{a}; {b}"))]);
+                let t = trf(lang, K_ACTIONS_COULD_NOT_FIND_THE_PEOPLE, &[("err", &format!("{a}; {b}"))]);
                 self.portrait.line = PortraitLine::Failed(t.clone());
                 self.status = t.clone();
                 self.toast(ToastKind::Error, t);
@@ -169,7 +169,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
         self.session.dirty = true;
         self.status = self.portrait_line_text(lang);
         if let Some(why) = failed {
-            self.toast(ToastKind::Error, trf(lang, "Part of the search did not work: {err}", &[("err", &why)]));
+            self.toast(ToastKind::Error, trf(lang, K_ACTIONS_PART_OF_THE_SEARCH_DID_NOT_WORK, &[("err", &why)]));
         }
     }
 
@@ -236,9 +236,9 @@ pub(crate) fn set_keep_skin(&mut self, on: bool) {
         if n > 0 && autoshade::face::keep_skin_natural_in(&mut self.doc.recipe) {
             self.session.dirty = true;
             self.status = if n == 1 {
-                tr(self.lang, "Skin kept natural: 1 value brought back within the limits").into()
+                tr(self.lang, K_ACTIONS_SKIN_KEPT_NATURAL_1_VALUE_BROUGHT_BACK_WITHIN_TH).into()
             } else {
-                trf(self.lang, "Skin kept natural: {n} values brought back within the limits", &[("n", &n.to_string())])
+                trf(self.lang, K_ACTIONS_SKIN_KEPT_NATURAL_VALUES_BROUGHT_BACK_WITHIN_THE, &[("n", &n.to_string())])
             };
         }
     }

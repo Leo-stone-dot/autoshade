@@ -110,10 +110,10 @@ fn window_buttons(ui: &mut egui::Ui, bar: egui::Rect, lang: Lang) {
             }
         }
         let tip = match which {
-            "min" => tr(lang, "Minimize"),
-            "max" if maximized => tr(lang, "Restore"),
-            "max" => tr(lang, "Maximize"),
-            _ => tr(lang, "Close"),
+            "min" => tr(lang, K_GUI_MINIMIZE),
+            "max" if maximized => tr(lang, K_GUI_RESTORE),
+            "max" => tr(lang, K_GUI_MAXIMIZE),
+            _ => tr(lang, K_GUI_CLOSE),
         };
         if resp.on_hover_text(tip).clicked() {
             ctx.send_viewport_cmd(match which {

@@ -1,6 +1,8 @@
 //! The reference-library build's landing, headless: what one build outcome
 //! says and how loudly. The build itself (and the library summary refresh) is
 //! the runtime's.
+use autoshade::text::generated::*;
+
 
 use super::{Tone, UiText, Words};
 
@@ -17,7 +19,7 @@ pub(crate) fn words(outcome: &Outcome) -> Words {
         Outcome::Saved { total, dir_display, phrased } => {
             let text = if *phrased > 0 {
                 UiText::with(
-                    "Reference library built: {n} finished photos from {path}, {m} with look phrases",
+                    K_LOGIC_REFERENCE_LIBRARY_BUILT_FINISHED_PHOTOS_FROM_WIT,
                     &[
                         ("n", &total.to_string()),
                         ("path", dir_display),
@@ -26,14 +28,14 @@ pub(crate) fn words(outcome: &Outcome) -> Words {
                 )
             } else {
                 UiText::with(
-                    "Reference library built: {n} finished photos from {path}",
+                    K_LOGIC_REFERENCE_LIBRARY_BUILT_FINISHED_PHOTOS_FROM,
                     &[("n", &total.to_string()), ("path", dir_display)],
                 )
             };
             Words { status: text.clone(), toast: Some((Tone::Success, text)) }
         }
         Outcome::Failed { err } => {
-            let text = UiText::with("Building the reference library failed: {err}", &[("err", err)]);
+            let text = UiText::with(K_LOGIC_BUILDING_THE_REFERENCE_LIBRARY_FAILED, &[("err", err)]);
             Words { status: text.clone(), toast: Some((Tone::Error, text)) }
         }
     }

@@ -37,7 +37,7 @@ impl AutoShadeApp {
             // treats as a defect.
             self.status = tr(
                 self.lang,
-                "cancelled — the app is free again and the late result is discarded; a generative call stops at its next checkpoint, while an AI analyze keeps running (and billing) until it finishes or times out",
+                K_ACTIONS_CANCELLED_THE_APP_IS_FREE_AGAIN_AND_THE_LATE_RES,
             )
             .into();
         }
@@ -97,12 +97,12 @@ impl AutoShadeApp {
             .doc.variants
             .iter()
             .position(|v| v.id == prompt.target)
-            .map(|i| trf(lang, "To: {card}", &[("card", &self.numbered_card_label(i))]));
+            .map(|i| trf(lang, K_ACTIONS_TO, &[("card", &self.numbered_card_label(i))]));
         let fidelity = crate::i18n::text(lang, &logic::retouch::reimagine_fidelity(prompt.divergence));
-        let on_off = |on: bool| if on { tr(lang, "on") } else { tr(lang, "off") };
+        let on_off = |on: bool| if on { tr(lang, K_ACTIONS_ON) } else { tr(lang, K_ACTIONS_OFF) };
         let in_force = trf(
             lang,
-            "Reverse-fit strength {pct}% · local areas {zoned} · AI review {review} — set in the AI panel's reverse-fit fold",
+            K_ACTIONS_REVERSE_FIT_STRENGTH_LOCAL_AREAS_AI_REVIEW_SET_I,
             &[
                 ("pct", &format!("{:.0}", self.aip.fit_strength * 100.0)),
                 ("zoned", on_off(self.fit.zoned_fit)),
@@ -134,7 +134,7 @@ impl AutoShadeApp {
                 ui.allocate_response(r.size(), egui::Sense::click_and_drag());
                 ui.painter().rect_filled(r, 0.0, egui::Color32::from_black_alpha(96));
             });
-        egui::Window::new(tr(lang, "Reverse-fit this AI result?"))
+        egui::Window::new(tr(lang, K_ACTIONS_REVERSE_FIT_THIS_AI_RESULT))
             .id(egui::Id::new("fit_prompt"))
             .order(egui::Order::Foreground)
             .collapsible(false)
@@ -149,7 +149,7 @@ impl AutoShadeApp {
                     ui.label(egui::RichText::new(to).small().weak());
                 }
                 ui.horizontal(|ui| {
-                    ui.label(tr(lang, "From:"));
+                    ui.label(tr(lang, K_ACTIONS_FROM));
                     let shown = match prompt.from.as_deref() {
                         Some(id) => sources.iter().find(|(s, _)| s == id).map(|(_, l)| l.clone()),
                         None => None,
@@ -170,14 +170,14 @@ impl AutoShadeApp {
                     });
                 });
                 ui.label(egui::RichText::new(&in_force).small().weak());
-                ui.checkbox(&mut prompt.dont_ask, tr(lang, "Don't ask again after generating"))
-                    .on_hover_text(tr(lang, "Turn it back on in the AI panel's reverse-fit fold: 「Ask after each AI generation」"));
+                ui.checkbox(&mut prompt.dont_ask, tr(lang, K_ACTIONS_DON_T_ASK_AGAIN_AFTER_GENERATING))
+                    .on_hover_text(tr(lang, K_ACTIONS_TURN_IT_BACK_ON_IN_THE_AI_PANEL_S_REVERSE_FIT_FO));
                 ui.add_space(SPACE_MD);
                 // The safe answer first, the primary tinted and last — the
                 // quit layer's order.
                 ui.horizontal(|ui| {
-                    later |= action(ui, true, tr(lang, "Not now")).on_hover_text("Esc").clicked();
-                    fit |= primary(ui, true, tr(lang, "Reverse-fit")).on_hover_text("Enter").clicked();
+                    later |= action(ui, true, tr(lang, K_ACTIONS_NOT_NOW)).on_hover_text("Esc").clicked();
+                    fit |= primary(ui, true, tr(lang, K_ACTIONS_REVERSE_FIT)).on_hover_text("Enter").clicked();
                 });
             });
         if !open {
@@ -296,7 +296,7 @@ impl AutoShadeApp {
                 ui.allocate_response(r.size(), egui::Sense::click_and_drag());
                 ui.painter().rect_filled(r, 0.0, egui::Color32::from_black_alpha(96));
             });
-        egui::Window::new(tr(lang, "● Unsaved edits"))
+        egui::Window::new(tr(lang, K_ACTIONS_UNSAVED_EDITS))
             .id(egui::Id::new("confirm_quit"))
             .order(egui::Order::Foreground)
             .collapsible(false)
@@ -307,7 +307,7 @@ impl AutoShadeApp {
                 if !pending.is_empty() {
                     ui.label(trf(
                         lang,
-                        "{n} photo(s) have edits that were never saved:",
+                        K_ACTIONS_PHOTO_S_HAVE_EDITS_THAT_WERE_NEVER_SAVED,
                         &[("n", &pending.len().to_string())],
                     ));
                 }
@@ -338,7 +338,7 @@ impl AutoShadeApp {
                     ui.label(
                         egui::RichText::new(trf(
                             lang,
-                            "{n} other variant(s) hold edits — 「Save all」 saves each photo's whole variant strip along with its develop.",
+                            K_ACTIONS_OTHER_VARIANT_S_HOLD_EDITS_SAVE_ALL_SAVES_EACH_P,
                             &[("n", &orphan_variants.to_string())],
                         ))
                         .small()
@@ -350,14 +350,14 @@ impl AutoShadeApp {
                 // space, the primary (save) tinted and last — a 4px slip from
                 // Save must not land on an unrecoverable Discard.
                 ui.horizontal(|ui| {
-                    cancel |= action(ui, true, tr(lang, "Cancel")).on_hover_text("Esc").clicked();
+                    cancel |= action(ui, true, tr(lang, K_ACTIONS_CANCEL)).on_hover_text("Esc").clicked();
                     ui.add_space(18.0);
                     let warn = ui.visuals().warn_fg_color;
-                    discard_quit = action(ui, true, egui::RichText::new(tr(lang, "Discard & quit")).color(warn))
-                        .on_hover_text(tr(lang, "Quit WITHOUT saving — these edits are gone for good"))
+                    discard_quit = action(ui, true, egui::RichText::new(tr(lang, K_ACTIONS_DISCARD_QUIT)).color(warn))
+                        .on_hover_text(tr(lang, K_ACTIONS_QUIT_WITHOUT_SAVING_THESE_EDITS_ARE_GONE_FOR_GOO))
                         .clicked();
-                    save_quit |= primary(ui, true, tr(lang, "Save all & quit"))
-                        .on_hover_text(tr(lang, "Enter · save every listed develop, then quit"))
+                    save_quit |= primary(ui, true, tr(lang, K_ACTIONS_SAVE_ALL_QUIT))
+                        .on_hover_text(tr(lang, K_ACTIONS_ENTER_SAVE_EVERY_LISTED_DEVELOP_THEN_QUIT))
                         .clicked();
                 });
             });
@@ -578,14 +578,14 @@ impl AutoShadeApp {
             if !xmp_warns.is_empty() {
                 quit_warns.push(trf(
                     lang,
-                    "{n} Lightroom XMP projection(s) failed (those develops ARE saved): {detail}",
+                    K_ACTIONS_LIGHTROOM_XMP_PROJECTION_S_FAILED_THOSE_DEVELOPS,
                     &[("n", &xmp_warns.len().to_string()), ("detail", &logic::brief_list(&xmp_warns))],
                 ));
             }
             if !clear_warns.is_empty() {
                 quit_warns.push(trf(
                     lang,
-                    "{n} clear(s) could not be marked: {detail} — a sidecar beside the RAW may restore those edits on the next open",
+                    K_ACTIONS_CLEAR_S_COULD_NOT_BE_MARKED_A_SIDECAR_BESIDE_THE,
                     &[("n", &clear_warns.len().to_string()), ("detail", &logic::brief_list(&clear_warns))],
                 ));
             }
@@ -603,7 +603,7 @@ impl AutoShadeApp {
                     if residue > 0 {
                         let t = trf(
                             lang,
-                            "saved, but {n} variant(s) still count as unsaved — the window stays open; please report this",
+                            K_ACTIONS_SAVED_BUT_VARIANT_S_STILL_COUNT_AS_UNSAVED_THE_W,
                             &[("n", &residue.to_string())],
                         );
                         self.toast(ToastKind::Error, t);
@@ -616,7 +616,7 @@ impl AutoShadeApp {
                         // dialog. One extra click, only in the failure case.
                         let t = trf(
                             lang,
-                            "saved with warnings — the window stays open so they can be read; quit again to close: {detail}",
+                            K_ACTIONS_SAVED_WITH_WARNINGS_THE_WINDOW_STAYS_OPEN_SO_THE,
                             &[("detail", &quit_warns.join(" · "))],
                         );
                         self.status = t.clone();
@@ -627,7 +627,7 @@ impl AutoShadeApp {
                 }
                 Some(e) => {
                     // Stay open: a failed save on quit must never quietly quit.
-                    let t = trf(lang, "save failed: {err}", &[("err", &e)]);
+                    let t = trf(lang, K_ACTIONS_SAVE_FAILED, &[("err", &e)]);
                     self.status = t.clone();
                     self.toast(ToastKind::Error, t);
                     self.ui.confirm_quit = false;
@@ -660,7 +660,7 @@ impl AutoShadeApp {
         if photos.is_empty() {
             self.status = tr(
                 lang,
-                "Open a folder first — import migrates the photos currently in the gallery",
+                K_ACTIONS_OPEN_A_FOLDER_FIRST_IMPORT_MIGRATES_THE_PHOTOS_C,
             )
             .into();
             return;
@@ -668,7 +668,7 @@ impl AutoShadeApp {
         self.busy = true;
         self.status = trf(
             lang,
-            "Importing develops from {path} …",
+            K_ACTIONS_IMPORTING_DEVELOPS_FROM,
             &[("path", &dir.display().to_string())],
         );
         self.spawn_worker(
@@ -721,7 +721,7 @@ impl AutoShadeApp {
         self.ai.style_build_progress = None;
         self.status = trf(
             self.lang,
-            "Building the reference library from {path} … the first build measures every photo, so a big folder takes minutes",
+            K_ACTIONS_BUILDING_THE_REFERENCE_LIBRARY_FROM_THE_FIRST_BU,
             &[("path", &abs_display(&dir))],
         );
         // The progress channel is the app's own sender: `spawn_worker` delivers
@@ -855,16 +855,16 @@ impl AutoShadeApp {
         let lang = self.lang;
         self.busy = true;
         let mut running = if zoned {
-            tr(lang, "Reverse-fitting… (global + semantic/ranges + spatial tiles)").to_string()
+            tr(lang, K_ACTIONS_REVERSE_FITTING_GLOBAL_SEMANTIC_RANGES_SPATIAL_T).to_string()
         } else {
-            tr(lang, "Reverse-fitting… (statistical fit, local compute)").to_string()
+            tr(lang, K_ACTIONS_REVERSE_FITTING_STATISTICAL_FIT_LOCAL_COMPUTE).to_string()
         };
         if deep {
-            running.push_str(tr(lang, " · retry: AI review BEFORE saving, up to one guided retry"));
+            running.push_str(tr(lang, K_ACTIONS_RETRY_AI_REVIEW_BEFORE_SAVING_UP_TO_ONE_GUIDED_R));
         } else if ai_judge {
             // The review runs AFTER the local fit and is a network call — the
             // busy line must own that extra wait up front.
-            running.push_str(tr(lang, " · then AI review (vision call)"));
+            running.push_str(tr(lang, K_ACTIONS_THEN_AI_REVIEW_VISION_CALL));
         }
         self.status = running;
         self.spawn_worker(

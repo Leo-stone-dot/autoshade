@@ -194,7 +194,7 @@
         assert_eq!(app.fit.fit_from.as_deref(), Some(ORIGINAL_VARIANT_ID), "the fit solves from the ▣ original");
         assert_eq!(app.fit.fit_ref, None, "the fit targets the generated card, not an older reference");
         assert!(app.busy, "the fit started");
-        assert_eq!(app.status, tr(Lang::En, "Reverse-fitting… (global + semantic/ranges + spatial tiles)"));
+        assert_eq!(app.status, tr(Lang::En, K_ACTIONS_REVERSE_FITTING_GLOBAL_SEMANTIC_RANGES_SPATIAL_T));
     }
 
 

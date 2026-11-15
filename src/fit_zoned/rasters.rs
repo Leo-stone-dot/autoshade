@@ -37,14 +37,14 @@ pub(super) fn raster_centroid(mask: &GrayImage) -> (f32, f32) {
 /// own, for a colour class the evidence admitted and the gate refused.
 /// Everything that asks "was the colour refused?" asks it here, so the
 /// question cannot drift apart from the sentences that answer it.
-pub(crate) fn is_colour_refusal(key: &str) -> bool {
+pub(crate) fn is_colour_refusal(key: crate::text::Key) -> bool {
     key == crate::rationale::keys::ZONE_EVIDENCE_WITHHELD_COLOUR
         || key == crate::rationale::keys::ZONE_EVIDENCE_WITHHELD_COLOUR_CELLS
         || key == crate::rationale::keys::ZONE_COLOUR_WITHHELD_BY_QUALITY
 }
 
 /// The tone half of [`is_colour_refusal`].
-pub(crate) fn is_tone_refusal(key: &str) -> bool {
+pub(crate) fn is_tone_refusal(key: crate::text::Key) -> bool {
     key == crate::rationale::keys::ZONE_EVIDENCE_WITHHELD_TONE
         || key == crate::rationale::keys::ZONE_EVIDENCE_WITHHELD_TONE_CELLS
 }

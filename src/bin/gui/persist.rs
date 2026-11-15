@@ -540,7 +540,7 @@ pub(crate) fn resolve_saved_develop(
                 open_note = Some(
                     tr(
                         lang,
-                        "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
+                        K_EXPORT_CAMERA_BASE_LOOK_RE_ESTIMATED_THIS_PHOTO_WAS_SAV,
                     )
                     .into(),
                 );
@@ -558,7 +558,7 @@ pub(crate) fn resolve_saved_develop(
             unresolved = true;
             open_note = Some(trf(
                 lang,
-                "the saved develop is unreadable ({err}) — edits NOT fully restored; Ctrl+S would overwrite it (the unread save is backed up as a version first)",
+                K_PERSIST_THE_SAVED_DEVELOP_IS_UNREADABLE_EDITS_NOT_FULLY,
                 &[("err", &err)],
             ));
         }
@@ -614,7 +614,7 @@ fn noop_only_note(lang: Lang, src: Option<&std::path::Path>) -> Option<String> {
             if with_work > 0 {
                 return Some(trf(
                     lang,
-                    "the current variant holds no edits; this photo's saved edits live in {n} background variant(s)",
+                    K_PERSIST_THE_CURRENT_VARIANT_HOLDS_NO_EDITS_THIS_PHOTO_S,
                     &[("n", &with_work.to_string())],
                 ));
             }
@@ -624,7 +624,7 @@ fn noop_only_note(lang: Lang, src: Option<&std::path::Path>) -> Option<String> {
         Some(autoshade::store::VariantsRead::Unresolved) => return None,
         _ => {}
     }
-    Some(tr(lang, "a saved develop exists but holds no effective edits").into())
+    Some(tr(lang, K_PERSIST_A_SAVED_DEVELOP_EXISTS_BUT_HOLDS_NO_EFFECTIVE_ED).into())
 }
 
 /// The GUI's OWN localized sentences for a coordinate-frame migration — the
@@ -641,7 +641,7 @@ pub(crate) fn coord_migration_sentence(
         parts.push(
             tr(
                 lang,
-                "this photo's saved crop and masks were rotated to match the RAW's EXIF orientation — earlier versions displayed rotated RAWs sideways, so their coordinates were stored against the sideways frame",
+                K_PERSIST_THIS_PHOTO_S_SAVED_CROP_AND_MASKS_WERE_ROTATED_T,
             )
             .into(),
         );
@@ -649,14 +649,14 @@ pub(crate) fn coord_migration_sentence(
     if c.shift != (0, 0) {
         parts.push(trf(
             lang,
-            "this photo's saved crop, masks and retouches were moved by ({dx}, {dy}) px — earlier versions developed this camera's RAWs from the sensor's corner instead of the crop the camera declares, so everything drawn on them sat that far off the picture",
+            K_PERSIST_THIS_PHOTO_S_SAVED_CROP_MASKS_AND_RETOUCHES_WERE,
             &[("dx", &c.shift.0.to_string()), ("dy", &c.shift.1.to_string())],
         ));
     }
     if c.rasters > 0 {
         parts.push(trf(
             lang,
-            "{n} raster mask file(s) were re-written into the corrected frame; the originals are kept",
+            K_PERSIST_RASTER_MASK_FILE_S_WERE_RE_WRITTEN_INTO_THE_CORR,
             &[("n", &c.rasters.to_string())],
         ));
     }
@@ -669,7 +669,7 @@ pub(crate) fn coord_migration_sentence(
 pub(crate) fn coord_migration_failure_sentence(lang: Lang, err: &str) -> String {
     trf(
         lang,
-        "this photo's saved geometry could NOT be brought into the corrected frame ({err}) — it is left as saved and will be tried again on the next open",
+        K_PERSIST_THIS_PHOTO_S_SAVED_GEOMETRY_COULD_NOT_BE_BROUGHT,
         &[("err", err)],
     )
 }
@@ -986,9 +986,9 @@ impl AutoShadeApp {
         let run = self.ai_mask_runner();
         self.busy = true;
         self.status = if unresolved_ai_masks(&recipe) > 0 {
-            tr(lang, "Re-deriving the AI masks from Lightroom on this computer…")
+            tr(lang, K_PERSIST_RE_DERIVING_THE_AI_MASKS_FROM_LIGHTROOM_ON_THIS)
         } else {
-            tr(lang, "Finding the faces… (the first run downloads the models)")
+            tr(lang, K_PERSIST_FINDING_THE_FACES_THE_FIRST_RUN_DOWNLOADS_THE_MO)
         }
         .into();
         let (panic_photo, panic_card) = (photo.clone(), card.clone());
@@ -1042,16 +1042,16 @@ impl AutoShadeApp {
             self.overlay.overlay_stale = true;
         }
         if let Some(why) = res.warning() {
-            let t = trf(lang, "Some masks could not be drawn, so they are not applied: {why}", &[("why", &why)]);
+            let t = trf(lang, K_LANDING_SOME_MASKS_COULD_NOT_BE_DRAWN_SO_THEY_ARE_NOT_AP, &[("why", &why)]);
             self.status = t.clone();
             self.toast(ToastKind::Error, t);
         } else {
             let mut said: Vec<String> = Vec::new();
             if n > 0 || nf == 0 {
-                said.push(trf(lang, "AI masks ×{n} re-derived locally — not Adobe's raster", &[("n", &n.to_string())]));
+                said.push(trf(lang, K_PERSIST_AI_MASKS_RE_DERIVED_LOCALLY_NOT_ADOBE_S_RASTER, &[("n", &n.to_string())]));
             }
             if nf > 0 {
-                said.push(trf(lang, "Face masks ×{n} outlined on this computer", &[("n", &nf.to_string())]));
+                said.push(trf(lang, K_PERSIST_FACE_MASKS_OUTLINED_ON_THIS_COMPUTER, &[("n", &nf.to_string())]));
             }
             self.done(said.join(" · "));
         }

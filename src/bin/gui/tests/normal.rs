@@ -89,13 +89,13 @@
             let at = |key: &str| texts.iter().position(|t| t.starts_with(key));
             // (a) Portraits, (b) Normal's four groups, (c) the shared panels.
             let order = [
-                tr(lang, "People and background"),
-                tr(lang, "One-click look"),
-                tr(lang, "Fine-tune"),
-                tr(lang, "Noise"),
-                tr(lang, "Save"),
-                tr(lang, "AI generation & reverse-fit"),
-                tr(lang, "Tone & WB"),
+                tr(lang, K_PORTRAIT_PEOPLE_AND_BACKGROUND),
+                tr(lang, K_NORMAL_ONE_CLICK_LOOK),
+                tr(lang, K_NORMAL_FINE_TUNE),
+                tr(lang, K_NORMAL_NOISE),
+                tr(lang, K_NORMAL_SAVE),
+                tr(lang, K_AI_AI_GENERATION_REVERSE_FIT),
+                tr(lang, K_DEVELOP_TONE_WB),
             ];
             let mut last = None;
             for key in order {
@@ -105,15 +105,15 @@
             }
             // Normal's controls are all reachable on that same sidebar.
             for key in [
-                tr(lang, "Natural"),
-                tr(lang, "Bright & clean"),
-                tr(lang, "Warm"),
-                tr(lang, "Cool night"),
-                tr(lang, "Film"),
-                tr(lang, "Black & white"),
-                tr(lang, "Match my reference photos…"),
-                tr(lang, "Save as jpg"),
-                tr(lang, "Apply this look to every photo in the folder"),
+                tr(lang, K_NORMAL_NATURAL),
+                tr(lang, K_NORMAL_BRIGHT_CLEAN),
+                tr(lang, K_NORMAL_WARM),
+                tr(lang, K_NORMAL_COOL_NIGHT),
+                tr(lang, K_NORMAL_FILM),
+                tr(lang, K_NORMAL_BLACK_WHITE),
+                tr(lang, K_NORMAL_MATCH_MY_REFERENCE_PHOTOS),
+                tr(lang, K_NORMAL_SAVE_AS_JPG),
+                tr(lang, K_NORMAL_APPLY_THIS_LOOK_TO_EVERY_PHOTO_IN_THE_FOLDER),
             ] {
                 assert!(texts.iter().any(|t| t == key), "{lang:?}: {key:?}");
             }
@@ -124,26 +124,26 @@
             let has_text = |s: &str| texts.iter().any(|x| x == s);
             let has_button = |s: &str| labels.contains(&s);
             for keep in [
-                tr(lang, "Reset"),
-                tr(lang, "⭯ Turn left"),
-                tr(lang, "⭮ Turn right"),
-                tr(lang, "Export"),
-                tr(lang, "Save develop"),
+                tr(lang, K_APP_RESET),
+                tr(lang, K_APP_TURN_LEFT),
+                tr(lang, K_APP_TURN_RIGHT),
+                tr(lang, K_APP_EXPORT),
+                tr(lang, K_APP_SAVE_DEVELOP),
                 "⌨",
             ] {
                 assert!(has_button(keep), "{lang:?}: the toolbar keeps {keep:?}");
             }
-            for keep in [tr(lang, "◫ Compare"), tr(lang, "⬛ Single")] {
+            for keep in [tr(lang, K_APP_COMPARE), tr(lang, K_APP_SINGLE)] {
                 assert!(has_text(keep), "{lang:?}: both view switches: {keep:?}");
             }
             for keep in [
-                tr(lang, "Copy recipe").to_string(),
-                trf(lang, "Paste to selected ({n})", &[("n", "1")]),
-                trf(lang, "Render selected ({n})", &[("n", "1")]),
+                tr(lang, K_GALLERY_COPY_RECIPE).to_string(),
+                trf(lang, K_GALLERY_PASTE_TO_SELECTED, &[("n", "1")]),
+                trf(lang, K_GALLERY_RENDER_SELECTED, &[("n", "1")]),
             ] {
                 assert!(has_button(&keep), "{lang:?}: the library keeps {keep:?}");
             }
-            for keep in [tr(lang, "Fit"), "1:1"] {
+            for keep in [tr(lang, K_CANVAS_FIT), "1:1"] {
                 assert!(has_button(keep), "{lang:?}: the canvas keeps {keep:?}");
             }
             assert!(
@@ -152,7 +152,7 @@
             );
             assert_eq!(app.masks.paint_mode, true, "{lang:?}: the armed brush stays armed");
             assert!(has_text(&app.status), "{lang:?}: the status bar is in the frame's texts");
-            assert!(has_text(tr(lang, "▣ Original")), "{lang:?}: the variant strip");
+            assert!(has_text(tr(lang, K_GUI_ORIGINAL__2)), "{lang:?}: the variant strip");
             if let Some(dir) = &shots {
                 std::fs::create_dir_all(dir).unwrap();
                 img.save(dir.join(format!("window-one-workspace-{lang:?}.png"))).unwrap();
@@ -469,17 +469,17 @@
             app.exp.dest = ExportDest::LastUsed;
             app.exp.last_dir = Some(std::env::temp_dir().join("Deliveries"));
             let texts = normal_panel_texts(&mut app);
-            let last = trf(lang, "Saves to the folder you last saved to: {folder}", &[("folder", "Deliveries")]);
+            let last = trf(lang, K_NORMAL_SAVES_TO_THE_FOLDER_YOU_LAST_SAVED_TO, &[("folder", "Deliveries")]);
             assert!(texts.contains(&last), "{lang:?}: {last:?}");
             app.exp.dest = ExportDest::OutFolder;
             let texts = normal_panel_texts(&mut app);
             let root = autoshade::config::delivery_root();
             let name = root.file_name().map_or_else(|| abs_display(&root), |n| n.to_string_lossy().into_owned());
-            let out = trf(lang, "Saves to the app's output folder {folder} (change it in Settings ⚙)", &[("folder", &name)]);
+            let out = trf(lang, K_NORMAL_SAVES_TO_THE_APP_S_OUTPUT_FOLDER_CHANGE_IT_IN_SE, &[("folder", &name)]);
             assert!(texts.contains(&out), "{lang:?}: {out:?}");
             app.exp.dest = ExportDest::Ask;
             let texts = normal_panel_texts(&mut app);
-            assert!(texts.iter().any(|t| t == tr(lang, "Asks where to save each time")), "{lang:?}: ask");
+            assert!(texts.iter().any(|t| t == tr(lang, K_NORMAL_ASKS_WHERE_TO_SAVE_EACH_TIME)), "{lang:?}: ask");
         }
     }
 
@@ -492,13 +492,13 @@
     fn the_noise_lines_say_it_takes_a_moment_and_the_first_run_downloads_the_model() {
         let words = ["配方", "显影", "反推", "变体", "蒙版", "API", "recipe", "develop", "reverse-fit", "variant", "mask", "sidecar"];
         for lang in [Lang::En, Lang::Zh] {
-            let plain = tr(lang, "It takes a moment; the preview then shows the result, and that is what gets saved.").to_string();
+            let plain = tr(lang, K_NORMAL_IT_TAKES_A_MOMENT_THE_PREVIEW_THEN_SHOWS_THE_RES).to_string();
             let mut app = AutoShadeApp { lang, photo: PhotoPixels {
      src_path: Some(PathBuf::from("phone.jpg")),
      ..Default::default()
  },
  ..Default::default() };
-            assert_eq!(app.noise_lines(lang, false), vec![tr(lang, "This download does not include the noise tool.").to_string()]);
+            assert_eq!(app.noise_lines(lang, false), vec![tr(lang, K_NORMAL_THIS_DOWNLOAD_DOES_NOT_INCLUDE_THE_NOISE_TOOL).to_string()]);
             app.normal.denoise_ready = Some(true);
             assert_eq!(app.noise_lines(lang, true), vec![plain.clone()], "{lang:?}: the model is there");
             for ready in [Some(false), None] {
@@ -520,11 +520,11 @@
             said.extend(app.noise_lines(lang, true));
             said.extend(
                 [
-                    tr(lang, "Cleans the grain out of the photo, and the preview shows the result — it helps night and dark phone photos most; it uses the graphics card when there is one. Turn it off to see the photo without it."),
-                    tr(lang, "Removing the grain… this takes a moment."),
-                    tr(lang, "AI denoise done. Turn the switch off to see the photo without it."),
-                    tr(lang, "AI denoise on"),
-                    tr(lang, "AI denoise off"),
+                    tr(lang, K_NORMAL_CLEANS_THE_GRAIN_OUT_OF_THE_PHOTO_AND_THE_PREVIE),
+                    tr(lang, K_ACTIONS_REMOVING_THE_GRAIN_THIS_TAKES_A_MOMENT),
+                    tr(lang, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P),
+                    tr(lang, K_ACTIONS_AI_DENOISE_ON),
+                    tr(lang, K_ACTIONS_AI_DENOISE_OFF),
                 ]
                 .map(str::to_string),
             );
@@ -583,7 +583,7 @@
         // the decode — through `Msg::Retouched`, the Retouch button's message.
         app.set_normal_denoise(true);
         assert!(app.busy, "the denoise worker runs: {}", app.status);
-        assert_eq!(app.status, tr(Lang::En, "Removing the grain… this takes a moment."));
+        assert_eq!(app.status, tr(Lang::En, K_ACTIONS_REMOVING_THE_GRAIN_THIS_TAKES_A_MOMENT));
         assert!(app.normal_denoise_on(), "the switch reads on while it runs");
         land_all(&mut app, &ctx);
         assert!(!app.normal_denoise_on(), "a failed run leaves the switch off");
@@ -601,7 +601,7 @@
         assert!(app.normal_denoise_on());
         let made = app.doc.variants[app.doc.active].id.clone();
         assert_eq!(app.normal.denoise_pair.as_ref().and_then(|d| d.denoised.clone()), Some(made.clone()), "remembered");
-        assert_eq!(app.status, tr(Lang::En, "AI denoise done. Turn the switch off to see the photo without it."));
+        assert_eq!(app.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P));
         // Off: the card it was made from, the look kept.
         app.doc.recipe.exposure_ev = 0.7;
         app.set_normal_denoise(false);
@@ -610,7 +610,7 @@
         assert_eq!(app.active_source_path().as_deref(), Some(src.as_path()));
         assert_eq!(app.doc.recipe.exposure_ev, 0.7, "the look rides across");
         assert!(!app.normal_denoise_on());
-        assert_eq!(app.status, tr(Lang::En, "AI denoise off"));
+        assert_eq!(app.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_OFF));
         // On again: the same ◈ card, no second run.
         app.doc.recipe.contrast = 12.0;
         app.set_normal_denoise(true);
@@ -618,7 +618,7 @@
         assert_eq!(app.doc.variants.len(), 2, "no second card");
         assert_eq!(app.doc.variants[app.doc.active].id, made, "the master already made");
         assert_eq!((app.doc.recipe.exposure_ev, app.doc.recipe.contrast), (0.7, 12.0), "the look rides across");
-        assert_eq!(app.status, tr(Lang::En, "AI denoise on"));
+        assert_eq!(app.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_ON));
         // The switch's behaviour above IS the claim: turning it on runs the
         // Retouch worker (busy + that door's status), turning it off returns to
         // the un-denoised card, and the save path renders whatever card is
@@ -662,7 +662,7 @@
             assert!(app.status.contains(name), "save {}: the line names the file: {}", i + 1, app.status);
             land_all(&mut app, &ctx);
             let folder = out.file_name().unwrap().to_string_lossy().into_owned();
-            assert_eq!(app.status, trf(Lang::En, "Saved {file} to {folder}", &[("file", name), ("folder", &folder)]));
+            assert_eq!(app.status, trf(Lang::En, K_ACTIONS_SAVED_TO, &[("file", name), ("folder", &folder)]));
             sizes.push(std::fs::metadata(out.join(name)).map(|m| m.len()).unwrap_or(0));
         }
         assert!(sizes.iter().all(|&n| n > 0), "three real jpgs, none replaced by the next: {sizes:?}");
@@ -676,7 +676,7 @@
         assert!(app.busy, "the picked save runs: {}", app.status);
         land_all(&mut app, &ctx);
         let folder = out.file_name().unwrap().to_string_lossy().into_owned();
-        assert_eq!(app.status, trf(Lang::En, "Saved {file} to {folder}", &[("file", names[0]), ("folder", &folder)]));
+        assert_eq!(app.status, trf(Lang::En, K_ACTIONS_SAVED_TO, &[("file", names[0]), ("folder", &folder)]));
         assert_ne!(std::fs::read(&picked).unwrap(), before, "the picked file was replaced");
         let fourth = out.join("_gui_normal_numbered.developed-4.jpg");
         assert!(!fourth.exists(), "a picked file is never numbered");
@@ -697,11 +697,11 @@
             app.start_apply_to_folder();
             land_all(&mut app, &ctx);
             let folder = all.file_name().unwrap().to_string_lossy().into_owned();
-            let saved = trf(Lang::En, "{n} photos saved to {folder}", &[("n", "2"), ("folder", &folder)]);
+            let saved = trf(Lang::En, K_ACTIONS_PHOTOS_SAVED_TO, &[("n", "2"), ("folder", &folder)]);
             if run == 0 {
                 assert_eq!(app.status, saved);
             } else {
-                let numbered = trf(Lang::En, "{k} of them have a number added to the name, so no earlier photo was replaced.", &[("k", "2")]);
+                let numbered = trf(Lang::En, K_ACTIONS_OF_THEM_HAVE_A_NUMBER_ADDED_TO_THE_NAME_SO_NO_EA, &[("k", "2")]);
                 assert_eq!(app.status, format!("{saved}. {numbered}"));
             }
         }
@@ -872,7 +872,7 @@
         app.on_one_click_built(Lang::En, Ok(3));
         assert!(!app.busy && !app.normal.building);
         assert!(app.normal.last_request.is_none(), "no look for a photo the folder was not picked for");
-        let said = tr(Lang::En, "Your reference photos are read, but the look could not start. Click 「Match my reference photos…」 again.");
+        let said = tr(Lang::En, K_LOGIC_YOUR_REFERENCE_PHOTOS_ARE_READ_BUT_THE_LOOK_COUL);
         assert_eq!(app.status, said);
         assert_eq!(app.normal.line, crate::panels::normal::NormalLine::Failed(said.to_string()));
         // Back on its own photo, the build hands over to the look.

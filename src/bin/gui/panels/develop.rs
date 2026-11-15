@@ -214,7 +214,7 @@ impl AutoShadeApp {
             SliderFeel::Frac => (0.01, (range / 100.0).max(0.01), 2),
             SliderFeel::LogK => (1.0, ((*value).abs() * 0.01).max(1.0).round(), 0),
         };
-        let grammar = tr(lang, "double-click / right-click resets · hover + ↑/↓ nudges (Shift ×10)");
+        let grammar = tr(lang, K_DEVELOP_DOUBLE_CLICK_RIGHT_CLICK_RESETS_HOVER_NUDGES_SHI);
         let tip = if hint.is_empty() {
             grammar.to_string()
         } else {
@@ -338,7 +338,7 @@ impl AutoShadeApp {
         let lang = self.lang; // Copy — never borrows self, safe inside egui closures.
         let mut changed = false;
         ui.add_space(SPACE_LG);
-        panel_heading(ui, tr(lang, "Develop"), false, |_| {});
+        panel_heading(ui, tr(lang, K_DEVELOP_DEVELOP), false, |_| {});
         // OUTSIDE the editable gate below, deliberately (#4 review point): the
         // histogram is a READOUT. Its only interaction is the pair of clipping
         // triangles, whose click reaches `toggle_clipping` — that writes
@@ -467,7 +467,7 @@ impl AutoShadeApp {
         let row_top = ui.cursor().top();
         let strip_left = ui.max_rect().left();
         let title_galley = ui.painter().layout_no_wrap(
-            tr(lang, "Variants").to_owned(),
+            tr(lang, K_DEVELOP_VARIANTS__2).to_owned(),
             egui::TextStyle::Body.resolve(ui.style()),
             ui.visuals().strong_text_color(),
         );
@@ -548,7 +548,7 @@ impl AutoShadeApp {
                             if resp
                                 .on_hover_text(tr(
                                     lang,
-                                    "Click to switch to this variant (lossless); Ctrl+S saves every card for this photo",
+                                    K_DEVELOP_CLICK_TO_SWITCH_TO_THIS_VARIANT_LOSSLESS_CTRL_S,
                                 ))
                                 .clicked()
                             {
@@ -565,7 +565,7 @@ impl AutoShadeApp {
                                 if kind == VariantKind::Generated {
                                     label.on_hover_text(tr(
                                         lang,
-                                        "A generated image stays as generated: the first edit here continues on a new ✎ Edited AI image card",
+                                        K_DEVELOP_A_GENERATED_IMAGE_STAYS_AS_GENERATED_THE_FIRST_E,
                                     ));
                                 } else if kind == VariantKind::Stacked {
                                     // The ▦ card (v1.5.0): what it is and what
@@ -573,7 +573,7 @@ impl AutoShadeApp {
                                     // card is.
                                     label.on_hover_text(tr(
                                         lang,
-                                        "Several frames of this scene merged into their own master: develop it like the ▣ card, reverse-fit and reimagine read it as the negative while it exists; a .xmp from it carries the sliders only — the merged pixels live in the master beside it",
+                                        K_DEVELOP_SEVERAL_FRAMES_OF_THIS_SCENE_MERGED_INTO_THEIR_O,
                                     ));
                                 } else if kind == VariantKind::Denoised {
                                     // The ◈ card (2026-09-15): what it is and
@@ -581,7 +581,7 @@ impl AutoShadeApp {
                                     // the card is.
                                     label.on_hover_text(tr(
                                         lang,
-                                        "The negative AI-denoised into its own master: develop it like the ▣ card, reverse-fit and reimagine read it as the negative while it exists; a .xmp from it carries the sliders only — run Lightroom's own Denoise there",
+                                        K_DEVELOP_THE_NEGATIVE_AI_DENOISED_INTO_ITS_OWN_MASTER_DEV,
                                     ));
                                 }
                                 // The card's NAME (R24-3), which until now
@@ -619,7 +619,7 @@ impl AutoShadeApp {
                                                     card_id.as_str(),
                                                 )))
                                                 .desired_width(90.0)
-                                                .hint_text(tr(lang, "Name")),
+                                                .hint_text(tr(lang, K_DEVELOP_NAME)),
                                         )
                                     };
                                     // The +1 boundary: this box's own
@@ -641,13 +641,13 @@ impl AutoShadeApp {
                                 } else if active {
                                     let shown = match &named {
                                         Some(n) => egui::RichText::new(format!("「{n}」")).small(),
-                                        None => egui::RichText::new(tr(lang, "Name…").to_string())
+                                        None => egui::RichText::new(tr(lang, K_DEVELOP_NAME__2).to_string())
                                             .small()
                                             .weak(),
                                     };
                                     let resp = ui
                                         .add(egui::Label::new(shown).sense(egui::Sense::click()))
-                                        .on_hover_text(tr(lang, "Name this variant"));
+                                        .on_hover_text(tr(lang, K_DEVELOP_NAME_THIS_VARIANT));
                                     #[cfg(test)]
                                     {
                                         self.seams.strip_name_rect = Some(resp.rect);
@@ -728,7 +728,7 @@ impl AutoShadeApp {
             #[cfg(test)]
             drawn.push("＋");
             if glyph(ui, !busy, "＋")
-                .on_hover_text(tr(lang, "Snapshot this card's develop only as a numbered version (v<N>.recipe.json with frozen mask rasters); Ctrl+S saves every card"))
+                .on_hover_text(tr(lang, K_DEVELOP_SNAPSHOT_THIS_CARD_S_DEVELOP_ONLY_AS_A_NUMBERED))
                 .clicked()
             {
                 act = Some(VariantAction::SaveVersion);
@@ -747,11 +747,11 @@ impl AutoShadeApp {
         if active && kind != VariantKind::Original && self.original_index().is_some() {
             let can = kind.is_source_based();
             let hover = if can {
-                tr(lang, "Copy this variant's develop onto the ▣ Original card — its baked pixels and this card both stay. One Ctrl+Z undoes it; Ctrl+S then saves it as this photo's develop")
+                tr(lang, K_DEVELOP_COPY_THIS_VARIANT_S_DEVELOP_ONTO_THE_ORIGINAL_CA)
             } else if kind == VariantKind::Edited {
-                tr(lang, "This ✎ card's develop is tuned over AI-generated pixels — on the ▣ Original card those sliders would land on the source frame; run 「Reverse-fit」 on the ✨ card first")
+                tr(lang, K_DEVELOP_THIS_CARD_S_DEVELOP_IS_TUNED_OVER_AI_GENERATED_P)
             } else {
-                tr(lang, "A generated variant's look lives in its pixels — there are no develop parameters to copy onto the ▣ Original card; run 「Reverse-fit」 first")
+                tr(lang, K_DEVELOP_A_GENERATED_VARIANT_S_LOOK_LIVES_IN_ITS_PIXELS_T)
             };
             let resp = glyph(ui, can && !busy, "▣").on_hover_text(hover);
             #[cfg(test)]
@@ -778,9 +778,9 @@ impl AutoShadeApp {
             && kind != VariantKind::Original
             && glyph(ui, true, if armed { "✕?" } else { "✕" })
                 .on_hover_text(if armed {
-                    tr(lang, "Click again to delete this variant — it cannot be brought back (Ctrl+Z does not cross variants)")
+                    tr(lang, K_DEVELOP_CLICK_AGAIN_TO_DELETE_THIS_VARIANT_IT_CANNOT_BE)
                 } else {
-                    tr(lang, "Delete this variant")
+                    tr(lang, K_DEVELOP_DELETE_THIS_VARIANT)
                 })
                 .clicked()
         {
@@ -834,8 +834,8 @@ impl AutoShadeApp {
         // are AI (its own panel above) → tone & colour → detail & lens → local
         // & pixel → versions & export. Captions only: no section moved, no
         // fence rhythm changed.
-        group_caption(ui, tr(lang, "Tone & Colour"));
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Tone & WB"), tone_active))
+        group_caption(ui, tr(lang, K_DEVELOP_TONE_COLOUR));
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_TONE_WB), tone_active))
             .id_salt("sec_tone")
             .default_open(true)
             , |ui| {
@@ -853,7 +853,7 @@ impl AutoShadeApp {
                     // slider disabled, was a lie with no way out.
                     let mut custom_wb =
                         self.doc.recipe.temperature_k.is_some() || self.doc.recipe.tint != 0.0;
-                    if ui.checkbox(&mut custom_wb, tr(lang, "Custom white balance (off = as-shot)")).changed() {
+                    if ui.checkbox(&mut custom_wb, tr(lang, K_DEVELOP_CUSTOM_WHITE_BALANCE_OFF_AS_SHOT)).changed() {
                         // Arm AT the as-shot anchor when stamped: checking
                         // the box must not shift the image — the slider then
                         // starts from the camera's real Kelvin, not 5500.
@@ -867,10 +867,10 @@ impl AutoShadeApp {
                         }
                         changed = true;
                     }
-                    let label = if self.tools.wb_picking { tr(lang, "💧 Click in image…") } else { tr(lang, "💧 Eyedropper") };
+                    let label = if self.tools.wb_picking { tr(lang, K_DEVELOP_CLICK_IN_IMAGE) } else { tr(lang, K_DEVELOP_EYEDROPPER) };
                     if action_in(ui, cell, true, label)
                         .on_hover_text(tr(lang,
-                            "Click a spot in the image that should be neutral grey/white to auto-solve Temp/Tint (same forward model as the engine). Click again to cancel.",
+                            K_DEVELOP_CLICK_A_SPOT_IN_THE_IMAGE_THAT_SHOULD_BE_NEUTRAL,
                         ))
                         .clicked()
                     {
@@ -878,7 +878,7 @@ impl AutoShadeApp {
                         self.disarm_tools();
                         self.tools.wb_picking = on;
                         if on {
-                            self.status = tr(lang, "WB eyedropper: click a spot that should be neutral grey/white").into();
+                            self.status = tr(lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into();
                         }
                     }
                 });
@@ -890,7 +890,7 @@ impl AutoShadeApp {
                     // "as shot" would be a false claim.
                     ui.weak(trf(
                         lang,
-                        "as shot ≈ {k} K · tint {t}",
+                        K_DEVELOP_AS_SHOT_K_TINT,
                         &[("k", &format!("{k:.0}")), ("t", &format!("{t:+.0}"))],
                     ));
                 }
@@ -898,7 +898,7 @@ impl AutoShadeApp {
                 // (the honest "no shift" position), 5500 for legacy recipes.
                 let anchor_k = self.doc.recipe.as_shot_k.unwrap_or(5500.0);
                 if let Some(mut k) = self.doc.recipe.temperature_k
-                    && Self::slider_log(ui, lang, tr(lang, "Temp (K)"), &mut k, 2000.0, 50000.0, anchor_k)
+                    && Self::slider_log(ui, lang, tr(lang, K_DEVELOP_TEMP_K), &mut k, 2000.0, 50000.0, anchor_k)
                 {
                     self.doc.recipe.temperature_k = Some(k);
                     changed = true;
@@ -932,7 +932,7 @@ impl AutoShadeApp {
         // interrupted by sharpening. add_space fences each header so the ten
         // sections read as groups, not one undivided list.
         ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Presence"), presence_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_PRESENCE), presence_active))
             .id_salt("sec_presence")
             .default_open(true)
             , |ui| {
@@ -966,19 +966,19 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut changed = false;
         ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Calibration"), calibration_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_CALIBRATION), calibration_active))
             .id_salt("sec_calibration")
             .default_open(false)
             , |ui| {
                 // Lightroom's own order and grouping: the shadows tint first,
                 // then a hue + saturation pair per primary. The group captions
                 // stay here; the rows are capability tables.
-                ui.label(egui::RichText::new(tr(lang, "Shadows")).weak().small());
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_SHADOWS)).weak().small());
                 changed |= self.capability_rows(ui, crate::logic::capability::CAL_TINT);
                 for (primary, table) in [
-                    (tr(lang, "Red primary"), crate::logic::capability::CAL_RED),
-                    (tr(lang, "Green primary"), crate::logic::capability::CAL_GREEN),
-                    (tr(lang, "Blue primary"), crate::logic::capability::CAL_BLUE),
+                    (tr(lang, K_DEVELOP_RED_PRIMARY), crate::logic::capability::CAL_RED),
+                    (tr(lang, K_DEVELOP_GREEN_PRIMARY), crate::logic::capability::CAL_GREEN),
+                    (tr(lang, K_DEVELOP_BLUE_PRIMARY), crate::logic::capability::CAL_BLUE),
                 ] {
                     ui.add_space(SPACE_XS);
                     ui.label(egui::RichText::new(primary).weak().small());
@@ -1001,15 +1001,15 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut changed = false;
         ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "HDR & SDR"), hdr_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_HDR_SDR), hdr_active))
             .id_salt("sec_hdr")
             .default_open(false)
             , |ui| {
                 if ui
-                    .checkbox(&mut self.doc.recipe.hdr_edit, tr(lang, "HDR edit mode"))
+                    .checkbox(&mut self.doc.recipe.hdr_edit, tr(lang, K_DEVELOP_HDR_EDIT_MODE))
                     .on_hover_text(tr(
                         lang,
-                        "This photograph was edited above diffuse white. Every file this program writes is SDR, so the rendition below is what gets published.",
+                        K_DEVELOP_THIS_PHOTOGRAPH_WAS_EDITED_ABOVE_DIFFUSE_WHITE_E,
                     ))
                     .changed()
                 {
@@ -1017,9 +1017,9 @@ impl AutoShadeApp {
                 }
                 changed |= self.capability_rows(ui, crate::logic::capability::HDR_HEADROOM);
                 ui.add_space(SPACE_SM);
-                ui.label(egui::RichText::new(tr(lang, "SDR rendition")).weak().small());
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_SDR_RENDITION)).weak().small());
                 ui.label(
-                    egui::RichText::new(tr(lang, "renders only in HDR mode"))
+                    egui::RichText::new(tr(lang, K_DEVELOP_RENDERS_ONLY_IN_HDR_MODE))
                         .weak()
                         .small(),
                 );
@@ -1040,8 +1040,8 @@ impl AutoShadeApp {
         // profile / manual distortion redefine the frame the crop sits in).
         // Group boundary: the group head's own air and gold caption (2026-10-01:
         // the full-width hairline that used to fence each group is gone).
-        group_caption(ui, tr(lang, "Detail & Lens")); // #14b, group 2 of 4 here
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Detail"), detail_active))
+        group_caption(ui, tr(lang, K_DEVELOP_DETAIL_LENS)); // #14b, group 2 of 4 here
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_DETAIL), detail_active))
             .id_salt("sec_detail")
             .default_open(false)
             , |ui| {
@@ -1055,7 +1055,7 @@ impl AutoShadeApp {
                     // holds none — and reset to it (`companion_slider_edit`,
                     // `sharpening_slider`).
                     let raw_source = self.source_is_raw();
-                    changed |= Self::sharpening_slider(ui, lang, tr(lang, "Sharpening"), &mut self.doc.recipe, raw_source);
+                    changed |= Self::sharpening_slider(ui, lang, tr(lang, K_DEVELOP_SHARPENING), &mut self.doc.recipe, raw_source);
                     // The rows below the amount are one capability table each;
                     // their bands, feels and companion defaults live in
                     // `logic::capability` (the radius is a Fine companion: the
@@ -1080,12 +1080,12 @@ impl AutoShadeApp {
                 Self::slider_pct_hinted(
                     ui,
                     lang,
-                    tr(lang, "AI denoise strength"),
+                    tr(lang, K_DEVELOP_AI_DENOISE_STRENGTH),
                     if denoise_raw { &mut self.exp.denoise_strength } else { &mut self.exp.baked_denoise_strength },
                     1.0,
                     if denoise_raw { autoshade::denoise::DEFAULT_STRENGTH_RAW } else { autoshade::denoise::DEFAULT_STRENGTH },
                     tr(lang,
-                        "Detail AI denoise strength, independent of the Export section. On a RAW, the dial removes luminance grain after demosaic in linear light; the default targets Lightroom Denoise 50. Higher is cleaner, 100% is the complete network output. Every positive strength keeps clean colour; exactly 0% leaves the input untouched. Already-rendered images (JPEG, PNG, TIFF, a retouched or AI result) use a different denoiser with its own 50% default. Double-click to reset this source type.",
+                        K_DEVELOP_DETAIL_AI_DENOISE_STRENGTH_INDEPENDENT_OF_THE_EX,
                     ),
                 );
                 ui.horizontal(|ui| {
@@ -1099,9 +1099,9 @@ impl AutoShadeApp {
                     let has_helper = denoise_helper_available();
                     let ready = self.photo.src_path.is_some() && !self.busy && has_helper;
                     let missing = tr(lang,
-                        "This feature needs AutoShade's Python helpers, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_DENOISE_SCRIPT and AUTOSHADE_DENOISE_RAW_SCRIPT to the paths of denoise.py and denoise_raw.py",
+                        K_DEVELOP_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPERS_WH,
                     );
-                    if action_row(ui, ready, tr(lang, "🤖 AI Denoise now"))
+                    if action_row(ui, ready, tr(lang, K_DEVELOP_AI_DENOISE_NOW))
                         // 🤖 + the cross-reference line (#4): this verb stays
                         // beside Noise Reduction on purpose, so its tooltip is
                         // where it says the rest of the AI moved to. On the arm
@@ -1109,10 +1109,7 @@ impl AutoShadeApp {
                         // sidecar and nothing else — same discipline as the
                         // segmentation pair.
                         .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
-                            "Denoise this card's pixels at full resolution — a RAW on its sensor mosaic before demosaic, \
-                             an already-rendered image through its own denoiser — and land the result as a new ◈ Denoised negative card \
-                             carrying this card's develop; the card you started from keeps its pixels (first run \
-                             downloads the model)",
+                            K_DEVELOP_DENOISE_THIS_CARD_S_PIXELS_AT_FULL_RESOLUTION_A,
                         )) } else { missing.to_string() })
                         .clicked()
                     {
@@ -1145,11 +1142,11 @@ impl AutoShadeApp {
         // only state this fold owns that outlives the click.
         let has = self.doc.variants.iter().any(|v| v.kind == VariantKind::Stacked);
         ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Stack"), has))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_STACK), has))
             .id_salt("sec_stack")
             .default_open(false)
             , |ui| {
-                explainer(ui, lang, tr(lang, "Merge several frames of one scene into a new ▦ negative. This card's frame is the reference — its framing and its exposure are the ones the result keeps — and the frames you pick join it."));
+                explainer(ui, lang, tr(lang, K_DEVELOP_MERGE_SEVERAL_FRAMES_OF_ONE_SCENE_INTO_A_NEW_NEG));
                 ui.add_space(SPACE_SM);
                 egui::ComboBox::from_id_salt("stack_kind")
                     .selected_text(tr(lang, self.tools.stack_kind.label()))
@@ -1161,20 +1158,20 @@ impl AutoShadeApp {
                     .response
                     .on_hover_text(tr(
                         lang,
-                        "HDR merge: an exposure bracket into one frame holding the whole range, with the recovered stops handed to the SDR rendition section. Exposure fusion: the same bracket blended where each frame looks best, with no HDR in between — a finished picture rather than data. Focus stack: a focus sweep into one frame sharp throughout. Noise stack: repeated frames of a still scene averaged, so the signal adds and the noise does not, and anything that moved through one frame is dropped.",
+                        K_DEVELOP_HDR_MERGE_AN_EXPOSURE_BRACKET_INTO_ONE_FRAME_HOL,
                     ));
-                ui.checkbox(&mut self.tools.stack_tripod, tr(lang, "Shot on a tripod (skip alignment)"))
+                ui.checkbox(&mut self.tools.stack_tripod, tr(lang, K_DEVELOP_SHOT_ON_A_TRIPOD_SKIP_ALIGNMENT))
                     .on_hover_text(tr(
                         lang,
-                        "Alignment is the expensive half of a stack, and on frames that really are registered there is nothing for it to find — measured on a five-frame noise stack, the grain fell 2.03x with it skipped and 1.97x with it running. Leave it off for handheld frames.",
+                        K_DEVELOP_ALIGNMENT_IS_THE_EXPENSIVE_HALF_OF_A_STACK_AND_O,
                     ));
                 ui.add_space(SPACE_SM);
                 ui.horizontal(|ui| {
                     let ready = self.photo.src_path.is_some() && !self.busy;
-                    if action_row(ui, ready, tr(lang, "▦ Stack with other frames…"))
+                    if action_row(ui, ready, tr(lang, K_DEVELOP_STACK_WITH_OTHER_FRAMES))
                         .on_hover_text(tr(
                             lang,
-                            "Pick the other frames of this scene. They must be the same size as this one; the merge runs at full resolution and lands as a new ▦ card carrying this card's develop, and the frame you started from keeps its pixels.",
+                            K_DEVELOP_PICK_THE_OTHER_FRAMES_OF_THIS_SCENE_THEY_MUST_BE,
                         ))
                         .clicked()
                         && let Some(extra) = photo_files_dialog()
@@ -1200,11 +1197,11 @@ impl AutoShadeApp {
         let mut changed = false;
 
         ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Effects"), effects_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_EFFECTS), effects_active))
             .id_salt("sec_effects")
             .default_open(false)
             , |ui| {
-                ui.label(egui::RichText::new(tr(lang, "Post-crop vignetting")).weak().small());
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_POST_CROP_VIGNETTING)).weak().small());
                 // Two tables because the panel draws two captioned groups; the
                 // rows, their bands (the catalogue), their feels and their
                 // companion encoding live in `logic::capability`. The style row
@@ -1212,7 +1209,7 @@ impl AutoShadeApp {
                 // 0 means "the sidecar named none" and only a reset reaches it.
                 changed |= self.capability_rows(ui, crate::logic::capability::VIGNETTE);
                 ui.add_space(SPACE_SM);
-                ui.label(egui::RichText::new(tr(lang, "Grain")).weak().small());
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_GRAIN)).weak().small());
                 changed |= self.capability_rows(ui, crate::logic::capability::GRAIN);
             });
         changed
@@ -1238,7 +1235,7 @@ impl AutoShadeApp {
             .filter(|f| f.name == "lens" || f.name == "lens_effects")
             .any(|f| family_is_active(f, &self.doc.recipe))
             || !self.doc.recipe.lens_profile.is_as_opened();
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Lens"), lens_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_LENS), lens_active))
             .id_salt("sec_lens")
             .default_open(false)
             , |ui| {
@@ -1253,12 +1250,12 @@ impl AutoShadeApp {
                 let has_c = (!lp.ca_r.is_empty() || !photo.ca_r.is_empty())
                     && (!lp.ca_b.is_empty() || !photo.ca_b.is_empty());
                 if has_v || has_d || has_c {
-                    ui.label(tr(lang, "Profile corrections (from camera metadata)"));
+                    ui.label(tr(lang, K_DEVELOP_PROFILE_CORRECTIONS_FROM_CAMERA_METADATA));
                     let mut pch = false;
                     ui.horizontal(|ui| {
                         if ui
-                            .add_enabled(has_v, egui::Checkbox::new(&mut lp.vignette_on, tr(lang, "Vignetting")))
-                            .on_hover_text(tr(lang, "The camera's own falloff map for this shot, applied in linear light"))
+                            .add_enabled(has_v, egui::Checkbox::new(&mut lp.vignette_on, tr(lang, K_DEVELOP_VIGNETTING)))
+                            .on_hover_text(tr(lang, K_DEVELOP_THE_CAMERA_S_OWN_FALLOFF_MAP_FOR_THIS_SHOT_APPLI))
                             .changed()
                         {
                             if lp.vignette_on && lp.vignette.is_empty() {
@@ -1267,8 +1264,8 @@ impl AutoShadeApp {
                             pch = true;
                         }
                         if ui
-                            .add_enabled(has_d, egui::Checkbox::new(&mut lp.distortion_on, tr(lang, "Distortion")))
-                            .on_hover_text(tr(lang, "The camera's own geometric correction; masks and crop follow the corrected frame"))
+                            .add_enabled(has_d, egui::Checkbox::new(&mut lp.distortion_on, tr(lang, K_DEVELOP_DISTORTION)))
+                            .on_hover_text(tr(lang, K_DEVELOP_THE_CAMERA_S_OWN_GEOMETRIC_CORRECTION_MASKS_AND))
                             .changed()
                         {
                             if lp.distortion_on && lp.distortion.is_empty() {
@@ -1277,8 +1274,8 @@ impl AutoShadeApp {
                             pch = true;
                         }
                         if ui
-                            .add_enabled(has_c, egui::Checkbox::new(&mut lp.ca_on, tr(lang, "Chromatic aberration")))
-                            .on_hover_text(tr(lang, "Per-channel radius correction: removes red/blue colour fringing at edges"))
+                            .add_enabled(has_c, egui::Checkbox::new(&mut lp.ca_on, tr(lang, K_DEVELOP_CHROMATIC_ABERRATION)))
+                            .on_hover_text(tr(lang, K_DEVELOP_PER_CHANNEL_RADIUS_CORRECTION_REMOVES_RED_BLUE_C))
                             .changed()
                         {
                             if lp.ca_on && (lp.ca_r.is_empty() || lp.ca_b.is_empty()) {
@@ -1305,7 +1302,7 @@ impl AutoShadeApp {
                     ui.add_space(SPACE_MD);
                 } else if self.photo.src_path.as_deref().is_some_and(autoshade::decode::is_raw) {
                     ui.label(
-                        egui::RichText::new(tr(lang, "No in-camera lens correction data in this file"))
+                        egui::RichText::new(tr(lang, K_DEVELOP_NO_IN_CAMERA_LENS_CORRECTION_DATA_IN_THIS_FILE))
                             .weak()
                             .small(),
                     );
@@ -1334,33 +1331,33 @@ impl AutoShadeApp {
                 // even when this photo has no profile data, so a recipe
                 // imported from Lightroom shows what it carries.
                 ui.add_space(SPACE_SM);
-                ui.label(egui::RichText::new(tr(lang, "Profile correction strength")).weak().small());
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_PROFILE_CORRECTION_STRENGTH)).weak().small());
                 changed |= self.capability_rows(ui, crate::logic::capability::LENS_PROFILE);
                 ui.add_space(SPACE_SM);
-                ui.label(egui::RichText::new(tr(lang, "Chromatic aberration (manual)")).weak().small());
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_CHROMATIC_ABERRATION_MANUAL)).weak().small());
                 changed |= self.capability_rows(ui, crate::logic::capability::LENS_CA);
                 // …and the rest of the same panel: Adobe's auto switch and the
                 // whole de-fringe block. Carried and unrendered until v1.5.0;
                 // the switch is an INSTRUCTION, so its tooltip says what the
                 // instruction does rather than what the number means.
                 if ui
-                    .checkbox(&mut self.doc.recipe.auto_lateral_ca, tr(lang, "Auto lateral CA"))
+                    .checkbox(&mut self.doc.recipe.auto_lateral_ca, tr(lang, K_DEVELOP_AUTO_LATERAL_CA))
                     .on_hover_text(tr(
                         lang,
-                        "Measures this frame's own red/blue misalignment and adds the answer to the manual pair above.",
+                        K_DEVELOP_MEASURES_THIS_FRAME_S_OWN_RED_BLUE_MISALIGNMENT,
                     ))
                     .changed()
                 {
                     changed = true;
                 }
                 ui.add_space(SPACE_SM);
-                ui.label(egui::RichText::new(tr(lang, "Defringe")).weak().small());
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_DEFRINGE)).weak().small());
                 // Adobe's bands and neutrals: amounts rest at 0, the hue
                 // windows at 30/70 and 40/60 (the one block whose neutral is
                 // not zero — the row resets carry them).
                 changed |= self.capability_rows(ui, crate::logic::capability::LENS_DEFRINGE);
                 ui.add_space(SPACE_SM);
-                explainer(ui, lang, tr(lang, "Vignette: positive brightens the corners (compensates falloff), negative darkens; a radial gain in linear light. Distortion: positive fixes barrel (wide-angle bulge), negative fixes pincushion (tele pinch); auto-scales to fill the frame, and masks / brush still position on the corrected image. Preview / export / XMP match. Manual CA, the auto-CA switch and de-fringe all render here too."));
+                explainer(ui, lang, tr(lang, K_DEVELOP_VIGNETTE_POSITIVE_BRIGHTENS_THE_CORNERS_COMPENSA));
             });
         changed
     }
@@ -1388,7 +1385,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut changed = false;
         ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Transform"), transform_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_TRANSFORM), transform_active))
             .id_salt("sec_transform")
             .default_open(false)
             , |ui| {
@@ -1402,7 +1399,7 @@ impl AutoShadeApp {
                     ["Off", "Auto", "Level", "Vertical", "Full", "Guided"];
                 let mut mode = self.doc.recipe.perspective_upright.round().clamp(0.0, 5.0) as usize;
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(tr(lang, "Upright")).small());
+                    ui.label(egui::RichText::new(tr(lang, K_DEVELOP_UPRIGHT)).small());
                     egui::ComboBox::from_id_salt("upright_mode")
                         .selected_text(tr(lang, MODES[mode]))
                         .width(90.0)
@@ -1452,14 +1449,14 @@ impl AutoShadeApp {
                 // 50..150 resetting to 100) come from `logic::capability`.
                 changed |= self.capability_rows(ui, crate::logic::capability::TRANSFORM);
                 if ui
-                    .checkbox(&mut self.doc.recipe.crop_constrain_to_warp, tr(lang, "Constrain crop"))
-                    .on_hover_text(tr(lang, "Shrink the crop until it lies inside the warped frame instead of showing the empty corners"))
+                    .checkbox(&mut self.doc.recipe.crop_constrain_to_warp, tr(lang, K_DEVELOP_CONSTRAIN_CROP))
+                    .on_hover_text(tr(lang, K_DEVELOP_SHRINK_THE_CROP_UNTIL_IT_LIES_INSIDE_THE_WARPED))
                     .changed()
                 {
                     changed = true;
                 }
                 ui.add_space(SPACE_SM);
-                explainer(ui, lang, tr(lang, "One projective map, after the lens correction and before the straighten. Preview / export / XMP match. Upright renders the matrix Lightroom published when there is one; the sliders were measured against Lightroom's own exports. A keystone frames a little differently — Lightroom also stretches that axis, by an amount its lens sets."));
+                explainer(ui, lang, tr(lang, K_DEVELOP_ONE_PROJECTIVE_MAP_AFTER_THE_LENS_CORRECTION_AND));
                 // v1.5.0 F7 — WHICH rendering this photograph starts from.
                 // Read-only here on purpose: the profile is a file on the
                 // photographer's machine and the Look is Adobe's own creative
@@ -1477,12 +1474,12 @@ impl AutoShadeApp {
                     if !self.doc.recipe.camera_profile.is_empty() {
                         pair(
                             ui,
-                            tr(lang, "Camera profile").to_string(),
+                            tr(lang, K_DEVELOP_CAMERA_PROFILE).to_string(),
                             &self.doc.recipe.camera_profile,
                         );
                     }
                     if let Some(look) = look.as_ref().filter(|l| !l.name.is_empty()) {
-                        pair(ui, tr(lang, "Creative profile").to_string(), &look.name);
+                        pair(ui, tr(lang, K_DEVELOP_CREATIVE_PROFILE).to_string(), &look.name);
                         // Named, not hidden: a Look is colour data (v1.17.0) —
                         // its creative colour table renders when Camera Raw's
                         // install carries it (`dcp::find_look_table`,
@@ -1492,13 +1489,13 @@ impl AutoShadeApp {
                         // the name without saying which half arrived would be
                         // claiming the whole profile.
                         let line = if look.table.is_empty() {
-                            tr(lang, "Its baked tone curve and sliders do not render")
+                            tr(lang, K_DEVELOP_ITS_BAKED_TONE_CURVE_AND_SLIDERS_DO_NOT_RENDER)
                         } else if (look.amount - 1.0).abs() <= 1e-3
                             && autoshade::dcp::find_look_table(&look.table).is_ok()
                         {
-                            tr(lang, "Its creative colour table renders; its baked tone curve and sliders do not")
+                            tr(lang, K_DEVELOP_ITS_CREATIVE_COLOUR_TABLE_RENDERS_ITS_BAKED_TONE)
                         } else {
-                            tr(lang, "Neither its creative colour table nor its baked tone curve and sliders render")
+                            tr(lang, K_DEVELOP_NEITHER_ITS_CREATIVE_COLOUR_TABLE_NOR_ITS_BAKED)
                         };
                         ui.label(egui::RichText::new(line).weak().small());
                     }
@@ -1535,12 +1532,12 @@ impl AutoShadeApp {
                 // carried alongside the solver's bookkeeping; F7 made the name
                 // an owned control shown above, so what is left is one block
                 // with one caption.
-                rows(ui, Some(tr(lang, "Upright solver bookkeeping")), &autoshade::xmp::PASSTHROUGH_CRS);
+                rows(ui, Some(tr(lang, K_DEVELOP_UPRIGHT_SOLVER_BOOKKEEPING)), &autoshade::xmp::PASSTHROUGH_CRS);
                 ui.add_space(SPACE_SM);
                 ui.label(
                     egui::RichText::new(tr(
                         lang,
-                        "Carried through to the sidecar unchanged; AutoShade never interprets these",
+                        K_DEVELOP_CARRIED_THROUGH_TO_THE_SIDECAR_UNCHANGED_AUTOSHA,
                     ))
                     .weak()
                     .small(),
@@ -1564,7 +1561,7 @@ impl AutoShadeApp {
             .iter()
             .filter(|f| f.name == "framing")
             .any(|f| family_is_active(f, &self.doc.recipe));
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, "Crop"), crop_active))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_CROP), crop_active))
             .id_salt("sec_crop")
             .default_open(false)
             , |ui| {
@@ -1576,13 +1573,13 @@ impl AutoShadeApp {
                     let cell = columns(ui, 2);
                     // ✓ (geometric) — same finish-glyph as 「✓ Apply」; the
                     // emoji ✅ was the odd one out of the check family.
-                    let label = if self.crop.mode { tr(lang, "✓ Done") } else { tr(lang, "Enter crop") };
+                    let label = if self.crop.mode { tr(lang, K_DEVELOP_DONE) } else { tr(lang, K_DEVELOP_ENTER_CROP) };
                     if action_in(ui, cell, true, label).clicked() {
                         let on = !self.crop.mode;
                         self.disarm_tools();
                         self.set_crop_mode(on);
                     }
-                    if action_in(ui, cell, true, tr(lang, "Clear crop")).clicked()
+                    if action_in(ui, cell, true, tr(lang, K_DEVELOP_CLEAR_CROP)).clicked()
                         && self.doc.recipe.crop.take().is_some()
                     {
                         // Through the panel's own change path: clamp + dirty,
@@ -1591,7 +1588,7 @@ impl AutoShadeApp {
                     }
                 });
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(tr(lang, "Aspect")).weak().small());
+                    ui.label(egui::RichText::new(tr(lang, K_DEVELOP_ASPECT)).weak().small());
                     let prev_aspect = self.crop.aspect;
                     egui::ComboBox::from_id_salt("crop_aspect")
                         .selected_text(tr(lang, CROP_ASPECTS[self.crop.aspect].0))
@@ -1618,7 +1615,7 @@ impl AutoShadeApp {
                 // the preview shows exactly the export geometry. Fine class:
                 // levelling needs 0.1°, not the wide-range integer snap.
                 changed |= self.capability_rows(ui, crate::logic::capability::CROP);
-                explainer(ui, lang, tr(lang, "Once in (R): drag corner/edge handles to resize, drag inside to move, drag OUTSIDE the box (or the canvas border while the box is full-frame) to rotate-straighten; arrows nudge the box, Enter commits; preview, export and XMP all match. Straighten auto-crops the black corners."));
+                explainer(ui, lang, tr(lang, K_DEVELOP_ONCE_IN_R_DRAG_CORNER_EDGE_HANDLES_TO_RESIZE_DRA));
             });
         changed
     }
@@ -1651,13 +1648,13 @@ impl AutoShadeApp {
         // (Detail, Local Masks) — the rhythm is completed here, not changed:
         // Versions previously opened with a bare sibling-section fence while
         // being the head of a different KIND of group.
-        group_caption(ui, tr(lang, "Versions & Export"));
+        group_caption(ui, tr(lang, K_DEVELOP_VERSIONS_EXPORT));
         let n_ver = self.cards.versions.len();
         let n_ver_s = n_ver.to_string();
         // Deferred like the strip's, and dispatched through the same owner
         // after the section's closures release `self` (R24-5).
         let mut act: Option<VariantAction> = None;
-        card_fold(ui, egui::CollapsingHeader::new(section_title(&trf(lang, "Versions ({n})", &[("n", &n_ver_s)]), n_ver > 0))
+        card_fold(ui, egui::CollapsingHeader::new(section_title(&trf(lang, K_DEVELOP_VERSIONS, &[("n", &n_ver_s)]), n_ver > 0))
             .id_salt("sec_versions")
             .default_open(false)
             , |ui| {
@@ -1706,7 +1703,7 @@ impl AutoShadeApp {
                     ui.label(
                         egui::RichText::new(trf(
                             lang,
-                            "Variants ({n})",
+                            K_DEVELOP_VARIANTS,
                             &[("n", &n_var.to_string())],
                         ))
                         .weak()
@@ -1737,26 +1734,26 @@ impl AutoShadeApp {
                                 }
                                 if i == active_i {
                                     ui.label(
-                                        egui::RichText::new(tr(lang, "· current"))
+                                        egui::RichText::new(tr(lang, K_DEVELOP_CURRENT))
                                             .weak()
                                             .small(),
                                     );
                                 }
                                 if kind == VariantKind::Edited {
                                     ui.label(
-                                        egui::RichText::new(tr(lang, "· develop over AI pixels (no XMP)"))
+                                        egui::RichText::new(tr(lang, K_DEVELOP_DEVELOP_OVER_AI_PIXELS_NO_XMP))
                                             .weak()
                                             .small(),
                                     );
                                 } else if !kind.is_source_based() {
                                     ui.label(
-                                        egui::RichText::new(tr(lang, "· pixel-state (no XMP)"))
+                                        egui::RichText::new(tr(lang, K_DEVELOP_PIXEL_STATE_NO_XMP))
                                             .weak()
                                             .small(),
                                     );
                                 } else if on_pixels {
                                     ui.label(
-                                        egui::RichText::new(tr(lang, "· on baked pixels"))
+                                        egui::RichText::new(tr(lang, K_DEVELOP_ON_BAKED_PIXELS))
                                             .weak()
                                             .small(),
                                     );
@@ -1773,7 +1770,7 @@ impl AutoShadeApp {
                             && hit
                                 .on_hover_text(tr(
                                     lang,
-                                    "Click to switch to this variant (lossless)",
+                                    K_DEVELOP_CLICK_TO_SWITCH_TO_THIS_VARIANT_LOSSLESS,
                                 ))
                                 .clicked()
                         {
@@ -1800,9 +1797,9 @@ impl AutoShadeApp {
                         }
                     }
                 }
-                sub_caption(ui, tr(lang, "Snapshot history"));
-                if action_row(ui, true, tr(lang, "＋ Save as version"))
-                    .on_hover_text(tr(lang, "Snapshot this card's develop only as a numbered version (v<N>.recipe.json with frozen mask rasters); Ctrl+S saves every card"))
+                sub_caption(ui, tr(lang, K_DEVELOP_SNAPSHOT_HISTORY));
+                if action_row(ui, true, tr(lang, K_DEVELOP_SAVE_AS_VERSION))
+                    .on_hover_text(tr(lang, K_DEVELOP_SNAPSHOT_THIS_CARD_S_DEVELOP_ONLY_AS_A_NUMBERED))
                     .clicked()
                 {
                     self.save_version();
@@ -1815,10 +1812,10 @@ impl AutoShadeApp {
                 let active_id = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
                 let active_kind = self.active_variant().map(|v| v.kind);
                 if !self.cards.versions.is_empty() {
-                    ui.checkbox(&mut self.cards.versions_current_only, tr(lang, "Only this variant"))
+                    ui.checkbox(&mut self.cards.versions_current_only, tr(lang, K_DEVELOP_ONLY_THIS_VARIANT))
                         .on_hover_text(tr(
                             lang,
-                            "Show only snapshots taken from the variant you are on. Versions with no recorded source (saved before this) are hidden while it is on.",
+                            K_DEVELOP_SHOW_ONLY_SNAPSHOTS_TAKEN_FROM_THE_VARIANT_YOU_A,
                         ));
                 }
                 let mut load: Option<u32> = None;
@@ -1858,7 +1855,7 @@ impl AutoShadeApp {
                                     egui::TextEdit::singleline(buf)
                                         .id(field_id)
                                         .desired_width(110.0)
-                                        .hint_text(tr(lang, "Name")),
+                                        .hint_text(tr(lang, K_DEVELOP_NAME)),
                                 )
                             };
                             // The +1 boundary: this row's own lost-focus
@@ -1881,7 +1878,7 @@ impl AutoShadeApp {
                         } else {
                             let shown = match &named {
                                 Some(name) => format!("「{name}」"),
-                                None => tr(lang, "Name…").to_string(),
+                                None => tr(lang, K_DEVELOP_NAME__2).to_string(),
                             };
                             let text = match &named {
                                 Some(_) => egui::RichText::new(shown),
@@ -1889,7 +1886,7 @@ impl AutoShadeApp {
                             };
                             if ui
                                 .add(egui::Label::new(text).sense(egui::Sense::click()))
-                                .on_hover_text(tr(lang, "Name this snapshot"))
+                                .on_hover_text(tr(lang, K_DEVELOP_NAME_THIS_SNAPSHOT))
                                 .clicked()
                             {
                                 rename = Some(n);
@@ -1907,11 +1904,11 @@ impl AutoShadeApp {
                                 // new VariantKind without a zh pair is caught.
                                 (Some(kind), _) => Some(trf(
                                     lang,
-                                    "· from {kind}",
+                                    K_DEVELOP_FROM,
                                     &[("kind", tr(lang, kind.label()))],
                                 )),
                                 (None, Some(autoshade::store::VERSION_ORIGIN_AUTO)) => {
-                                    Some(tr(lang, "· auto-archived").to_string())
+                                    Some(tr(lang, K_DEVELOP_AUTO_ARCHIVED).to_string())
                                 }
                                 _ => None,
                             };
@@ -1919,11 +1916,11 @@ impl AutoShadeApp {
                                 ui.label(egui::RichText::new(note).weak().small());
                             }
                         }
-                        if action(ui, true, tr(lang, "Load")).on_hover_text(tr(lang, "Replace current parameters (one Ctrl+Z to undo)")).clicked() {
+                        if action(ui, true, tr(lang, K_DEVELOP_LOAD)).on_hover_text(tr(lang, K_DEVELOP_REPLACE_CURRENT_PARAMETERS_ONE_CTRL_Z_TO_UNDO)).clicked() {
                             load = Some(n);
                         }
                         if glyph(ui, true, "🗑")
-                            .on_hover_text(tr(lang, "Delete this snapshot (its frozen mask rasters go with it)"))
+                            .on_hover_text(tr(lang, K_DEVELOP_DELETE_THIS_SNAPSHOT_ITS_FROZEN_MASK_RASTERS_GO))
                             .clicked()
                         {
                             delete = Some(n);
@@ -1934,7 +1931,7 @@ impl AutoShadeApp {
                     ui.label(
                         egui::RichText::new(trf(
                             lang,
-                            "{n} hidden — saved from another variant",
+                            K_DEVELOP_HIDDEN_SAVED_FROM_ANOTHER_VARIANT,
                             &[("n", &hidden.to_string())],
                         ))
                         .weak()
@@ -1977,7 +1974,7 @@ impl AutoShadeApp {
                     )]);
                 }
                 if n_ver == 0 {
-                    explainer(ui, lang, tr(lang, "Like LR virtual copies: store multiple parameter sets for one photo (B&W, cropped…) without overwriting."));
+                    explainer(ui, lang, tr(lang, K_DEVELOP_LIKE_LR_VIRTUAL_COPIES_STORE_MULTIPLE_PARAMETER));
                 }
                 }); // add_enabled_ui: inert while a photo is still opening
             });
@@ -2000,7 +1997,7 @@ impl AutoShadeApp {
         ui.add_space(SPACE_MD);
         // Delivery preferences have no per-photo neutral, so this header has
         // no adjustment dot. The toolbar's Export hover carries the summary.
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Export"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_APP_EXPORT))
             .id_salt("sec_export")
             .default_open(false)
             , |ui| {
@@ -2010,7 +2007,7 @@ impl AutoShadeApp {
                 // the user has to hunt for — so it leads the section instead of
                 // hiding under the encoder dials.
                 ui.horizontal(|ui| {
-                    ui.label(tr(lang, "Destination"));
+                    ui.label(tr(lang, K_DEVELOP_DESTINATION));
                     egui::ComboBox::from_id_salt("exp_dest")
                         .selected_text(tr(lang, self.exp.dest.label()))
                         .width(170.0)
@@ -2026,7 +2023,7 @@ impl AutoShadeApp {
                 ui.label(
                     egui::RichText::new(match self.export_dest_dir() {
                         Some(d) => abs_display(&d),
-                        None => tr(lang, "a save dialog opens on every export").to_string(),
+                        None => tr(lang, K_DEVELOP_A_SAVE_DIALOG_OPENS_ON_EVERY_EXPORT).to_string(),
                     })
                     .weak()
                     .small(),
@@ -2034,7 +2031,7 @@ impl AutoShadeApp {
                 // One setting per row: two label+combo pairs in a non-wrapping
                 // horizontal overflowed the 320px panel in Chinese.
                 ui.horizontal(|ui| {
-                    ui.label(tr(lang, "Format"));
+                    ui.label(tr(lang, K_DEVELOP_FORMAT));
                     egui::ComboBox::from_id_salt("save_fmt")
                         .selected_text(tr(lang, self.exp.format.label()))
                         .width(130.0)
@@ -2045,29 +2042,29 @@ impl AutoShadeApp {
                         });
                 });
                 ui.horizontal(|ui| {
-                    ui.label(tr(lang, "Long edge"));
+                    ui.label(tr(lang, K_DEVELOP_LONG_EDGE));
                     egui::ComboBox::from_id_salt("exp_long_edge")
                         .selected_text(if self.exp.long_edge == 0 {
-                            tr(lang, "Original size").to_string()
+                            tr(lang, K_EXPORT_ORIGINAL_SIZE).to_string()
                         } else {
                             format!("{} px", self.exp.long_edge)
                         })
                         .width(110.0)
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.exp.long_edge, 0, tr(lang, "Original size"));
+                            ui.selectable_value(&mut self.exp.long_edge, 0, tr(lang, K_EXPORT_ORIGINAL_SIZE));
                             for px in [1600u32, 2048, 2560, 3840, 5120] {
                                 ui.selectable_value(&mut self.exp.long_edge, px, format!("{px} px"));
                             }
                         });
                 });
-                Self::slider(ui, lang, tr(lang, "Output sharpening"), &mut self.exp.sharpen, 0.0, 100.0, 0.0);
+                Self::slider(ui, lang, tr(lang, K_EXPORT_OUTPUT_SHARPENING), &mut self.exp.sharpen, 0.0, 100.0, 0.0);
                 // Always allocated, merely disabled for TIFF — the old
                 // appear/disappear reflowed every control to its right.
                 ui.add_enabled_ui(self.exp.format == ExportFormat::Jpeg, |ui| {
-                    Self::slider(ui, lang, tr(lang, "JPEG quality"), &mut self.exp.quality, 60.0, 100.0, 95.0);
+                    Self::slider(ui, lang, tr(lang, K_DEVELOP_JPEG_QUALITY), &mut self.exp.quality, 60.0, 100.0, 95.0);
                 });
                 ui.horizontal(|ui| {
-                    ui.label(tr(lang, "Colour space"));
+                    ui.label(tr(lang, K_DEVELOP_COLOUR_SPACE));
                     egui::ComboBox::from_id_salt("exp_space")
                         .selected_text(tr(lang, EXPORT_SPACES[(self.exp.space as usize).min(2)]))
                         .width(170.0)
@@ -2084,8 +2081,8 @@ impl AutoShadeApp {
                 // pixel until then, that one bakes a clean base into the current
                 // variant immediately. Same-named twins in two panels made the
                 // difference invisible until an export took minutes.
-                ui.checkbox(&mut self.exp.save_denoise, tr(lang, "🤖 AI Denoise on export")).on_hover_text(
-                    ai_xref(lang, tr(lang, "AI denoise before developing, at the Export denoise strength below — a RAW on its sensor mosaic, an already-rendered image through its own denoiser — for high-ISO / astro (slow, GPU; needs the python sidecar). Batch render skips it, and so does a ◈ Denoised card, whose master is already denoised.")),
+                ui.checkbox(&mut self.exp.save_denoise, tr(lang, K_DEVELOP_AI_DENOISE_ON_EXPORT)).on_hover_text(
+                    ai_xref(lang, tr(lang, K_DEVELOP_AI_DENOISE_BEFORE_DEVELOPING_AT_THE_EXPORT_DENOI)),
                 );
                 // The checkbox's OWN dial, directly under it (user decision
                 // 2026-09-12): the Detail fold's 「AI Denoise now」 has its own
@@ -2097,16 +2094,16 @@ impl AutoShadeApp {
                     Self::slider_pct_hinted(
                         ui,
                         lang,
-                        tr(lang, "Export denoise strength"),
+                        tr(lang, K_DEVELOP_EXPORT_DENOISE_STRENGTH),
                         if denoise_raw { &mut self.exp.save_denoise_strength } else { &mut self.exp.baked_save_denoise_strength },
                         1.0,
                         if denoise_raw { autoshade::denoise::DEFAULT_STRENGTH_RAW } else { autoshade::denoise::DEFAULT_STRENGTH },
                         tr(lang,
-                            "Export AI denoise strength, independent of the Detail section. On a RAW, the dial removes luminance grain after demosaic in linear light; the default targets Lightroom Denoise 50. Higher is cleaner, 100% is the complete network output. Every positive strength keeps clean colour; exactly 0% leaves the input untouched. Already-rendered images (JPEG, PNG, TIFF, a retouched or AI result) use a different denoiser with its own 50% default. Double-click to reset this source type.",
+                            K_DEVELOP_EXPORT_AI_DENOISE_STRENGTH_INDEPENDENT_OF_THE_DE,
                         ),
                     );
                 });
-                explainer(ui, lang, tr(lang, "Applied by 「Export」 in the toolbar (Ctrl+Shift+E, or Ctrl+E) and by 「Render selected」 in the library. The ▾ beside Export delivers one file to a path you pick without touching the Destination."));
+                explainer(ui, lang, tr(lang, K_DEVELOP_APPLIED_BY_EXPORT_IN_THE_TOOLBAR_CTRL_SHIFT_E_OR));
                 // --- SF8-A: hand the Lightroom sidecar over ----------------
                 // The XMP projection has always been written INSIDE the hashed
                 // develop folder, which is the right home for state — but the
@@ -2116,9 +2113,9 @@ impl AutoShadeApp {
                 ui.add_space(SPACE_LG);
                 let raw = self.can_export_xmp_beside();
                 let label = if self.exp.xmp_beside_confirm {
-                    tr(lang, "⚠ Overwrite the .xmp already there")
+                    tr(lang, K_DEVELOP_OVERWRITE_THE_XMP_ALREADY_THERE)
                 } else {
-                    tr(lang, "Export .xmp beside the photo")
+                    tr(lang, K_DEVELOP_EXPORT_XMP_BESIDE_THE_PHOTO)
                 };
                 let hint = if !raw {
                     // The disabled REASON, not a repeat of the label: only a
@@ -2126,11 +2123,11 @@ impl AutoShadeApp {
                     // lightroom_sidecar and pipeline::write_xmp draw the same
                     // line), so a baked PNG/TIFF's neighbouring .xmp belongs to
                     // some other program and must not be written over.
-                    tr(lang, "RAW only — a baked PNG/TIFF has no Lightroom sidecar convention, so its neighbouring .xmp belongs to another program")
+                    tr(lang, K_DEVELOP_RAW_ONLY_A_BAKED_PNG_TIFF_HAS_NO_LIGHTROOM_SIDEC)
                 } else if self.exp.xmp_beside_confirm {
-                    tr(lang, "A .xmp already sits beside this photo (Lightroom's own, or an earlier copy) — clicking again replaces it")
+                    tr(lang, K_DEVELOP_A_XMP_ALREADY_SITS_BESIDE_THIS_PHOTO_LIGHTROOM_S)
                 } else {
-                    tr(lang, "Copy this photo's stored Lightroom/ACR sidecar into the photo's own folder, where Lightroom reads it. Save the develop first — this delivers what is stored, not what is unsaved on the canvas.")
+                    tr(lang, K_DEVELOP_COPY_THIS_PHOTO_S_STORED_LIGHTROOM_ACR_SIDECAR_I)
                 };
                 if action_row(ui, raw && !self.busy, label)
                     .on_hover_text(hint)

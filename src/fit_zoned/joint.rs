@@ -163,7 +163,7 @@ pub(crate) enum JointFarCause {
 }
 
 impl JointFarCause {
-    pub(crate) fn note_key(self) -> &'static str {
+    pub(crate) fn note_key(self) -> crate::text::Key {
         match self {
             Self::Refused => crate::rationale::keys::FIT_NOTE_JOINT_REFUSED,
             Self::Miss => crate::rationale::keys::FIT_NOTE_JOINT_MISS,

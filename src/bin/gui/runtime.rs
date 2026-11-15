@@ -321,7 +321,7 @@ impl AutoShadeApp {
                 self.genai.copied_from = self.photo.src_path.clone();
                 self.status = crate::i18n::tr(
                     self.lang,
-                    "Recipe copied — Ctrl/⌘+click to pick several, then “Paste to selected”",
+                    K_APP_RECIPE_COPIED_CTRL_CLICK_TO_PICK_SEVERAL_THEN_PA,
                 )
                 .to_owned();
             }

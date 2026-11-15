@@ -73,7 +73,7 @@ impl AutoShadeApp {
                 ToastKind::Success,
                 tr(
                     lang,
-                    "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
+                    K_EXPORT_CAMERA_BASE_LOOK_RE_ESTIMATED_THIS_PHOTO_WAS_SAV,
                 )
                 .to_string(),
             );
@@ -148,7 +148,7 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     if self.busy {
         // Refusal must be visible — the card stays clickable and a silent
         // no-op reads as a dead UI.
-        let t = tr(self.lang, "busy — variants unlock when the current task finishes");
+        let t = tr(self.lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
         self.toast(ToastKind::Error, t);
         return;
     }
@@ -189,12 +189,12 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     self.status = match self.baked_canvas_edge() {
         None => trf(
             lang,
-            "Switched to variant「{name}」 — variants are independent, switching is lossless",
+            K_ACTIONS_SWITCHED_TO_VARIANT_VARIANTS_ARE_INDEPENDENT_SWI,
             &[("name", name)],
         ),
         Some(px) => trf(
             lang,
-            "Switched to variant「{name}」 — its baked pixels stay at {px}px (their own bake); edits and retouches follow that, not the preview preference",
+            K_ACTIONS_SWITCHED_TO_VARIANT_ITS_BAKED_PIXELS_STAY_AT_PX,
             &[("name", name), ("px", &px.to_string())],
         ),
     };
@@ -233,7 +233,7 @@ pub(crate) fn push_variant(&mut self, v: Variant, ctx: &egui::Context) {
 /// onto the wrong variant.
 pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
     if self.busy {
-        let t = tr(self.lang, "busy — variants unlock when the current task finishes");
+        let t = tr(self.lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
         self.toast(ToastKind::Error, t);
         return;
     }
@@ -257,7 +257,7 @@ pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
         let name = self.variant_label(idx);
         let t = trf(
             lang,
-            "Delete variant「{name}」? Click ✕ again to confirm — a deleted variant cannot be brought back (Ctrl+Z does not cross variants)",
+            K_ACTIONS_DELETE_VARIANT_CLICK_AGAIN_TO_CONFIRM_A_DELETED,
             &[("name", &name)],
         );
         self.status = t.clone();
@@ -356,7 +356,7 @@ pub(crate) fn fork_from_generated(&mut self) -> bool {
         ToastKind::Success,
         tr(
             lang,
-            "✨ AI generated stays as generated — your edit continues on a new ✎ Edited AI image card",
+            K_ACTIONS_AI_GENERATED_STAYS_AS_GENERATED_YOUR_EDIT_CONTIN,
         ),
     );
     true
@@ -477,7 +477,7 @@ pub(crate) fn fit_source_menu(&self) -> (String, Vec<(String, String)>) {
     let auto = crate::logic::cards::automatic_fit_card(&self.doc.variants, self.doc.active)
         .map(|i| self.numbered_card_label(i))
         .unwrap_or_default();
-    (trf(self.lang, "Automatic · {card}", &[("card", &auto)]), cards)
+    (trf(self.lang, K_ACTIONS_AUTOMATIC, &[("card", &auto)]), cards)
 }
 
 /// R24-3 (#7): copy card `idx`'s develop onto the ▣ Original CARD.
@@ -504,7 +504,7 @@ pub(crate) fn fit_source_menu(&self) -> (String, Vec<(String, String)>) {
 pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     let lang = self.lang;
     if self.busy {
-        let t = tr(lang, "busy — variants unlock when the current task finishes");
+        let t = tr(lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
         self.toast(ToastKind::Error, t);
         return;
     }
@@ -516,12 +516,12 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
         let t = if src.kind == VariantKind::Edited {
             tr(
                 lang,
-                "This ✎ card's develop is tuned over AI-generated pixels — on the ▣ Original card those sliders would land on the source frame; run 「Reverse-fit」 on the ✨ card first",
+                K_DEVELOP_THIS_CARD_S_DEVELOP_IS_TUNED_OVER_AI_GENERATED_P,
             )
         } else {
             tr(
                 lang,
-                "A generated variant's look lives in its pixels — there are no develop parameters to copy onto the ▣ Original card; run 「Reverse-fit」 first",
+                K_DEVELOP_A_GENERATED_VARIANT_S_LOOK_LIVES_IN_ITS_PIXELS_T,
             )
         };
         self.status = t.into();
@@ -531,7 +531,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     let Some(dst) = self.original_index() else {
         let t = tr(
             lang,
-            "this photo's strip holds no ▣ Original card to apply onto",
+            K_ACTIONS_THIS_PHOTO_S_STRIP_HOLDS_NO_ORIGINAL_CARD_TO_APP,
         );
         self.status = t.into();
         self.toast(ToastKind::Error, t);
@@ -568,7 +568,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     self.commit_now();
     self.status = trf(
         lang,
-        "「{name}」 copied onto the ▣ Original card (its pixels are untouched) — Ctrl+Z undoes it; Ctrl+S then saves it as this photo's develop",
+        K_ACTIONS_COPIED_ONTO_THE_ORIGINAL_CARD_ITS_PIXELS_ARE_UNT,
         &[("name", &name)],
     );
 }

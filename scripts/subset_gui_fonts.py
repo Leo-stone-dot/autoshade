@@ -158,14 +158,34 @@ def string_literal_chars(src: str) -> set[str]:
     return out
 
 
+def resource_chars() -> set[str]:
+    """Every non-ASCII char the text resources can render, all locales.
+
+    The translated UI text lives in `resources/strings/*.toml` (the
+    Android/iOS-style bundles), not in the Rust literals, so the subset must
+    read the bundles as well as the source tree.
+    """
+    import tomllib
+
+    out: set[str] = set()
+    for path in sorted((REPO / "resources" / "strings").glob("*.toml")):
+        with path.open("rb") as fh:
+            table = tomllib.load(fh)
+        for rows in table.values():
+            for text in rows.values():
+                out.update(ch for ch in text if ord(ch) > 127)
+    return out
+
+
 def extract_needed() -> set[int]:
     needed: set[str] = set()
     for p in SOURCES:
         needed |= string_literal_chars(p.read_text(encoding="utf-8"))
+    needed |= resource_chars()
     n_cjk = sum(1 for ch in needed if is_cjk(ord(ch)))
     print(
         f"{len(needed) - n_cjk} symbols + {n_cjk} CJK codepoints "
-        "referenced by GUI string literals"
+        "referenced by the GUI sources and the text resources"
     )
     return {ord(ch) for ch in needed}
 

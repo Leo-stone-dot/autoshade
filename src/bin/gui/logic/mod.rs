@@ -120,35 +120,35 @@ pub(crate) struct Words {
 /// KEY, never the rendered word.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Arg {
-    Key(&'static str),
+    Key(autoshade::text::Key),
     Text(String),
 }
 
-/// One line the caller should show: the i18n key plus its named arguments.
+/// One line the caller should show: the resource key plus its named arguments.
 /// Rendering lives outside this layer (`i18n::text`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct UiText {
-    pub(crate) key: &'static str,
+    pub(crate) key: autoshade::text::Key,
     pub(crate) args: Vec<(&'static str, Arg)>,
 }
 
 impl UiText {
-    pub(crate) fn of(key: &'static str) -> Self {
-        Self { key, args: Vec::new() }
+    pub(crate) fn of(key: impl Into<autoshade::text::Key>) -> Self {
+        Self { key: key.into(), args: Vec::new() }
     }
 
     /// A key with named arguments (`{name}` placeholders, as `trf` takes them).
-    pub(crate) fn with(key: &'static str, args: &[(&'static str, &str)]) -> Self {
+    pub(crate) fn with(key: impl Into<autoshade::text::Key>, args: &[(&'static str, &str)]) -> Self {
         Self {
-            key,
+            key: key.into(),
             args: args.iter().map(|(name, value)| (*name, Arg::Text((*value).to_owned()))).collect(),
         }
     }
 
-    /// A key with named arguments, some of which are catalogue keys to
+    /// A key with named arguments, some of which are resource keys to
     /// translate at render time.
-    pub(crate) fn with_args(key: &'static str, args: &[(&'static str, Arg)]) -> Self {
-        Self { key, args: args.to_vec() }
+    pub(crate) fn with_args(key: impl Into<autoshade::text::Key>, args: &[(&'static str, Arg)]) -> Self {
+        Self { key: key.into(), args: args.to_vec() }
     }
 }
 
@@ -186,6 +186,7 @@ pub(crate) enum Effect {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use autoshade::text::generated::*;
 
     #[test]
     fn brief_list_names_up_to_three_and_marks_the_overflow() {
@@ -198,9 +199,12 @@ mod tests {
 
     #[test]
     fn ui_text_carries_its_key_and_named_arguments() {
-        let plain = UiText::of("AI develop applied");
-        assert_eq!((plain.key, plain.args.len()), ("AI develop applied", 0));
-        let with = UiText::with("exported → {path}", &[("path", "out/a.jpg")]);
+        let plain = UiText::of(K_LANDING_AI_DEVELOP_APPLIED);
+        assert_eq!(
+            (autoshade::text::english(plain.key), plain.args.len()),
+            ("AI develop applied", 0)
+        );
+        let with = UiText::with(K_LANDING_EXPORTED, &[("path", "out/a.jpg")]);
         assert_eq!(with.args.len(), 1);
         assert_eq!(with.args[0].0, "path");
         assert_eq!(with.args[0].1, Arg::Text("out/a.jpg".into()));
@@ -209,17 +213,17 @@ mod tests {
     #[test]
     fn a_key_argument_stays_a_key_at_this_layer() {
         let words = UiText::with_args(
-            "AI edit applied — the AI's self-check said: {v}. Not saved yet (Ctrl+S saves, Ctrl+Z undoes)",
-            &[("v", Arg::Key("Accept"))],
+            K_LANDING_AI_EDIT_APPLIED_THE_AI_S_SELF_CHECK_SAID_NOT_SAV,
+            &[("v", Arg::Key(K_LOGIC_ACCEPT))],
         );
-        assert_eq!(words.args[0].1, Arg::Key("Accept"), "the decision word is translated at the render site");
+        assert_eq!(words.args[0].1, Arg::Key(K_LOGIC_ACCEPT), "the decision word is translated at the render site");
     }
 
     #[test]
     fn words_pair_a_status_with_an_optional_toast() {
-        let words = Words { status: UiText::of("AI develop applied · saved to recipe.json"), toast: None };
+        let words = Words { status: UiText::of(K_LANDING_AI_DEVELOP_APPLIED_SAVED_TO_RECIPE_JSON), toast: None };
         assert!(words.toast.is_none());
-        let status = UiText::of("AI develop applied · saved to recipe.json");
+        let status = UiText::of(K_LANDING_AI_DEVELOP_APPLIED_SAVED_TO_RECIPE_JSON);
         let words = Words { status: status.clone(), toast: Some((Tone::Error, status)) };
         assert!(matches!(words.toast, Some((Tone::Error, _))));
     }

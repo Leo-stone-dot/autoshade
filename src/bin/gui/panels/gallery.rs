@@ -14,8 +14,8 @@ impl AutoShadeApp {
         // lost its right edge. Wrapping keeps the panel at its default
         // whatever the font metrics do.
         ui.horizontal_wrapped(|ui| {
-            ui.heading(tr(lang, "Library"));
-            if action(ui, true, tr(lang, "🗂 Open folder…")).clicked() {
+            ui.heading(tr(lang, K_GALLERY_LIBRARY));
+            if action(ui, true, tr(lang, K_APP_OPEN_FOLDER)).clicked() {
                 self.apply_actions(vec![logic::Action::Gallery(
                     logic::gallery::GalleryAction::OpenFolder,
                 )]);
@@ -25,7 +25,7 @@ impl AutoShadeApp {
             let dir = d.display().to_string();
             let cnt = self.gal.gallery.len().to_string();
             ui.label(
-                egui::RichText::new(trf(lang, "{dir} · {count} photos", &[("dir", &dir), ("count", &cnt)]))
+                egui::RichText::new(trf(lang, K_GALLERY_PHOTOS, &[("dir", &dir), ("count", &cnt)]))
                     .weak()
                     .small(),
             );
@@ -44,16 +44,16 @@ impl AutoShadeApp {
         // suppresses the "bitmap mask(s) not pasted" warning, so the
         // mismatch INVERTS that guard and writes A's raster masks into
         // B's saved develop.
-        if action_in(ui, cell, self.photo.src_path.is_some() && !self.busy, tr(lang, "Copy recipe"))
-            .on_hover_text(tr(lang, "Copy every develop setting from the current photo"))
+        if action_in(ui, cell, self.photo.src_path.is_some() && !self.busy, tr(lang, K_GALLERY_COPY_RECIPE))
+            .on_hover_text(tr(lang, K_GALLERY_COPY_EVERY_DEVELOP_SETTING_FROM_THE_CURRENT_PHOT))
             .clicked()
         {
             self.apply_actions(vec![logic::Action::Gallery(logic::gallery::GalleryAction::CopyRecipe)]);
         }
         let n = self.gal.multi_sel.len();
         let n_s = n.to_string();
-        if action_in(ui, cell, self.genai.copied.is_some() && n > 0 && !self.busy, trf(lang, "Paste to selected ({n})", &[("n", &n_s)]))
-            .on_hover_text(tr(lang, "Writes each photo's develop into your develop store (recipe JSON; RAW also gets a Lightroom XMP). Leaves library files untouched, renders nothing."))
+        if action_in(ui, cell, self.genai.copied.is_some() && n > 0 && !self.busy, trf(lang, K_GALLERY_PASTE_TO_SELECTED, &[("n", &n_s)]))
+            .on_hover_text(tr(lang, K_GALLERY_WRITES_EACH_PHOTO_S_DEVELOP_INTO_YOUR_DEVELOP_ST))
             .clicked()
         {
             self.apply_actions(vec![logic::Action::Gallery(
@@ -68,10 +68,10 @@ impl AutoShadeApp {
             } else {
                 cell
             };
-            if action_in(ui, wide, n > 0 && !self.busy, trf(lang, "Render selected ({n})", &[("n", &n_s)]))
+            if action_in(ui, wide, n > 0 && !self.busy, trf(lang, K_GALLERY_RENDER_SELECTED, &[("n", &n_s)]))
                 .on_hover_text(tr(
                     lang,
-                    "Each renders by its own saved develop from the store (neutral develop if none) → <Destination>/<name>.developed.*, using the current format / long-edge / sharpening / quality; AI Denoise sits out the batch.",
+                    K_GALLERY_EACH_RENDERS_BY_ITS_OWN_SAVED_DEVELOP_FROM_THE_S,
                 ))
                 .clicked()
             {
@@ -79,21 +79,21 @@ impl AutoShadeApp {
                     logic::gallery::GalleryAction::RenderSelected,
                 )]);
             }
-            if n > 0 && glyph(ui, true, "✕").on_hover_text(tr(lang, "Clear selection")).clicked() {
+            if n > 0 && glyph(ui, true, "✕").on_hover_text(tr(lang, K_GALLERY_CLEAR_SELECTION)).clicked() {
                 self.apply_actions(vec![logic::Action::Gallery(
                     logic::gallery::GalleryAction::ClearSelection,
                 )]);
             }
         });
         if self.genai.copied.is_some() {
-            ui.checkbox(&mut self.genai.paste_geometry, tr(lang, "Include crop / straighten when pasting"))
-                .on_hover_text(tr(lang, "Off by default — composition rarely transfers between photos"));
+            ui.checkbox(&mut self.genai.paste_geometry, tr(lang, K_GALLERY_INCLUDE_CROP_STRAIGHTEN_WHEN_PASTING))
+                .on_hover_text(tr(lang, K_GALLERY_OFF_BY_DEFAULT_COMPOSITION_RARELY_TRANSFERS_BETW));
         }
         ui.separator();
-        if action_row(ui, true, tr(lang, "Recipe library…"))
+        if action_row(ui, true, tr(lang, K_GALLERY_RECIPE_LIBRARY))
             .on_hover_text(tr(
                 lang,
-                "Save this photo's look under a name, apply it to any photo, rename or delete it",
+                K_GALLERY_SAVE_THIS_PHOTO_S_LOOK_UNDER_A_NAME_APPLY_IT_TO,
             ))
             .clicked()
         {
@@ -107,9 +107,9 @@ impl AutoShadeApp {
             // invites opening one; "empty folder" says the folder itself has
             // nothing to show (the old shared line read as a broken open).
             let hint = if self.gal.gallery_dir.is_some() {
-                tr(lang, "No photos in this folder — RAW / JPEG / PNG / TIFF would show up here.")
+                tr(lang, K_GALLERY_NO_PHOTOS_IN_THIS_FOLDER_RAW_JPEG_PNG_TIFF_WOULD)
             } else {
-                tr(lang, "Open a folder to browse your photos here.")
+                tr(lang, K_GALLERY_OPEN_A_FOLDER_TO_BROWSE_YOUR_PHOTOS_HERE)
             };
             ui.add_space(SPACE_MD);
             ui.label(egui::RichText::new(hint).weak());
@@ -242,13 +242,13 @@ impl AutoShadeApp {
                                     let baked = !autoshade::decode::is_raw(path);
                                     ui.horizontal(|ui| {
                                         if is_multi {
-                                            ui.label(egui::RichText::new(tr(lang, "✓ selected")).color(colors.accent_text).small());
+                                            ui.label(egui::RichText::new(tr(lang, K_GALLERY_SELECTED)).color(colors.accent_text).small());
                                         }
                                         if baked {
                                             ui.label(egui::RichText::new("PNG/TIFF").color(colors.accent_text).small());
                                         }
                                         if edited {
-                                            ui.label(egui::RichText::new(tr(lang, "● edited")).color(colors.accent_text).small());
+                                            ui.label(egui::RichText::new(tr(lang, K_GALLERY_EDITED)).color(colors.accent_text).small());
                                         }
                                     });
                                 });

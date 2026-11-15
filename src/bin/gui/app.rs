@@ -583,7 +583,7 @@ impl AutoShadeApp {
                 if armed_undo || armed_redo {
                     let t = tr(
                         self.lang,
-                        "busy — undo and redo unlock when the current task finishes",
+                        K_APP_BUSY_UNDO_AND_REDO_UNLOCK_WHEN_THE_CURRENT_TASK,
                     );
                     self.toast(ToastKind::Error, t);
                 }
@@ -638,7 +638,7 @@ impl AutoShadeApp {
                 self.disarm_tools();
                 self.tools.wb_picking = on;
                 if on {
-                    self.status = tr(self.lang, "WB eyedropper: click a spot that should be neutral grey/white").into();
+                    self.status = tr(self.lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into();
                 }
             }
             if do_heal && self.photo.src_path.is_some() {
@@ -654,7 +654,7 @@ impl AutoShadeApp {
                 self.disarm_tools();
                 if !armed {
                     self.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
-                    self.status = tr(self.lang, "Drag on the image to draw a linear gradient (start fully applied → end unaffected; Shift = axis lock)").into();
+                    self.status = tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_LINEAR_GRADIENT_STAR).into();
                 }
             }
             if do_radial && self.photo.src_path.is_some() {
@@ -662,7 +662,7 @@ impl AutoShadeApp {
                 self.disarm_tools();
                 if !armed {
                     self.masks.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
-                    self.status = tr(self.lang, "Drag on the image to draw a radial (elliptical) area").into();
+                    self.status = tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_RADIAL_ELLIPTICAL_AR).into();
                 }
             }
             // \ latches the Before view, Y flips the comparison layout (LR).
@@ -703,7 +703,7 @@ impl AutoShadeApp {
                 self.disarm_tools();
                 self.overlay.region_drag = None;
                 self.view.before = false;
-                self.status = tr(self.lang, "Exited the current tool (Esc)").into();
+                self.status = tr(self.lang, K_APP_EXITED_THE_CURRENT_TOOL_ESC).into();
             }
             if do_overlay {
                 self.overlay.show_mask_overlay = !self.overlay.show_mask_overlay;
@@ -760,7 +760,7 @@ impl AutoShadeApp {
                 self.genai.copied_from = self.photo.src_path.clone();
                 self.status = tr(
                     self.lang,
-                    "Recipe copied — Ctrl/⌘+click to pick several, then “Paste to selected”",
+                    K_APP_RECIPE_COPIED_CTRL_CLICK_TO_PICK_SEVERAL_THEN_PA,
                 )
                 .to_string();
             }
@@ -788,7 +788,7 @@ impl AutoShadeApp {
             if self.busy {
                 self.toast(
                     ToastKind::Error,
-                    tr(self.lang, "busy — wait for the current task to finish before opening"),
+                    tr(self.lang, K_APP_BUSY_WAIT_FOR_THE_CURRENT_TASK_TO_FINISH_BEFORE),
                 );
             } else if p.is_dir() {
                 self.open_folder(p);
@@ -800,7 +800,7 @@ impl AutoShadeApp {
                         ToastKind::Error,
                         trf(
                             self.lang,
-                            "opened the first folder — {n} more dropped item(s) ignored",
+                            K_APP_OPENED_THE_FIRST_FOLDER_MORE_DROPPED_ITEM_S_IGNO,
                             &[("n", &(n_dropped - 1).to_string())],
                         ),
                     );
@@ -814,7 +814,7 @@ impl AutoShadeApp {
                         ToastKind::Error,
                         trf(
                             self.lang,
-                            "opened the first photo — {n} more ignored (drop their folder to browse them all)",
+                            K_APP_OPENED_THE_FIRST_PHOTO_MORE_IGNORED_DROP_THEIR_F,
                             &[("n", &(n_dropped - 1).to_string())],
                         ),
                     );
@@ -823,14 +823,14 @@ impl AutoShadeApp {
                 let msg = if n_dropped > 1 {
                     trf(
                         self.lang,
-                        "unsupported file type: {path} — {n} more dropped item(s) ignored",
+                        K_APP_UNSUPPORTED_FILE_TYPE_MORE_DROPPED_ITEM_S_IGNORE,
                         &[
                             ("path", &p.display().to_string()),
                             ("n", &(n_dropped - 1).to_string()),
                         ],
                     )
                 } else {
-                    trf(self.lang, "unsupported file type: {path}", &[("path", &p.display().to_string())])
+                    trf(self.lang, K_APP_UNSUPPORTED_FILE_TYPE, &[("path", &p.display().to_string())])
                 };
                 self.toast(ToastKind::Error, msg);
             }
@@ -885,9 +885,9 @@ impl AutoShadeApp {
             // verb; Settings and the shortcut sheet are glyph squares.
             // On Windows the row is also the title bar (`window_chrome`).
             window_chrome::toolbar_row(ui, lang, |ui| {
-                group(ui, &[tr(lang, "Open photo…"), tr(lang, "Reset")], 0, |ui| {
-                    if action(ui, !self.busy, tr(lang, "Open photo…"))
-                        .on_hover_text(tr(lang, "Ctrl+O · or drag a file into the window"))
+                group(ui, &[tr(lang, K_APP_OPEN_PHOTO), tr(lang, K_APP_RESET)], 0, |ui| {
+                    if action(ui, !self.busy, tr(lang, K_APP_OPEN_PHOTO))
+                        .on_hover_text(tr(lang, K_APP_CTRL_O_OR_DRAG_A_FILE_INTO_THE_WINDOW))
                         .clicked()
                     {
                         self.gal.selected = None; // a one-off file isn't a gallery selection
@@ -895,8 +895,8 @@ impl AutoShadeApp {
                             logic::gallery::GalleryAction::OpenPhotoFile,
                         )]);
                     }
-                    if action(ui, ready, tr(lang, "Reset"))
-                        .on_hover_text(tr(lang, "Back to this photo's fresh-open look: sliders neutral on the camera's own default colour and tone, like the in-camera JPEG (one undo brings it back)"))
+                    if action(ui, ready, tr(lang, K_APP_RESET))
+                        .on_hover_text(tr(lang, K_APP_BACK_TO_THIS_PHOTO_S_FRESH_OPEN_LOOK_SLIDERS_NEU))
                         .clicked()
                     {
                         // Reset = the fresh-open look: sliders neutral on this
@@ -941,23 +941,23 @@ impl AutoShadeApp {
                         self.resync_recipe_display();
                     }
                 });
-                group(ui, &[tr(lang, "↶ Undo"), tr(lang, "↷ Redo")], 0, |ui| {
-                    if action(ui, ready && !self.session.hist.undo_stack.is_empty(), tr(lang, "↶ Undo"))
-                        .on_hover_text(tr(lang, "Ctrl+Z · undo the last edit"))
+                group(ui, &[tr(lang, K_APP_UNDO), tr(lang, K_APP_REDO)], 0, |ui| {
+                    if action(ui, ready && !self.session.hist.undo_stack.is_empty(), tr(lang, K_APP_UNDO))
+                        .on_hover_text(tr(lang, K_APP_CTRL_Z_UNDO_THE_LAST_EDIT))
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
                         self.undo(&ctx);
                     }
-                    if action(ui, ready && !self.session.hist.redo_stack.is_empty(), tr(lang, "↷ Redo"))
-                        .on_hover_text(tr(lang, "Ctrl+Y · redo the undone edit"))
+                    if action(ui, ready && !self.session.hist.redo_stack.is_empty(), tr(lang, K_APP_REDO))
+                        .on_hover_text(tr(lang, K_APP_CTRL_Y_REDO_THE_UNDONE_EDIT))
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
                         self.redo(&ctx);
                     }
                 });
-                group(ui, &[tr(lang, "⭯ Turn left"), tr(lang, "⭮ Turn right")], 0, |ui| {
+                group(ui, &[tr(lang, K_APP_TURN_LEFT), tr(lang, K_APP_TURN_RIGHT)], 0, |ui| {
                     // Rotate (R27). NOT ↶/↷ — those two glyphs are Undo/Redo one
                     // button to the left, and ↺/↻ are already 「reset all」/
                     // 「Clear」/「↻ Redraw」 in the panels. ⭯/⭮ (U+2B6F/U+2B6E) are
@@ -971,14 +971,14 @@ impl AutoShadeApp {
                     // through a closure parameter is a key it cannot check.
                     let blocked = tr(
                         lang,
-                        "rotation is off while this photo carries rendered pixels (retouch / AI rendition) or a tool is armed — its master raster is a file in the frame it was rendered in; turn first, retouch after",
+                        K_APP_ROTATION_IS_OFF_WHILE_THIS_PHOTO_CARRIES_RENDERE,
                     );
                     let left_hover = if can_rotate {
-                        tr(lang, "A quarter turn anticlockwise — the crop and every mask turn with it (one undo)")
+                        tr(lang, K_APP_A_QUARTER_TURN_ANTICLOCKWISE_THE_CROP_AND_EVERY)
                     } else {
                         blocked
                     };
-                    if action(ui, can_rotate, tr(lang, "⭯ Turn left"))
+                    if action(ui, can_rotate, tr(lang, K_APP_TURN_LEFT))
                         .on_hover_text(left_hover)
                         .clicked()
                     {
@@ -986,11 +986,11 @@ impl AutoShadeApp {
                         self.rotate_photo(3, &ctx); // anticlockwise = three clockwise
                     }
                     let right_hover = if can_rotate {
-                        tr(lang, "A quarter turn clockwise — the crop and every mask turn with it (one undo)")
+                        tr(lang, K_APP_A_QUARTER_TURN_CLOCKWISE_THE_CROP_AND_EVERY_MASK)
                     } else {
                         blocked
                     };
-                    if action(ui, can_rotate, tr(lang, "⭮ Turn right"))
+                    if action(ui, can_rotate, tr(lang, K_APP_TURN_RIGHT))
                         .on_hover_text(right_hover)
                         .clicked()
                     {
@@ -998,17 +998,17 @@ impl AutoShadeApp {
                         self.rotate_photo(1, &ctx);
                     }
                 });
-                group(ui, &[tr(lang, "◫ Compare"), tr(lang, "⬛ Single")], 0, |ui| {
+                group(ui, &[tr(lang, K_APP_COMPARE), tr(lang, K_APP_SINGLE)], 0, |ui| {
                     // View mode: side-by-side vs a full-width edit (hold B =
                     // compare). ◫ lives in egui's bundled fonts — the old ⿲
                     // (U+2FF2) only rendered when the OPTIONAL CJK fallback font
                     // loaded, tofu otherwise.
-                    ui.selectable_value(&mut self.view.mode, ViewMode::SideBySide, tr(lang, "◫ Compare"))
-                        .on_hover_text(tr(lang, "Before/After side by side"));
-                    ui.selectable_value(&mut self.view.mode, ViewMode::AfterOnly, tr(lang, "⬛ Single"))
-                        .on_hover_text(tr(lang, "The edit fills the canvas; hold B to quickly compare the original"));
+                    ui.selectable_value(&mut self.view.mode, ViewMode::SideBySide, tr(lang, K_APP_COMPARE))
+                        .on_hover_text(tr(lang, K_APP_BEFORE_AFTER_SIDE_BY_SIDE));
+                    ui.selectable_value(&mut self.view.mode, ViewMode::AfterOnly, tr(lang, K_APP_SINGLE))
+                        .on_hover_text(tr(lang, K_APP_THE_EDIT_FILLS_THE_CANVAS_HOLD_B_TO_QUICKLY_COMP));
                 });
-                group(ui, &[tr(lang, "Export"), "▾", tr(lang, "Save develop")], 0, |ui| {
+                group(ui, &[tr(lang, K_APP_EXPORT), "▾", tr(lang, K_APP_SAVE_DEVELOP)], 0, |ui| {
                     // Delivery ACTIONS (their settings live in the Develop panel's
                     // Export section; the hover echoes the current delivery state
                     // so it stays glanceable without a toolbar row of combos).
@@ -1024,10 +1024,10 @@ impl AutoShadeApp {
                     let summary = self.export_summary(lang);
                     ui.scope(|ui| {
                         ui.spacing_mut().item_spacing.x = 0.0;
-                        if primary(ui, ready, tr(lang, "Export"))
+                        if primary(ui, ready, tr(lang, K_APP_EXPORT))
                             .on_hover_text(format!(
                                 "{}\n{summary}",
-                                tr(lang, "Ctrl+Shift+E (or Ctrl+E) · full-resolution render to the Destination below (follows the current variant's pixels); Destination + settings live in the Export section")
+                                tr(lang, K_APP_CTRL_SHIFT_E_OR_CTRL_E_FULL_RESOLUTION_RENDER_TO)
                             ))
                             .clicked()
                         {
@@ -1038,8 +1038,8 @@ impl AutoShadeApp {
                         ui.add_enabled_ui(ready, |ui| {
                             ui.menu_button("▾", |ui| {
                                 if ui
-                                    .button(tr(lang, "Export to…"))
-                                    .on_hover_text(tr(lang, "Pick a path for THIS export only — the Destination setting is left as it is"))
+                                    .button(tr(lang, K_APP_EXPORT_TO))
+                                    .on_hover_text(tr(lang, K_APP_PICK_A_PATH_FOR_THIS_EXPORT_ONLY_THE_DESTINATION))
                                     .clicked()
                                 {
                                     ui.close();
@@ -1047,18 +1047,18 @@ impl AutoShadeApp {
                                 }
                             })
                             .response
-                            .on_hover_text(tr(lang, "Export to a one-off path…"));
+                            .on_hover_text(tr(lang, K_APP_EXPORT_TO_A_ONE_OFF_PATH));
                         });
                     });
-                    if action(ui, ready, tr(lang, "Save develop"))
-                        .on_hover_text(tr(lang, "Ctrl+S · save this photo's develop (recipe + a Lightroom/ACR XMP for RAW; a baked retouch master is linked so reopening restores it) to your develop store"))
+                    if action(ui, ready, tr(lang, K_APP_SAVE_DEVELOP))
+                        .on_hover_text(tr(lang, K_APP_CTRL_S_SAVE_THIS_PHOTO_S_DEVELOP_RECIPE_A_LIGHTR))
                         .clicked()
                     {
                         self.save_xmp();
                     }
                 });
                 group(ui, &[], 2, |ui| {
-                    if glyph(ui, true, "⚙").on_hover_text(tr(lang, "Settings · AI provider / model / API key")).clicked() {
+                    if glyph(ui, true, "⚙").on_hover_text(tr(lang, K_APP_SETTINGS_AI_PROVIDER_MODEL_API_KEY)).clicked() {
                         // Reload the form only on the closed→open edge — reloading
                         // while open wiped everything already typed (incl. keys).
                         // Toggle semantics, matching ⌨ next door.
@@ -1067,7 +1067,7 @@ impl AutoShadeApp {
                         }
                         self.ui.show_settings = !self.ui.show_settings;
                     }
-                    if glyph(ui, true, "⌨").on_hover_text(tr(lang, "Keyboard shortcuts (F1 / ?)")).clicked() {
+                    if glyph(ui, true, "⌨").on_hover_text(tr(lang, K_APP_KEYBOARD_SHORTCUTS_F1)).clicked() {
                         self.ui.show_shortcuts = !self.ui.show_shortcuts;
                     }
                 });
@@ -1089,10 +1089,10 @@ impl AutoShadeApp {
                     // which the hover text says rather than promising a
                     // checkpoint they do not have.
                     if self.tools.gen_cancel.is_some()
-                        && action(ui, true, tr(self.lang, "✕ Cancel"))
+                        && action(ui, true, tr(self.lang, K_APP_CANCEL))
                             .on_hover_text(tr(
                                 self.lang,
-                                "Stop waiting: the app unblocks now and the late result is discarded. A generative call halts at its next checkpoint; an AI analyze keeps running (and billing) until it finishes or times out",
+                                K_APP_STOP_WAITING_THE_APP_UNBLOCKS_NOW_AND_THE_LATE_R,
                             ))
                             .clicked()
                     {
@@ -1108,12 +1108,12 @@ impl AutoShadeApp {
                 // ever push it out of view at narrow widths.
                 if self.unsaved_marker_dirty() {
                     ui.label(
-                        egui::RichText::new(tr(self.lang, "● unsaved"))
+                        egui::RichText::new(tr(self.lang, K_APP_UNSAVED))
                             .color(ui.visuals().warn_fg_color),
                     )
                     .on_hover_text(tr(
                         self.lang,
-                        "This card differs from its saved develop — Ctrl+S saves every card; switching photos keeps unsaved work for this session only",
+                        K_APP_THIS_CARD_DIFFERS_FROM_ITS_SAVED_DEVELOP_CTRL_S,
                     ));
                 }
                 // Live batch-render progress, beside the spinner (its old home
@@ -1123,7 +1123,7 @@ impl AutoShadeApp {
                     ui.add(
                         egui::ProgressBar::new(done as f32 / total.max(1) as f32)
                             .desired_width(150.0)
-                            .text(trf(self.lang, "Batch {done}/{total}",
+                            .text(trf(self.lang, K_APP_BATCH,
                                 &[("done", &done.to_string()), ("total", &total.to_string())])),
                     );
                 }
@@ -1188,11 +1188,11 @@ impl AutoShadeApp {
                         ui.vertical_centered(|ui| {
                             ui.label(egui::RichText::new("🖼").size(26.0).weak());
                             ui.add_space(SPACE_SM);
-                            ui.label(egui::RichText::new(tr(self.lang, "No photo open.")).weak());
+                            ui.label(egui::RichText::new(tr(self.lang, K_APP_NO_PHOTO_OPEN)).weak());
                             ui.label(
                                 egui::RichText::new(tr(
                                     self.lang,
-                                    "Click a thumbnail in the Library, or press Ctrl+O.",
+                                    K_APP_CLICK_A_THUMBNAIL_IN_THE_LIBRARY_OR_PRESS_CTRL_O,
                                 ))
                                 .weak()
                                 .small(),
@@ -1203,7 +1203,7 @@ impl AutoShadeApp {
                             ui.label(
                                 egui::RichText::new(tr(
                                     self.lang,
-                                    "Fun fact: this empty state finished loading while Photoshop's splash screen would still be painting its clouds.",
+                                    K_APP_FUN_FACT_THIS_EMPTY_STATE_FINISHED_LOADING_WHILE,
                                 ))
                                 .weak()
                                 .small()
@@ -1271,18 +1271,18 @@ impl AutoShadeApp {
                 ui.vertical_centered(|ui| {
                     ui.add_space(ui.available_height() * 0.32);
                     ui.heading("AutoShade");
-                    ui.label(egui::RichText::new(tr(self.lang, "AI auto-edit · RAW processing")).weak());
+                    ui.label(egui::RichText::new(tr(self.lang, K_APP_AI_AUTO_EDIT_RAW_PROCESSING)).weak());
                     ui.add_space(SPACE_LG);
                     ui.horizontal(|ui| {
                         // Center the button pair by padding half the leftover width.
                         let w = 300.0;
                         ui.add_space((ui.available_width() - w).max(0.0) * 0.5);
-                        if primary(ui, true, tr(self.lang, "Open photo…  (Ctrl+O)")).clicked() {
+                        if primary(ui, true, tr(self.lang, K_APP_OPEN_PHOTO_CTRL_O)).clicked() {
                             self.apply_actions(vec![logic::Action::Gallery(
                                 logic::gallery::GalleryAction::OpenPhotoFile,
                             )]);
                         }
-                        if action(ui, true, tr(self.lang, "🗂 Open folder…")).clicked() {
+                        if action(ui, true, tr(self.lang, K_APP_OPEN_FOLDER)).clicked() {
                             self.apply_actions(vec![logic::Action::Gallery(
                                 logic::gallery::GalleryAction::OpenFolder,
                             )]);
@@ -1290,7 +1290,7 @@ impl AutoShadeApp {
                     });
                     ui.add_space(8.0);
                     ui.label(
-                        egui::RichText::new(tr(self.lang, "or drag a RAW / image straight into the window · drag & drop anywhere"))
+                        egui::RichText::new(tr(self.lang, K_APP_OR_DRAG_A_RAW_IMAGE_STRAIGHT_INTO_THE_WINDOW_DRA))
                             .weak()
                             .small(),
                     );
@@ -1317,7 +1317,7 @@ impl AutoShadeApp {
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
                             ui.label(
-                                egui::RichText::new(tr(self.lang, "Before (source)"))
+                                egui::RichText::new(tr(self.lang, K_APP_BEFORE_SOURCE))
                                     .weak()
                                     .small(),
                             );
@@ -1354,7 +1354,7 @@ impl AutoShadeApp {
             // provider sections outgrow a small display, and without a scroll
             // area the 保存 button ends up unreachable off-screen.
             let max_h = ctx.content_rect().height() * 0.85;
-            egui::Window::new(tr(self.lang, "Settings"))
+            egui::Window::new(tr(self.lang, K_APP_SETTINGS))
                 // Fixed id: the TITLE now varies with the language, and egui
                 // keys window state (position, size) off the id.
                 .id(egui::Id::new("settings_window"))
@@ -1379,7 +1379,7 @@ impl AutoShadeApp {
             let mut open = true;
             let lang = self.lang;
             let accent = self.ui.theme.colors().accent_text;
-            egui::Window::new(tr(lang, "⌨ Shortcuts"))
+            egui::Window::new(tr(lang, K_APP_SHORTCUTS))
                 // Fixed id, as for Settings: the title varies with the language
                 // and egui keys window state (position) off the id.
                 .id(egui::Id::new("shortcuts_window"))
@@ -1391,39 +1391,39 @@ impl AutoShadeApp {
                     // `tr` at draw time. ASCII key combos carry no
                     // natural-language words, so they stay literal.
                     let rows: [(&str, &str); 33] = [
-                        ("Ctrl/⌘+O", tr(lang, "Open photo")),
-                        ("Ctrl/⌘+Shift+E / Ctrl/⌘+E", tr(lang, "Export to the Destination (Destination + settings in the Export section)")),
-                        ("Ctrl/⌘+S", tr(lang, "Save develop (recipe + XMP for RAW)")),
-                        ("Ctrl/⌘+Z / +Shift+Z / +Y", tr(lang, "Undo / Redo")),
-                        ("Ctrl/⌘+Shift+C / +Shift+V", tr(lang, "Copy recipe / paste to selected")),
-                        ("← / →", tr(lang, "Step through the library")),
-                        ("↑ / ↓", tr(lang, "Step through the library (outside the controls panel)")),
-                        ("+ / − / 0 / 1", tr(lang, "Zoom in / out / fit / 1:1")),
-                        ("R", tr(lang, "Enter / exit crop")),
-                        ("Enter", tr(lang, "Commit the crop (exit the tool)")),
-                        ("W", tr(lang, "WB eyedropper")),
-                        ("Q", tr(lang, "Retouch stamp")),
-                        ("K", tr(lang, "Paint mask brush")),
-                        ("M / Shift+M", tr(lang, "Linear / radial gradient")),
-                        (tr(lang, "Shift (while drawing a gradient)"), tr(lang, "Lock to horizontal / vertical")),
-                        ("[ / ]", tr(lang, "Brush size (paint / clone armed)")),
-                        ("Tab", tr(lang, "Hide / show the side panels")),
-                        (tr(lang, "Hover a slider + ↑/↓"), tr(lang, "Nudge its value (Shift ×10)")),
-                        (tr(lang, "B (hold)"), tr(lang, "Compare original")),
-                        ("\\", tr(lang, "Before / after (toggle)")),
-                        ("Y", tr(lang, "Side-by-side ↔ single view")),
-                        ("O", tr(lang, "Toggle mask overlay (crop: cycle grid)")),
-                        ("J", tr(lang, "Toggle clipping warning")),
-                        ("Esc", tr(lang, "Exit tool / close this window")),
-                        ("F1 / ?", tr(lang, "This cheat-sheet")),
-                        (tr(lang, "Scroll"), tr(lang, "Zoom (toward cursor)")),
-                        (tr(lang, "Double-click canvas"), tr(lang, "Fit ↔ 1:1")),
-                        (tr(lang, "Space+drag / middle-drag"), tr(lang, "Pan")),
-                        (tr(lang, "Drag when zoomed"), tr(lang, "Pan (Ctrl+drag = box-select)")),
-                        (tr(lang, "Alt+click"), tr(lang, "Sample clone source")),
-                        (tr(lang, "Slider double-click / right-click"), tr(lang, "Reset to its default")),
-                        (tr(lang, "Curve: click / drag / drag-out"), tr(lang, "Add / move / delete point")),
-                        (tr(lang, "Drag a mask handle"), tr(lang, "Reshape / move the selected mask")),
+                        ("Ctrl/⌘+O", tr(lang, K_APP_OPEN_PHOTO__2)),
+                        ("Ctrl/⌘+Shift+E / Ctrl/⌘+E", tr(lang, K_APP_EXPORT_TO_THE_DESTINATION_DESTINATION_SETTINGS_I)),
+                        ("Ctrl/⌘+S", tr(lang, K_APP_SAVE_DEVELOP_RECIPE_XMP_FOR_RAW)),
+                        ("Ctrl/⌘+Z / +Shift+Z / +Y", tr(lang, K_APP_UNDO_REDO)),
+                        ("Ctrl/⌘+Shift+C / +Shift+V", tr(lang, K_APP_COPY_RECIPE_PASTE_TO_SELECTED)),
+                        ("← / →", tr(lang, K_APP_STEP_THROUGH_THE_LIBRARY)),
+                        ("↑ / ↓", tr(lang, K_APP_STEP_THROUGH_THE_LIBRARY_OUTSIDE_THE_CONTROLS_PA)),
+                        ("+ / − / 0 / 1", tr(lang, K_APP_ZOOM_IN_OUT_FIT_1_1)),
+                        ("R", tr(lang, K_APP_ENTER_EXIT_CROP)),
+                        ("Enter", tr(lang, K_APP_COMMIT_THE_CROP_EXIT_THE_TOOL)),
+                        ("W", tr(lang, K_APP_WB_EYEDROPPER)),
+                        ("Q", tr(lang, K_APP_RETOUCH_STAMP)),
+                        ("K", tr(lang, K_APP_PAINT_MASK_BRUSH)),
+                        ("M / Shift+M", tr(lang, K_APP_LINEAR_RADIAL_GRADIENT)),
+                        (tr(lang, K_APP_SHIFT_WHILE_DRAWING_A_GRADIENT), tr(lang, K_APP_LOCK_TO_HORIZONTAL_VERTICAL)),
+                        ("[ / ]", tr(lang, K_APP_BRUSH_SIZE_PAINT_CLONE_ARMED)),
+                        ("Tab", tr(lang, K_APP_HIDE_SHOW_THE_SIDE_PANELS)),
+                        (tr(lang, K_APP_HOVER_A_SLIDER), tr(lang, K_APP_NUDGE_ITS_VALUE_SHIFT_10)),
+                        (tr(lang, K_APP_B_HOLD), tr(lang, K_APP_COMPARE_ORIGINAL)),
+                        ("\\", tr(lang, K_APP_BEFORE_AFTER_TOGGLE)),
+                        ("Y", tr(lang, K_APP_SIDE_BY_SIDE_SINGLE_VIEW)),
+                        ("O", tr(lang, K_APP_TOGGLE_MASK_OVERLAY_CROP_CYCLE_GRID)),
+                        ("J", tr(lang, K_APP_TOGGLE_CLIPPING_WARNING)),
+                        ("Esc", tr(lang, K_APP_EXIT_TOOL_CLOSE_THIS_WINDOW)),
+                        ("F1 / ?", tr(lang, K_APP_THIS_CHEAT_SHEET)),
+                        (tr(lang, K_APP_SCROLL), tr(lang, K_APP_ZOOM_TOWARD_CURSOR)),
+                        (tr(lang, K_APP_DOUBLE_CLICK_CANVAS), tr(lang, K_APP_FIT_1_1)),
+                        (tr(lang, K_APP_SPACE_DRAG_MIDDLE_DRAG), tr(lang, K_APP_PAN)),
+                        (tr(lang, K_APP_DRAG_WHEN_ZOOMED), tr(lang, K_APP_PAN_CTRL_DRAG_BOX_SELECT)),
+                        (tr(lang, K_APP_ALT_CLICK), tr(lang, K_APP_SAMPLE_CLONE_SOURCE)),
+                        (tr(lang, K_APP_SLIDER_DOUBLE_CLICK_RIGHT_CLICK), tr(lang, K_APP_RESET_TO_ITS_DEFAULT)),
+                        (tr(lang, K_APP_CURVE_CLICK_DRAG_DRAG_OUT), tr(lang, K_APP_ADD_MOVE_DELETE_POINT)),
+                        (tr(lang, K_APP_DRAG_A_MASK_HANDLE), tr(lang, K_APP_RESHAPE_MOVE_THE_SELECTED_MASK)),
                     ];
                     // Bounded + scrollable: the 30-row grid clipped its lower
                     // entries off short displays (the window is non-resizable
@@ -1446,7 +1446,7 @@ impl AutoShadeApp {
                     ui.label(
                         egui::RichText::new(tr(
                             lang,
-                            "Every shortcut above ships free — no Creative tier, no Cloud, no monthly ransom.",
+                            K_APP_EVERY_SHORTCUT_ABOVE_SHIPS_FREE_NO_CREATIVE_TIER,
                         ))
                         .weak()
                         .small(),
@@ -1539,7 +1539,7 @@ impl AutoShadeApp {
             for font in refused_system_fonts() {
                 let t = trf(
                     self.lang,
-                    "a system font was found but not loaded — {font}. File names in the scripts it covers may show as boxes.",
+                    K_APP_A_SYSTEM_FONT_WAS_FOUND_BUT_NOT_LOADED_FILE_NAME,
                     &[("font", font)],
                 );
                 self.toast(ToastKind::Error, t);
@@ -1581,7 +1581,7 @@ impl AutoShadeApp {
                 // the process — the ✕ used to bypass every guard mid-flight.
                 // Block and say why; close again once the worker lands.
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-                let t = tr(self.lang, "An operation is still running — wait for it to finish, then close").to_string();
+                let t = tr(self.lang, K_APP_AN_OPERATION_IS_STILL_RUNNING_WAIT_FOR_IT_TO_FIN).to_string();
                 self.toast(ToastKind::Error, t);
             } else if !self.open.discard_requested
                 && (unsaved_open
@@ -1693,7 +1693,7 @@ impl AutoShadeApp {
             painter.text(
                 rect.center(),
                 egui::Align2::CENTER_CENTER,
-                tr(self.lang, "Drop to open"),
+                tr(self.lang, K_APP_DROP_TO_OPEN),
                 egui::FontId::proportional(28.0),
                 egui::Color32::WHITE,
             );

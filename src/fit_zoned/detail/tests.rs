@@ -154,7 +154,7 @@ fn detail_mask(report: &FitReport) -> Option<&LocalAdjustment> {
     report.recipe.masks.iter().find(|m| m.texture != 0.0 || m.clarity != 0.0)
 }
 
-fn has_note(report: &FitReport, key: &str) -> bool {
+fn has_note(report: &FitReport, key: crate::text::Key) -> bool {
     report.notes.iter().any(|n| n.key == key)
 }
 

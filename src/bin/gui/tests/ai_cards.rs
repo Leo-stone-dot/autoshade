@@ -382,16 +382,16 @@
                 assert_eq!(app.has_painted_mask(), strokes);
                 assert_eq!(app.export_mask_png().is_some(), strokes);
                 let text = draw_adjust_panel(&mut app);
-                let painted = tr(lang, "painted area only");
-                let whole = tr(lang, "whole image (paint an area to limit it)");
+                let painted = tr(lang, K_AI_PAINTED_AREA_ONLY);
+                let whole = tr(lang, K_AI_WHOLE_IMAGE_PAINT_AN_AREA_TO_LIMIT_IT);
                 let (yes, no) = if strokes { (painted, whole) } else { (whole, painted) };
                 assert!(text.iter().any(|t| t == yes), "status missing: {yes}");
                 assert!(!text.iter().any(|t| t == no), "stale status: {no}");
             }
             app.doc.variants[0].kind = VariantKind::Original;
             let text = draw_adjust_panel(&mut app);
-            assert!(text.iter().any(|t| t == tr(lang, "select a ✨ AI generated card (or its ✎ edit) first")));
-            assert!(!text.iter().any(|t| t == tr(lang, "painted area only")));
+            assert!(text.iter().any(|t| t == tr(lang, K_AI_SELECT_A_AI_GENERATED_CARD_OR_ITS_EDIT_FIRST)));
+            assert!(!text.iter().any(|t| t == tr(lang, K_AI_PAINTED_AREA_ONLY)));
         }
         let prefs = Prefs { adjust_quality: 2, ..Prefs::default() };
         let json = serde_json::to_string(&prefs).unwrap();

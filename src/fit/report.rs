@@ -880,8 +880,8 @@ pub fn rescore_report(
     let after_px = pixels_of(&render::develop_preview(&s, recipe));
     let base_px = pixels_of(&render::develop_preview(&s, base));
     let structural = evidence_model_paired(&base_px, &tp, presence_of(&t).as_deref(), s.width(), s.height());
-    let carried = |k: &str| prior.iter().any(|n| n.key == k);
-    let carried_arg = |note_key: &str, arg_key: &str| {
+    let carried = |k: crate::text::Key| prior.iter().any(|n| n.key == k);
+    let carried_arg = |note_key: crate::text::Key, arg_key: &str| {
         prior
             .iter()
             .find(|note| note.key == note_key)
@@ -1033,7 +1033,7 @@ pub fn rescore_report(
                 (keys::FIT_NOTE_WB_CELLS_VOUCHED_AT_SHARE, true),
             ]
             .into_iter()
-            .find(|(key, _)| carried(key))
+            .find(|(key, _)| carried(*key))
             .map(|(key, admitted)| {
                 let read = |arg: &str| {
                     carried_arg(key, arg).and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0)

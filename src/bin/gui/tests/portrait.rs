@@ -83,7 +83,7 @@
             ] {
                 assert!(has(say(lang, key)), "{lang:?}: the panel draws {key:?}");
             }
-            assert!(!has(tr(lang, "No face found in this photo")), "{lang:?}: faces are found, nothing is greyed");
+            assert!(!has(tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO)), "{lang:?}: faces are found, nothing is greyed");
             for text in &texts {
                 let low = text.to_lowercase();
                 for w in words {
@@ -150,16 +150,16 @@
         for lang in [Lang::En, Lang::Zh] {
             let mut app = portrait_app(lang, false);
             let photo = app.photo.src_path.clone().unwrap();
-            assert_eq!(app.portrait_face_gate(lang), Some(tr(lang, "Find the people and faces first (the first group).")));
+            assert_eq!(app.portrait_face_gate(lang), Some(tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP)));
             // A search that found the person and no face.
             app.portrait.found = Some((photo, 0));
             app.doc.recipe.masks.push(autoshade::face::background_adjustment("mask-subject.png".into()));
-            let no_face = tr(lang, "No face found in this photo");
+            let no_face = tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO);
             assert_eq!(app.portrait_face_gate(lang), Some(no_face));
             let texts = portrait_panel_texts(&mut app);
             assert_eq!(texts.iter().filter(|t| *t == no_face).count(), 2, "{lang:?}: both groups say it: {texts:?}");
             assert!(
-                !texts.iter().any(|t| t == tr(lang, "Find the people and faces first (the first group).")),
+                !texts.iter().any(|t| t == tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP)),
                 "{lang:?}: the background group works with the person alone"
             );
             assert_eq!(autoshade_subject(&app), Some("mask-subject.png".into()));
@@ -490,7 +490,7 @@
         DRAWN.with_borrow_mut(Vec::clear);
         app_frame(&ctx, &mut app, size, frame, Vec::new());
         frame += 1;
-        let label = tr(lang, "🤖 Remove blemishes");
+        let label = tr(lang, K_PORTRAIT_REMOVE_BLEMISHES);
         let rect = DRAWN.with_borrow(|d| d.iter().find(|b| b.label == label).map(|b| b.rect));
         (app, ctx, size, frame, rect, scrub)
     }
@@ -528,7 +528,7 @@
             let before = app.doc.variants[0].base.clone().unwrap();
             click_at(&ctx, &mut app, size, &mut frame, rect.expect("the button is drawn").center());
             assert_eq!(app.portrait.heal_asked, Some((false, Some(PathBuf::from("mask-face.png")))), "{lang:?}: the AI heal, held to the face raster");
-            assert_eq!(app.status, tr(lang, "Removing blemishes on the face… (~10-30s)"));
+            assert_eq!(app.status, tr(lang, K_ACTIONS_REMOVING_BLEMISHES_ON_THE_FACE_10_30S));
             let start = std::time::Instant::now();
             while app.busy {
                 assert!(start.elapsed() < std::time::Duration::from_secs(20), "the heal never landed");
@@ -539,7 +539,7 @@
             let _out = Scrub(vec![saved.clone()]);
             let want = trf(
                 lang,
-                "healed {n} spot(s) on the face → {path} (spots elsewhere were left alone — Ctrl+Z goes back)",
+                K_LOGIC_HEALED_SPOT_S_ON_THE_FACE_SPOTS_ELSEWHERE_WERE_L,
                 &[("n", "3"), ("path", &saved.display().to_string())],
             );
             assert_eq!(app.status, want, "{lang:?}");
@@ -553,7 +553,7 @@
             assert!(!app.busy);
             assert_eq!(
                 app.status,
-                trf(lang, "No spots on the face to heal — nothing was changed ({n} found elsewhere were left alone)", &[("n", "2")])
+                trf(lang, K_LANDING_NO_SPOTS_ON_THE_FACE_TO_HEAL_NOTHING_WAS_CHANGED, &[("n", "2")])
             );
         }
     }

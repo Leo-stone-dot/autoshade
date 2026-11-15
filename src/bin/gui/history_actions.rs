@@ -147,7 +147,7 @@ impl AutoShadeApp {
                 ToastKind::Success,
                 tr(
                     lang,
-                    "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
+                    K_EXPORT_CAMERA_BASE_LOOK_RE_ESTIMATED_THIS_PHOTO_WAS_SAV,
                 )
                 .to_string(),
             );
@@ -213,7 +213,7 @@ impl AutoShadeApp {
         if self.end_mask_brush() {
             let t = tr(
                 self.lang,
-                "the mask-brush session ended — the canvas pixels underneath were replaced, so its strokes no longer line up",
+                K_ACTIONS_THE_MASK_BRUSH_SESSION_ENDED_THE_CANVAS_PIXELS_U,
             );
             self.toast(ToastKind::Error, t.to_string());
         }
@@ -298,7 +298,7 @@ impl AutoShadeApp {
                 // develop dir while this toast said nothing was changed.
                 let t = trf(
                     lang,
-                    "could not turn this photo: {err} — nothing was changed",
+                    K_ACTIONS_COULD_NOT_TURN_THIS_PHOTO_NOTHING_WAS_CHANGED,
                     &[("err", &e.to_string())],
                 );
                 self.toast(ToastKind::Error, t);

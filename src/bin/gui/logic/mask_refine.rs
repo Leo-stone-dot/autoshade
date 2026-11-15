@@ -6,6 +6,8 @@
 //! validated TOGETHER: index-with-matching-raster wins, else a unique raster
 //! match is adopted, else the landing says so and applies nothing — it never
 //! guesses onto the wrong mask.
+use autoshade::text::generated::*;
+
 
 use super::{Effect, UiText};
 use autoshade::recipe::EditRecipe;
@@ -34,7 +36,7 @@ pub(crate) fn apply(recipe: &mut EditRecipe, outcome: &Outcome) -> Refined {
         Outcome::OverBudget { w, h } => {
             // Nothing was written: the mask keeps the raster it had.
             let text = UiText::with(
-                "this source is {w}×{h} — a full-resolution refined mask would exceed the mask budget and could never be read back",
+                K_LOGIC_THIS_SOURCE_IS_A_FULL_RESOLUTION_REFINED_MASK_WO,
                 &[("w", &w.to_string()), ("h", &h.to_string())],
             );
             Refined {
@@ -70,14 +72,14 @@ pub(crate) fn apply(recipe: &mut EditRecipe, outcome: &Outcome) -> Refined {
                         effects: vec![
                             Effect::MarkDirty,
                             Effect::Status(UiText::of(
-                                "mask refined to full resolution — boundaries now follow the source's own edges",
+                                K_LOGIC_MASK_REFINED_TO_FULL_RESOLUTION_BOUNDARIES_NOW_F,
                             )),
                         ],
                     }
                 }
                 None => {
                     let text = UiText::with(
-                        "the mask changed while refining — the result was saved at {path} but not applied",
+                        K_LOGIC_THE_MASK_CHANGED_WHILE_REFINING_THE_RESULT_WAS_S,
                         &[("path", out_display)],
                     );
                     Refined {

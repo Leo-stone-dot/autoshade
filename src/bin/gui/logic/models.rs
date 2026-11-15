@@ -1,6 +1,8 @@
 //! The model-catalogue landing, headless: how a fetched listing is classified
 //! and what the landing says. Fetching, single-flight flags and the generation
 //! guard are the runtime's.
+use autoshade::text::generated::*;
+
 
 use super::UiText;
 use std::collections::HashMap;
@@ -47,7 +49,7 @@ pub(crate) fn catalogue(
 /// or failed.
 pub(crate) fn installed_words(catalogue: &Catalogue) -> UiText {
     UiText::with(
-        "fetched {n} models ({chat} chat · {img} image)",
+        K_LOGIC_FETCHED_MODELS_CHAT_IMAGE,
         &[
             ("n", &catalogue.total.to_string()),
             ("chat", &catalogue.chat.len().to_string()),
@@ -57,11 +59,11 @@ pub(crate) fn installed_words(catalogue: &Catalogue) -> UiText {
 }
 
 pub(crate) fn discarded_words() -> UiText {
-    UiText::of("model list discarded — settings changed while it was being fetched")
+    UiText::of(K_LOGIC_MODEL_LIST_DISCARDED_SETTINGS_CHANGED_WHILE_IT_W)
 }
 
 pub(crate) fn failed_words(err: &str) -> UiText {
-    UiText::with("fetch failed: {err}", &[("err", err)])
+    UiText::with(K_LOGIC_FETCH_FAILED, &[("err", err)])
 }
 
 #[cfg(test)]

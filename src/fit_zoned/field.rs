@@ -282,7 +282,7 @@ pub(super) fn solve_local_field(
 /// `push_note(rationale, notes, Note::new(key, args))` triple, and eight copies
 /// of it were eight places for the rationale string and the note list to drift
 /// apart.
-fn note(report: &mut FitReport, key: &'static str, args: Vec<(&'static str, String)>) {
+fn note(report: &mut FitReport, key: impl Into<crate::text::Key>, args: Vec<(&'static str, String)>) {
     crate::rationale::push_note(
         &mut report.recipe.rationale,
         &mut report.notes,

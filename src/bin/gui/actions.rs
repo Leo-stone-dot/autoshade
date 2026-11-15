@@ -132,7 +132,7 @@ impl AutoShadeApp {
         // The greeting was set by default() BEFORE the language was known —
         // re-issue it, or a Chinese install opens with one English line.
         app.status =
-            tr(app.lang, "Open a photo, or open a folder to browse your library.").into();
+            tr(app.lang, K_ACTIONS_OPEN_A_PHOTO_OR_OPEN_A_FOLDER_TO_BROWSE_YOUR_LIB).into();
         // Each saved file advances to the current dial law; a current/future
         // file keeps the choices made under its own law. The wording of the
         // reset note uses the values the file actually carried.
@@ -150,7 +150,7 @@ impl AutoShadeApp {
                 let default = autoshade::denoise::DEFAULT_STRENGTH_RAW;
                 app.chrome.startup_note = Some(trf(
                     app.lang,
-                    "AI denoise strength for RAW files was reset to {new}% (was {a}% in Detail, {b}% in Export). The new default looks like Lightroom's Denoise at 50; higher removes more luminance grain, any positive strength keeps the colour clean, and 0% leaves the input untouched",
+                    K_ACTIONS_AI_DENOISE_STRENGTH_FOR_RAW_FILES_WAS_RESET_TO_W,
                     &[
                         ("new", &format!("{:.0}", default * 100.0)),
                         ("a", &format!("{:.0}", a * 100.0)),
@@ -242,7 +242,7 @@ impl AutoShadeApp {
                 if self.analysis.disclosed_scripts.insert(script) {
                     let t = trf(
                         self.lang,
-                        "some file names use characters no installed font can draw ({sample}) — they show as boxes",
+                        K_ACTIONS_SOME_FILE_NAMES_USE_CHARACTERS_NO_INSTALLED_FONT,
                         &[("sample", &sample.to_string())],
                     );
                     self.toast(ToastKind::Error, t.clone());
@@ -623,7 +623,7 @@ impl AutoShadeApp {
         let t = if e.kind() == std::io::ErrorKind::WouldBlock {
             trf(self.lang, busy_key, &a)
         } else {
-            trf(self.lang, "not saved — a develop-store write failed: {err}", &a)
+            trf(self.lang, K_ACTIONS_NOT_SAVED_A_DEVELOP_STORE_WRITE_FAILED, &a)
         };
         self.status = t.clone();
         self.toast(ToastKind::Error, t);
@@ -777,7 +777,7 @@ impl AutoShadeApp {
         // The panel only emits the verb; the dialog and the library writes are
         // the app's side effects.
         let Some(path) = rfd::FileDialog::new()
-            .add_filter(tr(self.lang, "Recipe file"), &["json", "xmp"])
+            .add_filter(tr(self.lang, K_ACTIONS_RECIPE_FILE), &["json", "xmp"])
             .pick_file()
         else {
             return;
@@ -792,14 +792,14 @@ impl AutoShadeApp {
             }
         };
         if autoshade::recipe_library::exists(&name) {
-            let text = trf(self.lang, "A recipe named 「{name}」 already exists", &[("name", &name)]);
+            let text = trf(self.lang, K_ACTIONS_A_RECIPE_NAMED_ALREADY_EXISTS, &[("name", &name)]);
             self.recipe_status(false, text);
             return;
         }
         let recipe = match autoshade::recipe_library::read_file(&path) {
             Ok(r) => r,
             Err(e) => {
-                let text = trf(self.lang, "{file} is not a recipe: {err}", &[("file", &path.display().to_string()), ("err", &e.to_string())]);
+                let text = trf(self.lang, K_ACTIONS_IS_NOT_A_RECIPE, &[("file", &path.display().to_string()), ("err", &e.to_string())]);
                 self.recipe_status(false, text);
                 return;
             }
@@ -809,21 +809,21 @@ impl AutoShadeApp {
             Ok(()) => {
                 self.refresh_recipes();
                 self.rlib.recipe_sel = Some(name.clone());
-                let base = trf(self.lang, "Imported 「{name}」", &[("name", &name)]);
+                let base = trf(self.lang, K_ACTIONS_IMPORTED, &[("name", &name)]);
                 let text = if losses.is_empty() {
                     base
                 } else {
                     format!(
                         "{} — {} {}",
                         base,
-                        tr(self.lang, "left out what belongs to the source photo:"),
+                        tr(self.lang, K_ACTIONS_LEFT_OUT_WHAT_BELONGS_TO_THE_SOURCE_PHOTO),
                         self.recipe_losses(losses)
                     )
                 };
                 self.recipe_status(true, text);
             }
             Err(e) => {
-                let text = trf(self.lang, "Recipe 「{name}」 could not be saved: {err}", &[("name", &name), ("err", &e.to_string())]);
+                let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_SAVED, &[("name", &name), ("err", &e.to_string())]);
                 self.recipe_status(false, text);
             }
         }
@@ -943,7 +943,7 @@ impl AutoShadeApp {
     /// copies (the version-load rule), so the twins never share a mutable file.
     pub(crate) fn duplicate_mask(&mut self, lang: Lang, i: usize) {
         if self.doc.recipe.masks.len() >= 64 {
-            let t = tr(lang, "mask limit reached (64) — delete one first");
+            let t = tr(lang, K_ACTIONS_MASK_LIMIT_REACHED_64_DELETE_ONE_FIRST);
             self.toast(ToastKind::Error, t.to_string());
             return;
         }
@@ -970,7 +970,7 @@ impl AutoShadeApp {
         if self.disarm_selection_bound_tools(self.masks.sel_mask) {
             let t = tr(
                 self.lang,
-                "the raster-edit brush session ended — you selected another mask; its unbaked strokes were discarded",
+                K_ACTIONS_THE_RASTER_EDIT_BRUSH_SESSION_ENDED_YOU_SELECTED,
             );
             self.toast(ToastKind::Error, t.to_string());
         }

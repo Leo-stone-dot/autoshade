@@ -397,7 +397,7 @@ pub(super) fn attach_zone_detail(
         let px = fit::pixels_of(&render::develop_preview(&s_img, &report.recipe));
         fit::look_err_with_evidence(&px, &frame_tgt, &report.evidence)
     };
-    let note = |report: &mut FitReport, key: &'static str, args: Vec<(&'static str, String)>| {
+    let note = |report: &mut FitReport, key: crate::text::Key, args: Vec<(&'static str, String)>| {
         crate::rationale::push_note(
             &mut report.recipe.rationale,
             &mut report.notes,

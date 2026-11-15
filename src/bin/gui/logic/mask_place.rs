@@ -5,6 +5,8 @@
 //! radial's tuned slider state and only replaces its area; a component joins
 //! the mask it was drawn for; a fresh mask is created (with the name the view
 //! rendered) when no owner survives. Selection and the line come back as data.
+use autoshade::text::generated::*;
+
 
 use super::{Effect, UiText};
 use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry};
@@ -73,7 +75,7 @@ pub(crate) fn commit(
             }
             recipe.masks[i].mask = geom;
             effects.push(Effect::Status(UiText::of(
-                "mask area redrawn — its existing adjustments now apply to the new area",
+                K_LOGIC_MASK_AREA_REDRAWN_ITS_EXISTING_ADJUSTMENTS_NOW_A,
             )));
             Committed { selection: Selection::Keep, effects }
         }
@@ -81,7 +83,7 @@ pub(crate) fn commit(
             let m = &mut recipe.masks[i];
             m.components.push(MaskComponent { inverted: false, geometry: geom, mode });
             effects.push(Effect::Status(UiText::of(
-                "shape added to this mask — drag its knobs to adjust; the shape list is under the mask's row",
+                K_LOGIC_SHAPE_ADDED_TO_THIS_MASK_DRAG_ITS_KNOBS_TO_ADJUS,
             )));
             Committed { selection: Selection::Component(i, m.components.len() - 1), effects }
         }
@@ -93,7 +95,7 @@ pub(crate) fn commit(
             let n = recipe.masks.len();
             recipe.masks.push(LocalAdjustment { mask: geom, name: new_mask_name, ..Default::default() });
             effects.push(Effect::Status(UiText::of(
-                "mask placed — pull its sliders in 「Local Masks」 at left (all 0 now, no visible effect yet)",
+                K_LOGIC_MASK_PLACED_PULL_ITS_SLIDERS_IN_LOCAL_MASKS_AT_L,
             )));
             Committed { selection: Selection::Mask(n), effects }
         }

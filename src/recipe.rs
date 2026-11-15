@@ -6536,21 +6536,16 @@ mod tests {
     /// MUTATION: put `MAX_RATIONALE` back to `16 * 1024` and this fails.
     #[test]
     fn the_rationale_ceiling_holds_every_typed_note_a_run_can_produce() {
-        // An UPPER bound on any one template: the SOURCE span of each
-        // `pub const … = "…";` inside `rationale::keys`. Line continuations
-        // only add bytes, so the span is never shorter than the string it
-        // decodes to — which is the safe direction for sizing a ceiling.
-        let src = include_str!("rationale.rs");
-        let module = src.split("pub mod keys {").nth(1).expect("the keys module moved");
-        let longest = module
-            .split("pub const ")
-            .skip(1)
-            .filter_map(|c| c.split_once("&str ="))
-            .filter_map(|(_, v)| v.split_once("\";"))
-            .map(|(lit, _)| lit.len())
+        // An UPPER bound on any one template: the longest rationale resource.
+        // The source scan this replaced measured the template's source span;
+        // the decoded resource text is shorter or equal (escapes add bytes),
+        // which is the safe direction for sizing a ceiling.
+        let longest = crate::text::generated::RATIONALE_KEYS
+            .iter()
+            .map(|key| crate::text::tr(crate::text::Lang::En, *key).len())
             .max()
-            .expect("no note templates found");
-        assert!(longest > 400, "the source scan found nothing plausible: {longest}");
+            .expect("the resource table has note templates");
+        assert!(longest > 400, "the resource scan found nothing plausible: {longest}");
         let worst = crate::rationale::MAX_NOTES * longest;
         assert!(
             EditRecipe::MAX_RATIONALE >= worst,

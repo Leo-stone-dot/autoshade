@@ -24,15 +24,15 @@ use eframe::egui;
 use autoshade::recipe::{ColorGrade, CurvePoint, EditRecipe, Hsl, MaskGeometry, RangeMask};
 use image::GenericImageView;
 
-// Native-GUI i18n: English is the skeleton/key, Chinese is a single overlay
-// table with English fallback. `tr`/`trf` are called with the English literal;
-// see i18n.rs. (Private submodule — enabled by `autobins = false` in Cargo.toml.)
+// Native-GUI text: the resources live in the library (`autoshade::text`), the
+// GUI binds them with the platform's modifier hint and re-exports the key
+// constants. See i18n.rs.
 mod i18n;
 mod landing_analysis;
 mod landing_canvas;
 mod landing_worker;
 mod landing_persist;
-use i18n::{tr, trf, Lang};
+use i18n::*;
 
 mod model;
 mod services;

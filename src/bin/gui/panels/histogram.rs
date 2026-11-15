@@ -109,12 +109,12 @@ impl AutoShadeApp {
             let tip = match lit {
                 Some(_) => trf(
                     lang,
-                    "{what}: {chan} channel(s) — click to toggle clipping warning (J)",
+                    K_HISTOGRAM_CHANNEL_S_CLICK_TO_TOGGLE_CLIPPING_WARNING_J,
                     &[("what", tr(lang, what)), ("chan", &chan_names(bins))],
                 ),
                 None => trf(
                     lang,
-                    "{what} indicator (clean) — click to toggle clipping warning (J)",
+                    K_HISTOGRAM_INDICATOR_CLEAN_CLICK_TO_TOGGLE_CLIPPING_WARNING,
                     &[("what", tr(lang, what))],
                 ),
             };
@@ -189,7 +189,7 @@ impl AutoShadeApp {
                     self.curve_drag = None;
                 }
             }
-            if glyph(ui, true, "↺").on_hover_text(tr(lang, "Clear the current channel's curve")).clicked() {
+            if glyph(ui, true, "↺").on_hover_text(tr(lang, K_HISTOGRAM_CLEAR_THE_CURRENT_CHANNEL_S_CURVE)).clicked() {
                 let pts = curve_points_mut(&mut self.doc.recipe, target, self.curve_channel)
                     .expect("the target was validated on entry");
                 if !pts.is_empty() {
@@ -342,7 +342,7 @@ impl AutoShadeApp {
             }
         }
 
-        explainer(ui, self.lang, tr(self.lang, "Click to add a point · drag to move · drag outside the box to delete — preview and export match (XMP carries the closest Lightroom form)"));
+        explainer(ui, self.lang, tr(self.lang, K_HISTOGRAM_CLICK_TO_ADD_A_POINT_DRAG_TO_MOVE_DRAG_OUTSIDE_T));
         changed
     }
 }

@@ -147,7 +147,7 @@ impl AutoShadeApp {
                 self.tools.clone_src = Some(view_norm_to_orig(nx, ny, dims, deg, &dist));
                 self.status = tr(
                     self.lang,
-                    "Clone source sampled — brush the area to cover, then 「⎘ Clone painted area」",
+                    K_RETOUCH_CLONE_SOURCE_SAMPLED_BRUSH_THE_AREA_TO_COVER_THE,
                 )
                 .into();
             }
@@ -204,7 +204,7 @@ impl AutoShadeApp {
         }
         self.status = tr(
             self.lang,
-            "this photo is turned, and pixel repairs still work on the un-turned frame — turn it back to 0 first",
+            K_RETOUCH_THIS_PHOTO_IS_TURNED_AND_PIXEL_REPAIRS_STILL_WOR,
         )
         .into();
         true
@@ -305,7 +305,7 @@ impl AutoShadeApp {
             p.circle_filled(c, 1.5, egui::Color32::WHITE);
         }
         if resized {
-            let label = format!("{} {:.0}", tr(self.lang, "Brush size"), r);
+            let label = format!("{} {:.0}", tr(self.lang, K_RETOUCH_BRUSH_SIZE), r);
             let at = c + egui::vec2(0.0, r + 8.0);
             let font = egui::TextStyle::Small.resolve(ui.style());
             p.text(at + egui::vec2(1.0, 1.0), egui::Align2::CENTER_TOP, &label, font.clone(), egui::Color32::from_black_alpha(200));
@@ -340,12 +340,12 @@ impl AutoShadeApp {
         if Self::slider_hinted(
             ui,
             lang,
-            tr(lang, "Brush size"),
+            tr(lang, K_RETOUCH_BRUSH_SIZE),
             &mut radius,
             BRUSH_R_MIN,
             BRUSH_R_MAX,
             30.0,
-            tr(lang, "One radius for every brush: the mask brush and the Fill / Heal / Stamp brush are the same size ([ / ] move it too)"),
+            tr(lang, K_RETOUCH_ONE_RADIUS_FOR_EVERY_BRUSH_THE_MASK_BRUSH_AND_TH),
         ) {
             let now = ui.input(|i| i.time);
             self.set_brush(radius, now);
@@ -358,20 +358,20 @@ impl AutoShadeApp {
         Self::slider_pct_hinted(
             ui,
             lang,
-            tr(lang, "Feather"),
+            tr(lang, K_DEVELOP_FEATHER),
             &mut self.masks.brush_feather,
             1.0,
             0.0,
-            tr(lang, "How soft the brush edge is: 0 = a hard edge, 100 = fading from the centre. The inner ring on the image marks where the fade starts."),
+            tr(lang, K_RETOUCH_HOW_SOFT_THE_BRUSH_EDGE_IS_0_A_HARD_EDGE_100_FAD),
         );
         Self::slider_pct_hinted(
             ui,
             lang,
-            tr(lang, "Flow"),
+            tr(lang, K_RETOUCH_FLOW),
             &mut self.masks.brush_flow,
             1.0,
             1.0,
-            tr(lang, "How much one pass lays down: 100 = full strength at once; lower builds up gradually as you paint over the same place."),
+            tr(lang, K_RETOUCH_HOW_MUCH_ONE_PASS_LAYS_DOWN_100_FULL_STRENGTH_AT),
         );
         #[cfg(test)]
         {
@@ -396,8 +396,8 @@ impl AutoShadeApp {
         let armed = self.brush_armed(owner);
         ui.horizontal(|ui| {
             let cell = columns(ui, 2);
-            if toggle_in(ui, cell, armed, tr(lang, "🖌 Paint area"))
-                .on_hover_text(tr(lang, "Brush over the area this tool works on (box-select pauses while the brush is armed); click again or press Esc to put the brush away. Each tool keeps its own painted area."))
+            if toggle_in(ui, cell, armed, tr(lang, K_RETOUCH_PAINT_AREA))
+                .on_hover_text(tr(lang, K_RETOUCH_BRUSH_OVER_THE_AREA_THIS_TOOL_WORKS_ON_BOX_SELEC))
                 .clicked()
             {
                 if armed {
@@ -406,8 +406,8 @@ impl AutoShadeApp {
                     self.arm_brush(owner);
                 }
             }
-            if action_in(ui, cell, true, tr(lang, "Clear area"))
-                .on_hover_text(tr(lang, "Wipe this tool's painted area (the other tools' areas stay)"))
+            if action_in(ui, cell, true, tr(lang, K_RETOUCH_CLEAR_AREA))
+                .on_hover_text(tr(lang, K_RETOUCH_WIPE_THIS_TOOL_S_PAINTED_AREA_THE_OTHER_TOOLS_AR))
                 .clicked()
             {
                 self.clear_area(owner);
@@ -428,23 +428,23 @@ impl AutoShadeApp {
         if self.doc.recipe.pixel_layers.is_empty() {
             return;
         }
-        sub_caption(ui, tr(lang, "Layers on this card"));
+        sub_caption(ui, tr(lang, K_RETOUCH_LAYERS_ON_THIS_CARD));
         let mut remove = None;
         let mut changed = false;
         for i in 0..self.doc.recipe.pixel_layers.len() {
             ui.horizontal(|ui| {
                 let layer = &mut self.doc.recipe.pixel_layers[i];
                 if glyph_toggle(ui, layer.enabled, "👁")
-                    .on_hover_text(tr(lang, "Show or hide this layer — a hidden layer is kept and saved with the card"))
+                    .on_hover_text(tr(lang, K_RETOUCH_SHOW_OR_HIDE_THIS_LAYER_A_HIDDEN_LAYER_IS_KEPT_A))
                     .clicked()
                 {
                     layer.enabled = !layer.enabled;
                     changed = true;
                 }
-                ui.label(trf(lang, "Fill layer {n}", &[("n", &(i + 1).to_string())]))
+                ui.label(trf(lang, K_RETOUCH_FILL_LAYER, &[("n", &(i + 1).to_string())]))
                     .on_hover_text(layer.path.as_str());
                 if glyph(ui, true, "✕")
-                    .on_hover_text(tr(lang, "Remove this layer from the card (Ctrl+Z brings it back)"))
+                    .on_hover_text(tr(lang, K_RETOUCH_REMOVE_THIS_LAYER_FROM_THE_CARD_CTRL_Z_BRINGS_IT))
                     .clicked()
                 {
                     remove = Some(i);
@@ -453,11 +453,11 @@ impl AutoShadeApp {
             changed |= Self::slider_pct_hinted(
                 ui,
                 lang,
-                tr(lang, "Layer opacity"),
+                tr(lang, K_RETOUCH_LAYER_OPACITY),
                 &mut self.doc.recipe.pixel_layers[i].opacity,
                 1.0,
                 1.0,
-                tr(lang, "How strongly this layer covers the develop under it; 100% is the fill as it was made."),
+                tr(lang, K_RETOUCH_HOW_STRONGLY_THIS_LAYER_COVERS_THE_DEVELOP_UNDER),
             );
         }
         if let Some(i) = remove {
@@ -472,7 +472,7 @@ impl AutoShadeApp {
     pub(crate) fn retouch_panel(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang; // Copy — never borrows self, safe inside egui closures.
         ui.add_space(SPACE_LG);
-        panel_heading(ui, tr(lang, "Retouch"), false, |_| {});
+        panel_heading(ui, tr(lang, K_RETOUCH_RETOUCH), false, |_| {});
 
         // Whole-image Reimagine + reverse-fit MOVED to the AI panel (R22 #4,
         // panels/ai.rs): they are AI develop verbs, and living here put them
@@ -492,11 +492,11 @@ impl AutoShadeApp {
             let total = self.doc.recipe.retouch.len();
             let synth =
                 self.doc.recipe.retouch.iter().filter(|a| a.origin.is_synthesised()).count();
-            sub_caption(ui, tr(lang, "Imported removal"));
+            sub_caption(ui, tr(lang, K_RETOUCH_IMPORTED_REMOVAL));
             ui.label(
                 egui::RichText::new(trf(
                     lang,
-                    "Lightroom removed {n} area(s) here; re-solved from this photo's own pixels.",
+                    K_RETOUCH_LIGHTROOM_REMOVED_AREA_S_HERE_RE_SOLVED_FROM_THI,
                     &[("n", &total.to_string())],
                 ))
                 .weak()
@@ -509,15 +509,15 @@ impl AutoShadeApp {
                 ui.label(
                     egui::RichText::new(trf(
                         lang,
-                        "{n} of them were synthesised by Adobe — those pixels are not in the sidecar, so what you see is this app's repair.",
+                        K_RETOUCH_OF_THEM_WERE_SYNTHESISED_BY_ADOBE_THOSE_PIXELS_A,
                         &[("n", &synth.to_string())],
                     ))
                     .weak()
                     .small(),
                 );
                 ui.add_enabled_ui(!self.busy, |ui| {
-                    if action_row(ui, true, tr(lang, "✨ Regenerate those areas"))
-                        .on_hover_text(tr(lang, "Paint the synthesised areas into Generative Fill's painted area and run the generative model over exactly them — an empty prompt removes, and the result lands as a layer over this card (gpt-image API call — costs per image)"))
+                    if action_row(ui, true, tr(lang, K_RETOUCH_REGENERATE_THOSE_AREAS))
+                        .on_hover_text(tr(lang, K_RETOUCH_PAINT_THE_SYNTHESISED_AREAS_INTO_GENERATIVE_FILL))
                         .clicked()
                     {
                         // Paint first, and only spawn if something landed —
@@ -537,7 +537,7 @@ impl AutoShadeApp {
         // folds, and that the AI panel's Adjust fold read without a control of
         // its own, is gone.
         ui.add_space(SPACE_XS);
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Generative Fill"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_RETOUCH_GENERATIVE_FILL))
             .id_salt("sec_fill")
             .default_open(false)
             // Test-only force-open: this fold hides a width-pinned prompt row
@@ -548,7 +548,7 @@ impl AutoShadeApp {
                 let _field = prompt_field(
                     ui,
                     &mut self.genai.fill_prompt,
-                    tr(lang, "what to change — e.g. remove the wires on the left, make the sky bluer; or paint an area (empty then removes it)"),
+                    tr(lang, K_RETOUCH_WHAT_TO_CHANGE_E_G_REMOVE_THE_WIRES_ON_THE_LEFT),
                 );
                 #[cfg(test)]
                 {
@@ -562,12 +562,12 @@ impl AutoShadeApp {
                     egui::ComboBox::from_id_salt("fill_quality")
                         .selected_text(tr(lang, ["high", "medium", "low"][self.genai.fill_quality.min(2)]))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.genai.fill_quality, 0, tr(lang, "high"));
-                            ui.selectable_value(&mut self.genai.fill_quality, 1, tr(lang, "medium"));
-                            ui.selectable_value(&mut self.genai.fill_quality, 2, tr(lang, "low"));
+                            ui.selectable_value(&mut self.genai.fill_quality, 0, tr(lang, K_AI_HIGH));
+                            ui.selectable_value(&mut self.genai.fill_quality, 1, tr(lang, K_AI_MEDIUM));
+                            ui.selectable_value(&mut self.genai.fill_quality, 2, tr(lang, K_AI_LOW));
                         })
                         .response
-                        .on_hover_text(tr(lang, "gpt-image render quality — higher looks better and costs more per image"));
+                        .on_hover_text(tr(lang, K_AI_GPT_IMAGE_RENDER_QUALITY_HIGHER_LOOKS_BETTER_AND));
                     let src_is_raw = self
                         .active_source_path()
                         .is_some_and(|p| autoshade::decode::is_raw(&p));
@@ -576,8 +576,8 @@ impl AutoShadeApp {
                     // across three panels, and this is the only one still gated
                     // RAW-only — a distinction its label could not carry while it
                     // was a twin of the other three.
-                    ui.add_enabled(src_is_raw, egui::Checkbox::new(&mut self.genai.fill_fullres, tr(lang, "Full-res fill")))
-                        .on_hover_text(tr(lang, "Composite onto the full-sensor develop (slow, RAW only)"));
+                    ui.add_enabled(src_is_raw, egui::Checkbox::new(&mut self.genai.fill_fullres, tr(lang, K_RETOUCH_FULL_RES_FILL)))
+                        .on_hover_text(tr(lang, K_RETOUCH_COMPOSITE_ONTO_THE_FULL_SENSOR_DEVELOP_SLOW_RAW));
                 });
                 // One verb, two ways in (2026-10-12): a painted area is
                 // regenerated as before; with none, the words alone go to the
@@ -585,24 +585,24 @@ impl AutoShadeApp {
                 let painted = self.area_painted(BrushOwner::Fill);
                 let (verb, hint) = if painted {
                     (
-                        tr(lang, "Remove / Fill"),
-                        tr(lang, "Regenerate ONLY the painted area — from your prompt, or as a removal when the prompt is empty (gpt-image API call — costs per image); the model sees this card's look, and the result is a layer over this card's develop — the card's own pixels stay as they are"),
+                        tr(lang, K_RETOUCH_REMOVE_FILL),
+                        tr(lang, K_RETOUCH_REGENERATE_ONLY_THE_PAINTED_AREA_FROM_YOUR_PROMP),
                     )
                 } else {
                     (
-                        tr(lang, "✨ AI edit"),
-                        tr(lang, "Send this card's picture with your words and no painted area: the model decides where to change it, and only what it changed lands as a layer over this card (gpt-image API call — costs per image)"),
+                        tr(lang, K_RETOUCH_AI_EDIT),
+                        tr(lang, K_RETOUCH_SEND_THIS_CARD_S_PICTURE_WITH_YOUR_WORDS_AND_NO),
                     )
                 };
                 let ready = !self.busy && (painted || !self.genai.fill_prompt.trim().is_empty());
                 if primary_row(ui, ready, verb).on_hover_text(hint).clicked() {
                     self.start_fill();
                 }
-                explainer(ui, lang, tr(lang, "Write what to change and press ✨ AI edit — the model finds where. Or paint an area first: an empty prompt then removes it, words fill it. Either way the result is a layer over this card (its own pixels never change), levelled to the colours around it; a layer keeps the look it was made with, so after a large slider change, run it again. Needs an image API (OPENAI_API_KEY, or the OAuth image bridge in Settings)."));
+                explainer(ui, lang, tr(lang, K_RETOUCH_WRITE_WHAT_TO_CHANGE_AND_PRESS_AI_EDIT_THE_MODEL));
                 self.layer_rows(ui);
             });
 
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Heal (pixel)"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_RETOUCH_HEAL_PIXEL))
             .id_salt("sec_heal")
             .default_open(false)
             , |ui| {
@@ -617,14 +617,14 @@ impl AutoShadeApp {
                         // verb's private glyph. The tooltip carries the
                         // AI-panel cross-reference — this stays HERE, at
                         // the pixels it heals.
-                        if action_in(ui, cell, true, tr(lang, "🤖 AI heal (auto)"))
-                            .on_hover_text(ai_xref(lang, tr(lang, "A vision model finds small dust spots / blemishes (API call), then each is healed from surrounding REAL pixels — never generated")))
+                        if action_in(ui, cell, true, tr(lang, K_RETOUCH_AI_HEAL_AUTO))
+                            .on_hover_text(ai_xref(lang, tr(lang, K_RETOUCH_A_VISION_MODEL_FINDS_SMALL_DUST_SPOTS_BLEMISHES)))
                             .clicked()
                         {
                             self.start_heal(false, None);
                         }
-                        if action_in(ui, cell, true, tr(lang, "Heal area"))
-                            .on_hover_text(tr(lang, "Heal the brushed area from surrounding real pixels — local compute, no API"))
+                        if action_in(ui, cell, true, tr(lang, K_RETOUCH_HEAL_AREA))
+                            .on_hover_text(tr(lang, K_RETOUCH_HEAL_THE_BRUSHED_AREA_FROM_SURROUNDING_REAL_PIXE))
                             .clicked()
                         {
                             self.start_heal(true, None);
@@ -636,12 +636,12 @@ impl AutoShadeApp {
                 // types since b4c6c30, but the RAW-only gate left a
                 // 61 MP baked TIFF no way to opt out of the 2048px
                 // downsample the unchecked path bakes into the master.
-                ui.checkbox(&mut self.genai.heal_fullres, tr(lang, "Full-res heal"))
-                    .on_hover_text(tr(lang, "Heal at full resolution (slow; without it the retouched image is saved at 2048px)"));
-                explainer(ui, lang, tr(lang, "AI auto-detects dust / blemishes, or paint a mask and Heal it. Pixel retouch from surrounding pixels; saved to the delivery folder."));
+                ui.checkbox(&mut self.genai.heal_fullres, tr(lang, K_RETOUCH_FULL_RES_HEAL))
+                    .on_hover_text(tr(lang, K_RETOUCH_HEAL_AT_FULL_RESOLUTION_SLOW_WITHOUT_IT_THE_RETO));
+                explainer(ui, lang, tr(lang, K_RETOUCH_AI_AUTO_DETECTS_DUST_BLEMISHES_OR_PAINT_A_MASK_A));
             });
 
-        card_fold(ui, egui::CollapsingHeader::new(tr(lang, "Clone Stamp"))
+        card_fold(ui, egui::CollapsingHeader::new(tr(lang, K_RETOUCH_CLONE_STAMP))
             .id_salt("sec_clone")
             .default_open(false)
             , |ui| {
@@ -652,9 +652,9 @@ impl AutoShadeApp {
                 let armed = self.brush_armed(BrushOwner::Stamp);
                 ui.horizontal(|ui| {
                     let cell = columns(ui, 2);
-                    let label = if armed { tr(lang, "✓ Done") } else { tr(lang, "⎘ Enter stamp") };
+                    let label = if armed { tr(lang, K_DEVELOP_DONE) } else { tr(lang, K_RETOUCH_ENTER_STAMP) };
                     if action_in(ui, cell, true, label)
-                        .on_hover_text(tr(lang, "Arm the stamp: Alt+click samples a source, the brush paints the target; your painted mask survives"))
+                        .on_hover_text(tr(lang, K_RETOUCH_ARM_THE_STAMP_ALT_CLICK_SAMPLES_A_SOURCE_THE_BRU))
                         .clicked()
                     {
                         if armed {
@@ -665,11 +665,11 @@ impl AutoShadeApp {
                             // theirs. Only 「Clear area」 wipes.
                             self.arm_brush(BrushOwner::Stamp);
                             self.status =
-                                tr(lang, "Stamp: Alt+click to set the source → brush the target area → 「⎘ Clone painted area」").into();
+                                tr(lang, K_RETOUCH_STAMP_ALT_CLICK_TO_SET_THE_SOURCE_BRUSH_THE_TARG).into();
                         }
                     }
-                    if action_in(ui, cell, true, tr(lang, "Clear area"))
-                        .on_hover_text(tr(lang, "Wipe this tool's painted area (the other tools' areas stay)"))
+                    if action_in(ui, cell, true, tr(lang, K_RETOUCH_CLEAR_AREA))
+                        .on_hover_text(tr(lang, K_RETOUCH_WIPE_THIS_TOOL_S_PAINTED_AREA_THE_OTHER_TOOLS_AR))
                         .clicked()
                     {
                         self.clear_area(BrushOwner::Stamp);
@@ -678,8 +678,8 @@ impl AutoShadeApp {
                 if armed {
                     self.brush_size_slider(ui);
                 }
-                if primary_row(ui, !self.busy && self.tools.clone_mode, tr(lang, "⎘ Clone area"))
-                    .on_hover_text(tr(lang, "Copy the sampled source over the brushed area verbatim (feathered edges, no tone matching) — local compute"))
+                if primary_row(ui, !self.busy && self.tools.clone_mode, tr(lang, K_RETOUCH_CLONE_AREA))
+                    .on_hover_text(tr(lang, K_RETOUCH_COPY_THE_SAMPLED_SOURCE_OVER_THE_BRUSHED_AREA_VE))
                     .clicked()
                 {
                     self.start_clone();
@@ -687,11 +687,9 @@ impl AutoShadeApp {
                 // Enabled for BAKED sources too — clone_stamp honours
                 // the flag on both source types (retouch.rs), the same
                 // rule as Heal beside it (L15-7).
-                ui.checkbox(&mut self.tools.clone_fullres, tr(lang, "Full-res clone"))
-                    .on_hover_text(tr(lang, "Clone at full resolution (slow; without it the retouched image is saved at 2048px)"));
-                explainer(ui, lang, tr(lang, "Photoshop-style clone stamp: Alt+click to sample a source (cross marker), brush the area to \
-                         cover, and pixels are carried over as-is from the source (feathered edges, no tone matching). \
-                         Local compute, saves a pixel master in the delivery folder."));
+                ui.checkbox(&mut self.tools.clone_fullres, tr(lang, K_RETOUCH_FULL_RES_CLONE))
+                    .on_hover_text(tr(lang, K_RETOUCH_CLONE_AT_FULL_RESOLUTION_SLOW_WITHOUT_IT_THE_RET));
+                explainer(ui, lang, tr(lang, K_RETOUCH_PHOTOSHOP_STYLE_CLONE_STAMP_ALT_CLICK_TO_SAMPLE));
             });
     }
 }

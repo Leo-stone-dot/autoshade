@@ -1,6 +1,8 @@
 //! The reverse-fit landing's facts and words, headless. The fit itself, the
 //! variant it creates and the persist are the runtime's; this module owns what
 //! a landed fit says.
+use autoshade::text::generated::*;
+
 
 use super::UiText;
 
@@ -96,7 +98,7 @@ pub(crate) enum DeepFitOutcome {
 /// The main sentence of a finished fit.
 pub(crate) fn done_words(err_before: f32, err_after: f32) -> UiText {
     UiText::with(
-        "Reverse-fit done: difference from target {before}→{after} (lower = closer) · created a「Reverse-fit」variant (editable / XMP / full-res)",
+        K_LOGIC_REVERSE_FIT_DONE_DIFFERENCE_FROM_TARGET_LOWER_CL,
         &[
             ("before", &format!("{err_before:.3}")),
             ("after", &format!("{err_after:.3}")),
@@ -110,95 +112,95 @@ pub(crate) fn done_words(err_before: f32, err_after: f32) -> UiText {
 pub(crate) fn note_words(n: &FitNote) -> Vec<UiText> {
     match n {
         FitNote::SolverMode { atmosphere: false } => {
-            vec![UiText::of(" · full solve (all develop controls)")]
+            vec![UiText::of(K_LOGIC_FULL_SOLVE_ALL_DEVELOP_CONTROLS)]
         }
         FitNote::SolverMode { atmosphere: true } => vec![UiText::of(
-            " · mood-only match (the two images differ in content, so only overall tone and colour were matched)",
+            K_LOGIC_MOOD_ONLY_MATCH_THE_TWO_IMAGES_DIFFER_IN_CONTENT,
         )],
         FitNote::SolverPairing { pixel: true, fine, coarse } => vec![UiText::with(
-            " · matched pixel to pixel (difference {fine} at pixel scale, {coarse} at layout scale)",
+            K_LOGIC_MATCHED_PIXEL_TO_PIXEL_DIFFERENCE_AT_PIXEL_SCALE,
             &[("fine", fine), ("coarse", coarse)],
         )],
         FitNote::SolverPairing { pixel: false, fine, coarse } => vec![UiText::with(
-            " · matched by cell statistics only (difference {fine} at pixel scale, {coarse} at layout scale)",
+            K_LOGIC_MATCHED_BY_CELL_STATISTICS_ONLY_DIFFERENCE_AT_PI,
             &[("fine", fine), ("coarse", coarse)],
         )],
         FitNote::IncludesSkyZone => vec![UiText::of(
-            " · includes sky-zone correction (editable in the mask panel; native masks export to XMP and remaining losses are named)",
+            K_LOGIC_INCLUDES_SKY_ZONE_CORRECTION_EDITABLE_IN_THE_MAS,
         )],
         FitNote::IncludesRangeMasks => vec![UiText::of(
-            " · includes native range correction (adjustable in the mask panel and written to XMP)",
+            K_LOGIC_INCLUDES_NATIVE_RANGE_CORRECTION_ADJUSTABLE_IN_T,
         )],
         FitNote::IncludesSpatialTiles(n) => vec![UiText::with(
-            " · includes {n} spatial tile correction(s) (editable in the mask panel; native tiles export to XMP, retained rasters have a named loss)",
+            K_LOGIC_INCLUDES_SPATIAL_TILE_CORRECTION_S_EDITABLE_IN_T,
             &[("n", &n.to_string())],
         )],
         FitNote::MaskRefinement { kept, abstained } => vec![UiText::with(
-            " · guided mask refinement: {kept} kept, {abstained} abstained",
+            K_LOGIC_GUIDED_MASK_REFINEMENT_KEPT_ABSTAINED,
             &[("kept", &kept.to_string()), ("abstained", &abstained.to_string())],
         )],
         FitNote::NotPersistedCommit(e) => vec![UiText::with(
-            " · NOT persisted: saving the develop failed ({err}) — Ctrl+S to save explicitly",
+            K_LOGIC_NOT_PERSISTED_SAVING_THE_DEVELOP_FAILED_CTRL_S_T,
             &[("err", e)],
         )],
         FitNote::XmpWritten(p) => {
-            vec![UiText::with(" · XMP → {path}", &[("path", &p.display().to_string())])]
+            vec![UiText::with(K_LOGIC_XMP, &[("path", &p.display().to_string())])]
         }
-        FitNote::XmpMergeNote(m) => vec![UiText::with(" · ⚠ {note}", &[("note", m)])],
+        FitNote::XmpMergeNote(m) => vec![UiText::with(K_LOGIC_TEXT, &[("note", m)])],
         FitNote::XmpFailed(e) => vec![UiText::with(
-            "recipe saved — but the Lightroom XMP failed: {err}",
+            K_EXPORT_RECIPE_SAVED_BUT_THE_LIGHTROOM_XMP_FAILED,
             &[("err", e)],
         )],
         FitNote::BackedUpAs(n) => {
-            vec![UiText::with(" · previous save backed up as v{n}", &[("n", &n.to_string())])]
+            vec![UiText::with(K_LOGIC_PREVIOUS_SAVE_BACKED_UP_AS_V, &[("n", &n.to_string())])]
         }
         FitNote::NotPersistedBackup(e) => vec![UiText::with(
-            " · NOT persisted: backing up your existing save failed ({err}) — Ctrl+S to save explicitly",
+            K_LOGIC_NOT_PERSISTED_BACKING_UP_YOUR_EXISTING_SAVE_FAIL,
             &[("err", e)],
         )],
         FitNote::NotPersistedLock(e) => vec![UiText::with(
-            " · NOT persisted: the develop store could not be locked ({err}) — Ctrl+S to save explicitly",
+            K_LOGIC_NOT_PERSISTED_THE_DEVELOP_STORE_COULD_NOT_BE_LOC,
             &[("err", e)],
         )],
         FitNote::AiReview { score, critique, hint } => {
             let mut pieces = vec![UiText::with(
-                " · AI review: match {score}/100 — {critique}",
+                K_LOGIC_AI_REVIEW_MATCH_100,
                 &[("score", &format!("{score:.0}")), ("critique", critique)],
             )];
             // The third of the three things the paid call returned, labelled as
             // a SUGGESTION because on this path nothing acted on it.
             if let Some(h) = hint.as_deref().map(str::trim).filter(|h| !h.is_empty()) {
                 pieces.push(UiText::with(
-                    " · it suggests: {hint} (nothing was changed — tick 「Retry once」 to let it try)",
+                    K_LOGIC_IT_SUGGESTS_NOTHING_WAS_CHANGED_TICK_RETRY_ONCE,
                     &[("hint", h)],
                 ));
             }
             pieces
         }
         FitNote::AiReviewFailed(e) => vec![UiText::with(
-            " · AI review unavailable ({err}) — the fit itself already landed",
+            K_LOGIC_AI_REVIEW_UNAVAILABLE_THE_FIT_ITSELF_ALREADY_LAN,
             &[("err", e)],
         )],
         FitNote::FitReset => vec![UiText::of(
-            " · ⚠ THE REVERSE-FIT WAS DISCARDED: every version of it rendered farther from the target than your untouched photo, so the recipe was reset to neutral — this is the same as not having reverse-fitted at all",
+            K_LOGIC_THE_REVERSE_FIT_WAS_DISCARDED_EVERY_VERSION_OF_I,
         )],
         FitNote::ReferenceNotSameFrame => vec![UiText::of(
-            " · ⚠ the reference's proportions do not match this photo — it was cropped, or it is not the same frame; either way the two distributions are not comparable",
+            K_LOGIC_THE_REFERENCE_S_PROPORTIONS_DO_NOT_MATCH_THIS_PH,
         )],
         FitNote::DeepFit { action, outcome } => vec![match outcome {
             DeepFitOutcome::NothingActionable => UiText::of(
-                " · retry: the review found nothing this app can act on — the plain fit stands",
+                K_LOGIC_RETRY_THE_REVIEW_FOUND_NOTHING_THIS_APP_CAN_ACT,
             ),
             DeepFitOutcome::ActionDidNotRun => UiText::with(
-                " · retry: the review asked for {action}, which could not be carried out — the plain fit stands",
+                K_LOGIC_RETRY_THE_REVIEW_ASKED_FOR_WHICH_COULD_NOT_BE_CA,
                 &[("action", action)],
             ),
             DeepFitOutcome::Adopted => UiText::with(
-                " · retry: tried {action} on the review's suggestion and kept it (it re-scored at least as high)",
+                K_LOGIC_RETRY_TRIED_ON_THE_REVIEW_S_SUGGESTION_AND_KEPT,
                 &[("action", action)],
             ),
             DeepFitOutcome::Discarded => UiText::with(
-                " · retry: tried {action} on the review's suggestion and discarded it (it re-scored lower)",
+                K_LOGIC_RETRY_TRIED_ON_THE_REVIEW_S_SUGGESTION_AND_DISCA,
                 &[("action", action)],
             ),
         }],
@@ -253,7 +255,7 @@ mod tests {
     /// The deep path's four outcomes are four different sentences.
     #[test]
     fn deep_retry_outcomes_are_distinct() {
-        let keys: Vec<&str> = [
+        let keys: Vec<autoshade::text::Key> = [
             DeepFitOutcome::NothingActionable,
             DeepFitOutcome::ActionDidNotRun,
             DeepFitOutcome::Adopted,
@@ -262,7 +264,7 @@ mod tests {
         .into_iter()
         .map(|outcome| note_words(&FitNote::DeepFit { action: "exposure", outcome })[0].key)
         .collect();
-        let unique: std::collections::HashSet<&str> = keys.iter().copied().collect();
+        let unique: std::collections::HashSet<autoshade::text::Key> = keys.iter().copied().collect();
         assert_eq!(unique.len(), 4, "each outcome says its own thing: {keys:?}");
     }
 }

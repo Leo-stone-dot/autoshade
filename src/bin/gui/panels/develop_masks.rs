@@ -15,12 +15,12 @@ impl AutoShadeApp {
         // Geometry ends here — local adjustments and management below.
         // (Group boundary — see the Detail section's comment.)
         // #14b, group 3: masks and the pixel-level tools they reach.
-        group_caption(ui, tr(lang, "Local & Pixel"));
+        group_caption(ui, tr(lang, K_DEVELOP_LOCAL_PIXEL));
         // --- 局部调整: manual masks — the SAME recipe.masks the AI writes -----
         let n_masks = self.doc.recipe.masks.len();
         let n_masks_s = n_masks.to_string();
         card_fold(ui, egui::CollapsingHeader::new(section_title(
-            &trf(lang, "Local Masks ({n})", &[("n", &n_masks_s)]),
+            &trf(lang, K_DEVELOP_LOCAL_MASKS, &[("n", &n_masks_s)]),
             self.masks_section_active(),
         ))
         .id_salt("sec_local")
@@ -52,21 +52,21 @@ impl AutoShadeApp {
                         let m = &self.doc.recipe.masks[i];
                         let kind = match m.range {
                             Some(RangeMask::Luminance { .. }) => {
-                                tr(self.lang, "Luminance range")
+                                tr(self.lang, K_DEVELOP_LUMINANCE_RANGE)
                             }
-                            Some(RangeMask::Color { .. }) => tr(self.lang, "Color range"),
+                            Some(RangeMask::Color { .. }) => tr(self.lang, K_DEVELOP_COLOR_RANGE),
                             None => match m.mask {
-                                MaskGeometry::Linear { .. } => tr(self.lang, "Linear"),
-                                MaskGeometry::Shaped { .. } => tr(self.lang, "Shaped gradient"),
-                                MaskGeometry::Radial { .. } => tr(self.lang, "Radial"),
-                                MaskGeometry::Bitmap { .. } => tr(self.lang, "Bitmap"),
-                                MaskGeometry::Brush { .. } => tr(self.lang, "Brush"),
+                                MaskGeometry::Linear { .. } => tr(self.lang, K_DEVELOP_LINEAR),
+                                MaskGeometry::Shaped { .. } => tr(self.lang, K_DEVELOP_SHAPED_GRADIENT),
+                                MaskGeometry::Radial { .. } => tr(self.lang, K_DEVELOP_RADIAL),
+                                MaskGeometry::Bitmap { .. } => tr(self.lang, K_DEVELOP_BITMAP),
+                                MaskGeometry::Brush { .. } => tr(self.lang, K_DEVELOP_BRUSH),
                                 // Named "AI" and never "Sky"/"Subject": the row
                                 // must not read as Lightroom's own mask. What it
                                 // draws is our segmenter's re-derivation, and the
                                 // overlay badge plus the import line carry the
                                 // rest of that sentence (R27 Batch-5).
-                                MaskGeometry::AiMask { .. } => tr(self.lang, "AI"),
+                                MaskGeometry::AiMask { .. } => tr(self.lang, K_DEVELOP_AI),
                             },
                         };
                         // A user-given name wins; else a reverse-fit zone shows
@@ -76,7 +76,7 @@ impl AutoShadeApp {
                         } else if let Some(en) = m.role.en_name() {
                             tr(self.lang, en)
                         } else {
-                            tr(self.lang, "mask")
+                            tr(self.lang, K_DEVELOP_MASK)
                         };
                         // The activity dot IS the engine's own rule
                         // (util::mask_active → render::engine_active): a parked
@@ -110,13 +110,13 @@ impl AutoShadeApp {
                             ui.label("☰");
                         })
                         .response
-                        .on_hover_text(tr(self.lang, "Drag to reorder"));
+                        .on_hover_text(tr(self.lang, K_DEVELOP_DRAG_TO_REORDER));
                         // The eye: Lightroom's lossless mute. Amount-to-0 as a
                         // mute destroyed the tuned value; this keeps it.
                         if glyph_toggle(ui, enabled, "👁")
                             .on_hover_text(tr(
                                 self.lang,
-                                "Show/mute this mask without losing its settings",
+                                K_DEVELOP_SHOW_MUTE_THIS_MASK_WITHOUT_LOSING_ITS_SETTINGS,
                             ))
                             .clicked()
                         {
@@ -126,7 +126,7 @@ impl AutoShadeApp {
                         if !dead.is_empty() {
                             row = row.on_hover_text(trf(
                                 self.lang,
-                                "bitmap raster unreadable ({list}) — this mask currently has NO effect",
+                                K_DEVELOP_BITMAP_RASTER_UNREADABLE_THIS_MASK_CURRENTLY_HAS,
                                 &[("list", &dead.join(", "))],
                             ));
                         }
@@ -150,13 +150,13 @@ impl AutoShadeApp {
                             if self.disarm_selection_bound_tools(self.masks.sel_mask) {
                                 let t = tr(
                                     self.lang,
-                                    "the raster-edit brush session ended — you selected another mask; its unbaked strokes were discarded",
+                                    K_ACTIONS_THE_RASTER_EDIT_BRUSH_SESSION_ENDED_YOU_SELECTED,
                                 );
                                 self.toast(ToastKind::Error, t.to_string());
                             }
                         }
                         if glyph(ui, true, "🗑")
-                            .on_hover_text(tr(self.lang, "Delete this mask (its stack order shifts the ones below)"))
+                            .on_hover_text(tr(self.lang, K_DEVELOP_DELETE_THIS_MASK_ITS_STACK_ORDER_SHIFTS_THE_ONES))
                             .clicked()
                         {
                             delete = Some(i);
@@ -244,19 +244,19 @@ impl AutoShadeApp {
         ui.horizontal(|ui| {
             let cell = columns(ui, 3);
             let lin_armed = matches!(self.masks.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
-            if toggle_in(ui, cell, lin_armed, tr(lang, "＋ Linear")).on_hover_text(tr(lang, "Drag on the image: start = fully-applied side, end = unaffected side (Shift = horizontal/vertical)")).clicked() {
+            if toggle_in(ui, cell, lin_armed, tr(lang, K_DEVELOP_LINEAR__2)).on_hover_text(tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_START_FULLY_APPLIED_SIDE_END_U)).clicked() {
                 self.disarm_tools();
                 if !lin_armed {
                     self.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
-                    self.status = tr(lang, "Drag on the image to draw a linear gradient (start fully applied → end unaffected; Shift = axis lock)").into();
+                    self.status = tr(lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_LINEAR_GRADIENT_STAR).into();
                 }
             }
             let rad_armed = matches!(self.masks.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
-            if toggle_in(ui, cell, rad_armed, tr(lang, "＋ Radial")).on_hover_text(tr(lang, "Drag on the image to draw an elliptical area")).clicked() {
+            if toggle_in(ui, cell, rad_armed, tr(lang, K_DEVELOP_RADIAL__2)).on_hover_text(tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_TO_DRAW_AN_ELLIPTICAL_AREA)).clicked() {
                 self.disarm_tools();
                 if !rad_armed {
                     self.masks.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
-                    self.status = tr(lang, "Drag on the image to draw a radial (elliptical) area").into();
+                    self.status = tr(lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_RADIAL_ELLIPTICAL_AR).into();
                 }
             }
             // LR's most-used local tool, finally: free-form brush →
@@ -264,8 +264,8 @@ impl AutoShadeApp {
             // all pre-existed; this wires the paint canvas into
             // recipe.masks — see start_mask_brush / commit_mask_brush).
             let brush_armed = matches!(self.masks.mask_brush, Some((None, _)));
-            if toggle_in(ui, cell, brush_armed, tr(lang, "🖌 Brush"))
-                .on_hover_text(tr(lang, "Paint a free-form mask (drag the 「Brush size」 slider, or press [ / ]); 「Apply」 bakes it into a new mask"))
+            if toggle_in(ui, cell, brush_armed, tr(lang, K_DEVELOP_BRUSH__2))
+                .on_hover_text(tr(lang, K_DEVELOP_PAINT_A_FREE_FORM_MASK_DRAG_THE_BRUSH_SIZE_SLIDE))
                 .clicked()
             {
                 if brush_armed {
@@ -283,16 +283,16 @@ impl AutoShadeApp {
         if let Some((target, erase)) = self.masks.mask_brush {
             ui.horizontal(|ui| {
                 let cell = columns(ui, 3);
-                if toggle_in(ui, cell, erase, tr(lang, "Erase"))
-                    .on_hover_text(tr(lang, "Strokes remove from the selection instead of adding"))
+                if toggle_in(ui, cell, erase, tr(lang, K_DEVELOP_ERASE))
+                    .on_hover_text(tr(lang, K_DEVELOP_STROKES_REMOVE_FROM_THE_SELECTION_INSTEAD_OF_ADD))
                     .clicked()
                 {
                     self.masks.mask_brush = Some((target, !erase));
                 }
-                if primary_in(ui, cell, true, tr(lang, "✓ Apply")).clicked() {
+                if primary_in(ui, cell, true, tr(lang, K_DEVELOP_APPLY)).clicked() {
                     self.commit_mask_brush();
                 }
-                if action_in(ui, cell, true, tr(lang, "✕ Cancel")).clicked() {
+                if action_in(ui, cell, true, tr(lang, K_APP_CANCEL)).clicked() {
                     self.disarm_tools();
                 }
             });
@@ -318,7 +318,7 @@ impl AutoShadeApp {
             let can_seg = !self.busy && self.photo.base_preview.is_some() && has_helper;
             let cell = columns(ui, 2);
             let missing = tr(lang,
-                "This feature needs AutoShade's Python helper, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_SEGMENT_SCRIPT to the path of segment.py",
+                K_DEVELOP_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPER_WHI,
             );
             // 🤖 on BOTH (#4): one prefix marks every AI verb app-wide, and
             // 「☁ AI select sky」 was the lone exception — a weather glyph
@@ -326,14 +326,14 @@ impl AutoShadeApp {
             // tooltip carries the AI-panel cross-reference, but only on the
             // arm that CAN run: a missing-sidecar message must stay about
             // the missing sidecar.
-            if action_in(ui, cell, can_seg, tr(lang, "🤖 Select subject"))
+            if action_in(ui, cell, can_seg, tr(lang, K_DEVELOP_SELECT_SUBJECT))
                 // R29 B4: the model, its dependencies and its download size
                 // all changed with the user's ruling of 2026-08-21, and the
                 // FALLBACK is named because a machine without torchvision
                 // gets a materially softer mask and would otherwise have no
                 // way to know which model drew it.
                 .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
-                    "BiRefNet salient-subject segmentation → bitmap mask (Python helper: pip install torchvision timm einops; first run auto-downloads a ~444MB model; without them it falls back to U²-Net / pip install rembg, whose edges are softer)",
+                    K_DEVELOP_BIREFNET_SALIENT_SUBJECT_SEGMENTATION_BITMAP_MAS,
                 )) } else { missing.to_string() })
                 .clicked()
             {
@@ -341,9 +341,9 @@ impl AutoShadeApp {
                     logic::develop::DevelopAction::Segment { target: "subject", label: "Subject" },
                 )]);
             }
-            if action_in(ui, cell, can_seg, tr(lang, "🤖 Select sky"))
+            if action_in(ui, cell, can_seg, tr(lang, K_DEVELOP_SELECT_SKY))
                 .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
-                    "OneFormer-ADE20K sky segmentation → bitmap mask (Python helper: pip install transformers; first run auto-downloads a ~880MB model)",
+                    K_DEVELOP_ONEFORMER_ADE20K_SKY_SEGMENTATION_BITMAP_MASK_PY,
                 )) } else { missing.to_string() })
                 .clicked()
             {
@@ -359,7 +359,7 @@ impl AutoShadeApp {
             ui.label(
                 egui::RichText::new(tr(
                     lang,
-                    "No masks yet — draw one with the tools above; AI Analyze adds its own too.",
+                    K_DEVELOP_NO_MASKS_YET_DRAW_ONE_WITH_THE_TOOLS_ABOVE_AI_AN,
                 ))
                 .weak()
                 .small(),
@@ -388,7 +388,7 @@ impl AutoShadeApp {
                 if glyph_toggle(ui, field.enabled, "👁")
                     .on_hover_text(tr(
                         lang,
-                        "Show/mute the colour field without losing its amount",
+                        K_DEVELOP_SHOW_MUTE_THE_COLOUR_FIELD_WITHOUT_LOSING_ITS_AM,
                     ))
                     .clicked()
                 {
@@ -397,8 +397,8 @@ impl AutoShadeApp {
                 }
                 let label = format!(
                     "▦ {} · {}",
-                    tr(lang, "Colour field"),
-                    tr(lang, "engine-only"),
+                    tr(lang, K_DEVELOP_COLOUR_FIELD),
+                    tr(lang, K_DEVELOP_ENGINE_ONLY),
                 );
                 ui.label(if field.enabled {
                     egui::RichText::new(label)
@@ -407,10 +407,10 @@ impl AutoShadeApp {
                 })
                 .on_hover_text(tr(
                     lang,
-                    "A smooth local colour/tone field the reverse fit solved. It renders here and in every export from this app; classic XMP has no way to carry it, so Lightroom sees the rest of this recipe without it.",
+                    K_DEVELOP_A_SMOOTH_LOCAL_COLOUR_TONE_FIELD_THE_REVERSE_FIT,
                 ));
                 if glyph(ui, true, "🗑")
-                    .on_hover_text(tr(lang, "Remove the colour field"))
+                    .on_hover_text(tr(lang, K_DEVELOP_REMOVE_THE_COLOUR_FIELD))
                     .clicked()
                 {
                     remove_field = true;
@@ -422,7 +422,7 @@ impl AutoShadeApp {
             let enabled = field.enabled;
             if ui
                 .add_enabled_ui(enabled, |ui| {
-                    Self::slider_pct(ui, lang, tr(lang, "Amount"), &mut field.amount, 1.0, 1.0)
+                    Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_AMOUNT), &mut field.amount, 1.0, 1.0)
                 })
                 .inner
             {
@@ -456,14 +456,14 @@ impl AutoShadeApp {
             changed |= coverage;
             changed |= self.dev_mask_adjustments(ui, i);
         } else if n_masks == 0 {
-            explainer(ui, lang, tr(lang, "Lightroom-style local adjustments: add a gradient to darken the sky, a radial to brighten the subject. AI Analyze also writes to this list."));
+            explainer(ui, lang, tr(lang, K_DEVELOP_LIGHTROOM_STYLE_LOCAL_ADJUSTMENTS_ADD_A_GRADIENT));
         } else {
             // Masks exist, none is selected — one click on the selected
             // row (it toggles) lands here, and the section then showed a
             // list with no adjustments under it and no reason why.
             ui.add_space(SPACE_XS);
             ui.label(
-                egui::RichText::new(tr(lang, "Select a mask above to edit its adjustments"))
+                egui::RichText::new(tr(lang, K_DEVELOP_SELECT_A_MASK_ABOVE_TO_EDIT_ITS_ADJUSTMENTS))
                     .weak()
                     .small(),
             );
@@ -497,21 +497,21 @@ impl AutoShadeApp {
         // sectioned. `Tone` is our own caption for LR's "Light" group:
         // the key "Light" already means the light THEME.
         let group = |ui: &mut egui::Ui, title: &str| sub_caption(ui, title);
-        group(ui, tr(lang, "Tone"));
-        changed |= Self::slider(ui, lang, tr(lang, "Exposure"), &mut m.exposure_ev, -5.0, 5.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Contrast"), &mut m.contrast, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Highlights"), &mut m.highlights, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Shadows"), &mut m.shadows, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Whites"), &mut m.whites, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Blacks"), &mut m.blacks, -100.0, 100.0, 0.0);
+        group(ui, tr(lang, K_DEVELOP_TONE));
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_EXPOSURE), &mut m.exposure_ev, -5.0, 5.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_CONTRAST), &mut m.contrast, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_HIGHLIGHTS), &mut m.highlights, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_SHADOWS), &mut m.shadows, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_WHITES), &mut m.whites, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_BLACKS), &mut m.blacks, -100.0, 100.0, 0.0);
         // Texture / Clarity / Dehaze come out of the old
         // 「More (XMP/Lightroom only)」 fold: R22-3 put all three ON the
         // engine (render::apply_masks), so that title became a lie and
         // the fold merely hid three working sliders one level deep.
-        group(ui, tr(lang, "Detail"));
-        changed |= Self::slider(ui, lang, tr(lang, "Texture"), &mut m.texture, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Clarity"), &mut m.clarity, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, "Dehaze"), &mut m.dehaze, -100.0, 100.0, 0.0);
+        group(ui, tr(lang, K_DEVELOP_DETAIL));
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_TEXTURE), &mut m.texture, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_CLARITY), &mut m.clarity, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_DEHAZE), &mut m.dehaze, -100.0, 100.0, 0.0);
         // R23-1b. SIGNED, unlike the global 0..150 Sharpening: this is
         // ACR's local band, and its negative half (soften) is what
         // throws a background back — the tooltip says so, because the
@@ -519,28 +519,28 @@ impl AutoShadeApp {
         changed |= Self::slider_hinted(
             ui,
             lang,
-            tr(lang, "Sharpness"),
+            tr(lang, K_DEVELOP_SHARPNESS),
             &mut m.sharpness,
             -100.0,
             100.0,
             0.0,
-            tr(lang, "Sharpens inside the mask when positive and SOFTENS when negative (the global 「Sharpening」 has no negative half). Same radius as the global one."),
+            tr(lang, K_DEVELOP_SHARPENS_INSIDE_THE_MASK_WHEN_POSITIVE_AND_SOFTE),
         );
-        changed |= Self::slider(ui, lang, tr(lang, "Noise Reduction"), &mut m.noise_reduction, 0.0, 100.0, 0.0);
-        group(ui, tr(lang, "Color"));
-        changed |= Self::slider(ui, lang, tr(lang, "Saturation"), &mut m.saturation, -100.0, 100.0, 0.0);
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_NOISE_REDUCTION), &mut m.noise_reduction, 0.0, 100.0, 0.0);
+        group(ui, tr(lang, K_DEVELOP_COLOR));
+        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_SATURATION), &mut m.saturation, -100.0, 100.0, 0.0);
         // R23-1b: a hue ROTATION of everything the mask covers — the
         // one colour move the global 8-band mixer cannot make, because
         // that one acts on a band everywhere in the frame.
         changed |= Self::slider_hinted(
             ui,
             lang,
-            tr(lang, "Hue shift"),
+            tr(lang, K_DEVELOP_HUE_SHIFT),
             &mut m.hue,
             -100.0,
             100.0,
             0.0,
-            tr(lang, "Rotates every colour inside the mask (±100 = ±30°) — unlike the global color mixer, which moves one color band across the whole frame."),
+            tr(lang, K_DEVELOP_ROTATES_EVERY_COLOUR_INSIDE_THE_MASK_100_30_UNLI),
         );
         // Engine-rendered since batch #2-B (render.rs apply_masks
         // mirrors the global WB model inside the mask) — live in the
@@ -557,19 +557,19 @@ impl AutoShadeApp {
         );
         let temp_hint = trf(
             lang,
-            "A RELATIVE warm/cool shift (±100) around a fixed 5500 K anchor, not absolute Kelvin: this value renders like ≈ {k} K. The global 「Temp (K)」 is absolute and anchored at this photo's as-shot value — a different axis.",
+            K_DEVELOP_A_RELATIVE_WARM_COOL_SHIFT_100_AROUND_A_FIXED_55,
             &[("k", &temp_k)],
         );
-        changed |= Self::slider_hinted(ui, lang, tr(lang, "Temp shift"), &mut m.temperature, -100.0, 100.0, 0.0, &temp_hint);
+        changed |= Self::slider_hinted(ui, lang, tr(lang, K_DEVELOP_TEMP_SHIFT), &mut m.temperature, -100.0, 100.0, 0.0, &temp_hint);
         changed |= Self::slider_hinted(
             ui,
             lang,
-            tr(lang, "Tint shift"),
+            tr(lang, K_DEVELOP_TINT_SHIFT),
             &mut m.tint,
             -100.0,
             100.0,
             0.0,
-            tr(lang, "A RELATIVE green/magenta shift (±100) inside the mask — positive goes magenta. Unlike the global 「Tint」 it is not solved against the photo's as-shot tint."),
+            tr(lang, K_DEVELOP_A_RELATIVE_GREEN_MAGENTA_SHIFT_100_INSIDE_THE_MA),
         );
         // Lightroom's mask "Color" swatch (`crs:LocalToningSaturation`
         // / `LocalToningHue`), as its two numbers: how strongly, then
@@ -579,22 +579,22 @@ impl AutoShadeApp {
         changed |= Self::slider_hinted(
             ui,
             lang,
-            tr(lang, "Color tint"),
+            tr(lang, K_DEVELOP_COLOR_TINT),
             &mut m.toning_amount,
             0.0,
             100.0,
             0.0,
-            tr(lang, "Lightroom's mask Color swatch: shifts every colour inside the mask, neutral and coloured alike, toward 「Color tint hue」 — most in the midtones, never brighter or darker. Unlike 「Hue shift」, which turns colours by an angle."),
+            tr(lang, K_DEVELOP_LIGHTROOM_S_MASK_COLOR_SWATCH_SHIFTS_EVERY_COLOU),
         );
         changed |= Self::slider_hinted(
             ui,
             lang,
-            tr(lang, "Color tint hue"),
+            tr(lang, K_DEVELOP_COLOR_TINT_HUE),
             &mut m.toning_hue,
             0.0,
             360.0,
             0.0,
-            tr(lang, "The hue (0–360°) 「Color tint」 pushes toward, on Lightroom's own wheel. Does nothing until 「Color tint」 is above 0."),
+            tr(lang, K_DEVELOP_THE_HUE_0_360_COLOR_TINT_PUSHES_TOWARD_ON_LIGHTR),
         );
         // Reverse-fit recolour gains: per-channel linear gains no
         // classic-ACR key can express (recipe.rs `color_gains`); the
@@ -608,12 +608,12 @@ impl AutoShadeApp {
                 // it wraps under the note when the note is long (2026-09-27).
                 let cell = columns(ui, 2);
                 ui.label(
-                    egui::RichText::new(tr(lang, "carries reverse-fit recolour (written to XMP as Temp/Tint)"))
+                    egui::RichText::new(tr(lang, K_DEVELOP_CARRIES_REVERSE_FIT_RECOLOUR_WRITTEN_TO_XMP_AS_T))
                         .weak()
                         .small(),
                 );
-                if action_in(ui, cell, true, tr(lang, "↺ Clear"))
-                    .on_hover_text(tr(lang, "Drop this mask's per-channel recolour gains (one Ctrl+Z to undo)"))
+                if action_in(ui, cell, true, tr(lang, K_DEVELOP_CLEAR))
+                    .on_hover_text(tr(lang, K_DEVELOP_DROP_THIS_MASK_S_PER_CHANNEL_RECOLOUR_GAINS_ONE))
                     .clicked()
                 {
                     m.color_gains = None;
@@ -631,7 +631,7 @@ impl AutoShadeApp {
         //
         // Last in the section on purpose: it is the only control here
         // that is not a slider, and it is the tallest.
-        group(ui, tr(lang, "Curve"));
+        group(ui, tr(lang, K_DEVELOP_CURVE));
         changed |= self.curve_editor_for(ui, CurveTarget::Mask(i));
         changed
     }
@@ -681,7 +681,7 @@ impl AutoShadeApp {
                 let redraw = if has_redraw {
                     let label = ui.fonts_mut(|f| {
                         f.layout_no_wrap(
-                            tr(lang, "↻ Redraw").to_owned(),
+                            tr(lang, K_DEVELOP_REDRAW).to_owned(),
                             egui::TextStyle::Button.resolve(ui.style()),
                             egui::Color32::WHITE,
                         )
@@ -705,7 +705,7 @@ impl AutoShadeApp {
                         .desired_width(
                             (ui.available_width() - reserve - name_margin.sum().x).max(110.0),
                         )
-                        .hint_text(tr(lang, "Name")),
+                        .hint_text(tr(lang, K_DEVELOP_NAME)),
                 )
             };
             if name_resp.lost_focus()
@@ -749,15 +749,15 @@ impl AutoShadeApp {
                     Some((k, PlaceTarget::Redraw(j))) if k == kind && j == i
                 );
                 if ui
-                    .selectable_label(redraw_armed, tr(lang, "↻ Redraw"))
-                    .on_hover_text(tr(lang, "Re-drag this mask's area on the image"))
+                    .selectable_label(redraw_armed, tr(lang, K_DEVELOP_REDRAW))
+                    .on_hover_text(tr(lang, K_DEVELOP_RE_DRAG_THIS_MASK_S_AREA_ON_THE_IMAGE))
                     .clicked()
                 {
                     self.disarm_tools();
                     if !redraw_armed {
                         self.masks.placing_mask = Some((kind, PlaceTarget::Redraw(i)));
                         self.status =
-                            tr(lang, "Re-drag this mask's area on the image").into();
+                            tr(lang, K_DEVELOP_RE_DRAG_THIS_MASK_S_AREA_ON_THE_IMAGE).into();
                     }
                 }
             }
@@ -765,7 +765,7 @@ impl AutoShadeApp {
             // a later mask's range sees earlier masks' output) — so the
             // list order is editable, not just cosmetic.
             if glyph(ui, i > 0, "⬆")
-                .on_hover_text(tr(lang, "Move up (renders earlier)"))
+                .on_hover_text(tr(lang, K_DEVELOP_MOVE_UP_RENDERS_EARLIER))
                 .clicked()
             {
                 self.apply_actions(vec![logic::Action::Develop(
@@ -773,7 +773,7 @@ impl AutoShadeApp {
                 )]);
             }
             if glyph(ui, i + 1 < self.doc.recipe.masks.len(), "⬇")
-                .on_hover_text(tr(lang, "Move down (renders later)"))
+                .on_hover_text(tr(lang, K_DEVELOP_MOVE_DOWN_RENDERS_LATER))
                 .clicked()
             {
                 self.apply_actions(vec![logic::Action::Develop(
@@ -784,7 +784,7 @@ impl AutoShadeApp {
             // sliders; rasters are DETACHED copies (the version-load
             // rule), so the twins never share a mutable file.
             if glyph(ui, true, "⧉")
-                .on_hover_text(tr(lang, "Duplicate this mask (bitmap rasters are copied, so the copies stay independent)"))
+                .on_hover_text(tr(lang, K_DEVELOP_DUPLICATE_THIS_MASK_BITMAP_RASTERS_ARE_COPIED_SO))
                 .clicked()
             {
                 self.apply_actions(vec![logic::Action::Develop(
@@ -798,7 +798,7 @@ impl AutoShadeApp {
             // must drive the develop + overlay like every other mask
             // control (was silently discarded: the toggle mutated the
             // recipe but never re-rendered until an unrelated edit).
-            if ui.checkbox(&mut self.doc.recipe.masks[i].inverted, tr(lang, "Invert")).changed() {
+            if ui.checkbox(&mut self.doc.recipe.masks[i].inverted, tr(lang, K_DEVELOP_INVERT)).changed() {
                 self.overlay.overlay_stale = true;
                 changed = true;
             }
@@ -813,8 +813,8 @@ impl AutoShadeApp {
             // label now says what it is, in the same words the F1 sheet
             // uses for the O key ("Toggle mask overlay").
             if ui
-                .checkbox(&mut self.overlay.show_mask_overlay, tr(lang, "Show mask overlay"))
-                .on_hover_text(tr(lang, "One view switch shared by every mask (shortcut O): shows the hovered-or-selected mask's actual coverage as a red semi-transparent overlay (geometry × range × strength)"))
+                .checkbox(&mut self.overlay.show_mask_overlay, tr(lang, K_DEVELOP_SHOW_MASK_OVERLAY))
+                .on_hover_text(tr(lang, K_DEVELOP_ONE_VIEW_SWITCH_SHARED_BY_EVERY_MASK_SHORTCUT_O))
                 .changed()
             {
                 self.overlay.overlay_stale = true;
@@ -830,16 +830,16 @@ impl AutoShadeApp {
                 geo_ch |= Self::slider_pct(
                     ui,
                     lang,
-                    tr(lang, "Edge feather"),
+                    tr(lang, K_DEVELOP_EDGE_FEATHER),
                     feather,
                     1.0,
                     0.5,
                 );
                 geo_ch |= ui
-                    .checkbox(flipped, tr(lang, "Flip"))
+                    .checkbox(flipped, tr(lang, K_DEVELOP_FLIP))
                     .on_hover_text(tr(
                         lang,
-                        "Swap which side of the ellipse the adjustment affects (composes with Invert)",
+                        K_DEVELOP_SWAP_WHICH_SIDE_OF_THE_ELLIPSE_THE_ADJUSTMENT_AF,
                     ))
                     .changed();
             });
@@ -852,7 +852,7 @@ impl AutoShadeApp {
             geo_ch |= Self::slider(
                 ui,
                 lang,
-                tr(lang, "Angle"),
+                tr(lang, K_DEVELOP_ANGLE),
                 angle,
                 -179.9,
                 180.0,
@@ -881,8 +881,8 @@ impl AutoShadeApp {
             ui.horizontal(|ui| {
                 let cell = columns(ui, 2);
                 let edit_armed = matches!(self.masks.mask_brush, Some((Some(j), _)) if j == i);
-                if toggle_in(ui, cell, edit_armed, tr(lang, "🖌 Edit raster"))
-                    .on_hover_text(tr(lang, "Brush-edit this mask: paint adds, 「Erase」 removes, 「Apply」 bakes"))
+                if toggle_in(ui, cell, edit_armed, tr(lang, K_DEVELOP_EDIT_RASTER))
+                    .on_hover_text(tr(lang, K_DEVELOP_BRUSH_EDIT_THIS_MASK_PAINT_ADDS_ERASE_REMOVES_AP))
                     .clicked()
                 {
                     if edit_armed {
@@ -893,8 +893,8 @@ impl AutoShadeApp {
                     )]);
                     }
                 }
-                if action_in(ui, cell, !self.busy, tr(lang, "Full-res refine"))
-                    .on_hover_text(tr(lang, "Re-cut this mask against the FULL-resolution source (guided filter). Preview-res AI masks smear their boundary at export — this snaps it to real edges. Decodes the full-size source; takes a few seconds."))
+                if action_in(ui, cell, !self.busy, tr(lang, K_DEVELOP_FULL_RES_REFINE))
+                    .on_hover_text(tr(lang, K_DEVELOP_RE_CUT_THIS_MASK_AGAINST_THE_FULL_RESOLUTION_SOU))
                     .clicked()
                 {
                     self.apply_actions(vec![logic::Action::Develop(
@@ -904,8 +904,8 @@ impl AutoShadeApp {
             });
             ui.horizontal(|ui| {
                 let cell = columns(ui, 3);
-                if action_in(ui, cell, true, tr(lang, "Soften"))
-                    .on_hover_text(tr(lang, "Soften the mask boundary one step (bakes a new raster; repeat for more)"))
+                if action_in(ui, cell, true, tr(lang, K_DEVELOP_SOFTEN))
+                    .on_hover_text(tr(lang, K_DEVELOP_SOFTEN_THE_MASK_BOUNDARY_ONE_STEP_BAKES_A_NEW_RA))
                     .clicked()
                 {
                     self.bake_mask_raster(
@@ -917,8 +917,8 @@ impl AutoShadeApp {
                         "mask-edit",
                     );
                 }
-                if action_in(ui, cell, true, tr(lang, "Expand"))
-                    .on_hover_text(tr(lang, "Grow the selection one step (bakes a new raster)"))
+                if action_in(ui, cell, true, tr(lang, K_DEVELOP_EXPAND))
+                    .on_hover_text(tr(lang, K_DEVELOP_GROW_THE_SELECTION_ONE_STEP_BAKES_A_NEW_RASTER))
                     .clicked()
                 {
                     self.bake_mask_raster(
@@ -930,8 +930,8 @@ impl AutoShadeApp {
                         "mask-edit",
                     );
                 }
-                if action_in(ui, cell, true, tr(lang, "Contract"))
-                    .on_hover_text(tr(lang, "Shrink the selection one step (bakes a new raster)"))
+                if action_in(ui, cell, true, tr(lang, K_DEVELOP_CONTRACT))
+                    .on_hover_text(tr(lang, K_DEVELOP_SHRINK_THE_SELECTION_ONE_STEP_BAKES_A_NEW_RASTER))
                     .clicked()
                 {
                     self.bake_mask_raster(
@@ -959,11 +959,11 @@ impl AutoShadeApp {
         // Bitmap components remain a named geometry loss.
         {
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Shapes"));
+                ui.label(tr(lang, K_DEVELOP_SHAPES));
                 let mode_label = |m: autoshade::recipe::MaskCombine| match m {
-                    autoshade::recipe::MaskCombine::Add => tr(lang, "＋ Add"),
-                    autoshade::recipe::MaskCombine::Subtract => tr(lang, "－ Subtract"),
-                    autoshade::recipe::MaskCombine::Intersect => tr(lang, "∩ Intersect"),
+                    autoshade::recipe::MaskCombine::Add => tr(lang, K_DEVELOP_ADD),
+                    autoshade::recipe::MaskCombine::Subtract => tr(lang, K_DEVELOP_SUBTRACT),
+                    autoshade::recipe::MaskCombine::Intersect => tr(lang, K_DEVELOP_INTERSECT),
                 };
                 egui::ComboBox::from_id_salt("comp_mode")
                     .selected_text(mode_label(self.masks.component_mode))
@@ -983,15 +983,15 @@ impl AutoShadeApp {
                     Some((MaskKind::Linear, PlaceTarget::Component(j, _))) if j == i
                 );
                 if ui
-                    .selectable_label(lin_armed, tr(lang, "Linear"))
-                    .on_hover_text(tr(lang, "Drag on the image to add a linear shape to THIS mask"))
+                    .selectable_label(lin_armed, tr(lang, K_DEVELOP_LINEAR))
+                    .on_hover_text(tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_TO_ADD_A_LINEAR_SHAPE_TO_THIS))
                     .clicked()
                 {
                     self.disarm_tools();
                     if !lin_armed {
                         self.masks.placing_mask =
                             Some((MaskKind::Linear, PlaceTarget::Component(i, mode)));
-                        self.status = tr(lang, "Drag on the image: the new shape composes onto this mask").into();
+                        self.status = tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_THE_NEW_SHAPE_COMPOSES_ONTO_TH).into();
                     }
                 }
                 let rad_armed = matches!(
@@ -999,15 +999,15 @@ impl AutoShadeApp {
                     Some((MaskKind::Radial, PlaceTarget::Component(j, _))) if j == i
                 );
                 if ui
-                    .selectable_label(rad_armed, tr(lang, "Radial"))
-                    .on_hover_text(tr(lang, "Drag on the image to add an elliptical shape to THIS mask"))
+                    .selectable_label(rad_armed, tr(lang, K_DEVELOP_RADIAL))
+                    .on_hover_text(tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_TO_ADD_AN_ELLIPTICAL_SHAPE_TO))
                     .clicked()
                 {
                     self.disarm_tools();
                     if !rad_armed {
                         self.masks.placing_mask =
                             Some((MaskKind::Radial, PlaceTarget::Component(i, mode)));
-                        self.status = tr(lang, "Drag on the image: the new shape composes onto this mask").into();
+                        self.status = tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_THE_NEW_SHAPE_COMPOSES_ONTO_TH).into();
                     }
                 }
             });
@@ -1022,17 +1022,17 @@ impl AutoShadeApp {
                         autoshade::recipe::MaskCombine::Intersect => "∩",
                     };
                     let kind = match comp.geometry {
-                        MaskGeometry::Linear { .. } => tr(lang, "Linear"),
-                        MaskGeometry::Shaped { .. } => tr(lang, "Shaped gradient"),
-                        MaskGeometry::Radial { .. } => tr(lang, "Radial"),
-                        MaskGeometry::Bitmap { .. } => tr(lang, "Bitmap"),
-                        MaskGeometry::Brush { .. } => tr(lang, "Brush"),
-                        MaskGeometry::AiMask { .. } => tr(lang, "AI"),
+                        MaskGeometry::Linear { .. } => tr(lang, K_DEVELOP_LINEAR),
+                        MaskGeometry::Shaped { .. } => tr(lang, K_DEVELOP_SHAPED_GRADIENT),
+                        MaskGeometry::Radial { .. } => tr(lang, K_DEVELOP_RADIAL),
+                        MaskGeometry::Bitmap { .. } => tr(lang, K_DEVELOP_BITMAP),
+                        MaskGeometry::Brush { .. } => tr(lang, K_DEVELOP_BRUSH),
+                        MaskGeometry::AiMask { .. } => tr(lang, K_DEVELOP_AI),
                     };
                     let selected = self.masks.sel_component == Some(c);
                     if ui
                         .selectable_label(selected, format!("{icon} {kind}"))
-                        .on_hover_text(tr(lang, "Select to drag this shape's knobs on the image (the base mask's knobs come back when deselected)"))
+                        .on_hover_text(tr(lang, K_DEVELOP_SELECT_TO_DRAG_THIS_SHAPE_S_KNOBS_ON_THE_IMAGE_T))
                         .clicked()
                     {
                         self.masks.sel_component = if selected { None } else { Some(c) };
@@ -1040,15 +1040,15 @@ impl AutoShadeApp {
                     let mut mode = comp.mode;
                     egui::ComboBox::from_id_salt(("comp_row_mode", c))
                         .selected_text(match mode {
-                            autoshade::recipe::MaskCombine::Add => tr(lang, "Add"),
-                            autoshade::recipe::MaskCombine::Subtract => tr(lang, "Subtract"),
-                            autoshade::recipe::MaskCombine::Intersect => tr(lang, "Intersect"),
+                            autoshade::recipe::MaskCombine::Add => tr(lang, K_DEVELOP_ADD__2),
+                            autoshade::recipe::MaskCombine::Subtract => tr(lang, K_DEVELOP_SUBTRACT__2),
+                            autoshade::recipe::MaskCombine::Intersect => tr(lang, K_DEVELOP_INTERSECT__2),
                         })
                         .width(88.0)
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut mode, autoshade::recipe::MaskCombine::Add, tr(lang, "Add"));
-                            ui.selectable_value(&mut mode, autoshade::recipe::MaskCombine::Subtract, tr(lang, "Subtract"));
-                            ui.selectable_value(&mut mode, autoshade::recipe::MaskCombine::Intersect, tr(lang, "Intersect"));
+                            ui.selectable_value(&mut mode, autoshade::recipe::MaskCombine::Add, tr(lang, K_DEVELOP_ADD__2));
+                            ui.selectable_value(&mut mode, autoshade::recipe::MaskCombine::Subtract, tr(lang, K_DEVELOP_SUBTRACT__2));
+                            ui.selectable_value(&mut mode, autoshade::recipe::MaskCombine::Intersect, tr(lang, K_DEVELOP_INTERSECT__2));
                         });
                     if mode != comp.mode {
                         crate::logic::command::apply(
@@ -1063,7 +1063,7 @@ impl AutoShadeApp {
                         changed = true;
                     }
                     let mut inverted = self.doc.recipe.masks[i].components[c].inverted;
-                    if ui.checkbox(&mut inverted, tr(lang, "Invert")).changed() {
+                    if ui.checkbox(&mut inverted, tr(lang, K_DEVELOP_INVERT)).changed() {
                         crate::logic::command::apply(
                             &mut self.doc.recipe,
                             crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::SetComponentInverted {
@@ -1097,7 +1097,7 @@ impl AutoShadeApp {
                 changed = true;
             }
             if n_comp > 0 {
-                explainer(ui, lang, tr(lang, "Shapes compose in order onto the base mask. Linear, radial, brush and AI components export to Lightroom; bitmap components have a named loss."));
+                explainer(ui, lang, tr(lang, K_DEVELOP_SHAPES_COMPOSE_IN_ORDER_ONTO_THE_BASE_MASK_LINEA));
             }
         }
         changed
@@ -1123,14 +1123,14 @@ impl AutoShadeApp {
             };
             let mut sel = cur;
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Range mask"));
+                ui.label(tr(lang, K_DEVELOP_RANGE_MASK));
                 egui::ComboBox::from_id_salt("range_kind")
-                    .selected_text([tr(lang, "None"), tr(lang, "Luminance"), tr(lang, "Color")][sel])
+                    .selected_text([tr(lang, K_DEVELOP_NONE), tr(lang, K_DEVELOP_LUMINANCE), tr(lang, K_DEVELOP_COLOR)][sel])
                     .width(70.0)
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut sel, 0, tr(lang, "None"));
-                        ui.selectable_value(&mut sel, 1, tr(lang, "Luminance"));
-                        ui.selectable_value(&mut sel, 2, tr(lang, "Color"));
+                        ui.selectable_value(&mut sel, 0, tr(lang, K_DEVELOP_NONE));
+                        ui.selectable_value(&mut sel, 1, tr(lang, K_DEVELOP_LUMINANCE));
+                        ui.selectable_value(&mut sel, 2, tr(lang, K_DEVELOP_COLOR));
                     });
             });
             if sel != cur {
@@ -1155,7 +1155,7 @@ impl AutoShadeApp {
                     // a picked colour selects nothing useful.
                     self.disarm_tools();
                     self.tools.range_picking = Some(i);
-                    self.status = tr(lang, "Color range: click the color to pick in the image").into();
+                    self.status = tr(lang, K_DEVELOP_COLOR_RANGE_CLICK_THE_COLOR_TO_PICK_IN_THE_IMAGE).into();
                 }
                 changed = true;
             }
@@ -1164,7 +1164,7 @@ impl AutoShadeApp {
             match &mut self.doc.recipe.masks[i].range {
                 Some(RangeMask::Luminance { lo_outer, lo, hi, hi_outer }) => {
                     ui.horizontal(|ui| {
-                        ui.label(tr(lang, "Ordered bounds"));
+                        ui.label(tr(lang, K_DEVELOP_ORDERED_BOUNDS));
                         ui.monospace(format!(
                             "{lo_outer:.3} <= {lo:.3} <= {hi:.3} <= {hi_outer:.3}"
                         ));
@@ -1175,9 +1175,9 @@ impl AutoShadeApp {
                     // All three on LR's 0..100 display track (storage
                     // stays the 0..1 fraction — see slider_pct).
                     let mut f = ((*lo - *lo_outer) + (*hi_outer - *hi)) * 0.5;
-                    let ch_lo = Self::slider_pct(ui, lang, tr(lang, "Lum. low"), lo, 1.0, 0.0);
-                    let ch_hi = Self::slider_pct(ui, lang, tr(lang, "Lum. high"), hi, 1.0, 1.0);
-                    let ch_f = Self::slider_pct(ui, lang, tr(lang, "Feather"), &mut f, 0.5, 0.1);
+                    let ch_lo = Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_LUM_LOW), lo, 1.0, 0.0);
+                    let ch_hi = Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_LUM_HIGH), hi, 1.0, 1.0);
+                    let ch_f = Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_FEATHER), &mut f, 0.5, 0.1);
                     if ch_lo || ch_hi || ch_f {
                         // CLAMP the edited endpoint at the other, never
                         // swap: the active slider stays bound to its
@@ -1206,12 +1206,12 @@ impl AutoShadeApp {
                             (full.x - swatch.rect.width() - ui.spacing().item_spacing.x).max(0.0),
                             full.y,
                         );
-                        let label = if picking_this { tr(lang, "💧 Click in image…") } else { tr(lang, "💧 Sample") };
-                        if action_in(ui, cell, true, label).on_hover_text(tr(lang, "Click the color to pick in the image (the same color at other brightnesses is also selected; clicking this button again cancels sampling)")).clicked() {
+                        let label = if picking_this { tr(lang, K_DEVELOP_CLICK_IN_IMAGE) } else { tr(lang, K_DEVELOP_SAMPLE) };
+                        if action_in(ui, cell, true, label).on_hover_text(tr(lang, K_DEVELOP_CLICK_THE_COLOR_TO_PICK_IN_THE_IMAGE_THE_SAME_CO)).clicked() {
                             want_pick = true;
                         }
                     });
-                    changed |= Self::slider_pct(ui, lang, tr(lang, "Tolerance"), amount, 1.0, 0.5);
+                    changed |= Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_TOLERANCE), amount, 1.0, 0.5);
                 }
                 None => {}
             }
@@ -1219,13 +1219,13 @@ impl AutoShadeApp {
                 self.disarm_tools();
                 if !picking_this {
                     self.tools.range_picking = Some(i);
-                    self.status = tr(lang, "Color range: click the color to pick in the image").into();
+                    self.status = tr(lang, K_DEVELOP_COLOR_RANGE_CLICK_THE_COLOR_TO_PICK_IN_THE_IMAGE).into();
                 }
             }
         }
         let m = &mut self.doc.recipe.masks[i];
         // LR's 0..100 display track (storage stays 0..1 — slider_pct).
-        changed |= Self::slider_pct(ui, lang, tr(lang, "Amount"), &mut m.amount, 1.0, 1.0);
+        changed |= Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_AMOUNT), &mut m.amount, 1.0, 1.0);
         changed
     }
 

@@ -296,7 +296,7 @@ impl AutoShadeApp {
         let mut parts: Vec<String> = Vec::new();
         parts.push(tr(lang, self.exp.format.label()).to_string());
         parts.push(if self.exp.long_edge == 0 {
-            tr(lang, "Original size").to_string()
+            tr(lang, K_EXPORT_ORIGINAL_SIZE).to_string()
         } else {
             format!("{} px", self.exp.long_edge)
         });
@@ -304,7 +304,7 @@ impl AutoShadeApp {
             parts.push(format!("q{:.0}", self.exp.quality));
         }
         if self.exp.sharpen > 0.0 {
-            parts.push(format!("{} {:.0}", tr(lang, "Output sharpening"), self.exp.sharpen));
+            parts.push(format!("{} {:.0}", tr(lang, K_EXPORT_OUTPUT_SHARPENING), self.exp.sharpen));
         }
         parts.push(tr(lang, EXPORT_SPACES[(self.exp.space as usize).min(2)]).to_string());
         if self.export_denoise_applies() {
@@ -314,7 +314,7 @@ impl AutoShadeApp {
             // will actually land).
             parts.push(format!(
                 "{} {:.0}%",
-                tr(lang, "AI Denoise"),
+                tr(lang, K_EXPORT_AI_DENOISE),
                 self.selected_denoise_strength(true) * 100.0
             ));
         }
@@ -463,17 +463,17 @@ impl AutoShadeApp {
         self.status = if denoise.is_some() {
             trf(
                 lang,
-                "rendering + AI denoise → {path} … (GPU sidecar, can take minutes)",
+                K_EXPORT_RENDERING_AI_DENOISE_GPU_SIDECAR_CAN_TAKE_MINUTE,
                 &[("path", &shown)],
             )
         } else if denoise_asked {
             trf(
                 lang,
-                "rendering full-resolution → {path} … (this ◈ card is already denoised — the export-time AI denoise sits out)",
+                K_EXPORT_RENDERING_FULL_RESOLUTION_THIS_CARD_IS_ALREADY_D,
                 &[("path", &shown)],
             )
         } else {
-            trf(lang, "rendering full-resolution → {path} …", &[("path", &shown)])
+            trf(lang, K_EXPORT_RENDERING_FULL_RESOLUTION, &[("path", &shown)])
         };
         let recipe = self.doc.recipe.clone();
         let src_photo = self.photo.src_path.clone();
@@ -640,7 +640,7 @@ impl AutoShadeApp {
         self.busy = true;
         self.status = trf(
             lang,
-            "Batch-rendering {n} photos → {path} …",
+            K_EXPORT_BATCH_RENDERING_PHOTOS,
             &[("n", &targets.len().to_string()), ("path", &abs_display(&dest))],
         );
         // The root travels to the landing as a FACT (L12#4) alongside the
@@ -988,7 +988,7 @@ impl AutoShadeApp {
                 // just a status line that the next message scrolls away.
                 let mut t = trf(
                     lang,
-                    "Lightroom sidecar delivered → {path}",
+                    K_EXPORT_LIGHTROOM_SIDECAR_DELIVERED,
                     &[("path", &abs_display(&to))],
                 );
                 // The file handed over is the projection of the SAVED develop,
@@ -1016,7 +1016,7 @@ impl AutoShadeApp {
                     .unwrap_or_default();
                 let t = trf(
                     lang,
-                    "a .xmp already sits beside this photo ({path}) — click again to replace it",
+                    K_EXPORT_A_XMP_ALREADY_SITS_BESIDE_THIS_PHOTO_CLICK_AGAIN,
                     &[("path", &there)],
                 );
                 self.status = t.clone();
@@ -1026,7 +1026,7 @@ impl AutoShadeApp {
                 self.exp.xmp_beside_confirm = false;
                 let t = trf(
                     lang,
-                    "the .xmp could not be delivered: {err}",
+                    K_EXPORT_THE_XMP_COULD_NOT_BE_DELIVERED,
                     &[("err", &e.to_string())],
                 );
                 self.status = t.clone();
@@ -1102,7 +1102,7 @@ impl AutoShadeApp {
                         Some(w) => {
                             let t = trf(
                                 lang,
-                                "saved edits cleared, but the clear could not be marked ({err}) — a sidecar beside the RAW may restore them",
+                                K_EXPORT_SAVED_EDITS_CLEARED_BUT_THE_CLEAR_COULD_NOT_BE_M,
                                 &[("err", &w)],
                             );
                             self.status = t.clone();
@@ -1110,10 +1110,10 @@ impl AutoShadeApp {
                         }
                         None => {
                             self.status = if o.removed {
-                                tr(lang, "neutral recipe — saved edits cleared (saved files removed)")
+                                tr(lang, K_EXPORT_NEUTRAL_RECIPE_SAVED_EDITS_CLEARED_SAVED_FILES_R)
                                     .into()
                             } else {
-                                tr(lang, "neutral recipe — nothing to save").into()
+                                tr(lang, K_EXPORT_NEUTRAL_RECIPE_NOTHING_TO_SAVE).into()
                             };
                         }
                     }
@@ -1287,7 +1287,7 @@ impl AutoShadeApp {
                 let pixel_note: Option<String> = origin.is_some().then(|| {
                     tr(
                         lang,
-                        " · retouched pixels: master linked — reopening restores them (the Lightroom XMP stays parametric-only)",
+                        K_EXPORT_RETOUCHED_PIXELS_MASTER_LINKED_REOPENING_RESTORE,
                     )
                     .to_string()
                 });
@@ -1304,7 +1304,7 @@ impl AutoShadeApp {
                     // CLEARED, and the line says so instead of "XMP + recipe".
                     trf(
                         lang,
-                        "recipe saved → {path} (no Lightroom XMP: this card's look sits on AI-generated pixels)",
+                        K_EXPORT_RECIPE_SAVED_NO_LIGHTROOM_XMP_THIS_CARD_S_LOOK_S,
                         &[("path", &rp.display().to_string())],
                     )
                 } else if raw {
@@ -1344,7 +1344,7 @@ impl AutoShadeApp {
                             }
                             let base = trf(
                                 lang,
-                                "XMP + recipe saved → {path}",
+                                K_EXPORT_XMP_RECIPE_SAVED,
                                 &[("path", &p.display().to_string())],
                             );
                             let mut s = match merge_note {
@@ -1379,7 +1379,7 @@ impl AutoShadeApp {
                         Err(e) => {
                             let t = trf(
                                 lang,
-                                "recipe saved — but the Lightroom XMP failed: {err}",
+                                K_EXPORT_RECIPE_SAVED_BUT_THE_LIGHTROOM_XMP_FAILED,
                                 &[("err", &e.to_string())],
                             );
                             self.toast(ToastKind::Error, t.clone());
@@ -1389,7 +1389,7 @@ impl AutoShadeApp {
                 } else {
                     trf(
                         lang,
-                        "recipe saved → {path} (XMP applies to RAW only)",
+                        K_EXPORT_RECIPE_SAVED_XMP_APPLIES_TO_RAW_ONLY,
                         &[("path", &rp.display().to_string())],
                     )
                 };
@@ -1401,7 +1401,7 @@ impl AutoShadeApp {
                         " · {}",
                         tr(
                             lang,
-                            "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
+                            K_EXPORT_CAMERA_BASE_LOOK_RE_ESTIMATED_THIS_PHOTO_WAS_SAV,
                         )
                     ));
                 }
@@ -1409,7 +1409,7 @@ impl AutoShadeApp {
                 self.status = s;
             }
             Err(e) => {
-                let mut t = trf(lang, "save failed: {err}", &[("err", &e.to_string())]);
+                let mut t = trf(lang, K_ACTIONS_SAVE_FAILED, &[("err", &e.to_string())]);
                 if relooked {
                     // The disclosure travels with the MUTATION, not the
                     // success: the canvas healed above even though the write
@@ -1419,7 +1419,7 @@ impl AutoShadeApp {
                         " · {}",
                         tr(
                             lang,
-                            "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
+                            K_EXPORT_CAMERA_BASE_LOOK_RE_ESTIMATED_THIS_PHOTO_WAS_SAV,
                         )
                     ));
                 }
@@ -1496,7 +1496,7 @@ impl AutoShadeApp {
                 ToastKind::Error,
                 trf(
                     self.lang,
-                    "{n} raster mask(s) not pasted — their rasters belong to the source photo (re-run AI select, or the reverse-fit, on each target)",
+                    K_EXPORT_RASTER_MASK_S_NOT_PASTED_THEIR_RASTERS_BELONG_TO,
                     &[("n", &n_raster.to_string())],
                 ),
             );
@@ -1506,14 +1506,14 @@ impl AutoShadeApp {
                 ToastKind::Error,
                 tr(
                     self.lang,
-                    "The colour field was not pasted — its cells are measured on the source photo's own frame",
+                    K_EXPORT_THE_COLOUR_FIELD_WAS_NOT_PASTED_ITS_CELLS_ARE_ME,
                 ),
             );
         }
         if dropped_blur && has_foreign_target {
             self.toast(
                 ToastKind::Error,
-                tr(self.lang, "The lens blur was not pasted — its depth map was measured on the source photo (estimate the depth on each target)"),
+                tr(self.lang, K_EXPORT_THE_LENS_BLUR_WAS_NOT_PASTED_ITS_DEPTH_MAP_WAS_M),
             );
         }
         if n_layers > 0 && has_foreign_target {
@@ -1521,7 +1521,7 @@ impl AutoShadeApp {
                 ToastKind::Error,
                 trf(
                     self.lang,
-                    "{n} fill layer(s) not pasted — they are the source photo's own pixels",
+                    K_EXPORT_FILL_LAYER_S_NOT_PASTED_THEY_ARE_THE_SOURCE_PHOT,
                     &[("n", &n_layers.to_string())],
                 ),
             );
@@ -1570,7 +1570,7 @@ impl AutoShadeApp {
         self.busy = true;
         self.status = trf(
             lang,
-            "Pasting recipe to {n} photos…",
+            K_EXPORT_PASTING_RECIPE_TO_PHOTOS,
             &[("n", &targets.len().to_string())],
         );
         self.spawn_worker(

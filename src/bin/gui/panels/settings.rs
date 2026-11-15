@@ -17,13 +17,13 @@ impl AutoShadeApp {
             // Theme is the other control here that applies without a save.
             egui::RichText::new(tr(
                 lang,
-                "Language & Theme apply immediately. The provider sections below persist via 「Save settings」 to autoshade.local.json in your per-user AutoShade folder (never in a repo) and apply to the next AI call (Analyze / Fill / Generate image).",
+                K_SETTINGS_LANGUAGE_THEME_APPLY_IMMEDIATELY_THE_PROVIDER_SE,
             ))
             .weak()
             .small(),
         );
         ui.separator();
-        ui.heading(tr(lang, "Language"));
+        ui.heading(tr(lang, K_SETTINGS_LANGUAGE));
         // English is the skeleton; Chinese is an overlay. Switching takes effect
         // next frame (every label re-reads `self.lang`), no restart/save needed.
         // `from_id_salt` is egui 0.29's name for the old `from_id_source`.
@@ -34,7 +34,7 @@ impl AutoShadeApp {
                 ui.selectable_value(&mut self.lang, Lang::Zh, Lang::Zh.label());
             });
         ui.separator();
-        ui.heading(tr(lang, "Theme"));
+        ui.heading(tr(lang, K_SETTINGS_THEME));
         // Four surface schemes and an accent picked apart from them (see
         // ThemeColors) — switching either re-installs the egui style this
         // frame and persists with the other prefs.
@@ -47,7 +47,7 @@ impl AutoShadeApp {
                 }
             });
         ui.horizontal(|ui| {
-            ui.label(tr(lang, "Accent colour"));
+            ui.label(tr(lang, K_SETTINGS_ACCENT_COLOUR));
             for a in AccentPref::ALL {
                 if accent_swatch(ui, a.hue(), self.ui.accent == a).on_hover_text(tr(lang, a.label())).clicked() {
                     self.ui.accent = a;
@@ -65,7 +65,7 @@ impl AutoShadeApp {
         ui.separator();
         // The develop store is otherwise invisible (hashed AppData folders) —
         // this is the one place that names it and rescues pre-store saves.
-        ui.heading(tr(lang, "Develop store"));
+        ui.heading(tr(lang, K_SETTINGS_DEVELOP_STORE));
         // THIS photo's folder, not just the root (R22-8): the root is one line
         // above a hash-named subdirectory the user then has to identify by
         // guessing, and "where is my XMP" is the question this row exists to
@@ -77,7 +77,7 @@ impl AutoShadeApp {
         };
         ui.label(egui::RichText::new(abs_display(&shown)).small().weak()).on_hover_text(tr(
             lang,
-            "Where saved develops live: recipes, Lightroom XMP, version snapshots and mask rasters — one folder per photo, keyed by its absolute path. Override the location with the AUTOSHADE_DATA_DIR environment variable.",
+            K_SETTINGS_WHERE_SAVED_DEVELOPS_LIVE_RECIPES_LIGHTROOM_XMP,
         ));
         // Enabled only when the folder EXISTS: an unsaved photo has no develop
         // directory yet, and a file manager pointed at a missing path silently
@@ -88,16 +88,16 @@ impl AutoShadeApp {
         // its identity resolution is memoized for the process (store::
         // identity_of), and `store_root` was already read here every frame.
         let exists = shown.is_dir();
-        if action(ui, exists, tr(lang, "🗂 Show in file manager"))
+        if action(ui, exists, tr(lang, K_SETTINGS_SHOW_IN_FILE_MANAGER))
             .on_hover_text(if exists {
-                tr(lang, "Open this folder in your file manager")
+                tr(lang, K_SETTINGS_OPEN_THIS_FOLDER_IN_YOUR_FILE_MANAGER)
             } else {
-                tr(lang, "Nothing saved for this photo yet — the folder appears with the first save")
+                tr(lang, K_SETTINGS_NOTHING_SAVED_FOR_THIS_PHOTO_YET_THE_FOLDER_APPE)
             })
             .clicked()
             && let Err(e) = reveal_folder(&shown)
         {
-            let t = trf(lang, "could not open the folder: {err}", &[("err", &e.to_string())]);
+            let t = trf(lang, K_SETTINGS_COULD_NOT_OPEN_THE_FOLDER, &[("err", &e.to_string())]);
             self.status = t.clone();
             self.toast(ToastKind::Error, t);
         }
@@ -107,32 +107,32 @@ impl AutoShadeApp {
         // them — this row names the folder and opens it.
         let masters = autoshade::store::masters_dir();
         ui.label(
-            egui::RichText::new(trf(lang, "Pixel masters: {path}", &[("path", &abs_display(&masters))]))
+            egui::RichText::new(trf(lang, K_SETTINGS_PIXEL_MASTERS, &[("path", &abs_display(&masters))]))
                 .small()
                 .weak(),
         )
         .on_hover_text(tr(
             lang,
-            "The full-resolution images AI denoise, stacking, heal, clone, fill and AI edits produce — the cards built on them read these files. Deleting one breaks its card, so delete the card first. Exports are NOT here (see 「Delivery folder」 below).",
+            K_SETTINGS_THE_FULL_RESOLUTION_IMAGES_AI_DENOISE_STACKING_H,
         ));
         let has_masters = masters.is_dir();
-        if action(ui, has_masters, tr(lang, "🗂 Show masters folder"))
+        if action(ui, has_masters, tr(lang, K_SETTINGS_SHOW_MASTERS_FOLDER))
             .on_hover_text(if has_masters {
-                tr(lang, "Open this folder in your file manager")
+                tr(lang, K_SETTINGS_OPEN_THIS_FOLDER_IN_YOUR_FILE_MANAGER)
             } else {
-                tr(lang, "No master yet — the folder appears with the first AI denoise, stack or retouch")
+                tr(lang, K_SETTINGS_NO_MASTER_YET_THE_FOLDER_APPEARS_WITH_THE_FIRST)
             })
             .clicked()
             && let Err(e) = reveal_folder(&masters)
         {
-            let t = trf(lang, "could not open the folder: {err}", &[("err", &e.to_string())]);
+            let t = trf(lang, K_SETTINGS_COULD_NOT_OPEN_THE_FOLDER, &[("err", &e.to_string())]);
             self.status = t.clone();
             self.toast(ToastKind::Error, t);
         }
-        if action(ui, true, tr(lang, "Import develops from an old ./out folder…"))
+        if action(ui, true, tr(lang, K_SETTINGS_IMPORT_DEVELOPS_FROM_AN_OLD_OUT_FOLDER))
             .on_hover_text(tr(
                 lang,
-                "Saves made before v0.13 lived in a ./out folder next to wherever the app was launched. If your old edits are missing, point this at that folder — its recipes / XMP / versions migrate into the develop store.",
+                K_SETTINGS_SAVES_MADE_BEFORE_V0_13_LIVED_IN_A_OUT_FOLDER_NE,
             ))
             .clicked()
         {
@@ -148,7 +148,7 @@ impl AutoShadeApp {
         // setting, the style-prompt writer), which is why "where did my export
         // go" had no answer but "wherever you launched the app from".
         ui.separator();
-        ui.heading(tr(lang, "Delivery folder"));
+        ui.heading(tr(lang, K_SETTINGS_DELIVERY_FOLDER));
         let resolved = autoshade::config::delivery_root();
         let mut browse_delivery = false;
         {
@@ -161,10 +161,10 @@ impl AutoShadeApp {
                 )
                 .on_hover_text(tr(
                     lang,
-                    "Where finished files land: exports and the extracted style prompt — for this window, the CLI, the web surface and batch renders alike. Blank = the default ./out beside the working directory. Saved develops and the pixel masters cards are built on are NOT here (see 「Develop store」 above), so cleaning this folder never breaks a card.",
+                    K_SETTINGS_WHERE_FINISHED_FILES_LAND_EXPORTS_AND_THE_EXTRAC,
                 ));
-                if action(ui, true, tr(lang, "Browse…"))
-                    .on_hover_text(tr(lang, "Pick the delivery folder"))
+                if action(ui, true, tr(lang, K_SETTINGS_BROWSE))
+                    .on_hover_text(tr(lang, K_SETTINGS_PICK_THE_DELIVERY_FOLDER))
                     .clicked()
                 {
                     browse_delivery = true;
@@ -202,7 +202,7 @@ impl AutoShadeApp {
         // derive the defaults (CLI from PATH, workspace/models from the Comfy
         // Desktop registry, output under the app store) — the value shown is
         // the resolved one, and it is what the next save pins.
-        ui.heading(tr(lang, "ComfyUI (local generation)"));
+        ui.heading(tr(lang, K_SETTINGS_COMFYUI_LOCAL_GENERATION));
         {
             let f = &mut self.ui.settings;
             let width = |ui: &egui::Ui| FIELD_W_MAX.min(ui.available_width() - 140.0).max(80.0);
@@ -218,12 +218,12 @@ impl AutoShadeApp {
                     ui.add(egui::TextEdit::singleline(field).desired_width(width(ui)));
                 });
             }
-            ui.label(egui::RichText::new(tr(lang, "Blank = default")).small().weak());
+            ui.label(egui::RichText::new(tr(lang, K_SETTINGS_BLANK_DEFAULT)).small().weak());
         }
         // One resolved config for this row and the sidecar row below; the
         // panel used to load it once per row.
         let cfg_now = autoshade::config::Config::load();
-        ui.heading(tr(lang, "Python interpreter"));
+        ui.heading(tr(lang, K_SETTINGS_PYTHON_INTERPRETER));
         {
             let f = &mut self.ui.settings;
             ui.horizontal(|ui| {
@@ -234,12 +234,12 @@ impl AutoShadeApp {
                 )
                 .on_hover_text(tr(
                     lang,
-                    "Which Python runs the AI sidecars (segmentation, denoise, style). Blank = the managed environment when it is prepared, otherwise the platform default. It can only be set here or by the AUTOSHADE_PYTHON environment variable — never by a file that arrives beside your photos.",
+                    K_SETTINGS_WHICH_PYTHON_RUNS_THE_AI_SIDECARS_SEGMENTATION_D,
                 ));
-                if action(ui, true, tr(lang, "Detect"))
+                if action(ui, true, tr(lang, K_SETTINGS_DETECT))
                     .on_hover_text(tr(
                         lang,
-                        "Look in the standard install locations for a working Python 3",
+                        K_SETTINGS_LOOK_IN_THE_STANDARD_INSTALL_LOCATIONS_FOR_A_WOR,
                     ))
                     .clicked()
                 {
@@ -250,7 +250,7 @@ impl AutoShadeApp {
                     // whose only behaviour is an install prompt.
                     match autoshade::config::probe_python_bin() {
                         Some(bin) => {
-                            f.status = trf(lang, "found {bin}", &[("bin", &bin)]);
+                            f.status = trf(lang, K_SETTINGS_FOUND, &[("bin", &bin)]);
                             f.python_bin = bin;
                         }
                         // A real answer, said as one: "we looked in the
@@ -260,7 +260,7 @@ impl AutoShadeApp {
                         None => {
                             f.status = tr(
                                 lang,
-                                "no Python found in the standard install locations — type the full path above",
+                                K_SETTINGS_NO_PYTHON_FOUND_IN_THE_STANDARD_INSTALL_LOCATION,
                             )
                             .into();
                         }
@@ -277,24 +277,24 @@ impl AutoShadeApp {
         // sidecars' wheels. Prepared only on request — the CUDA set is a
         // multi-gigabyte download, so it is never fetched in the background.
         ui.horizontal(|ui| {
-            ui.label(tr(lang, "Managed Python"));
+            ui.label(tr(lang, K_SETTINGS_MANAGED_PYTHON));
             match autoshade::python_env::readiness() {
                 autoshade::python_env::Readiness::Ready(p) => {
                     ui.label(egui::RichText::new(p.display().to_string()).small())
                         .on_hover_text(tr(
                             lang,
-                            "The AI sidecars run in this environment unless you name an interpreter above",
+                            K_SETTINGS_THE_AI_SIDECARS_RUN_IN_THIS_ENVIRONMENT_UNLESS_Y,
                         ));
                 }
                 autoshade::python_env::Readiness::NotPrepared => {
-                    ui.label(egui::RichText::new(tr(lang, "not prepared")).small().weak());
+                    ui.label(egui::RichText::new(tr(lang, K_SETTINGS_NOT_PREPARED)).small().weak());
                 }
             }
         });
-        if action(ui, !self.busy, tr(lang, "Prepare Python environment"))
+        if action(ui, !self.busy, tr(lang, K_SETTINGS_PREPARE_PYTHON_ENVIRONMENT))
             .on_hover_text(tr(
                 lang,
-                "Runs uv to create a private environment and install python/requirements-*.txt into it — a few gigabytes, downloaded once",
+                K_SETTINGS_RUNS_UV_TO_CREATE_A_PRIVATE_ENVIRONMENT_AND_INST,
             ))
             .clicked()
         {
@@ -314,17 +314,17 @@ impl AutoShadeApp {
                 PythonState::Managed(_) => None,
                 PythonState::Interpreter => Some(trf(
                     lang,
-                    "AI sidecars use the interpreter named above: {bin}",
+                    K_SETTINGS_AI_SIDECARS_USE_THE_INTERPRETER_NAMED_ABOVE,
                     &[("bin", &check.bin)],
                 )),
                 PythonState::UnpreparedDefault => Some(trf(
                     lang,
-                    "AI sidecars currently use {bin} — the managed environment is not prepared",
+                    K_SETTINGS_AI_SIDECARS_CURRENTLY_USE_THE_MANAGED_ENVIRONMEN,
                     &[("bin", &check.bin)],
                 )),
                 PythonState::Unusable => Some(trf(
                     lang,
-                    "AI sidecars need Python 3 — {bin} is not one",
+                    K_SETTINGS_AI_SIDECARS_NEED_PYTHON_3_IS_NOT_ONE,
                     &[("bin", &check.bin)],
                 )),
             };
@@ -353,12 +353,12 @@ impl AutoShadeApp {
         // the two 🤖 buttons already show) is the answer for the missing case,
         // so the missing arm is not a second wording of the same thing.
         ui.separator();
-        ui.heading(tr(lang, "Segmentation helper"));
+        ui.heading(tr(lang, K_SETTINGS_SEGMENTATION_HELPER));
         let seg = cfg_now.segment_script;
         let seg_path = std::path::PathBuf::from(&seg);
         ui.label(egui::RichText::new(abs_display(&seg_path)).small().weak()).on_hover_text(tr(
             lang,
-            "Set with the AUTOSHADE_SEGMENT_SCRIPT environment variable (not editable here, because the app runs this file)",
+            K_SETTINGS_SET_WITH_THE_AUTOSHADE_SEGMENT_SCRIPT_ENVIRONMEN,
         ));
         // `segment_helper_available` is the SAME predicate the two AI-select
         // buttons gate on (one `exists()` per process), so this row and those
@@ -366,7 +366,7 @@ impl AutoShadeApp {
         if !segment_helper_available() {
             ui.label(
                 egui::RichText::new(tr(lang,
-                    "This feature needs AutoShade's Python helper, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_SEGMENT_SCRIPT to the path of segment.py",
+                    K_DEVELOP_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPER_WHI,
                 ))
                 .small()
                 .weak(),
@@ -388,11 +388,11 @@ impl AutoShadeApp {
                 f.analysis_models.clear();
             }
             ui.separator();
-            ui.heading(tr(lang, "Analysis model — used by AI Analyze, AI adjust and AI review"));
+            ui.heading(tr(lang, K_SETTINGS_ANALYSIS_MODEL_USED_BY_AI_ANALYZE_AI_ADJUST_AND));
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Provider"));
-                let r1 = ui.radio_value(&mut f.analysis_provider_api, false, tr(lang, "OAuth (Claude CLI)"));
-                let r2 = ui.radio_value(&mut f.analysis_provider_api, true, tr(lang, "API (OpenAI-compatible)"));
+                ui.label(tr(lang, K_SETTINGS_PROVIDER));
+                let r1 = ui.radio_value(&mut f.analysis_provider_api, false, tr(lang, K_SETTINGS_OAUTH_CLAUDE_CLI));
+                let r2 = ui.radio_value(&mut f.analysis_provider_api, true, tr(lang, K_SETTINGS_API_OPENAI_COMPATIBLE));
                 if r1.changed() || r2.changed() {
                     // Without this the OTHER provider's model id stays in the
                     // field and the picker presents it as the current choice
@@ -414,11 +414,11 @@ impl AutoShadeApp {
             // role's key). Without this the panel read as Claude-vs-OpenAI
             // only, which is not what this user has.
             ui.horizontal(|ui| {
-                let label = tr(lang, "Use DeepSeek");
+                let label = tr(lang, K_SETTINGS_USE_DEEPSEEK);
                 if action(ui, true, label)
                     .on_hover_text(tr(
                         lang,
-                        "Sets BOTH roles (proposer and verifier) to DeepSeek: Base URL https://api.deepseek.com, model deepseek-flash, Chat API family (DeepSeek does not accept OpenAI's json_schema contract). Enter your DeepSeek key in either API Key field; Save fills the other role's key when it is empty.",
+                        K_SETTINGS_SETS_BOTH_ROLES_PROPOSER_AND_VERIFIER_TO_DEEPSEE,
                     ))
                     .clicked()
                 {
@@ -437,7 +437,7 @@ impl AutoShadeApp {
                 }
             });
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Model"));
+                ui.label(tr(lang, K_SETTINGS_MODEL));
                 // OAuth uses Claude CLI aliases; API uses the ids fetched from
                 // the ANALYSIS endpoint — its own probe, not the image role's.
                 // Borrowing the image list meant a separate analysis endpoint
@@ -450,7 +450,7 @@ impl AutoShadeApp {
                 model_picker(ui, "set_analysis_model", &mut f.analysis_model, &opts, lang);
             });
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Reasoning effort"));
+                ui.label(tr(lang, K_SETTINGS_REASONING_EFFORT));
                 // The CLI and the API endpoints accept different tier names —
                 // offer the right list, and keep the free-text field for
                 // anything a given endpoint adds later.
@@ -469,12 +469,12 @@ impl AutoShadeApp {
             });
             if f.analysis_provider_api {
                 ui.horizontal(|ui| {
-                    ui.label(tr(lang, "Base URL"));
+                    ui.label(tr(lang, K_SETTINGS_BASE_URL));
                     ui.text_edit_singleline(&mut f.analysis_base_url);
                 });
                 ui.horizontal(|ui| {
-                    ui.label(tr(lang, "API Key"));
-                    let hint = if f.analysis_key_present { tr(lang, "key set — blank keeps it") } else { tr(lang, "no key set") };
+                    ui.label(tr(lang, K_SETTINGS_API_KEY));
+                    let hint = if f.analysis_key_present { tr(lang, K_SETTINGS_KEY_SET_BLANK_KEEPS_IT) } else { tr(lang, K_SETTINGS_NO_KEY_SET) };
                     if ui
                         .add(egui::TextEdit::singleline(&mut f.analysis_api_key).password(true).hint_text(hint))
                         .changed()
@@ -486,14 +486,14 @@ impl AutoShadeApp {
                 });
                 ui.horizontal(|ui| {
                     let label = if f.analysis_models.fetching {
-                        tr(lang, "fetching…")
+                        tr(lang, K_SETTINGS_FETCHING)
                     } else {
-                        tr(lang, "🔄 Fetch models")
+                        tr(lang, K_SETTINGS_FETCH_MODELS)
                     };
                     if action(ui, !f.analysis_models.fetching, label)
                         .on_hover_text(tr(
                             lang,
-                            "List the models THIS endpoint serves (GET /models). The analysis role has its own endpoint and key, so it gets its own list.",
+                            K_SETTINGS_LIST_THE_MODELS_THIS_ENDPOINT_SERVES_GET_MODELS__2,
                         ))
                         .clicked()
                     {
@@ -503,7 +503,7 @@ impl AutoShadeApp {
                         ui.label(
                             egui::RichText::new(trf(
                                 lang,
-                                "{chat} chat",
+                                K_SETTINGS_CHAT,
                                 &[("chat", &f.analysis_models.chat.len().to_string())],
                             ))
                             .weak()
@@ -513,11 +513,11 @@ impl AutoShadeApp {
                 });
             }
             ui.separator();
-            ui.heading(tr(lang, "Image model — looks at your photo, and generates or edits images"));
+            ui.heading(tr(lang, K_SETTINGS_IMAGE_MODEL_LOOKS_AT_YOUR_PHOTO_AND_GENERATES_OR));
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Provider"));
-                ui.radio_value(&mut f.image_provider_oauth, false, tr(lang, "API (OpenAI-compatible)"));
-                ui.radio_value(&mut f.image_provider_oauth, true, tr(lang, "Sign in with ChatGPT (via the local Codex bridge)"));
+                ui.label(tr(lang, K_SETTINGS_PROVIDER));
+                ui.radio_value(&mut f.image_provider_oauth, false, tr(lang, K_SETTINGS_API_OPENAI_COMPATIBLE));
+                ui.radio_value(&mut f.image_provider_oauth, true, tr(lang, K_SETTINGS_SIGN_IN_WITH_CHATGPT_VIA_THE_LOCAL_CODEX_BRIDGE));
             });
             // Flipping into OAuth while the endpoint is still empty or the stock
             // OpenAI host means the field is wrong for a subscription bridge —
@@ -539,11 +539,11 @@ impl AutoShadeApp {
                 }
             }
             ui.horizontal(|ui| {
-                let label = if f.image_models.fetching { tr(lang, "fetching…") } else { tr(lang, "🔄 Fetch models") };
+                let label = if f.image_models.fetching { tr(lang, K_SETTINGS_FETCHING) } else { tr(lang, K_SETTINGS_FETCH_MODELS) };
                 let clicked = action(ui, !f.image_models.fetching, label)
                     .on_hover_text(tr(
                         lang,
-                        "List the models this endpoint serves (GET /models) so you can pick instead of guess — and a live reachability check for the bridge/API. Uses the key/token typed below; a saved key is only used at the endpoint it was saved for.",
+                        K_SETTINGS_LIST_THE_MODELS_THIS_ENDPOINT_SERVES_GET_MODELS,
                     ))
                     .clicked();
                 if clicked {
@@ -553,32 +553,32 @@ impl AutoShadeApp {
                     let cn = f.image_models.chat.len().to_string();
                     let im = f.image_models.image_gen.len().to_string();
                     ui.label(
-                        egui::RichText::new(trf(lang, "{chat} chat · {image} image", &[("chat", &cn), ("image", &im)]))
+                        egui::RichText::new(trf(lang, K_SETTINGS_CHAT_IMAGE, &[("chat", &cn), ("image", &im)]))
                             .weak()
                             .small(),
                     );
                 }
             });
             ui.horizontal(|ui| {
-                ui.label(if f.image_provider_oauth { tr(lang, "Bridge URL") } else { tr(lang, "Base URL") });
+                ui.label(if f.image_provider_oauth { tr(lang, K_SETTINGS_BRIDGE_URL) } else { tr(lang, K_SETTINGS_BASE_URL) });
                 ui.text_edit_singleline(&mut f.image_base_url);
             });
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Vision model"));
+                ui.label(tr(lang, K_SETTINGS_VISION_MODEL));
                 let opts = model_opts(&f.image_models.chat, &["gpt-5.5", "gpt-4o"], &f.image_model);
                 model_picker(ui, "set_vision_model", &mut f.image_model, &opts, lang);
                 // The one thing the listing can say that a wrong pick would
                 // otherwise only say at the first paid call.
                 if f.image_models.vision_of(&f.image_model) == Some(false) {
                     ui.label(
-                        egui::RichText::new(tr(lang, "⚠ takes no images, per /models"))
+                        egui::RichText::new(tr(lang, K_SETTINGS_TAKES_NO_IMAGES_PER_MODELS))
                             .color(ui.visuals().warn_fg_color)
                             .small(),
                     );
                 }
             });
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Reasoning effort"));
+                ui.label(tr(lang, K_SETTINGS_REASONING_EFFORT));
                 let tiers = f.image_models.tiers_for(&f.image_model, &EFFORT_TIERS_API);
                 effort_picker(ui, "set_image_effort", &mut f.image_effort, &tiers, lang);
                 if f.image_models.efforts.contains_key(f.image_model.trim()) {
@@ -586,11 +586,11 @@ impl AutoShadeApp {
                 }
             });
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "API style"));
+                ui.label(tr(lang, K_SETTINGS_API_STYLE));
                 api_family_picker(ui, &mut f.image_api_family, lang);
             });
             ui.horizontal(|ui| {
-                ui.label(tr(lang, "Image-gen model"));
+                ui.label(tr(lang, K_SETTINGS_IMAGE_GEN_MODEL));
                 // OAuth (subscription) exposes gpt-image-2 first; API keys often
                 // still prefer gpt-image-1.5 for its input_fidelity lock.
                 let fallbacks: &[&str] = if f.image_provider_oauth {
@@ -602,13 +602,13 @@ impl AutoShadeApp {
                 model_picker(ui, "set_imagegen_model", &mut f.image_gen_model, &opts, lang);
             });
             ui.horizontal(|ui| {
-                ui.label(if f.image_provider_oauth { tr(lang, "Bridge password") } else { tr(lang, "API Key") });
+                ui.label(if f.image_provider_oauth { tr(lang, K_SETTINGS_BRIDGE_PASSWORD) } else { tr(lang, K_SETTINGS_API_KEY) });
                 let hint = if f.image_key_present {
-                    tr(lang, "set — blank keeps it")
+                    tr(lang, K_SETTINGS_SET_BLANK_KEEPS_IT)
                 } else if f.image_provider_oauth {
-                    tr(lang, "the password set in the bridge's own config (api-keys) — it stays on this computer and is not an OpenAI key")
+                    tr(lang, K_SETTINGS_THE_PASSWORD_SET_IN_THE_BRIDGE_S_OWN_CONFIG_API)
                 } else {
-                    tr(lang, "no key set")
+                    tr(lang, K_SETTINGS_NO_KEY_SET)
                 };
                 if ui
                     .add(egui::TextEdit::singleline(&mut f.image_api_key).password(true).hint_text(hint))
@@ -624,14 +624,14 @@ impl AutoShadeApp {
                 }
             });
             let note = if f.image_provider_oauth {
-                tr(lang, "Uses your ChatGPT subscription through the Codex bridge (CLIProxyAPI) running on this computer — no OpenAI key. To set it up: download CLIProxyAPI from its GitHub releases, start it, sign in with your ChatGPT account when it asks, and paste the api-keys value from its configuration file as the bridge password above. Start the bridge before an edit, or the call cannot connect. Generated images are capped at about 1.5 MP by the subscription; for full-resolution edits switch to API with a real key.")
+                tr(lang, K_SETTINGS_USES_YOUR_CHATGPT_SUBSCRIPTION_THROUGH_THE_CODEX)
             } else {
-                tr(lang, "Tip: gpt-image-1.5 keeps the photo most faithful (input_fidelity); newer models like gpt-image-2 ignore that lock and edit more freely.")
+                tr(lang, K_SETTINGS_TIP_GPT_IMAGE_1_5_KEEPS_THE_PHOTO_MOST_FAITHFUL)
             };
             ui.label(egui::RichText::new(note).weak().small());
             ui.separator();
             ui.horizontal(|ui| {
-                if primary(ui, true, tr(lang, "Save settings")).clicked() {
+                if primary(ui, true, tr(lang, K_SETTINGS_SAVE_SETTINGS)).clicked() {
                     do_save = true;
                 }
                 if !f.status.is_empty() {
@@ -644,7 +644,7 @@ impl AutoShadeApp {
         ui.label(
             egui::RichText::new(tr(
                 lang,
-                "skymanbp's AS — the “As” stands for AutoShade, not an Adobe subscription. Rent paid to date: $0.00.",
+                K_SETTINGS_SKYMANBP_S_AS_THE_AS_STANDS_FOR_AUTOSHADE_NOT_AN,
             ))
             .weak()
             .small(),
@@ -679,12 +679,12 @@ pub(crate) fn python_startup_words(
         PythonState::Managed(_) | PythonState::Interpreter => None,
         PythonState::UnpreparedDefault => Some(trf(
             lang,
-            "The managed Python environment is not prepared — the AI sidecars would use {bin}. Prepare it in Settings",
+            K_SETTINGS_THE_MANAGED_PYTHON_ENVIRONMENT_IS_NOT_PREPARED_T,
             &[("bin", &check.bin)],
         )),
         PythonState::Unusable => Some(trf(
             lang,
-            "The AI sidecars need Python 3 — {bin} did not report one. Prepare the managed environment in Settings, or name another interpreter",
+            K_SETTINGS_THE_AI_SIDECARS_NEED_PYTHON_3_DID_NOT_REPORT_ONE,
             &[("bin", &check.bin)],
         )),
     }

@@ -73,7 +73,7 @@
             // A nameless mask still renders as a name, never as an empty slot.
             let anon = xmp_loss_line(lang, &[loss("", R::Bitmap)], &[]).expect("a line");
             assert!(
-                anon.contains(tr(lang, "(unnamed)")),
+                anon.contains(tr(lang, K_GUI_UNNAMED)),
                 "{lang:?}: a nameless mask is labelled: {anon}"
             );
             // ...and the cap holds: five bitmap masks show four names + the rest.
@@ -83,7 +83,7 @@
             assert!(capped.contains("a, b, c, d"), "{lang:?}: four names shown: {capped}");
             assert!(!capped.contains(", e"), "{lang:?}: the fifth is folded away: {capped}");
             assert!(
-                capped.contains(&trf(lang, "+{n} more", &[("n", "1")])),
+                capped.contains(&trf(lang, K_CANVAS_MORE, &[("n", "1")])),
                 "{lang:?}: and counted: {capped}"
             );
 
@@ -92,14 +92,14 @@
             // sidecar that renders differently in Lightroom, silently.
             let globals = xmp_loss_line(lang, &[], &["base_curve", "lens_profile"])
                 .expect("globals alone must produce a line");
-            assert!(globals.contains(tr(lang, "camera base curve")), "{lang:?}: {globals}");
-            assert!(globals.contains(tr(lang, "lens profile correction")), "{lang:?}: {globals}");
+            assert!(globals.contains(tr(lang, K_GUI_CAMERA_BASE_CURVE)), "{lang:?}: {globals}");
+            assert!(globals.contains(tr(lang, K_GUI_LENS_PROFILE_CORRECTION)), "{lang:?}: {globals}");
             assert_eq!(globals.matches('×').count(), 0, "{lang:?}: no mask category: {globals}");
             // Both buckets in ONE sentence - two toasts for one save would be
             // two interruptions describing the same file.
             let both =
                 xmp_loss_line(lang, &[loss("sky", R::Bitmap)], &["base_curve"]).expect("a line");
-            assert!(both.contains("sky") && both.contains(tr(lang, "camera base curve")));
+            assert!(both.contains("sky") && both.contains(tr(lang, K_GUI_CAMERA_BASE_CURVE)));
             // A control with no label of its own still names itself.
             let raw = xmp_loss_line(lang, &[], &["some_future_control"]).expect("a line");
             assert!(raw.contains("some_future_control"), "{lang:?}: {raw}");
@@ -261,20 +261,20 @@
             // — translating a loop VARIABLE is a dynamic site it cannot read.
             let ai_brush = tr(
                 lang,
-                "AI / brush masks cannot be imported — Lightroom recomputes them from a digest",
+                K_GUI_AI_BRUSH_MASKS_CANNOT_BE_IMPORTED_LIGHTROOM_RECO,
             );
             for label in [
                 ai_brush,
-                tr(lang, "Beyond this engine's model"),
-                tr(lang, "Rotation angle"),
-                tr(lang, "Blend mode"),
-                tr(lang, "Extra shapes"),
-                tr(lang, "Range mask (from Lightroom)"),
+                tr(lang, K_GUI_BEYOND_THIS_ENGINE_S_MODEL),
+                tr(lang, K_GUI_ROTATION_ANGLE),
+                tr(lang, K_GUI_BLEND_MODE),
+                tr(lang, K_GUI_EXTRA_SHAPES),
+                tr(lang, K_GUI_RANGE_MASK_FROM_LIGHTROOM),
                 // R25 P6: the four local point curves are modelled now, so
                 // this verdict only fires on a curve that would not PARSE —
                 // and its label says so instead of reading like a gap.
-                tr(lang, "Local point curve (unreadable)"),
-                tr(lang, "Unmodelled slider"),
+                tr(lang, K_GUI_LOCAL_POINT_CURVE_UNREADABLE),
+                tr(lang, K_GUI_UNMODELLED_SLIDER),
             ] {
                 assert!(line.contains(label), "{lang:?}: {label:?} missing from {line}");
             }
@@ -283,14 +283,14 @@
             assert!(
                 line.contains(&trf(
                     lang,
-                    "Imported {n} Lightroom mask(s), {m} feature(s) not modelled",
+                    K_GUI_IMPORTED_LIGHTROOM_MASK_S_FEATURE_S_NOT_MODELLED,
                     &[("n", "7"), ("m", "8")],
                 )),
                 "{lang:?}: the head counts both halves: {line}"
             );
             let knobs = line
                 .split(" · ")
-                .find(|p| p.starts_with(tr(lang, "Unmodelled slider")))
+                .find(|p| p.starts_with(tr(lang, K_GUI_UNMODELLED_SLIDER)))
                 .unwrap_or_else(|| panic!("{lang:?}: no unmodelled-knob bullet in {line}"));
             for who in ["radial 1", "gradient 2", "refined"] {
                 assert!(knobs.contains(who), "{lang:?}: {who} lost its bullet: {knobs}");
@@ -306,7 +306,7 @@
             );
             // A nameless correction still renders as a name.
             let anon = xmp_import_line(lang, 1, &[loss("", R::Rotation(0))]).expect("a line");
-            assert!(anon.contains(tr(lang, "(unnamed)")), "{lang:?}: {anon}");
+            assert!(anon.contains(tr(lang, K_GUI_UNNAMED)), "{lang:?}: {anon}");
             // …and the cap holds, like every other disclosure list.
             let many: Vec<_> =
                 ["a", "b", "c", "d", "e"].iter().map(|n| loss(n, R::Rotation(0))).collect();
@@ -314,7 +314,7 @@
             assert!(capped.contains("a, b, c, d"), "{lang:?}: four names shown: {capped}");
             assert!(!capped.contains(", e)"), "{lang:?}: the fifth is folded away: {capped}");
             assert!(
-                capped.contains(&trf(lang, "+{n} more", &[("n", "1")])),
+                capped.contains(&trf(lang, K_CANVAS_MORE, &[("n", "1")])),
                 "{lang:?}: and counted: {capped}"
             );
         }
@@ -353,7 +353,7 @@
             assert!(
                 out.contains(&trf(
                     lang,
-                    "Rotation {a}° not written to XMP (frame size unknown)",
+                    K_GUI_ROTATION_NOT_WRITTEN_TO_XMP_FRAME_SIZE_UNKNOWN,
                     &[("a", "37")],
                 )),
                 "{lang:?}: the sentence must say why: {out}"
@@ -376,7 +376,7 @@
                 xmp_loss_line(lang, &[MaskLoss { name: "a".into(), reason: E::Rotation(0) }], &[])
                     .expect("a line");
             assert!(
-                none.contains(&trf(lang, "radial rotation ×{n}", &[("n", "1")])),
+                none.contains(&trf(lang, K_GUI_RADIAL_ROTATION, &[("n", "1")])),
                 "{lang:?}: the fallback stands: {none}"
             );
             assert!(!none.contains("0°"), "{lang:?}: an unmeasured angle is not zero: {none}");
@@ -392,7 +392,7 @@
             assert!(
                 inn.contains(&trf(
                     lang,
-                    "Rotation {a}° read as 0 (frame size unknown)",
+                    K_GUI_ROTATION_READ_AS_0_FRAME_SIZE_UNKNOWN,
                     &[("a", "-44")],
                 )),
                 "{lang:?}: the sentence must say why: {inn}"

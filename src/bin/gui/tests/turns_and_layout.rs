@@ -222,13 +222,13 @@
         assert_ne!(hint.tier(), brief.tier(), "the dial must be able to change the tier");
         // …and the tooltip NAMES the tiers, which is what a user needs to know
         // the dial is not a magnitude.
-        let tip = tr(Lang::En, "How closely the AI follows your direction; disabled until the Direction guides and has text. At 40% or below it is a Hint; from 40% to 70% it is followed (Direct); above 70% it is a firm Brief. It changes only what the AI is asked, never a slider limit.");
+        let tip = tr(Lang::En, K_AI_HOW_CLOSELY_THE_AI_FOLLOWS_YOUR_DIRECTION_DISABL);
         for tier in ["Hint", "Direct", "Brief"] {
             assert!(tip.contains(tier), "the tooltip must name the {tier} tier: {tip}");
         }
         // The zh half is a translation of the SAME key, so a drifted pair
         // would fall back to English here rather than fail silently.
-        let zh = tr(Lang::Zh, "How closely the AI follows your direction; disabled until the Direction guides and has text. At 40% or below it is a Hint; from 40% to 70% it is followed (Direct); above 70% it is a firm Brief. It changes only what the AI is asked, never a slider limit.");
+        let zh = tr(Lang::Zh, K_AI_HOW_CLOSELY_THE_AI_FOLLOWS_YOUR_DIRECTION_DISABL);
         assert!(zh.contains("遵循程度"), "the zh tooltip must exist: {zh}");
     }
 
@@ -542,7 +542,7 @@
                             sections[2] = ui.min_rect().width();
                         });
                     });
-                    egui::Window::new(tr(lang, "Settings"))
+                    egui::Window::new(tr(lang, K_APP_SETTINGS))
                         .id(egui::Id::new("settings_window"))
                         .default_width(480.0)
                         .show(ctx, |ui| app.settings_ui(ui));
@@ -564,7 +564,7 @@
                     "{lang:?}: the {panel} panel left its {default} px default: {seen:?} — a row overflows it                      (section widths ai/develop/retouch {sections:?}; buttons past the edge: {past:?})"
                 );
             }
-            assert!(drawn.iter().any(|d| d.label == tr(lang, "✨ Adjust")),
+            assert!(drawn.iter().any(|d| d.label == tr(lang, K_AI_ADJUST)),
                 "{lang:?}: the new adjust button reached DRAWN");
             assert!(drawn.len() >= 60, "{lang:?}: only {} buttons reached the registry", drawn.len());
             for d in &drawn {
@@ -626,10 +626,10 @@
                         hist.width(), crate::theme::FIELD_W_MAX
                     );
                     for label in [
-                        tr(lang, "🤖 AI heal (auto)"), tr(lang, "Heal area"),
-                        tr(lang, "⎘ Enter stamp"), tr(lang, "⎘ Clone area"),
-                        tr(lang, "Reverse-fit recipe"), tr(lang, "Extract style"),
-                        tr(lang, "Copy recipe"), tr(lang, "＋ Linear"), tr(lang, "Erase"),
+                        tr(lang, K_RETOUCH_AI_HEAL_AUTO), tr(lang, K_RETOUCH_HEAL_AREA),
+                        tr(lang, K_RETOUCH_ENTER_STAMP), tr(lang, K_RETOUCH_CLONE_AREA),
+                        tr(lang, K_AI_REVERSE_FIT_RECIPE), tr(lang, K_AI_EXTRACT_STYLE),
+                        tr(lang, K_GALLERY_COPY_RECIPE), tr(lang, K_DEVELOP_LINEAR__2), tr(lang, K_DEVELOP_ERASE),
                     ] {
                         assert!(
                             drawn.iter().any(|d| d.label == label),
@@ -683,9 +683,9 @@
             app.tools.clone_src = None; // the gate answers before this is even asked for
             let refusal = tr(
                 lang,
-                "this photo is turned, and pixel repairs still work on the un-turned frame — turn it back to 0 first",
+                K_RETOUCH_THIS_PHOTO_IS_TURNED_AND_PIXEL_REPAIRS_STILL_WOR,
             );
-            let ask = tr(lang, "Alt+click to set the clone source first");
+            let ask = tr(lang, K_ACTIONS_ALT_CLICK_TO_SET_THE_CLONE_SOURCE_FIRST);
             for turns in [1u8, 2, 3, 5] {
                 app.doc.recipe.quarter_turns = turns;
                 app.status.clear();
@@ -716,7 +716,7 @@
             app.photo.src_path = Some(PathBuf::from("refine-turn-guard.png"));
             let refusal = tr(
                 lang,
-                "this photo is turned, and pixel repairs still work on the un-turned frame — turn it back to 0 first",
+                K_RETOUCH_THIS_PHOTO_IS_TURNED_AND_PIXEL_REPAIRS_STILL_WOR,
             );
             for turns in [1u8, 2, 3] {
                 app.doc.recipe.quarter_turns = turns;
@@ -943,8 +943,8 @@
             }
             let drawn = DRAWN.with_borrow(|d| d.clone());
             let text = |d: &crate::buttons::Drawn| !d.kind.starts_with("glyph");
-            let load = tr(lang, "Load");
-            let open = tr(lang, "🗂 Open folder…");
+            let load = tr(lang, K_DEVELOP_LOAD);
+            let open = tr(lang, K_APP_OPEN_FOLDER);
             for d in drawn.iter().filter(|d| text(d)) {
                 let c = d.rect.center();
                 let (panel, exempt) = if rects[1].contains(c) {
@@ -976,8 +976,8 @@
                 "{lang:?}: the sections' rows start at different x: ai {ai}, develop {dev}, retouch {ret}"
             );
             let count = |label: &str| drawn.iter().filter(|d| d.label == label).count();
-            assert_eq!(count(tr(lang, "🖌 Paint area")), 3, "{lang:?}: Fill, Heal and Adjust each carry their own brush toggle");
-            assert_eq!(count(tr(lang, "Clear area")), 4, "{lang:?}: Fill, Heal, the Stamp and Adjust each carry their own clear verb");
+            assert_eq!(count(tr(lang, K_RETOUCH_PAINT_AREA)), 3, "{lang:?}: Fill, Heal and Adjust each carry their own brush toggle");
+            assert_eq!(count(tr(lang, K_RETOUCH_CLEAR_AREA)), 4, "{lang:?}: Fill, Heal, the Stamp and Adjust each carry their own clear verb");
         }
     }
 

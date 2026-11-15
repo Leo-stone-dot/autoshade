@@ -171,22 +171,22 @@
             // Each key spelt AT its `tr` (the i18n audit reads call sites, and
             // a loop variable is a site it cannot read).
             for want in [
-                tr(lang, "Black & White"),
-                tr(lang, "Point Color"),
-                tr(lang, "💧 Pick a color"),
-                tr(lang, "Shadows"),
-                tr(lang, "Red primary"),
-                tr(lang, "Green primary"),
-                tr(lang, "Blue primary"),
+                tr(lang, K_DEVELOP_BLACK_WHITE),
+                tr(lang, K_DEVELOP_POINT_COLOR),
+                tr(lang, K_DEVELOP_PICK_A_COLOR),
+                tr(lang, K_DEVELOP_SHADOWS),
+                tr(lang, K_DEVELOP_RED_PRIMARY),
+                tr(lang, K_DEVELOP_GREEN_PRIMARY),
+                tr(lang, K_DEVELOP_BLUE_PRIMARY),
             ] {
                 assert!(drawn(&seen, want), "{lang:?}: no {want:?} row: {seen:?}");
             }
             assert!(
-                !drawn(&seen, tr(lang, "B&W mix")),
+                !drawn(&seen, tr(lang, K_DEVELOP_B_W_MIX)),
                 "{lang:?}: a colour photo shows the colour bands, not the grey mix: {seen:?}"
             );
             assert!(
-                !drawn(&seen, &trf(lang, "Swatch {n}", &[("n", "1")])),
+                !drawn(&seen, &trf(lang, K_DEVELOP_SWATCH, &[("n", "1")])),
                 "{lang:?}: no swatch, no swatch block: {seen:?}"
             );
 
@@ -196,9 +196,9 @@
             app.doc.recipe.point_colors.push(autoshade::recipe::PointColor::sampled(0.9, 0.7, 0.5));
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             for want in [
-                tr(lang, "B&W mix").to_string(),
-                trf(lang, "Swatch {n}", &[("n", "1")]),
-                tr(lang, "Range").to_string(),
+                tr(lang, K_DEVELOP_B_W_MIX).to_string(),
+                trf(lang, K_DEVELOP_SWATCH, &[("n", "1")]),
+                tr(lang, K_DEVELOP_RANGE).to_string(),
             ] {
                 assert!(drawn(&seen, &want), "{lang:?}: no {want:?} row: {seen:?}");
             }
@@ -436,11 +436,11 @@
             // (`headings::explainer`); the paragraph is its tooltip.
             let at = seen.iter().position(|t| t == lens_header).unwrap();
             assert!(
-                seen[at..].iter().any(|t| t == crate::i18n::tr(lang, "ⓘ How this works")),
+                seen[at..].iter().any(|t| t == crate::i18n::tr(lang, K_HEADING_HOW_THIS_WORKS)),
                 "{lang:?}: the lens explainer line itself is missing: {seen:?}"
             );
             let paragraph = crate::i18n::tr(lang,
-                "Vignette: positive brightens the corners (compensates falloff), negative darkens; a radial gain in linear light. Distortion: positive fixes barrel (wide-angle bulge), negative fixes pincushion (tele pinch); auto-scales to fill the frame, and masks / brush still position on the corrected image. Preview / export / XMP match. Manual CA, the auto-CA switch and de-fringe all render here too.",
+                K_DEVELOP_VIGNETTE_POSITIVE_BRIGHTENS_THE_CORNERS_COMPENSA,
             );
             assert!(paragraph.contains("XMP"), "{lang:?}: not the lens paragraph: {paragraph}");
             assert!(
@@ -598,7 +598,7 @@
             // The section is ALWAYS there now: it holds controls, not a
             // read-out of something the file may or may not have carried.
             assert!(
-                seen.iter().any(|t| t == tr(lang, "Transform")),
+                seen.iter().any(|t| t == tr(lang, K_DEVELOP_TRANSFORM)),
                 "{lang:?}: the Transform section must draw on every photo: {seen:?}"
             );
             // Every one of the eight controls, by its own label — this is the
@@ -607,16 +607,16 @@
             // ordinary call sites instead of one dynamic key it would have to
             // be taught to trust.
             for want in [
-                tr(lang, "Upright"),
-                tr(lang, "Off"),
-                tr(lang, "Vertical"),
-                tr(lang, "Horizontal"),
-                tr(lang, "Rotate (°)"),
-                tr(lang, "Transform scale"),
-                tr(lang, "Aspect"),
-                tr(lang, "X offset"),
-                tr(lang, "Y offset"),
-                tr(lang, "Constrain crop"),
+                tr(lang, K_DEVELOP_UPRIGHT),
+                tr(lang, K_GUI_OFF),
+                tr(lang, K_DEVELOP_VERTICAL),
+                tr(lang, K_DEVELOP_HORIZONTAL),
+                tr(lang, K_DEVELOP_ROTATE),
+                tr(lang, K_DEVELOP_TRANSFORM_SCALE),
+                tr(lang, K_DEVELOP_ASPECT),
+                tr(lang, K_DEVELOP_X_OFFSET),
+                tr(lang, K_DEVELOP_Y_OFFSET),
+                tr(lang, K_DEVELOP_CONSTRAIN_CROP),
             ] {
                 assert!(seen.iter().any(|t| t == want), "{lang:?}: {want:?} missing: {seen:?}");
             }
@@ -624,9 +624,9 @@
             // neither the carried block's heading nor, since v1.5.0 F7, the
             // profile rows above it, which are their own `is_empty` branch.
             for absent in [
-                tr(lang, "Upright solver bookkeeping"),
-                tr(lang, "Camera profile"),
-                tr(lang, "Creative profile"),
+                tr(lang, K_DEVELOP_UPRIGHT_SOLVER_BOOKKEEPING),
+                tr(lang, K_DEVELOP_CAMERA_PROFILE),
+                tr(lang, K_DEVELOP_CREATIVE_PROFILE),
             ] {
                 assert!(
                     !seen.iter().any(|t| t == absent),
@@ -654,9 +654,9 @@
             .collect();
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             for want in [
-                tr(lang, "Upright solver bookkeeping"),
-                tr(lang, "Camera profile"),
-                tr(lang, "Carried through to the sidecar unchanged; AutoShade never interprets these"),
+                tr(lang, K_DEVELOP_UPRIGHT_SOLVER_BOOKKEEPING),
+                tr(lang, K_DEVELOP_CAMERA_PROFILE),
+                tr(lang, K_DEVELOP_CARRIED_THROUGH_TO_THE_SIDECAR_UNCHANGED_AUTOSHA),
             ] {
                 assert!(seen.iter().any(|t| t == want), "{lang:?}: {want:?} missing: {seen:?}");
             }
@@ -727,10 +727,10 @@
             });
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             for want in [
-                tr(lang, "Creative profile"),
+                tr(lang, K_DEVELOP_CREATIVE_PROFILE),
                 tr(
                     lang,
-                    "Neither its creative colour table nor its baked tone curve and sliders render",
+                    K_DEVELOP_NEITHER_ITS_CREATIVE_COLOUR_TABLE_NOR_ITS_BAKED,
                 ),
             ] {
                 assert!(seen.iter().any(|t| t == want), "{lang:?}: {want:?} missing: {seen:?}");
@@ -747,7 +747,7 @@
             // and each of the two rows answers for itself, because either can
             // be present without the other.
             assert!(
-                !seen.iter().any(|t| t == tr(lang, "Camera profile")),
+                !seen.iter().any(|t| t == tr(lang, K_DEVELOP_CAMERA_PROFILE)),
                 "{lang:?}: a row with nothing in it is not a read-out: {seen:?}"
             );
             // …and the Look's own camera profile is NOT shown as the
@@ -762,8 +762,8 @@
             // Adobe Color's own table, where Camera Raw is installed, renders
             // and the panel says so; below full amount it does not.
             if autoshade::dcp::find_look_table("E1095149FDB39D7A057BAB208837E2E1").is_ok() {
-                let renders = tr(lang, "Its creative colour table renders; its baked tone curve and sliders do not");
-                let not = tr(lang, "Neither its creative colour table nor its baked tone curve and sliders render");
+                let renders = tr(lang, K_DEVELOP_ITS_CREATIVE_COLOUR_TABLE_RENDERS_ITS_BAKED_TONE);
+                let not = tr(lang, K_DEVELOP_NEITHER_ITS_CREATIVE_COLOUR_TABLE_NOR_ITS_BAKED);
                 if let Some(look) = app.doc.recipe.look.as_mut() {
                     look.table = "E1095149FDB39D7A057BAB208837E2E1".to_string();
                 }
@@ -786,11 +786,11 @@
             }
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             assert!(
-                seen.iter().any(|t| t == tr(lang, "Creative profile")),
+                seen.iter().any(|t| t == tr(lang, K_DEVELOP_CREATIVE_PROFILE)),
                 "{lang:?}: the name still shows: {seen:?}"
             );
             assert!(
-                seen.iter().any(|t| t == tr(lang, "Its baked tone curve and sliders do not render")),
+                seen.iter().any(|t| t == tr(lang, K_DEVELOP_ITS_BAKED_TONE_CURVE_AND_SLIDERS_DO_NOT_RENDER)),
                 "{lang:?}: the baked half is disclosed: {seen:?}"
             );
         }
@@ -833,7 +833,7 @@
             // The B&W mixer's own caption is up, in place of the three
             // Hue/Saturation/Luminance tabs the colour mixer draws.
             assert!(
-                seen.iter().any(|t| t == tr(lang, "B&W mix")),
+                seen.iter().any(|t| t == tr(lang, K_DEVELOP_B_W_MIX)),
                 "{lang:?}: a grey photograph gets the B&W mixer: {seen:?}"
             );
             // The complement, which is what makes the line above discriminating
@@ -849,7 +849,7 @@
             });
             let colour_seen = tall_frame(&mut colour, |a, ui| a.develop_panel(ui));
             assert!(
-                !colour_seen.iter().any(|t| t == tr(lang, "B&W mix")),
+                !colour_seen.iter().any(|t| t == tr(lang, K_DEVELOP_B_W_MIX)),
                 "{lang:?}: a COLOUR profile leaves the colour mixer alone: {colour_seen:?}"
             );
             // …and the photographer's own switch still does it on its own.
@@ -857,7 +857,7 @@
             own.doc.recipe.convert_to_grayscale = true;
             let seen = tall_frame(&mut own, |a, ui| a.develop_panel(ui));
             assert!(
-                seen.iter().any(|t| t == tr(lang, "B&W mix")),
+                seen.iter().any(|t| t == tr(lang, K_DEVELOP_B_W_MIX)),
                 "{lang:?}: either switch, not both: {seen:?}"
             );
         }
@@ -917,8 +917,8 @@
             // has on screen, never `defringe_purple`.
             let line = render_gap_line(lang, &["defringe_purple"])
                 .unwrap_or_else(|| panic!("{lang:?}: a named gap makes a line"));
-            assert!(line.contains(tr(lang, "Lens")), "{lang:?}: {line}");
-            assert!(line.contains(tr(lang, "Carried to Lightroom, not rendered here")));
+            assert!(line.contains(tr(lang, K_DEVELOP_LENS)), "{lang:?}: {line}");
+            assert!(line.contains(tr(lang, K_GUI_CARRIED_TO_LIGHTROOM_NOT_RENDERED_HERE)));
 
             // Every section once each, deduplicated: seven lens controls are
             // one 「Lens」, and a second family is a second word.
@@ -934,16 +934,16 @@
             )
             .expect("two sections");
             assert_eq!(
-                line.matches(tr(lang, "Lens")).count(),
+                line.matches(tr(lang, K_DEVELOP_LENS)).count(),
                 1,
                 "{lang:?}: four lens controls are ONE section: {line}"
             );
             assert!(
-                line.contains(tr(lang, "Effects")),
+                line.contains(tr(lang, K_DEVELOP_EFFECTS)),
                 "{lang:?}: a second family is a second word: {line}"
             );
             assert!(
-                !line.contains(tr(lang, "Transform")),
+                !line.contains(tr(lang, K_DEVELOP_TRANSFORM)),
                 "{lang:?}: a pass-through block is not a member of any gap family: {line}"
             );
             // R24's rule, and this test's tripwire: a carried control whose
@@ -1039,7 +1039,7 @@
             ..camera.clone()
         };
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
-            let title = tr(lang, "Lens");
+            let title = tr(lang, K_DEVELOP_LENS);
             let lit = format!("{title}  ●");
             for (base, profile, cases) in [
                 ("camera", &camera, &camera_cases[..]),
@@ -1080,7 +1080,7 @@
                 lang,
                 ..Default::default()
             };
-            let title = tr(lang, "Export");
+            let title = tr(lang, K_APP_EXPORT);
             let lit = format!("{title}  ●");
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             let headers: Vec<&str> = seen.iter().map(String::as_str)

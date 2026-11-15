@@ -5,6 +5,8 @@
 //! of stacking an inert duplicate, repoints a stale reference at the new file,
 //! or adds a new mask. It also words the line and says which model drew it —
 //! a fallback tier is disclosed with a toast, not only a status line.
+use autoshade::text::generated::*;
+
 
 use super::{Effect, UiText};
 use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
@@ -73,12 +75,12 @@ pub(crate) fn apply(
     // apply; claiming "added, adjust sliders" there was false on both counts.
     let status = if reused.is_some() {
         UiText::with(
-            "AI「{what}」mask refreshed — the existing mask now uses the new selection (its sliders still apply)",
+            K_LOGIC_AI_MASK_REFRESHED_THE_EXISTING_MASK_NOW_USES_THE,
             &[("what", label)],
         )
     } else {
         UiText::with(
-            "AI「{what}」mask added — adjust its sliders (exposure / contrast / saturation…) to take effect",
+            K_LOGIC_AI_MASK_ADDED_ADJUST_ITS_SLIDERS_EXPOSURE_CONTRA,
             &[("what", label)],
         )
     };
@@ -86,11 +88,11 @@ pub(crate) fn apply(
     // a FALLBACK also raises an error toast — a line the user is not looking at
     // is not a disclosure of a materially softer tier.
     let backend_note =
-        (!backend.is_empty()).then(|| UiText::with(" · drawn by {backend}", &[("backend", backend)]));
+        (!backend.is_empty()).then(|| UiText::with(K_LOGIC_DRAWN_BY, &[("backend", backend)]));
     let mut effects = vec![Effect::MarkDirty, Effect::Status(status)];
     if autoshade::segment::backend_is_fallback(backend) {
         effects.push(Effect::ToastError(UiText::with(
-            "「{what}」was drawn by the U^2-Net FALLBACK, not the pinned BiRefNet — its edges are materially softer and it can invent a subject where there is none. Install torchvision + timm + einops matching your torch to get the pinned model.",
+            K_LOGIC_WAS_DRAWN_BY_THE_U_2_NET_FALLBACK_NOT_THE_PINNED,
             &[("what", label)],
         )));
     }
@@ -101,7 +103,7 @@ pub(crate) fn apply(
 /// another row die with it (the async door the row-click sites already cover).
 pub(crate) fn selection_taken_words() -> UiText {
     UiText::of(
-        "the AI result took the selection — a brush session on another mask ended; its unbaked strokes were discarded",
+        K_LOGIC_THE_AI_RESULT_TOOK_THE_SELECTION_A_BRUSH_SESSION,
     )
 }
 

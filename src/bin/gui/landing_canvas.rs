@@ -27,7 +27,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     if let Some(err) = &baked_note {
                         let t = trf(
                             lang,
-                            "this variant's saved master could not be loaded ({err}) — showing the un-retouched source develop instead",
+                            K_CANVAS_THIS_VARIANT_S_SAVED_MASTER_COULD_NOT_BE_LOADED,
                             &[("err", err)],
                         );
                         self.toast(ToastKind::Error, t);
@@ -56,12 +56,12 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             let t = match note {
                                 autoshade::store::AliasNote::Adopted { from } => trf(
                                     lang,
-                                    "edits saved under an older spelling of this photo's path were adopted ({path})",
+                                    K_CANVAS_EDITS_SAVED_UNDER_AN_OLDER_SPELLING_OF_THIS_PHOT,
                                     &[("path", &from.display().to_string())],
                                 ),
                                 autoshade::store::AliasNote::SecondDevelop { at } => trf(
                                     lang,
-                                    "a second saved develop exists at {path} (an older spelling of this photo's path) — it was NOT merged; showing the develop under the photo's true path",
+                                    K_CANVAS_A_SECOND_SAVED_DEVELOP_EXISTS_AT_AN_OLDER_SPELLI,
                                     &[("path", &at.display().to_string())],
                                 ),
                             };
@@ -159,17 +159,17 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             let t = if self.active_on_ai_pixels() {
                                 tr(
                                     lang,
-                                    "preview resolution kept — a generated variant's pixels come from its own render; switch to a source-based variant to work at another resolution",
+                                    K_CANVAS_PREVIEW_RESOLUTION_KEPT_A_GENERATED_VARIANT_S_PI,
                                 )
                             } else if !canvas_master.as_deref().is_some_and(|o| o.exists()) {
                                 tr(
                                     lang,
-                                    "preview resolution kept — this canvas's retouch master is no longer on disk, so it cannot be re-decoded at the new size",
+                                    K_CANVAS_PREVIEW_RESOLUTION_KEPT_THIS_CANVAS_S_RETOUCH_MA,
                                 )
                             } else {
                                 tr(
                                     lang,
-                                    "preview resolution kept — this retouched canvas has no saved master to re-decode at the new size; save the photo, then switch",
+                                    K_CANVAS_PREVIEW_RESOLUTION_KEPT_THIS_RETOUCHED_CANVAS_HA,
                                 )
                             };
                             // The bar still reads "decoding … " (open_path
@@ -259,7 +259,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.session.dirty = true;
                             self.status = trf(
                                 lang,
-                                "Preview resolution {px}px — re-decoded",
+                                K_CANVAS_PREVIEW_RESOLUTION_PX_RE_DECODED,
                                 &[("px", &self.genai.preview_edge.to_string())],
                             );
                         }
@@ -308,7 +308,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // scan L14/L16).
                             let t = trf(
                                 lang,
-                                "recipe limits discarded {n} mask(s), {m} component(s), {c} curve point(s) and {s} string byte(s) on restore — the saved file exceeds the app's caps",
+                                K_CANVAS_RECIPE_LIMITS_DISCARDED_MASK_S_COMPONENT_S_CURVE,
                                 &[
                                     ("n", &clamp_dropped.dropped_masks.to_string()),
                                     ("m", &clamp_dropped.dropped_components.to_string()),
@@ -347,12 +347,12 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             if more > 0 {
                                 list.push_str(&format!(
                                     ", {}",
-                                    trf(lang, "+{n} more", &[("n", &more.to_string())])
+                                    trf(lang, K_CANVAS_MORE, &[("n", &more.to_string())])
                                 ));
                             }
                             let t = trf(
                                 lang,
-                                "this Lightroom sidecar carries {n} global setting(s) the engine does not render (a save keeps them untouched): {list}",
+                                K_CANVAS_THIS_LIGHTROOM_SIDECAR_CARRIES_GLOBAL_SETTING_S,
                                 &[("n", &carried_globals.len().to_string()), ("list", &list)],
                             );
                             self.toast(ToastKind::Error, t);
@@ -390,7 +390,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         if !xmp_bad.is_empty() {
                             let w = trf(
                                 lang,
-                                "{n} XMP numeric setting(s) unreadable ({list}) — restored as neutral; saving would overwrite the sidecar with those neutrals",
+                                K_CANVAS_XMP_NUMERIC_SETTING_S_UNREADABLE_RESTORED_AS_NEU,
                                 &[
                                     ("n", &xmp_bad.len().to_string()),
                                     ("list", &xmp_bad.join(", ")),
@@ -401,7 +401,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         if let Some(why) = lr_unreadable {
                             let w = trf(
                                 lang,
-                                "a Lightroom sidecar sits beside this photo but could not be read ({why}) — any Lightroom edits in it are NOT reflected",
+                                K_CANVAS_A_LIGHTROOM_SIDECAR_SITS_BESIDE_THIS_PHOTO_BUT_C,
                                 &[("why", why)],
                             );
                             open_note = merge_note(open_note, w);
@@ -413,7 +413,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         if let Some(why) = packet_unreadable {
                             let w = trf(
                                 lang,
-                                "this RAW carries an embedded XMP develop that could not be read ({why}) — it is NOT reflected",
+                                K_CANVAS_THIS_RAW_CARRIES_AN_EMBEDDED_XMP_DEVELOP_THAT_CO,
                                 &[("why", &why)],
                             );
                             open_note = merge_note(open_note, w);
@@ -431,7 +431,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             open_note = Some(
                                 tr(
                                     lang,
-                                    "saved before this version's starting look — renders as originally tuned; Reset switches to the photo's fresh starting look",
+                                    K_CANVAS_SAVED_BEFORE_THIS_VERSION_S_STARTING_LOOK_RENDER,
                                 )
                                 .into(),
                             );
@@ -466,7 +466,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         {
                             let t = tr(
                                 lang,
-                                "the saved retouch master could not be loaded — opened the un-retouched source (Ctrl+S would overwrite the master link)",
+                                K_CANVAS_THE_SAVED_RETOUCH_MASTER_COULD_NOT_BE_LOADED_OPE,
                             );
                             self.toast(ToastKind::Error, t);
                         }
@@ -580,7 +580,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 if relooked {
                                     let w = tr(
                                         lang,
-                                        "camera base look re-estimated — this photo was saved by an earlier version, whose estimate of the camera's tone this version replaces",
+                                        K_EXPORT_CAMERA_BASE_LOOK_RE_ESTIMATED_THIS_PHOTO_WAS_SAV,
                                     )
                                     .to_string();
                                     open_note = merge_note(open_note, w);
@@ -604,7 +604,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // not first at the failing save.
                                 let t = tr(
                                     lang,
-                                    "this photo's variant list (variants.json in its develop store) cannot be read — background variants stay hidden and saving refuses until that file is repaired or deleted (the store's location is in Settings)",
+                                    K_CANVAS_THIS_PHOTO_S_VARIANT_LIST_VARIANTS_JSON_IN_ITS_D,
                                 )
                                 .to_string();
                                 self.toast(ToastKind::Error, t);
@@ -803,7 +803,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             if !strip_dropped.is_empty() {
                                 let t = trf(
                                     lang,
-                                    "recipe limits discarded {n} mask(s), {m} component(s), {c} curve point(s) and {s} string byte(s) from the saved variant cards — the saved file exceeds the app's caps",
+                                    K_CANVAS_RECIPE_LIMITS_DISCARDED_MASK_S_COMPONENT_S_CURVE__2,
                                     &[
                                         ("n", &strip_dropped.dropped_masks.to_string()),
                                         ("m", &strip_dropped.dropped_components.to_string()),
@@ -825,7 +825,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 ToastKind::Success,
                                 tr(
                                     lang,
-                                    "This photo's AI image and the edits over it now sit on separate cards (✨ pristine, ✎ your develop) — Ctrl+S saves the strip this way",
+                                    K_CANVAS_THIS_PHOTO_S_AI_IMAGE_AND_THE_EDITS_OVER_IT_NOW,
                                 ),
                             );
                         }
@@ -873,18 +873,18 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.status = if from_stash {
                             tr(
                                 lang,
-                                "ready — restored this session's unsaved edits (● not saved yet; Ctrl+S)",
+                                K_CANVAS_READY_RESTORED_THIS_SESSION_S_UNSAVED_EDITS_NOT,
                             )
                             .into()
                         } else {
                             match restored {
                                 Some(kind) => trf(
                                     lang,
-                                    "ready — restored saved edits ({kind}); Reset returns to neutral",
+                                    K_CANVAS_READY_RESTORED_SAVED_EDITS_RESET_RETURNS_TO_NEUT,
                                     &[("kind", kind)],
                                 ),
                                 None => {
-                                    tr(lang, "ready — adjust sliders or run AI Analyze").into()
+                                    tr(lang, K_CANVAS_READY_ADJUST_SLIDERS_OR_RUN_AI_ANALYZE).into()
                                 }
                             }
                         };
@@ -896,7 +896,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         if let Some(px) = self.baked_canvas_edge() {
                             let extra = trf(
                                 lang,
-                                " · restored pixels stay at {px}px (their own bake)",
+                                K_CANVAS_RESTORED_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE,
                                 &[("px", &px.to_string())],
                             );
                             self.status.push_str(&extra);
@@ -909,7 +909,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     }
                 }
                 Err(e) => {
-                    self.fail(tr(lang, "could not open"), e);
+                    self.fail(tr(lang, K_CANVAS_COULD_NOT_OPEN), e);
                     if !keep {
                         // A FRESH open failed: open_path already re-pointed
                         // src_path to the file that wouldn't decode, but the
@@ -1008,7 +1008,7 @@ pub(crate) fn on_base_redeveloped(
         Err(e) => {
             let t = trf(
                 self.lang,
-                "the canvas could not be developed under this photo's camera profile ({err})",
+                K_CANVAS_THE_CANVAS_COULD_NOT_BE_DEVELOPED_UNDER_THIS_PHO,
                 &[("err", &format!("{e:#}"))],
             );
             self.toast(ToastKind::Error, t);

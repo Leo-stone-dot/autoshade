@@ -173,7 +173,7 @@ impl AutoShadeApp {
                             } else {
                                 // A partial failure keeps the error channel,
                                 // exactly as the worker-side bail! did.
-                                self.fail(tr(lang, "export failed"), anyhow::anyhow!("{line}"));
+                                self.fail(tr(lang, K_GUI_EXPORT_FAILED), anyhow::anyhow!("{line}"));
                             }
                         }
                     }
@@ -184,7 +184,7 @@ impl AutoShadeApp {
                 Msg::Exported(Err(e)) => {
                     self.exp.batch_progress = None;
                     self.normal.delivering = false;
-                    self.fail(tr(lang, "export failed"), e);
+                    self.fail(tr(lang, K_GUI_EXPORT_FAILED), e);
                 }
                 Msg::BatchProgress { done, total } => {
                     self.exp.batch_progress = Some((done, total));
@@ -196,7 +196,7 @@ impl AutoShadeApp {
                     // destination became a setting (R22-7).
                     self.status = trf(
                         lang,
-                        "Batch-rendering {done}/{total} …",
+                        K_GUI_BATCH_RENDERING,
                         &[("done", &done.to_string()), ("total", &total.to_string())],
                     );
                 }
@@ -211,7 +211,7 @@ impl AutoShadeApp {
                     // from wherever the user is looking.
                     self.status = trf(
                         lang,
-                        "Building the style library… {stage}: {done} / {total} photos",
+                        K_GUI_BUILDING_THE_STYLE_LIBRARY_PHOTOS,
                         &[
                             ("stage", tr(lang, stage.label())),
                             ("done", &done.to_string()),
@@ -258,24 +258,24 @@ impl AutoShadeApp {
                         let s = match &note {
                             StyleNote::SavedCopy => tr(
                                 lang,
-                                "Style prompt extracted → filled into the Generate image prompt (also saved <stem>.style.txt in the delivery folder)",
+                                K_GUI_STYLE_PROMPT_EXTRACTED_FILLED_INTO_THE_GENERATE,
                             )
                             .to_string(),
                             StyleNote::SaveFailed(err) => trf(
                                 lang,
-                                "Style prompt extracted → filled into the Generate image prompt (saving <stem>.style.txt in the delivery folder failed: {err})",
+                                K_GUI_STYLE_PROMPT_EXTRACTED_FILLED_INTO_THE_GENERATE__2,
                                 &[("err", err)],
                             ),
                             StyleNote::NotSaved => tr(
                                 lang,
-                                "Style prompt extracted → filled into the Generate image prompt",
+                                K_GUI_STYLE_PROMPT_EXTRACTED_FILLED_INTO_THE_GENERATE__3,
                             )
                             .to_string(),
                         };
                         self.done(s);
                     }
                     Err(e) => {
-                        self.fail(tr(lang, "Style extraction failed"), e);
+                        self.fail(tr(lang, K_GUI_STYLE_EXTRACTION_FAILED), e);
                     }
                 },
                 Msg::Pasted(res) => {
@@ -296,10 +296,10 @@ impl AutoShadeApp {
                     match res {
                         Ok((n, dir)) => self.done(trf(
                             lang,
-                            "Imported saved develops for {n} photo(s) from {path}",
+                            K_GUI_IMPORTED_SAVED_DEVELOPS_FOR_PHOTO_S_FROM,
                             &[("n", &n.to_string()), ("path", &dir.display().to_string())],
                         )),
-                        Err(e) => self.fail(tr(lang, "import failed"), e),
+                        Err(e) => self.fail(tr(lang, K_GUI_IMPORT_FAILED), e),
                     }
                 }
                 Msg::Models(role, generation, res) => self.on_models(lang, role, generation, res),
