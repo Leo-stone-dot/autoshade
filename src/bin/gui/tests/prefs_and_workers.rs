@@ -89,11 +89,15 @@
             modifiers: egui::Modifiers::NONE,
         };
         let mut app = AutoShadeApp {
+            view: ViewState {
+                one_to_one: 4.0,
+                // what the canvas computed last frame
+                zoom: 2.0,
+                zoom_target: 2.0,
+                pan: egui::vec2(0.7, 0.7),
+                ..Default::default()
+            },
             src_path: Some(PathBuf::from("x.png")),
-            zoom_one_to_one: 4.0, // what the canvas computed last frame
-            zoom: 2.0,
-            zoom_target: 2.0,
-            pan: egui::vec2(0.7, 0.7),
             ..Default::default()
         };
 
@@ -104,23 +108,23 @@
             let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
         };
         run_key(&mut app, egui::Key::Plus);
-        assert!((app.zoom_target - 2.5).abs() < 1e-4, "`+` retargets ×1.25, got {}", app.zoom_target);
+        assert!((app.view.zoom_target - 2.5).abs() < 1e-4, "`+` retargets ×1.25, got {}", app.view.zoom_target);
         run_key(&mut app, egui::Key::Minus);
-        assert!((app.zoom_target - 2.0).abs() < 1e-4, "`-` steps back, got {}", app.zoom_target);
+        assert!((app.view.zoom_target - 2.0).abs() < 1e-4, "`-` steps back, got {}", app.view.zoom_target);
         run_key(&mut app, egui::Key::Num1);
-        assert_eq!(app.zoom_target, 4.0, "`1` targets the stored 1:1 zoom");
+        assert_eq!(app.view.zoom_target, 4.0, "`1` targets the stored 1:1 zoom");
         run_key(&mut app, egui::Key::Num0);
-        assert_eq!(app.zoom_target, 1.0, "`0` refits");
-        assert_eq!(app.pan, egui::vec2(0.5, 0.5), "`0` recentres the pan (instant)");
+        assert_eq!(app.view.zoom_target, 1.0, "`0` refits");
+        assert_eq!(app.view.pan, egui::vec2(0.5, 0.5), "`0` recentres the pan (instant)");
         // Ceiling: from 11× one `+` press must stop at the 12× clamp.
-        app.zoom_target = 11.0;
+        app.view.zoom_target = 11.0;
         run_key(&mut app, egui::Key::Plus);
-        assert_eq!(app.zoom_target, 12.0, "zoom keys respect the 12x ceiling");
+        assert_eq!(app.view.zoom_target, 12.0, "zoom keys respect the 12x ceiling");
         // No photo → the keys are inert (same gate as the canvas buttons).
         app.src_path = None;
-        app.zoom_target = 3.0;
+        app.view.zoom_target = 3.0;
         run_key(&mut app, egui::Key::Num0);
-        assert_eq!(app.zoom_target, 3.0, "no photo: zoom keys must not act");
+        assert_eq!(app.view.zoom_target, 3.0, "no photo: zoom keys must not act");
     }
 
     /// 阶段5 手感: the glide that carries `zoom` to `zoom_target` must move

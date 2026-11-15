@@ -51,18 +51,18 @@
         let mut app = AutoShadeApp::default();
         app.recipe.crop =
             Some(autoshade::recipe::Crop { left: 0.5, top: 0.5, right: 1.0, bottom: 1.0 });
-        app.pan = egui::vec2(0.5, 0.5); // centre of the CROP window
+        app.view.pan = egui::vec2(0.5, 0.5); // centre of the CROP window
         app.set_crop_mode(true);
         assert!(
-            (app.pan.x - 0.75).abs() < 1e-4 && (app.pan.y - 0.75).abs() < 1e-4,
+            (app.view.pan.x - 0.75).abs() < 1e-4 && (app.view.pan.y - 0.75).abs() < 1e-4,
             "the same viewport centre, now in full-frame coords: {:?}",
-            app.pan
+            app.view.pan
         );
         app.set_crop_mode(false);
         assert!(
-            (app.pan.x - 0.5).abs() < 1e-4 && (app.pan.y - 0.5).abs() < 1e-4,
+            (app.view.pan.x - 0.5).abs() < 1e-4 && (app.view.pan.y - 0.5).abs() < 1e-4,
             "leaving the tool rebases back: {:?}",
-            app.pan
+            app.view.pan
         );
     }
 

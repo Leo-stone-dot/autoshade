@@ -325,7 +325,6 @@ pub(crate) struct AutoShadeApp {
     pub(crate) adjust_edit_prompt: String,
     pub(crate) adjust_quality: usize,                 // 0=high 1=medium 2=low
     // --- production niceties ---
-    pub(crate) view_mode: ViewMode,                   // side-by-side vs after-only (hold B = compare)
     pub(crate) toasts: Vec<Toast>,                    // transient corner notifications
     pub(crate) histogram: Option<Vec<[f32; 4]>>,      // live RGB+luma histogram of the After preview
     pub(crate) last_title: String,                    // window title cache (send only on change)
@@ -340,28 +339,24 @@ pub(crate) struct AutoShadeApp {
     // sent from the creation closure are dropped before the loop runs.
     pub(crate) os_theme_synced: bool,
     // --- zoom / pan (per-photo, reset on open) ---
-    pub(crate) zoom: f32,                             // 1.0 = fit; up to 12×
-    pub(crate) pan: egui::Vec2,                       // visible-window centre in crop-window coords
+    /// The canvas view state; see [`ViewState`].
+    pub(crate) view: ViewState,
     // The zoom that puts one texel on one PHYSICAL pixel — computed where
     // vis_px/disp/ppp exist (canvas after_view, each frame) so the `1` key
     // can act at frame start, before layout. 1.0 until a first frame lands.
-    pub(crate) zoom_one_to_one: f32,
     // Where the zoom is HEADING: discrete jumps (Fit/1:1/keys/double-click)
     // set only this and `zoom` glides there over ~120 ms (apply_zoom_glide,
     // one glide_step per frame from update());
     // continuous inputs (scroll) and photo opens write both, staying
     // instant. Pan is never animated — view_uv's per-frame clamp re-solves
     // it against the gliding zoom, which eases it for free.
-    pub(crate) zoom_target: f32,
     // Last frame's controls-panel rect: ↑/↓ walk the library EXCEPT over
     // this panel, where the same keys nudge a hovered slider.
-    pub(crate) controls_rect: Option<egui::Rect>,
     // --- crop tool ---
     pub(crate) crop_mode: bool,                       // the crop overlay is active on the After image
     pub(crate) crop_aspect: usize,                    // index into CROP_ASPECTS
     pub(crate) crop_aspect_pending: bool,             // preset changed — re-derive the box in handle_crop
     pub(crate) crop_grid: u8,                         // crop guide: 0 thirds · 1 golden · 2 off (O cycles, LR)
-    pub(crate) before_latch: bool,                    // \ latched the Before view (toggled twin of hold-B)
     // (handle, drag start, crop at start, straighten° at start). Handles:
     // 0-3 corners, 4 move-inside, 5-8 edge midpoints (T/B/L/R), 9 = drag
     // OUTSIDE the box → rotate-straighten (the LR gesture).
@@ -692,7 +687,7 @@ impl AutoShadeApp {
             // (panels draw after the shortcuts) — one frame stale, harmless.
             let over_controls = ctx
                 .input(|i| i.pointer.latest_pos())
-                .zip(self.controls_rect)
+                .zip(self.view.controls_rect)
                 .is_some_and(|(p, r)| r.contains(p));
             ctx.input_mut(|i| {
                 if i.consume_key(egui::Modifiers::COMMAND | egui::Modifiers::SHIFT, egui::Key::Z) { do_redo = true; }
@@ -882,10 +877,10 @@ impl AutoShadeApp {
             }
             // \ latches the Before view, Y flips the comparison layout (LR).
             if do_before {
-                self.before_latch = !self.before_latch;
+                self.view.before = !self.view.before;
             }
             if do_compare {
-                self.view_mode = if self.view_mode == ViewMode::SideBySide {
+                self.view.mode = if self.view.mode == ViewMode::SideBySide {
                     ViewMode::AfterOnly
                 } else {
                     ViewMode::SideBySide
@@ -909,7 +904,7 @@ impl AutoShadeApp {
             // editor exit) — the transient windows own their Esc in the
             // pre-tier above; painted canvases/samples stay for resuming.
             if do_escape
-                && (self.tool_armed() || self.overlay.region_drag.is_some() || self.before_latch)
+                && (self.tool_armed() || self.overlay.region_drag.is_some() || self.view.before)
             {
                 // disarm_tools also kills the transient gesture anchors — a
                 // grab or stroke surviving Esc used to hijack the next drag.
@@ -917,7 +912,7 @@ impl AutoShadeApp {
                 // tool out, and Esc is the universal way back (M21).
                 self.disarm_tools();
                 self.overlay.region_drag = None;
-                self.before_latch = false;
+                self.view.before = false;
                 self.status = tr(self.lang, "Exited the current tool (Esc)").into();
             }
             if do_overlay {
@@ -951,15 +946,15 @@ impl AutoShadeApp {
             // accumulates instead of fighting the animation.
             if self.src_path.is_some() {
                 if do_fit {
-                    self.zoom_target = 1.0;
-                    self.pan = egui::vec2(0.5, 0.5);
+                    self.view.zoom_target = 1.0;
+                    self.view.pan = egui::vec2(0.5, 0.5);
                 }
                 if do_one {
-                    self.zoom_target = self.zoom_one_to_one.clamp(1.0, 12.0);
+                    self.view.zoom_target = self.view.one_to_one.clamp(1.0, 12.0);
                 }
                 if zoom_key != 0.0 {
-                    self.zoom_target =
-                        (self.zoom_target * 1.25f32.powi(zoom_key as i32)).clamp(1.0, 12.0);
+                    self.view.zoom_target =
+                        (self.view.zoom_target * 1.25f32.powi(zoom_key as i32)).clamp(1.0, 12.0);
                 }
             }
             // Ctrl+C mirrors ⎘ Copy recipe (same guards + the pending-rename
@@ -1218,9 +1213,9 @@ impl AutoShadeApp {
                     // compare). ◫ lives in egui's bundled fonts — the old ⿲
                     // (U+2FF2) only rendered when the OPTIONAL CJK fallback font
                     // loaded, tofu otherwise.
-                    ui.selectable_value(&mut self.view_mode, ViewMode::SideBySide, tr(lang, "◫ Compare"))
+                    ui.selectable_value(&mut self.view.mode, ViewMode::SideBySide, tr(lang, "◫ Compare"))
                         .on_hover_text(tr(lang, "Before/After side by side"));
-                    ui.selectable_value(&mut self.view_mode, ViewMode::AfterOnly, tr(lang, "⬛ Single"))
+                    ui.selectable_value(&mut self.view.mode, ViewMode::AfterOnly, tr(lang, "⬛ Single"))
                         .on_hover_text(tr(lang, "The edit fills the canvas; hold B to quickly compare the original"));
                 });
                 group(ui, &[tr(lang, "Export"), "▾", tr(lang, "Save develop")], 0, |ui| {
@@ -1456,9 +1451,9 @@ impl AutoShadeApp {
             // ↑/↓ routing (see upd_shortcuts): over this panel the keys
             // belong to a hovered slider; anywhere else they walk the
             // library. One frame stale — panels draw after the shortcuts.
-            self.controls_rect = Some(controls.response.rect);
+            self.view.controls_rect = Some(controls.response.rect);
         } else {
-            self.controls_rect = None;
+            self.view.controls_rect = None;
         }
 
         // Re-develop AFTER the controls are read (so this frame reflects edits).
@@ -1521,11 +1516,11 @@ impl AutoShadeApp {
             // gesture (\ latches it until pressed again, D13). Focus-gated
             // like every other shortcut: typing a "b" into Direction must
             // not flash the Before mid-word.
-            let comparing = self.before_latch
+            let comparing = self.view.before
                 || (ctx.memory(|m| m.focused()).is_none()
                     && ctx.input(|i| i.key_down(egui::Key::B)));
 
-            match self.view_mode {
+            match self.view.mode {
                 ViewMode::SideBySide => {
                     let half = (avail.x - 16.0) * 0.5;
                     let uv = self.view_uv(); // same window for both panes (synced zoom)
@@ -1783,20 +1778,14 @@ impl Default for AutoShadeApp {
             adjust_prompt: String::new(),
             adjust_edit_prompt: String::new(),
             adjust_quality: 0,
-            view_mode: ViewMode::SideBySide,
             toasts: Vec::new(),
             histogram: None,
             last_title: String::new(),
-            zoom: 1.0,
-            pan: egui::vec2(0.5, 0.5),
-            zoom_one_to_one: 1.0,
-            zoom_target: 1.0,
-            controls_rect: None,
+            view: ViewState::default(),
             crop_mode: false,
             crop_aspect: 0,
             crop_aspect_pending: false,
             crop_grid: 0,
-            before_latch: false,
             crop_drag: None,
             mask_drag: None,
             curve_channel: 0,
@@ -2222,7 +2211,7 @@ impl eframe::App for AutoShadeApp {
                 reimagine_retry: self.reimagine_retry,
                 ask_fit_after_generate: self.ask_fit_after_generate,
                 adjust_quality: self.adjust_quality,
-                view_mode: self.view_mode,
+                view_mode: self.view.mode,
                 exp_long_edge: self.exp.long_edge,
                 exp_sharpen: self.exp.sharpen,
                 exp_quality: self.exp.quality,

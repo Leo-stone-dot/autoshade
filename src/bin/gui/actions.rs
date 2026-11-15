@@ -116,7 +116,7 @@ impl AutoShadeApp {
         app.reimagine_retry = prefs.reimagine_retry;
         app.ask_fit_after_generate = prefs.ask_fit_after_generate;
         app.adjust_quality = prefs.adjust_quality.min(2);
-        app.view_mode = prefs.view_mode;
+        app.view.mode = prefs.view_mode;
         app.exp.long_edge = prefs.exp_long_edge;
         app.exp.sharpen = prefs.exp_sharpen.clamp(0.0, 100.0);
         app.exp.quality = prefs.exp_quality.clamp(1.0, 100.0);
@@ -1179,12 +1179,12 @@ impl AutoShadeApp {
         self.after_tex = None;
         self.disarm_tools();
         self.clone_src = None; // unlike a mere disarm, a variant switch drops the sample
-        self.zoom = 1.0;
-        self.zoom_target = 1.0; // instant — a swap must not glide from the old view
+        self.view.zoom = 1.0;
+        self.view.zoom_target = 1.0; // instant — a swap must not glide from the old view
         // The `1` key reads LAST frame's cached 1:1 solve; stale across a
         // switch it jumped the new canvas to the old variant's ratio (L11-5).
-        self.zoom_one_to_one = 1.0;
-        self.pan = egui::vec2(0.5, 0.5);
+        self.view.one_to_one = 1.0;
+        self.view.pan = egui::vec2(0.5, 0.5);
         self.verdict = None;
         self.dirty = true; // re-develop the newly active variant
     }
@@ -1774,15 +1774,15 @@ impl AutoShadeApp {
             let (l, t) = (c.left.min(c.right), c.top.min(c.bottom));
             let (w, h) =
                 ((c.right - c.left).abs().max(1e-6), (c.bottom - c.top).abs().max(1e-6));
-            self.pan = if on {
+            self.view.pan = if on {
                 // crop-window coords → full-frame coords
-                egui::vec2(l + self.pan.x * w, t + self.pan.y * h)
+                egui::vec2(l + self.view.pan.x * w, t + self.view.pan.y * h)
             } else {
                 // full-frame coords → crop-window coords
-                egui::vec2((self.pan.x - l) / w, (self.pan.y - t) / h)
+                egui::vec2((self.view.pan.x - l) / w, (self.view.pan.y - t) / h)
             };
             // view_uv re-clamps against zoom each frame; keep it sane here.
-            self.pan = egui::vec2(self.pan.x.clamp(0.0, 1.0), self.pan.y.clamp(0.0, 1.0));
+            self.view.pan = egui::vec2(self.view.pan.x.clamp(0.0, 1.0), self.view.pan.y.clamp(0.0, 1.0));
         }
         self.crop_mode = on;
     }
