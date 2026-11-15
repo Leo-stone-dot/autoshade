@@ -114,8 +114,11 @@
             // which is how the default-width pins missed this row.
             crate::theme::install_fonts(&ctx);
             let mut app = AutoShadeApp {
+                aip: AiPrefs {
+                    style_raw_dir: Some(std::env::temp_dir().join(format!("autoshade-raw-{}", std::process::id()))),
+                    ..Default::default()
+                },
                 lang,
-                style_raw_dir: Some(std::env::temp_dir().join(format!("autoshade-raw-{}", std::process::id()))),
                 ..Default::default()
             };
             let mut panel = egui::Rect::NOTHING;

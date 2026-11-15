@@ -7674,7 +7674,11 @@ the Color Mixer and grade tab indices), one `ai` field; the app struct is at 134
 fields. `model::OpenState` owns the open-path facts
 (navigation stash, master cache and loads, source part and its re-develop
 flight, lens/as-shot, Before baseline, open window flags, discard request), one
-`open` field; the app struct is at 119 fields.
+`open` field; the app struct is at 119 fields. `model::AiPrefs` owns the persisted AI preferences
+mirrored on the app (`guide`, the three strengths, the adherence dial and the
+library/deep-think switches), one `aip` field; `Prefs` keeps its serialized
+names and `restore_prefs`/save map between them explicitly. The app struct is
+at 109 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

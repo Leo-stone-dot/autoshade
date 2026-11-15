@@ -224,7 +224,7 @@ impl AutoShadeApp {
             ui,
             lang,
             tr(lang, "Look strength"),
-            &mut self.grade_strength,
+            &mut self.aip.grade_strength,
             1.0,
             GRADE_STRENGTH_DEFAULT,
             tr(lang, "How strong the look is. Double-click to reset."),

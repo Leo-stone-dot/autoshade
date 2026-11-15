@@ -386,7 +386,7 @@
     #[test]
     fn the_ai_dot_reads_this_photos_state_not_the_saved_dials() {
         assert_eq!(
-            AutoShadeApp::default().style_strength, STYLE_STRENGTH_DEFAULT,
+            AutoShadeApp::default().aip.style_strength, STYLE_STRENGTH_DEFAULT,
             "the app must start at the shared default"
         );
         assert_eq!(
@@ -405,14 +405,17 @@
                 ("Direction", false, "warmer and moodier", true),
             ] {
                 let mut app = AutoShadeApp {
+                    aip: AiPrefs {
+                        style_strength: 0.80,
+                        grade_strength: 0.85,
+                        fit_strength: 0.85,
+                        ..Default::default()
+                    },
                     ai: AiState {
                         guidance: guidance.into(),
                         ..Default::default()
                     },
                     lang,
-                    style_strength: 0.80,
-                    grade_strength: 0.85,
-                    fit_strength: 0.85,
                     verdict: has_verdict.then(|| (
                         autoshade::advisor::Decision::Accept, vec!["ok".into()]
                     )),
@@ -441,7 +444,7 @@
     fn the_grade_strength_slider_sits_beside_style_and_rides_the_analyze_request() {
         // One definition, three consumers (app default / pref default / the
         // slider's reset target) — the R22 #16 rule, applied to the new dial.
-        assert_eq!(AutoShadeApp::default().grade_strength, GRADE_STRENGTH_DEFAULT);
+        assert_eq!(AutoShadeApp::default().aip.grade_strength, GRADE_STRENGTH_DEFAULT);
         assert_eq!(
             Prefs::default().grade_strength, GRADE_STRENGTH_DEFAULT,
             "a prefs file written before this key existed must decode to the SAME number — \
@@ -475,7 +478,7 @@
         // A remembered preference stays quiet, including a move DOWN to the
         // calibration point, which differs from the shipped default.
         assert!(!app.ai_section_active(), "a fresh AI area has no state to flag");
-        app.grade_strength = autoshade::recipe::GradeStrength::CALIBRATED;
+        app.aip.grade_strength = autoshade::recipe::GradeStrength::CALIBRATED;
         assert!(
             !app.ai_section_active(),
             "a moved Strength slider is a preference, not this photo's AI state"
@@ -487,21 +490,28 @@
             seen.iter().any(|t| t == title) && !seen.contains(&lit),
             "a moved Strength slider must leave the AI header plain: {seen:?}"
         );
-        app.grade_strength = GRADE_STRENGTH_DEFAULT;
+        app.aip.grade_strength = GRADE_STRENGTH_DEFAULT;
         assert!(!app.ai_section_active(), "resetting a preference also leaves the dot unlit");
 
         // …and it reaches the worker's request, on its OWN axis (the two dials
         // must not be able to swap: `style` is a bare fraction, `strength` a
         // `GradeStrength`, so a transposed pair would not compile).
-        let app = AutoShadeApp { grade_strength: 0.9, style_strength: 0.2, ..Default::default() };
+        let app = AutoShadeApp {
+            aip: AiPrefs {
+                grade_strength: 0.9,
+                style_strength: 0.2,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let req = autoshade::pipeline::GradeRequest {
-            guide: app.guide,
-            style: app.style_strength,
-            send_reference_image: app.send_style_ref_image,
-            strength: autoshade::recipe::GradeStrength::new(app.grade_strength),
-            think: app.deep_think,
+            guide: app.aip.guide,
+            style: app.aip.style_strength,
+            send_reference_image: app.aip.send_style_ref_image,
+            strength: autoshade::recipe::GradeStrength::new(app.aip.grade_strength),
+            think: app.aip.deep_think,
             adherence: autoshade::recipe::DirectionAdherence::default(),
-            embed: autoshade::library::EmbeddingSwitch::resolve(None, app.style_embed),
+            embed: autoshade::library::EmbeddingSwitch::resolve(None, app.aip.style_embed),
         };
         assert_eq!(req.strength.get(), 0.9);
         assert_eq!(req.style, 0.2);
@@ -736,7 +746,7 @@
     #[test]
     fn gui_reverse_fit_has_its_own_strength_dial() {
         // One constant, three consumers: app default, pref default, reset target.
-        assert_eq!(AutoShadeApp::default().fit_strength, autoshade::recipe::GradeStrength::DEFAULT);
+        assert_eq!(AutoShadeApp::default().aip.fit_strength, autoshade::recipe::GradeStrength::DEFAULT);
         assert_eq!(
             Prefs::default().fit_strength,
             autoshade::recipe::GradeStrength::DEFAULT,
@@ -749,14 +759,26 @@
             "the shipped dial value IS the byte-identical default budget"
         );
         // Two dials, two readings: moving either leaves the other alone.
-        let app = AutoShadeApp { grade_strength: 0.9, ..Default::default() };
+        let app = AutoShadeApp {
+            aip: AiPrefs {
+                grade_strength: 0.9,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         assert_eq!(app.analysis_strength().get(), 0.9);
         assert_eq!(
             autoshade::fit::FitBudget::for_strength(app.fit_strength()).vetoes,
             autoshade::fit::VetoPolicy::Withhold,
             "the Analysis Strength must not reach the fit"
         );
-        let app = AutoShadeApp { fit_strength: 0.9, ..Default::default() };
+        let app = AutoShadeApp {
+            aip: AiPrefs {
+                fit_strength: 0.9,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         assert_eq!(
             autoshade::fit::FitBudget::for_strength(app.fit_strength()).vetoes,
             autoshade::fit::VetoPolicy::Disclose
@@ -775,9 +797,9 @@
         );
         // The saved reverse-fit dial is a preference, so it leaves the ● unlit.
         assert!(!app.ai_section_active(), "a fresh AI area has no state to flag");
-        app.fit_strength = 0.85;
+        app.aip.fit_strength = 0.85;
         assert!(!app.ai_section_active(), "a moved reverse-fit dial is still a preference");
-        app.fit_strength = autoshade::recipe::GradeStrength::DEFAULT;
+        app.aip.fit_strength = autoshade::recipe::GradeStrength::DEFAULT;
         assert!(!app.ai_section_active(), "resetting a preference also leaves the dot unlit");
         // Persisted on its own key; an older prefs file without it loads at the default.
         let prefs = Prefs { fit_strength: 0.85, ..Prefs::default() };
@@ -801,12 +823,12 @@
             "both fit entry points (zoned and global) must receive the fit's dial"
         );
         assert_eq!(
-            worker.matches("GradeStrength::new(self.fit_strength)").count(),
+            worker.matches("GradeStrength::new(self.aip.fit_strength)").count(),
             1,
             "exactly one reading of the fit's dial: fit_strength() itself"
         );
         assert_eq!(
-            worker.matches("GradeStrength::new(self.grade_strength)").count(),
+            worker.matches("GradeStrength::new(self.aip.grade_strength)").count(),
             1,
             "exactly one reading of the Analysis dial: analysis_strength() itself"
         );
