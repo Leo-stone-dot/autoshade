@@ -6499,8 +6499,30 @@ mod tests {
     /// 2048-px neutral develop 0.276 → Full).
     #[test]
     fn both_reverse_fit_entries_take_their_source_frame_from_one_function() {
+        fn gui_tree_text() -> String {
+            fn walk(dir: &std::path::Path, out: &mut String) {
+                let Ok(entries) = std::fs::read_dir(dir) else { return };
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if path.file_name().is_some_and(|n| n == "tests") {
+                            continue;
+                        }
+                        walk(&path, out);
+                    } else if path.extension().is_some_and(|e| e == "rs") {
+                        if let Ok(text) = std::fs::read_to_string(&path) {
+                            out.push_str(&text);
+                            out.push('\n');
+                        }
+                    }
+                }
+            }
+            let mut out = String::new();
+            walk(&std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/bin/gui"), &mut out);
+            out
+        }
         let cli = production_text("src/main.rs");
-        let gui = production_text("src/bin/gui/actions.rs");
+        let gui = gui_tree_text();
         // The CLI picks its source arm in `match_source` (2026-09-26): a RAW's
         // frame is `fit_source`'s, and `match_cmd` takes its pair from there.
         assert!(
@@ -6512,7 +6534,7 @@ mod tests {
             gui.contains("pipeline::fit_source(p)?"),
             "the desktop reverse-fit must take its source frame from pipeline::fit_source"
         );
-        for (name, text) in [("src/main.rs", &cli), ("src/bin/gui/actions.rs", &gui)] {
+        for (name, text) in [("src/main.rs", &cli), ("src/bin/gui/**", &gui)] {
             assert!(
                 !text.contains("SOURCE_EDGE: u32 ="),
                 "{name} re-declares the fit's source edge — FIT_SOURCE_EDGE has one home"

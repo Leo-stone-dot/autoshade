@@ -1110,10 +1110,33 @@ fn a_pair_that_cannot_say_keeps_the_picture_the_sensor_saw() {
 /// reached one of the three), and the entry pairs the frame itself.
 #[test]
 fn the_three_open_paths_share_one_base_look_entry() {
+    fn gui_tree_text() -> String {
+        fn walk(dir: &std::path::Path, out: &mut String) {
+            let Ok(entries) = std::fs::read_dir(dir) else { return };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    if path.file_name().is_some_and(|n| n == "tests") {
+                        continue;
+                    }
+                    walk(&path, out);
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    if let Ok(text) = std::fs::read_to_string(&path) {
+                        out.push_str(&text);
+                        out.push('\n');
+                    }
+                }
+            }
+        }
+        let mut out = String::new();
+        walk(&std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/bin/gui"), &mut out);
+        out
+    }
+    let gui = gui_tree_text();
     for (name, text) in [
-        ("pipeline.rs", include_str!("../../pipeline.rs")),
-        ("serve.rs", include_str!("../../serve.rs")),
-        ("bin/gui/actions.rs", include_str!("../../bin/gui/actions.rs")),
+        ("pipeline.rs", include_str!("../../pipeline.rs").to_string()),
+        ("serve.rs", include_str!("../../serve.rs").to_string()),
+        ("bin/gui/**", gui),
     ] {
         assert!(text.contains("camera_base_look("), "{name} estimates through the one entry");
         for by_hand in ["camera_base_knots(", "camera_frame_of(", "estimation_base("] {

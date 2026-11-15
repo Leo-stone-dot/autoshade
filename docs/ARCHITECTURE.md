@@ -7640,7 +7640,7 @@ and runs the side; no file/folder dialog lives under `panels/` any more.
 [`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
 logic files stay headless and a migrated panel stays behind the seam. The split's own census, kept current in
 `wishes/autoshade-view-split/PLAN.md` (the working plan, outside this repository):
-26 files under `logic/` with 135 headless tests; every `panels/` file (the
+26 files under `logic/` with 71 headless tests; every `panels/` file (the
 business panels and the two pure widgets), `canvas.rs` and the frame `app.rs`
 are in the guard; `workers.rs` is the message pump and worker starts, with the
 landings in `landing_*.rs` and the business mutations in `*_actions.rs`; no view
@@ -7730,7 +7730,9 @@ function's text from the tree, so a function may move files while its absence
 or count pin still holds. Only four `include_str!` sites remain: three external
 files (`serve.rs`, `pipeline.rs`, `python/denoise.py`) and the side-panel
 separator census, whose cross-module absence cannot be function-scoped without
-losing coverage.
+losing coverage. Two lib-side pins that read a GUI
+file (`pipeline::tests` reverse-fit source, `render::tests` open-path entry) now
+walk the GUI tree the same way, so they survived the B split.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
