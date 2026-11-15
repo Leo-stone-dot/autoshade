@@ -68,6 +68,10 @@ fn label(lang: Lang, id: CapabilityId) -> &'static str {
         CapabilityId::DefringeGreen => tr(lang, "Green amount"),
         CapabilityId::DefringeGreenLo => tr(lang, "Green hue low"),
         CapabilityId::DefringeGreenHi => tr(lang, "Green hue high"),
+        CapabilityId::CalShadowTint => tr(lang, "Tint"),
+        CapabilityId::CalRedHue | CapabilityId::CalGreenHue | CapabilityId::CalBlueHue => tr(lang, "Hue"),
+        CapabilityId::CalRedSat | CapabilityId::CalGreenSat | CapabilityId::CalBlueSat => tr(lang, "Saturation"),
+        CapabilityId::WhiteBalanceTint => tr(lang, "Tint"),
     }
 }
 
