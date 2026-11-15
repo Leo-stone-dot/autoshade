@@ -7544,17 +7544,21 @@ view flag), and `i18n::text` renders the `logic::UiText` key. The actions are
 closed per domain (`Look`, `Lens`, `Gallery`), so a panel can only ask for its
 own verbs. `logic/` is headless — no widget code, no rendered text — so a
 domain is tested by calling it. The develop panel's scalar controls are a
-capability table too ([`logic/capability.rs`](../src/bin/gui/logic/capability.rs):
-`TONE`, `PRESENCE`, `TABLES`), and a ROW OWNS ITS OWN BEHAVIOUR: the recipe
-spelling, the label's text-resource id, the slider kind, and the read/write
-pair (or the companion encoding). The slider BAND and the double-click RESET
-are read from `advisor::catalogue::form_control` — the top-level
-`RECIPE_CONTROLS` rows (the table `EditRecipe::clamp` is pinned to) and the
-nested `color_grade` fields of `COLOR_GRADE_FIELDS` — and
-`panels/develop_forms.rs` turns a table into sliders in one loop (`render_rows`:
-plain, fine and companion rows), so adding a control is one table row plus its
-core catalogue row — never a new enum variant or a new `match` in the
-renderer, command layer or label dispatch. The labels are text RESOURCES
+trait registry too ([`controls.rs`](../src/bin/gui/controls.rs): `ControlWidget`,
+`TONE`, `PRESENCE`, `tables()`), where BEHAVIOUR IS POLYMORPHIC: a control is a
+value implementing `ControlWidget` and owns its identity, its label's
+text-resource id, its read and write of the recipe, and its own `draw`. The
+slider BAND and the double-click RESET are read from
+`advisor::catalogue::form_control` — the top-level `RECIPE_CONTROLS` rows (the
+table `EditRecipe::clamp` is pinned to) and the nested `color_grade` fields of
+`COLOR_GRADE_FIELDS` — and `panels/develop_forms.rs` only walks a table calling
+`draw`: it does not match a control kind, so a new control of an existing shape
+is one registration row, and a genuinely new KIND is a new `impl ControlWidget`
+in its own module — never a new enum variant or a `match` in the renderer. A
+reported change is DATA (`CapabilityChange { id, value }`, no function
+pointers) applied through the registry (`controls::apply`), so
+`logic::command::Command` stays a domain intent (the mask verbs) and a scalar
+write never becomes a command. The labels are text RESOURCES
 (Android/iOS model): one dotted key per string, its English and Chinese text in
 `resources/strings/{en,zh-Hans}.toml`, compiled by `scripts/gen_text.py` into
 the `K_…` constants (`autoshade::text`); `scripts/check_text.py` keeps the
@@ -7566,17 +7570,14 @@ range editor, the AI segmentation verbs) has its own module,
 develop panel file keeps the form sections. The genuinely custom widgets — the
 tone-curve editor, the parametric curve, the colour mixer grid with its Point
 Color rows and the grading wheels — live in
-[`panels/develop_widgets.rs`](../src/bin/gui/panels/develop_widgets.rs). A table
-row reports its change as a
-`logic::command::Command` — and the panel's SECTION list, the display order and
+[`panels/develop_widgets.rs`](../src/bin/gui/panels/develop_widgets.rs). The
+panel's SECTION list, the display order and
 the family set each ● reads, is a table too
 ([`sections.rs`](../src/bin/gui/sections.rs): `SECTIONS`, `section_active`),
 where each row carries its OWN draw function, so the panel walks the table and
 calls `(section.draw)(self, ui, active)`: adding a section is a row plus a
 draw function in its module, never an enum variant and a central `match`.
-`SetCapability` carries the row's write (a plain field), `SetCompanion`
-the explicit-zero encoding — the panel's `capability_rows` applies both
-through `logic::command::apply`; the mask list's delete / eye / drag-reorder
+The mask list's delete / eye / drag-reorder
 verbs are `Command::Mask` — plus `InsertMask` for the duplicate verb, whose
 raster detach and name the caller prepares — and the selection remap and the
 overlay invalidation stay with the panel, which owns that state. The mask's
