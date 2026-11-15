@@ -284,15 +284,15 @@
             )),
         );
 
-        assert_eq!(app.hist.undo_stack.len(), 2, "slider step + pixel step, not one folded step");
-        let undone = app.hist.undo_stack.last().unwrap();
+        assert_eq!(app.session.hist.undo_stack.len(), 2, "slider step + pixel step, not one folded step");
+        let undone = app.session.hist.undo_stack.last().unwrap();
         assert_eq!(undone.recipe.exposure_ev, 0.5, "the slider edit is NOT in the pixel step");
         assert!(
             undone.base.as_ref().is_some_and(|b| std::sync::Arc::ptr_eq(b, &b0)),
             "one Ctrl+Z drops the retouch and keeps the slider move"
         );
         assert!(
-            app.hist.committed.base.as_ref().is_some_and(|b| !std::sync::Arc::ptr_eq(b, &b0)),
+            app.session.hist.committed.base.as_ref().is_some_and(|b| !std::sync::Arc::ptr_eq(b, &b0)),
             "the head holds the retouched pixels"
         );
     }
@@ -332,15 +332,15 @@
             },
         ];
         app.active = 0;
-        app.dirty = false;
+        app.session.dirty = false;
         app.develop_inflight = false;
         app.switch_variant(1, &ctx);
         assert!(app.variants[0].thumb.is_some(), "a settled card keeps its thumb");
 
-        app.dirty = false;
+        app.session.dirty = false;
         app.develop_inflight = false;
         app.switch_variant(0, &ctx);
-        app.dirty = true; // an edit awaiting dispatch — no frame depicts it
+        app.session.dirty = true; // an edit awaiting dispatch — no frame depicts it
         app.switch_variant(1, &ctx);
         assert!(
             app.variants[0].thumb.is_none(),
@@ -467,8 +467,8 @@
             thumb: None,
         }];
         app.recipe = pre_era.clone();
-        app.hist.committed = UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None };
-        app.hist.undo_stack.push(UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None });
+        app.session.hist.committed = UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None };
+        app.session.hist.undo_stack.push(UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None });
         // Same-path FRESH reopen in flight: fact without request — refused.
         app.open.open_in_flight = true;
         app.open.open_same_path = true;
@@ -654,7 +654,7 @@ status: "decoding … ".to_string(),
         let original_recipe = EditRecipe { exposure_ev: 0.4, ..Default::default() };
         let fitted_recipe = EditRecipe { contrast: 18.0, ..Default::default() };
         AutoShadeApp {
-            hist: HistoryState {
+                        session: EditorSession { hist: HistoryState {
                 saved_recipe: original_recipe.clone(),
                 pixels_on_disk: None,
                 saved_strip: Some(autoshade::store::VariantsRecord {
@@ -674,7 +674,7 @@ status: "decoding … ".to_string(),
                 extra: Default::default(),
             }),
                 ..Default::default()
-            },
+            }, ..Default::default() },
             src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/__variant-baseline__.ARW", std::process::id()))),
             recipe: original_recipe.clone(),
             variants: vec![
@@ -718,7 +718,7 @@ status: "decoding … ".to_string(),
             "the saved-active card is now background and resolves through recipe.json"
         );
         assert_eq!(
-            app.hist.saved_strip.as_ref().and_then(|r| r.active_id.as_deref()),
+            app.session.hist.saved_strip.as_ref().and_then(|r| r.active_id.as_deref()),
             Some("card-x"),
             "viewing another card does not move the persisted selection"
         );
@@ -743,9 +743,9 @@ status: "decoding … ".to_string(),
         assert!(app.pending_save_gate_dirty(), "the quit save list sees that edit");
 
         app.variants[app.active].recipe = app.recipe.clone();
-        app.hist.saved_recipe = app.recipe.clone();
-        app.hist.pixels_on_disk = app.active_variant().and_then(|v| v.origin.clone());
-        app.hist.saved_strip = app.current_strip_record();
+        app.session.hist.saved_recipe = app.recipe.clone();
+        app.session.hist.pixels_on_disk = app.active_variant().and_then(|v| v.origin.clone());
+        app.session.hist.saved_strip = app.current_strip_record();
         assert!(!app.unsaved_marker_dirty(), "saving on card Y advances Y's baseline");
         assert_eq!(app.open_dirty_variants(), 0, "the whole strip is clean after that save");
 
@@ -794,11 +794,11 @@ status: "decoding … ".to_string(),
         let original_origin = std::env::temp_dir().join(format!("autoshade-masters-{}/original-heal.png", std::process::id()));
         let generated_origin = std::env::temp_dir().join(format!("autoshade-masters-{}/generated.png", std::process::id()));
         app.variants[0].origin = Some(original_origin.clone());
-        app.hist.pixels_on_disk = Some(original_origin);
+        app.session.hist.pixels_on_disk = Some(original_origin);
         app.variants[1].kind = VariantKind::Generated;
         app.variants[1].origin = Some(generated_origin.clone());
         app.variants[1].base = Some(Arc::new(image::DynamicImage::new_rgb8(4, 3)));
-        let entry = &mut app.hist.saved_strip.as_mut().unwrap().others[0];
+        let entry = &mut app.session.hist.saved_strip.as_mut().unwrap().others[0];
         entry.kind = "generated".into();
         entry.origin = Some(generated_origin);
         let ctx = egui::Context::default();
@@ -860,10 +860,10 @@ status: "decoding … ".to_string(),
             thumb: None,
         };
         let mut app = AutoShadeApp {
-            hist: HistoryState {
+                        session: EditorSession { hist: HistoryState {
                 pixels_on_disk: Some(std::path::absolute(&master).unwrap()),
                 ..Default::default()
-            },
+            }, ..Default::default() },
             src_path: Some(src.to_path_buf()),
             // The RELATIVE spelling, exactly as the retouch handler records it.
 variants: vec![mk(master.clone()), mk(master.clone())],
@@ -876,7 +876,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         // relative ./out spelling — same_master_opt must bridge them, or a
         // fully saved strip re-reports as unsaved (the original regression,
         // re-expressed against the v0.22 mirror).
-        app.hist.saved_strip = Some(autoshade::store::VariantsRecord {
+        app.session.hist.saved_strip = Some(autoshade::store::VariantsRecord {
             extra: Default::default(),
             active_id: None,
             active_name: None,
@@ -901,7 +901,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         // Mirror follows the trivial strip (as a save would persist it) —
         // this half of the test pins the PIXELS spelling comparison in the
         // stash gate, not strip dirtiness.
-        app.hist.saved_strip = None;
+        app.session.hist.saved_strip = None;
         app.open_path(std::env::temp_dir().join(format!("autoshade-library-{}/__autoshade_masterid_next__.ARW", std::process::id())));
         assert!(
             !app.open.nav_stash.contains_key(src),
@@ -956,10 +956,10 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         let master = dev.join("reimagine-1.png");
         std::fs::write(&master, b"png").unwrap();
         let mut app = AutoShadeApp {
-            hist: HistoryState {
+                        session: EditorSession { hist: HistoryState {
                 pixels_on_disk: None,
                 ..Default::default()
-            },
+            }, ..Default::default() },
             src_path: Some(src.to_path_buf()),
             variants: vec![
                 Variant {

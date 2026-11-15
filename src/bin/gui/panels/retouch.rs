@@ -465,7 +465,7 @@ impl AutoShadeApp {
             changed = true;
         }
         if changed {
-            self.dirty = true;
+            self.session.dirty = true;
         }
     }
 

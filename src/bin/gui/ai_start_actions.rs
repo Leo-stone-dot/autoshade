@@ -391,7 +391,7 @@ impl AutoShadeApp {
                             // way-out re-check compares live-trivial against
                             // a stale record and bounces the close.
                             if self.src_path.as_deref() == Some(p.as_path()) {
-                                self.hist.saved_strip = None;
+                                self.session.hist.saved_strip = None;
                             }
                             // Cleared, but not MARKED — same channel as the XMP
                             // half: quitting silently would let a projection
@@ -492,14 +492,14 @@ impl AutoShadeApp {
                             eprintln!("⚠ {}: {note}", autoshade::pipeline::stem(p));
                         }
                         if self.src_path.as_deref() == Some(p.as_path()) {
-                            self.hist.saved_strip = strip.clone();
+                            self.session.hist.saved_strip = strip.clone();
                             // The FOURTH mirror of the single-save set
                             // (export.rs): pixels.json for the ACTIVE photo
                             // just committed, and without this the ● badge
                             // and the exit re-check compared against a stale
                             // master link — a just-saved retouch was
                             // re-reported as unsaved (L11-6).
-                            self.hist.pixels_on_disk = pix.as_ref().map(|(o, _)| o.clone());
+                            self.session.hist.pixels_on_disk = pix.as_ref().map(|(o, _)| o.clone());
                         }
                     }
                     Err(e) => {
@@ -592,7 +592,7 @@ impl AutoShadeApp {
             match failed {
                 None => {
                     self.open.nav_stash.clear();
-                    self.hist.saved_recipe = self.recipe.clone();
+                    self.session.hist.saved_recipe = self.recipe.clone();
                     self.ui.confirm_quit = false;
                     // The close guard re-checks on the way out. Everything
                     // above just persisted, so the re-check passes — but if
@@ -635,7 +635,7 @@ impl AutoShadeApp {
             }
         } else if discard_quit {
             self.open.nav_stash.clear();
-            self.hist.saved_recipe = self.recipe.clone();
+            self.session.hist.saved_recipe = self.recipe.clone();
             // The answer to the guard's question, recorded: these two lines
             // clean the ACTIVE canvas, but a background variant's edits have
             // nowhere to be saved, so nothing can make them "clean" — only

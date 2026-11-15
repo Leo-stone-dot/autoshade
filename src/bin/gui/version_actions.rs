@@ -398,7 +398,7 @@ impl AutoShadeApp {
                 // value.
                 self.decide_keep_skin_for_card();
                 self.resync_recipe_display();
-                self.dirty = true;
+                self.session.dirty = true;
                 // A snapshot loaded onto the pristine ✨ card is an edit like
                 // any other: it lands on a new ✎ card (the immutability rule),
                 // and the load announcement below names that card's canvas.

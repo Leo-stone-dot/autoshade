@@ -7552,7 +7552,9 @@ through `logic::command::apply`. The worker channel and the event-loop context w
 wake are a `Services` struct
 ([`services.rs`](../src/bin/gui/services.rs)) the app holds — infrastructure,
 not photo state, so replacing the executor or the loop touches neither the
-document nor the panels. The Lens Blur pilot
+document nor the panels. The undo/redo history and the dirty flag are an
+`EditorSession` ([`session.rs`](../src/bin/gui/session.rs)): per-photo
+session state that dies when another source opens and is never persisted. The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
 share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):

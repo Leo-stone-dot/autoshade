@@ -79,7 +79,7 @@
             "self.status =",
             "self.toast(",
             "self.busy =",
-            "self.dirty =",
+            "self.session.dirty =",
         ];
         // `lens_blur.rs` — the pilot: it must not start the depth worker, open
         // a dialog or reach into the recipe.

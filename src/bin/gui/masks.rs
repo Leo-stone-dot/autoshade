@@ -481,7 +481,7 @@ impl AutoShadeApp {
                     }
                 }
                 self.masks.sel_component = None;
-                self.dirty = true;
+                self.session.dirty = true;
                 self.overlay.overlay_stale = true;
                 self.disarm_tools(); // ends the session and clears the canvas
             }
@@ -539,7 +539,7 @@ impl AutoShadeApp {
                 {
                     *slot = p.to_string_lossy().into_owned();
                 }
-                self.dirty = true;
+                self.session.dirty = true;
                 self.overlay.overlay_stale = true;
                 self.status =
                     tr(lang, "mask raster updated — its adjustments now apply to the edited area")

@@ -166,7 +166,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
         }
         self.portrait.line = PortraitLine::Found { faces: faces_n, failed: failed.clone() };
         self.overlay.overlay_stale = true;
-        self.dirty = true;
+        self.session.dirty = true;
         self.status = self.portrait_line_text(lang);
         if let Some(why) = failed {
             self.toast(ToastKind::Error, trf(lang, "Part of the search did not work: {err}", &[("err", &why)]));
@@ -181,7 +181,7 @@ pub(crate) fn start_remove_blemishes(&mut self) {
 
 pub(crate) fn guard_portrait_skin(&mut self) {
         if self.skin_held() && autoshade::face::keep_skin_natural_in(&mut self.recipe) {
-            self.dirty = true;
+            self.session.dirty = true;
         }
     }
 
@@ -234,7 +234,7 @@ pub(crate) fn set_keep_skin(&mut self, on: bool) {
         }
         let n = autoshade::face::skin_values_beyond(&self.recipe);
         if n > 0 && autoshade::face::keep_skin_natural_in(&mut self.recipe) {
-            self.dirty = true;
+            self.session.dirty = true;
             self.status = if n == 1 {
                 tr(self.lang, "Skin kept natural: 1 value brought back within the limits").into()
             } else {
@@ -291,7 +291,7 @@ pub(crate) fn after_portrait_depth(&mut self) {
         if lb.protect.is_none() {
             lb.protect = subject;
         }
-        self.dirty = true;
+        self.session.dirty = true;
     }
 
 pub(crate) fn set_keep_person_sharp(&mut self, on: bool) -> bool {

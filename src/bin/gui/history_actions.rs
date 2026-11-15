@@ -24,9 +24,9 @@ impl AutoShadeApp {
     /// becomes the current head — with no photo open that is the empty step,
     /// which is exactly what stops the next settled frame pushing a phantom.
     pub(crate) fn reset_history(&mut self) {
-        self.hist.committed = self.current_step();
-        self.hist.undo_stack.clear();
-        self.hist.redo_stack.clear();
+        self.session.hist.committed = self.current_step();
+        self.session.hist.undo_stack.clear();
+        self.session.hist.redo_stack.clear();
     }
 
     /// Commit the current state as one undo step RIGHT NOW (when it differs
@@ -36,16 +36,16 @@ impl AutoShadeApp {
     /// while keeping the freshly retouched pixels installed.
     pub(crate) fn commit_now(&mut self) {
         let cur = self.current_step();
-        if cur.recipe != self.hist.committed.recipe || !cur.same_pixels(&self.hist.committed) {
-            self.hist.undo_stack.push(std::mem::replace(&mut self.hist.committed, cur));
-            if self.hist.undo_stack.len() > 100 {
-                self.hist.undo_stack.remove(0); // cap history memory
+        if cur.recipe != self.session.hist.committed.recipe || !cur.same_pixels(&self.session.hist.committed) {
+            self.session.hist.undo_stack.push(std::mem::replace(&mut self.session.hist.committed, cur));
+            if self.session.hist.undo_stack.len() > 100 {
+                self.session.hist.undo_stack.remove(0); // cap history memory
             }
-            self.hist.redo_stack.clear();
+            self.session.hist.redo_stack.clear();
         } else {
             // A flip of the skin switch that changed no value belongs to the
             // step on screen, so a later undo/redo hands it back as set.
-            self.hist.committed.keep_skin = cur.keep_skin;
+            self.session.hist.committed.keep_skin = cur.keep_skin;
         }
     }
 
@@ -96,9 +96,9 @@ impl AutoShadeApp {
     /// and O(1)). A restored `base: None` reverts a retouched source variant
     /// to the shared source neutral.
     pub(crate) fn apply_step(&mut self, step: UndoStep, ctx: &egui::Context) {
-        let pixels_differ = !step.same_pixels(&self.hist.committed);
+        let pixels_differ = !step.same_pixels(&self.session.hist.committed);
         let keep_skin = step.keep_skin;
-        self.hist.committed = step.clone();
+        self.session.hist.committed = step.clone();
         self.recipe = step.recipe;
         // The history is a READER too: a step recorded while the canvas was
         // washed reinstalls the pre-era pair on undo/redo — and the actor
@@ -138,7 +138,7 @@ impl AutoShadeApp {
             && let Some(p) = self.src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()
         {
-            self.hist.committed.recipe = self.recipe.clone();
+            self.session.hist.committed.recipe = self.recipe.clone();
             if let Some(v) = self.variants.get_mut(self.active) {
                 v.recipe = self.recipe.clone();
             }
@@ -166,7 +166,7 @@ impl AutoShadeApp {
             // canvas has to retract the claim, or it stands there false.
             self.set_canvas_status("restored the canvas pixels");
         }
-        self.dirty = true;
+        self.session.dirty = true;
         self.resync_recipe_display();
         // The skin switch comes back as the step had it; a step past the
         // skin limits is then put back as it was (Portraits).
@@ -281,7 +281,7 @@ impl AutoShadeApp {
         match autoshade::pipeline::rotate_recipe(&mut next, &src, delta) {
             Ok(_) => {
                 self.recipe = next;
-                self.dirty = true;
+                self.session.dirty = true;
                 self.sync_base_turns(ctx);
                 self.resync_recipe_display();
                 // …and SEAL it, rather than waiting for `commit_if_settled`
@@ -365,19 +365,19 @@ impl AutoShadeApp {
         self.overlay.mask_tex = None;
         self.overlay.mask_overlay_tex = None;
         self.overlay.overlay_key = None;
-        self.dirty = true;
+        self.session.dirty = true;
     }
 
     pub(crate) fn undo(&mut self, ctx: &egui::Context) {
-        if let Some(prev) = self.hist.undo_stack.pop() {
-            self.hist.redo_stack.push(self.hist.committed.clone());
+        if let Some(prev) = self.session.hist.undo_stack.pop() {
+            self.session.hist.redo_stack.push(self.session.hist.committed.clone());
             self.apply_step(prev, ctx);
         }
     }
 
     pub(crate) fn redo(&mut self, ctx: &egui::Context) {
-        if let Some(next) = self.hist.redo_stack.pop() {
-            self.hist.undo_stack.push(self.hist.committed.clone());
+        if let Some(next) = self.session.hist.redo_stack.pop() {
+            self.session.hist.undo_stack.push(self.session.hist.committed.clone());
             self.apply_step(next, ctx);
         }
     }

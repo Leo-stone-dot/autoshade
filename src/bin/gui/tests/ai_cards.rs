@@ -17,7 +17,7 @@
         assert_eq!(app.variants.len(), 2);
 
         app.recipe.contrast = 7.0;
-        app.dirty = true;
+        app.session.dirty = true;
         assert!(app.fork_edited_card(), "the first edit forks");
         assert_eq!(
             strip_kinds(&app),
@@ -39,7 +39,7 @@
         );
         assert_eq!(app.variants[2].origin.as_deref(), Some(master.as_path()));
         assert_eq!(app.recipe.contrast, 7.0, "the canvas is untouched");
-        assert!(app.dirty, "…and its pending develop still runs");
+        assert!(app.session.dirty, "…and its pending develop still runs");
         assert!(!app.fork_edited_card(), "an ✎ card never forks");
         assert_eq!(app.variants.len(), 3);
         assert!(app.unsaved_marker_dirty(), "a new card is unsaved work");
@@ -800,7 +800,7 @@
             "…and shares the ▣ card's decoded pixels"
         );
         assert_eq!(
-            app.hist.pixels_on_disk.as_deref(),
+            app.session.hist.pixels_on_disk.as_deref(),
             Some(master.as_path()),
             "the ● pixel mirror follows the persisted link"
         );
@@ -816,7 +816,7 @@
         let fitted = &app.variants[app.active];
         assert_eq!(fitted.kind, VariantKind::Fitted);
         assert_eq!(fitted.origin, None);
-        assert_eq!(app.hist.pixels_on_disk, None);
+        assert_eq!(app.session.hist.pixels_on_disk, None);
     }
 
     /// 2026-09-15 (user decision): an AI denoise is NOT an in-place retouch
@@ -1140,7 +1140,7 @@
             .find("self.fork_edited_card();")
             .map(|i| i + panels)
             .expect("the frame hook after the panels");
-        let dispatch = src.find("if self.dirty && !self.develop_inflight {").expect("the dispatch");
+        let dispatch = src.find("if self.session.dirty && !self.develop_inflight {").expect("the dispatch");
         assert!(hook < dispatch, "the hook runs before the develop is dispatched");
 
         // The fill develops the card's picture for the model, asks the

@@ -353,7 +353,7 @@ impl AutoShadeApp {
 
     fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {
         let live = self.variants.get(live_position)?;
-        let rec = match &self.hist.saved_strip {
+        let rec = match &self.session.hist.saved_strip {
             Some(rec) => rec,
             None => {
                 let trivial = self.variants.len() == 1
@@ -365,8 +365,8 @@ impl AutoShadeApp {
                         0,
                     );
                 return trivial.then_some(PersistedCard {
-                    recipe: &self.hist.saved_recipe,
-                    origin: self.hist.pixels_on_disk.as_deref(),
+                    recipe: &self.session.hist.saved_recipe,
+                    origin: self.session.hist.pixels_on_disk.as_deref(),
                 });
             }
         };
@@ -381,8 +381,8 @@ impl AutoShadeApp {
             )
         {
             return Some(PersistedCard {
-                recipe: &self.hist.saved_recipe,
-                origin: self.hist.pixels_on_disk.as_deref(),
+                recipe: &self.session.hist.saved_recipe,
+                origin: self.session.hist.pixels_on_disk.as_deref(),
             });
         }
 
@@ -464,7 +464,7 @@ impl AutoShadeApp {
     /// generate→fit flow) counted dirty forever, no save could clear it, and
     /// the quit dialog re-armed until 「Discard」.
     pub(crate) fn open_dirty_variants(&self) -> usize {
-        let saved = self.hist.saved_strip.as_ref().map(|rec| {
+        let saved = self.session.hist.saved_strip.as_ref().map(|rec| {
             use crate::logic::strip::SavedCard;
             let mut cards: Vec<SavedCard<'_>> = Vec::with_capacity(rec.others.len() + 1);
             if let Some(kind) = VariantKind::from_store_str(&rec.active_kind) {
@@ -473,8 +473,8 @@ impl AutoShadeApp {
                     position: rec.active_pos,
                     id: rec.active_id.as_deref(),
                     name: rec.active_name.as_deref(),
-                    recipe: &self.hist.saved_recipe,
-                    origin: self.hist.pixels_on_disk.as_deref(),
+                    recipe: &self.session.hist.saved_recipe,
+                    origin: self.session.hist.pixels_on_disk.as_deref(),
                 });
             }
             cards.extend(rec.others.iter().enumerate().filter_map(|(i, entry)| {
@@ -560,11 +560,11 @@ impl AutoShadeApp {
         match self.current_strip_record() {
             Some(rec) => {
                 autoshade::store::write_variants(path, &rec)?;
-                self.hist.saved_strip = Some(rec);
+                self.session.hist.saved_strip = Some(rec);
             }
             None => {
                 autoshade::store::clear_variants(path)?;
-                self.hist.saved_strip = None;
+                self.session.hist.saved_strip = None;
             }
         }
         Ok(())
@@ -929,7 +929,7 @@ impl AutoShadeApp {
         self.recipe.masks.swap(i, j);
         self.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
         self.overlay.overlay_stale = true;
-        self.dirty = true;
+        self.session.dirty = true;
     }
 
     /// Duplicate a mask: its tuned sliders come along, its rasters are DETACHED
@@ -964,7 +964,7 @@ impl AutoShadeApp {
             );
             self.toast(ToastKind::Error, t.to_string());
         }
-        self.dirty = true;
+        self.session.dirty = true;
     }
 
 }

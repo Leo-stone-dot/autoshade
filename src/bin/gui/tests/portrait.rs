@@ -338,10 +338,10 @@
         assert!(app.keep_skin_on(), "another card is not touched");
         app.active = card;
         // Turning it on is the explicit act: three values come back, said so.
-        app.dirty = false;
+        app.session.dirty = false;
         app.set_keep_skin(true);
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0));
-        assert!(app.dirty, "an edit like any other");
+        assert!(app.session.dirty, "an edit like any other");
         assert_eq!(app.status, "Skin kept natural: 3 values brought back within the limits");
         assert!(app.keep_skin_on());
         // A fork keeps the switch of the card it came from.
@@ -433,7 +433,7 @@
         assert_eq!(disk.lens_blur.as_ref().map(|l| l.amount), Some(70.0), "the blur was written too");
         let f = &disk.masks[0];
         assert_eq!((f.saturation, f.hue, f.temperature, f.clarity), (15.0, hue, -20.0, -40.0), "held before the write");
-        assert_eq!(app.hist.saved_recipe, app.recipe, "the saved look is the one on screen");
+        assert_eq!(app.session.hist.saved_recipe, app.recipe, "the saved look is the one on screen");
         app.guard_portrait_skin();
         let face = &app.recipe.masks[0];
         assert_eq!(
@@ -543,8 +543,8 @@
                 &[("n", "3"), ("path", &saved.display().to_string())],
             );
             assert_eq!(app.status, want, "{lang:?}");
-            assert!(app.hist.committed.base.as_ref().is_some_and(|b| !std::sync::Arc::ptr_eq(b, &before)), "the healed pixels are the head");
-            let undone = app.hist.undo_stack.last().expect("one undo step");
+            assert!(app.session.hist.committed.base.as_ref().is_some_and(|b| !std::sync::Arc::ptr_eq(b, &before)), "the healed pixels are the head");
+            let undone = app.session.hist.undo_stack.last().expect("one undo step");
             assert!(undone.base.as_ref().is_some_and(|b| std::sync::Arc::ptr_eq(b, &before)), "Ctrl+Z goes back to the pixels before");
             // Spots found, none on the face.
             app.busy = true;
@@ -617,7 +617,7 @@
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "undone as it was");
         assert!(!app.keep_skin_on(), "the switch follows the edit put back");
-        assert_eq!(app.hist.redo_stack.len(), 1, "the step forward is still there");
+        assert_eq!(app.session.hist.redo_stack.len(), 1, "the step forward is still there");
     }
 
     /// Ctrl+Y after that Ctrl+Z gives back what the user had before it: the
@@ -648,7 +648,7 @@
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0), "redone: held");
         assert!(app.keep_skin_on(), "redone: the switch is on again");
-        assert_eq!((app.hist.undo_stack.len(), app.hist.redo_stack.len()), (2, 0), "the frame recorded nothing");
+        assert_eq!((app.session.hist.undo_stack.len(), app.session.hist.redo_stack.len()), (2, 0), "the frame recorded nothing");
         app.undo(&ctx);
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "Ctrl+Z still walks back");
         assert!(!app.keep_skin_on());
@@ -679,7 +679,7 @@
         assert!(app.keep_skin_on(), "a value edit made while held comes back held");
         app.set_keep_skin(false);
         app.commit_now();
-        assert_eq!(app.hist.undo_stack.len(), 1, "the flip records no step");
+        assert_eq!(app.session.hist.undo_stack.len(), 1, "the flip records no step");
         edit(&mut app, 10.0);
         app.commit_now();
         app.undo(&ctx);
@@ -707,7 +707,7 @@
         app.undo(&ctx);
         autoshade::face::skin_target(&mut app.recipe).unwrap().saturation = 70.0;
         app.commit_now();
-        assert!(app.hist.redo_stack.is_empty(), "the new edit drops the redo branch");
+        assert!(app.session.hist.redo_stack.is_empty(), "the new edit drops the redo branch");
         assert!(!app.keep_skin_on(), "the switch stays off");
         app.undo(&ctx);
         assert!(!app.keep_skin_on(), "undoing the new edit puts back an edit past the limits: off");

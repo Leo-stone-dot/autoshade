@@ -135,7 +135,7 @@ impl AutoShadeApp {
         self.view.one_to_one = 1.0;
         self.view.pan = egui::vec2(0.5, 0.5);
         self.verdict = None;
-        self.dirty = true; // re-develop the newly active variant
+        self.session.dirty = true; // re-develop the newly active variant
 }
 
 /// Switch the active variant losslessly (strip click): in-flight slider
@@ -161,7 +161,7 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     // dispatch; `develop_inflight` = a frame the switch is about to make
     // the acceptance gate reject. Either way no completed frame depicts
     // the recipe snapshotted below.
-    let no_frame_landed = self.dirty || self.develop_inflight;
+    let no_frame_landed = self.session.dirty || self.develop_inflight;
     if let Some(cur) = self.variants.get_mut(self.active) {
         cur.recipe = self.recipe.clone(); // don't lose the edits in progress
         // …and don't keep a CARD that predates them: a background
@@ -213,7 +213,7 @@ pub(crate) fn push_variant(&mut self, v: Variant, ctx: &egui::Context) {
     // Same guarded card drop as switch_variant (L06#6): the async
     // completion switches away from a variant whose latest edits may
     // never have landed a frame.
-    let no_frame_landed = self.dirty || self.develop_inflight;
+    let no_frame_landed = self.session.dirty || self.develop_inflight;
     if let Some(cur) = self.variants.get_mut(self.active) {
         cur.recipe = self.recipe.clone();
         if no_frame_landed {
@@ -564,7 +564,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     }
     self.recipe = recipe;
     self.resync_recipe_display();
-    self.dirty = true;
+    self.session.dirty = true;
     self.commit_now();
     self.status = trf(
         lang,

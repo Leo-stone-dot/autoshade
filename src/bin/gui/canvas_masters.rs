@@ -228,11 +228,11 @@ pub(crate) fn start_redevelop(&mut self) {
     // The canvas is only right over pixels that carry its recipe's base
     // part (v1.17.0): hold the frame until they do.
     if !self.ensure_source_part() {
-        self.dirty = false;
+        self.session.dirty = false;
         return;
     }
     let Some(base) = self.base_preview.clone() else {
-        self.dirty = false;
+        self.session.dirty = false;
         return;
     };
     // The frame of the pixels (v1.17.0): a master's own marker says
@@ -242,7 +242,7 @@ pub(crate) fn start_redevelop(&mut self) {
     let source = match self.source_frame().and_then(|f| f.check(&self.recipe).map(|()| f)) {
         Ok(f) => f,
         Err(e) => {
-            self.dirty = false;
+            self.session.dirty = false;
             self.status = format!("{}: {e:#}", tr(self.lang, "preview develop failed"));
             return;
         }
@@ -251,7 +251,7 @@ pub(crate) fn start_redevelop(&mut self) {
     let show_clipping = self.chrome.show_clipping;
     let film = self.film_short_edge();
     self.develop_inflight = true;
-    self.dirty = false;
+    self.session.dirty = false;
     self.spawn_worker(
         move || Msg::Developed(Box::new(Ok(build_preview(base, recipe, show_clipping, film, source)))),
         |e| Msg::Developed(Box::new(Err(e))),
@@ -376,7 +376,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         // that mutated the recipe WITHOUT setting dirty (historically the
         // crop path) would freeze the preview here forever — always
         // re-arm, the gate coalesces to a single fresh develop.
-        self.dirty = true;
+        self.session.dirty = true;
         ctx.request_repaint();
         return;
     }

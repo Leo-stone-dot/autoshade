@@ -996,7 +996,7 @@ impl AutoShadeApp {
                 // about to open it in Lightroom (a colour field, a lens blur:
                 // the rendered exports carry them, the sidecar cannot). The
                 // mask half was said on the save that wrote the file.
-                let globals = autoshade::xmp::global_export_losses(&self.hist.saved_recipe);
+                let globals = autoshade::xmp::global_export_losses(&self.session.hist.saved_recipe);
                 if let Some(m) = xmp_loss_line(lang, &[], &globals)
                     && xmp_loss_interrupts(&[], &globals)
                 {
@@ -1090,9 +1090,9 @@ impl AutoShadeApp {
                     // the stamped lens profile (and knots) on the canvas, and
                     // a default baseline compared dirty on lens_profile
                     // forever — a permanent ● with quit prompts (R4-8).
-                    self.hist.saved_recipe = self.recipe.clone();
-                    self.hist.pixels_on_disk = None;
-                    self.hist.saved_strip = None;
+                    self.session.hist.saved_recipe = self.recipe.clone();
+                    self.session.hist.pixels_on_disk = None;
+                    self.session.hist.saved_strip = None;
                     self.open.nav_stash.remove(&path);
                     self.forget_open_base();
                     match o.marker_warning {
@@ -1159,9 +1159,9 @@ impl AutoShadeApp {
                     r.base_curve = after_curve.clone();
                 }
             };
-            restamp(&mut self.hist.committed.recipe);
-            self.hist.undo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
-            self.hist.redo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
+            restamp(&mut self.session.hist.committed.recipe);
+            self.session.hist.undo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
+            self.session.hist.redo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
             // The strip entry that IS the canvas follows it, and the preview
             // re-develops under the healed curve.
             if let Some(v) = self.variants.get_mut(self.active) {
@@ -1184,7 +1184,7 @@ impl AutoShadeApp {
                     v.thumb = None;
                 }
             }
-            self.dirty = true;
+            self.session.dirty = true;
         }
         // ONE lock across the whole compound save: recipe.json, the
         // pixels.json link, the strip record and the XMP projection publish
@@ -1294,11 +1294,11 @@ impl AutoShadeApp {
                 // The strip mirror advances WITH the commit (all-or-nothing:
                 // a failed commit leaves it untouched and the
                 // background-variant unsaved protection armed).
-                self.hist.saved_strip = strip_rec;
+                self.session.hist.saved_strip = strip_rec;
                 self.gal.edited_badge.clear(); // the open photo just gained its badge
-                self.hist.saved_recipe = self.recipe.clone();
+                self.session.hist.saved_recipe = self.recipe.clone();
                 self.open.nav_stash.remove(&path);
-                self.hist.pixels_on_disk = origin;
+                self.session.hist.pixels_on_disk = origin;
                 let mut s = if generated {
                     // No sidecar reproduces AI pixels: the projection member
                     // CLEARED, and the line says so instead of "XMP + recipe".
@@ -1556,7 +1556,7 @@ impl AutoShadeApp {
                 live.as_shot_tint = None;
             }
             self.recipe = live.clone();
-            self.dirty = true;
+            self.session.dirty = true;
             // A paste onto the pristine ✨ card is an edit: it lands on a new
             // ✎ card now (the immutability rule), so the ● baseline below
             // belongs to that card's canvas.

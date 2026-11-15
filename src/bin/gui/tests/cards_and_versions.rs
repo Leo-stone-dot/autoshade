@@ -787,7 +787,7 @@ rationale: "stale rationale".into(),
 
         // Unsaved-work accounting: the mirror still holds the pre-rename
         // record, so quitting has to warn.
-        app.hist.saved_strip = app.current_strip_record();
+        app.session.hist.saved_strip = app.current_strip_record();
         assert_eq!(app.open_dirty_variants(), 0, "premise: the mirror is current");
         app.variants[2].name = Some("dawn".into());
         assert!(app.open_dirty_variants() >= 1, "renaming the ACTIVE card is unsaved work");

@@ -36,6 +36,7 @@ use i18n::{tr, trf, Lang};
 
 mod model;
 mod services;
+mod session;
 mod persist;
 // The PORTABLE half of the quit guard: its state machine, and the
 // process-wide slots the delegate method reads through. Compiled and tested on
@@ -78,6 +79,7 @@ mod window_chrome;
 mod workers;
 use model::*;
 use services::*;
+use session::*;
 use persist::*;
 use buttons::*;
 use headings::*;

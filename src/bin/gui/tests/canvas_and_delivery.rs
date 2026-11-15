@@ -850,8 +850,8 @@
             other => panic!("the sky mask is not there: {other:?}"),
         };
         assert!(alpha(&app.recipe).is_some(), "the open card's AI mask has its alpha: {}", app.status);
-        assert_eq!(alpha(&app.hist.saved_recipe), alpha(&app.recipe), "an alpha is not an edit: ● stays dark");
-        assert_eq!(alpha(&app.hist.committed.recipe), alpha(&app.recipe), "and Ctrl+Z does not take it away");
+        assert_eq!(alpha(&app.session.hist.saved_recipe), alpha(&app.recipe), "an alpha is not an edit: ● stays dark");
+        assert_eq!(alpha(&app.session.hist.committed.recipe), alpha(&app.recipe), "and Ctrl+Z does not take it away");
         assert_eq!(app.status, trf(Lang::En, "AI masks ×{n} re-derived locally — not Adobe's raster", &[("n", "1")]));
         // Export: a card still without its alpha is cut on the export's copy.
         let mean = |p: &std::path::Path| {
@@ -919,8 +919,8 @@
             other => panic!("the face mask is not there: {other:?}"),
         };
         assert!(!raster(&app.recipe).is_empty(), "the open card's face mask has its raster: {}", app.status);
-        assert_eq!(raster(&app.hist.saved_recipe), raster(&app.recipe), "a raster is not an edit: ● stays dark");
-        assert_eq!(raster(&app.hist.committed.recipe), raster(&app.recipe), "and Ctrl+Z does not take it away");
+        assert_eq!(raster(&app.session.hist.saved_recipe), raster(&app.recipe), "a raster is not an edit: ● stays dark");
+        assert_eq!(raster(&app.session.hist.committed.recipe), raster(&app.recipe), "and Ctrl+Z does not take it away");
         assert_eq!(app.status, trf(Lang::En, "Face masks ×{n} outlined on this computer", &[("n", "1")]));
         // Export: a card whose face mask still names no raster is drawn on
         // the export's copy, so the jpg carries it.
@@ -942,7 +942,7 @@
         app.open_path(bare.clone());
         land(&mut app);
         assert!(app.recipe.masks.is_empty(), "a face mask with no face to stand on is taken out: {:?}", app.recipe.masks);
-        assert!(app.hist.saved_recipe.masks.is_empty(), "from the saved mark too, so ● stays dark");
+        assert!(app.session.hist.saved_recipe.masks.is_empty(), "from the saved mark too, so ● stays dark");
         let why = "\"Face\" left out (no face was found in this photo)";
         assert!(app.status.contains(why), "the status line names the mask and the reason: {}", app.status);
         assert!(
