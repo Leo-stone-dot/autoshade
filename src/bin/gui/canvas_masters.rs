@@ -439,7 +439,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     // A global change can alter a Range Mask's coverage reference. The
     // coverage-aware key makes this a cheap no-op for ordinary local effect
     // sliders, whose coverage is independent of their pixel adjustment.
-    self.overlay_stale = true;
+    self.overlay.overlay_stale = true;
     ctx.request_repaint();
 }
 }

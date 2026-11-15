@@ -199,8 +199,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // The range-mask reference develop was computed
                                 // from the OLD base — recipe-only keying would
                                 // serve it stale against these new pixels.
-                                self.overlay_ref = None;
-                                self.overlay_stale = true;
+                                self.overlay.overlay_ref = None;
+                                self.overlay.overlay_stale = true;
                                 self.base_preview = Some(base);
                             } else if master_hit
                                 && let Some((bimg, _, _)) = &baked
@@ -251,8 +251,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 let start = self.recipe.start_only();
                                 self.set_before(ctx, bimg, &start);
                                 self.rebind_paint_canvas(bw, bh);
-                                self.overlay_ref = None;
-                                self.overlay_stale = true;
+                                self.overlay.overlay_ref = None;
+                                self.overlay.overlay_stale = true;
                                 self.base_preview = Some(bimg.clone());
                             }
                             self.last_rgb = None; // resolution changed under the frame
@@ -837,8 +837,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.decide_keep_skin_for_photo();
                         self.last_rgb = None; // retained frame was the old photo's
                         self.reset_history(); // a new photo starts a fresh undo history
-                        self.region = None; // and a fresh local-edit selection
-                        self.region_drag = None;
+                        self.overlay.region = None; // and a fresh local-edit selection
+                        self.overlay.region_drag = None;
                         // View + tool state is per-photo.
                         self.zoom = 1.0;
                         self.zoom_target = 1.0; // instant — no glide across photos
@@ -850,8 +850,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.before_latch = false;
                         self.sel_mask = None;
                         self.sel_component = None;
-                        self.overlay_ref = None; // the reference develop belongs to ONE base
-                        self.overlay_stale = true;
+                        self.overlay.overlay_ref = None; // the reference develop belongs to ONE base
+                        self.overlay.overlay_stale = true;
                         self.curve_drag = None; // curve_channel is a UI pref, keep it
                         self.wb_picking = false;
                         self.range_picking = None;
@@ -1034,8 +1034,8 @@ pub(crate) fn on_base_redeveloped(
         self.set_before(ctx, &img, &start);
         let (mw, mh) = img.dimensions();
         self.rebind_paint_canvas(mw, mh);
-        self.overlay_ref = None;
-        self.overlay_stale = true;
+        self.overlay.overlay_ref = None;
+        self.overlay.overlay_stale = true;
         self.last_rgb = None;
     }
     self.dirty = true;

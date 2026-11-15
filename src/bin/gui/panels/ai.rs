@@ -395,7 +395,7 @@ impl AutoShadeApp {
             {
                 let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Analyze);
                 intent.typed = self.guidance.clone();
-                intent.region = self.region;
+                intent.region = self.overlay.region;
                 self.apply_actions(vec![logic::Action::Look(intent)]);
             }
             // The two TASTE DIALS get their own lines, below the verbs (R23-3).
@@ -540,7 +540,7 @@ impl AutoShadeApp {
                 if resp.clicked() {
                     let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Adjust);
                     intent.typed = self.adjust_edit_prompt.clone();
-                    intent.region = self.region;
+                    intent.region = self.overlay.region;
                     intent.base = Some(self.recipe.clone());
                     intent.pixels = self
                         .active_on_ai_pixels()

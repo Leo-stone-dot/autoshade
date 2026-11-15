@@ -1057,7 +1057,7 @@ impl AutoShadeApp {
         }
         if n + nf > 0 || faces.iter().any(Option::is_none) {
             self.dirty = true;
-            self.overlay_stale = true;
+            self.overlay.overlay_stale = true;
         }
         if let Some(why) = res.warning() {
             let t = trf(lang, "Some masks could not be drawn, so they are not applied: {why}", &[("why", &why)]);

@@ -271,8 +271,8 @@
         let ctx = egui::Context::default();
 
         app.refresh_mask_overlay(&ctx);
-        assert_eq!(app.overlay_build_count, 1, "first coverage build");
-        assert!(app.mask_overlay_tex.is_some());
+        assert_eq!(app.overlay.overlay_build_count, 1, "first coverage build");
+        assert!(app.overlay.mask_overlay_tex.is_some());
 
         // Local effect sliders: no rebuild.
         app.recipe.masks[0].exposure_ev = -2.0;
@@ -281,17 +281,17 @@
         app.refresh_mask_overlay(&ctx);
         app.recipe.masks[0].color_gains = Some([1.6, 0.8, 0.5]);
         app.refresh_mask_overlay(&ctx);
-        assert_eq!(app.overlay_build_count, 1, "local effect sliders must not rebuild coverage");
+        assert_eq!(app.overlay.overlay_build_count, 1, "local effect sliders must not rebuild coverage");
 
         // Amount is coverage-relevant: rebuild.
         app.recipe.masks[0].amount = 0.5;
         app.refresh_mask_overlay(&ctx);
-        assert_eq!(app.overlay_build_count, 2, "amount change rebuilds coverage");
+        assert_eq!(app.overlay.overlay_build_count, 2, "amount change rebuilds coverage");
 
         // Inversion is coverage-relevant: rebuild.
         app.recipe.masks[0].inverted = true;
         app.refresh_mask_overlay(&ctx);
-        assert_eq!(app.overlay_build_count, 3, "inversion rebuilds coverage");
+        assert_eq!(app.overlay.overlay_build_count, 3, "inversion rebuilds coverage");
 
     }
 

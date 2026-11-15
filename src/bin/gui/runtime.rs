@@ -185,7 +185,7 @@ impl AutoShadeApp {
                 Effect::StartLook(intent) => self.start_look(intent),
                 Effect::ReferenceBuild { photo, dir } => self.start_reference_build(photo, dir),
                 Effect::ArmFocusPick(on) => self.lens_focus_picking = on,
-                Effect::SetRegion(region) => self.region = region,
+                Effect::SetRegion(region) => self.overlay.region = region,
                 Effect::DisarmPicker(picker) => match picker {
                     logic::pick::Picker::WhiteBalance => self.wb_picking = false,
                     logic::pick::Picker::Range => self.range_picking = None,

@@ -50,7 +50,7 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
                 let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
                 self.toast(ToastKind::Error, t);
             }
-            self.overlay_stale = true; // fresh raster ⇒ fresh coverage
+            self.overlay.overlay_stale = true; // fresh raster ⇒ fresh coverage
             self.busy = false;
             // MarkDirty + the status line (+ the fallback toast).
             self.run_effects(landed.effects);
@@ -91,7 +91,7 @@ pub(crate) fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRef
                     let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
                     self.toast(ToastKind::Error, t);
                 }
-                self.overlay_stale = true;
+                self.overlay.overlay_stale = true;
             }
             self.busy = false;
             self.run_effects(landed.effects);
@@ -374,8 +374,8 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             self.set_before(ctx, &img, &start);
                             // New baked base ⇒ the cached masks-cleared
                             // reference develop no longer matches it.
-                            self.overlay_ref = None;
-                            self.overlay_stale = true;
+                            self.overlay.overlay_ref = None;
+                            self.overlay.overlay_stale = true;
                             self.base_preview = Some(img);
                             // Keep the paint canvas sized to the new base (the
                             // retouch result can differ in dimensions — e.g. a

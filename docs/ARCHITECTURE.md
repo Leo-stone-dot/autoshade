@@ -7653,7 +7653,10 @@ panel's dials, delivery target and save-denoise options (one `exp` field), and
 the app struct is down from 234 to 209 fields. `model::HistoryState` owns the undo/redo
 stacks, the committed step and the ●-baseline mirror (`saved_recipe`,
 `saved_strip`, `pixels_on_disk`), one `hist` field; the app struct is now at
-204 fields.
+204 fields. `model::OverlayState` owns the mask-coverage
+overlay and the AI region (texture, rebuild key/throttle, dirty sub-rect, shown
+switch, hovered row, cached range reference, region gesture), one `overlay`
+field; the app struct is at 189 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

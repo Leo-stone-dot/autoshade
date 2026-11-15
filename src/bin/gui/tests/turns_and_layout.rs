@@ -1024,11 +1024,11 @@
 
         // Fill's turn: a blank canvas, and Heal's strokes wait in the store
         // with their memo — reading them back scans nothing.
-        let scans = app.mask_presence_scans.get();
+        let scans = app.overlay.mask_presence_scans.get();
         app.arm_brush(BrushOwner::Fill);
         assert!(!app.has_painted_mask(), "Fill sees its own blank area, not Heal's strokes");
         assert!(app.area_painted(BrushOwner::Heal), "Heal's strokes survive off the canvas");
-        assert_eq!(app.mask_presence_scans.get(), scans, "a stored memo answers without a scan");
+        assert_eq!(app.overlay.mask_presence_scans.get(), scans, "a stored memo answers without a scan");
         assert!(app.export_area_png(BrushOwner::Heal).is_some());
         assert!(app.export_area_png(BrushOwner::Fill).is_none());
 
