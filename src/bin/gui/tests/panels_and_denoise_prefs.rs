@@ -180,7 +180,7 @@
             };
             let _ = ctx.run(input, |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    changed |= app.curve_editor_for(ui, CurveTarget::Mask(0));
+                    changed |= app.panel_view().curve_editor_for(ui, CurveTarget::Mask(0));
                 });
             });
             changed
@@ -213,7 +213,7 @@
         let mut drew = true;
         let _ = ctx.run(egui::RawInput::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
-                drew = app.curve_editor_for(ui, CurveTarget::Mask(0));
+                drew = app.panel_view().curve_editor_for(ui, CurveTarget::Mask(0));
             });
         });
         assert!(!drew, "a stale mask index must not report an edit");

@@ -349,7 +349,7 @@ impl AutoShadeApp {
         // mid-open outcome is one preview build whose frame `finish_redevelop`
         // then discards by its base+recipe identity check. Greying the tone
         // readout during every open would be the bigger regression.
-        self.histogram_ui(ui);
+        self.panel_view().histogram_ui(ui);
         ui.add_space(SPACE_SM);
 
         // Mid-open (decode in flight) these controls would edit the STASHED

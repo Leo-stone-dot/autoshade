@@ -77,6 +77,7 @@ mod canvas_masters;
 mod export;
 mod masks;
 mod normal_actions;
+mod panel_view;
 mod panels;
 mod portrait_actions;
 mod recipe_actions;
@@ -102,6 +103,7 @@ use headings::*;
 use theme::*;
 use util::*;
 use app::*;
+use panel_view::*;
 use side_panel::*;
 
 

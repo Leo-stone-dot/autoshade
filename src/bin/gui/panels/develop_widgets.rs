@@ -22,7 +22,7 @@ impl AutoShadeApp {
             .id_salt("sec_curves")
             .default_open(false)
             , |ui| {
-                changed |= self.curve_editor(ui);
+                changed |= self.panel_view().curve_editor(ui);
                 changed |= Self::parametric_curve(ui, lang, &mut self.editor.doc_mut().recipe);
             });
         changed

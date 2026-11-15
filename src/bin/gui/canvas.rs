@@ -162,26 +162,6 @@ impl AutoShadeApp {
     /// accepted frame), so the J key / ▲ button / histogram triangles respond
     /// instantly instead of paying a whole develop (100-300 ms at 2560/4096).
     /// Falls back to a redevelop only when no frame is retained yet.
-    pub(crate) fn toggle_clipping(&mut self, ctx: &egui::Context) {
-        self.workspace.chrome_mut().show_clipping = !self.workspace.chrome().show_clipping;
-        if !self.workspace.chrome().show_clipping {
-            self.workspace.chrome_mut().clip_tex = None; // OFF is just dropping the layer
-            return;
-        }
-        match &self.workspace.chrome().last_rgb {
-            Some(rgb) => {
-                let clip = clipping_overlay_for(rgb, self.editor.doc().recipe.crop);
-                if let Some(tex) = &mut self.workspace.chrome_mut().clip_tex {
-                    tex.set(clip, egui::TextureOptions::NEAREST);
-                } else {
-                    self.workspace.chrome_mut().clip_tex =
-                        Some(ctx.load_texture("clip", clip, egui::TextureOptions::NEAREST));
-                }
-            }
-            None => self.editor.session_mut().dirty = true, // nothing retained (fresh open) — worker builds it
-        }
-    }
-
     /// The pixel reference a Range Mask is judged against: this recipe cut
     /// down to the masks BEFORE mask `i`, with every geometry field stripped.
     ///
@@ -567,7 +547,7 @@ impl AutoShadeApp {
                     .clicked()
                 {
                     let ctx = ui.ctx().clone();
-                    self.toggle_clipping(&ctx); // instant — no redevelop
+                    self.panel_view().toggle_clipping(&ctx); // instant — no redevelop
                 }
                 ui.label(egui::RichText::new(format!("{:.0}%", scale * 100.0)).weak().small());
                 // --- preview resolution (gap batch E): 1:1 that actually

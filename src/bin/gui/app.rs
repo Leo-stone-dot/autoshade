@@ -40,6 +40,18 @@ pub(crate) struct AutoShadeApp {
 }
 
 impl AutoShadeApp {
+    /// The projection a panel draws through: the edit, the view state, the
+    /// language and the test seams — never the app itself.
+    pub(crate) fn panel_view(&mut self) -> PanelView<'_> {
+        PanelView {
+            editor: &mut self.editor,
+            workspace: &mut self.workspace,
+            lang: self.lang,
+            #[cfg(test)]
+            seams: &mut self.seams,
+        }
+    }
+
     /// One update() phase — body extracted verbatim from the eframe
     /// update loop (round-12 decomposition).
     // pub(crate): the zoom-keys test drives a real headless frame through it.
@@ -379,7 +391,7 @@ impl AutoShadeApp {
             }
             if do_clip {
                 // Instant: rebuilt from the retained frame, no redevelop (J).
-                self.toggle_clipping(ctx);
+                self.panel_view().toggle_clipping(ctx);
             }
             if nav != 0 && !self.workspace.busy() && !self.workspace.gal().gallery.is_empty() {
                 // Nothing selected yet: either arrow ENTERS the gallery at its

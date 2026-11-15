@@ -559,7 +559,7 @@
             };
             let _ = ctx.run(input, |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    changed |= app.curve_editor(ui);
+                    changed |= app.panel_view().curve_editor(ui);
                 });
             });
             changed

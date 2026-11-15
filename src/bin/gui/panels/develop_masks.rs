@@ -632,7 +632,7 @@ impl AutoShadeApp {
         // Last in the section on purpose: it is the only control here
         // that is not a slider, and it is the tallest.
         group(ui, tr(lang, K_DEVELOP_CURVE));
-        changed |= self.curve_editor_for(ui, CurveTarget::Mask(i));
+        changed |= self.panel_view().curve_editor_for(ui, CurveTarget::Mask(i));
         changed
     }
 
