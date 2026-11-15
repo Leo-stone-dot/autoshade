@@ -262,8 +262,9 @@ mod tests {
         // full-frame RAW develop under the recipe's camera profile.
         // `budget.rs` itself is the definition and its own tests, not a wiring
         // site.
-        const CENSUS: [(&str, usize); 5] = [
-            ("actions.rs", 3),
+        const CENSUS: [(&str, usize); 6] = [
+            ("actions.rs", 2),
+            ("open_actions.rs", 1),
             ("export.rs", 2),
             ("masks.rs", 1),
             ("retouch_actions.rs", 7),
