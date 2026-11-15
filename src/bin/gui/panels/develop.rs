@@ -857,6 +857,19 @@ impl AutoShadeApp {
 
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
+    /// One capability table through the command layer: the renderer reports
+    /// each change as a `Command`, the app applies it. Companion rows still
+    /// write their resolved encoding directly (that command arm is not built
+    /// yet), and both paths mark the frame changed the same way.
+    fn capability_rows(&mut self, ui: &mut egui::Ui, table: &[crate::logic::capability::Capability]) -> bool {
+        let mut commands = Vec::new();
+        let changed = crate::panels::develop_forms::render_rows(ui, self.lang, &mut self.recipe, table, &mut commands);
+        for command in commands {
+            logic::command::apply(&mut self.recipe, command);
+        }
+        changed
+    }
+
     fn dev_tone_wb(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
         let mut changed = false;
@@ -955,12 +968,12 @@ impl AutoShadeApp {
                 // recipe counts as Custom (see the checkbox above) so its
                 // slider stays reachable.
                 ui.add_enabled_ui(custom_wb, |ui| {
-                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::WB_TINT);
+                    changed |= self.capability_rows(ui, crate::logic::capability::WB_TINT);
                 });
                 // The tone band is a capability table row each: the panel owns
                 // the fold and the white balance controls above; the fields,
                 // bands and resets live in `logic::capability::TONE`.
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::TONE);
+                changed |= self.capability_rows(ui, crate::logic::capability::TONE);
             });
         changed
     }
@@ -986,7 +999,7 @@ impl AutoShadeApp {
                 // (R25 B2 put the global texture stage between clarity and
                 // saturation). The rows live in `logic::capability::PRESENCE`;
                 // rows and order are one table.
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::PRESENCE);
+                changed |= self.capability_rows(ui, crate::logic::capability::PRESENCE);
             });
         changed
     }
@@ -1254,7 +1267,7 @@ impl AutoShadeApp {
                 // then a hue + saturation pair per primary. The group captions
                 // stay here; the rows are capability tables.
                 ui.label(egui::RichText::new(tr(lang, "Shadows")).weak().small());
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::CAL_TINT);
+                changed |= self.capability_rows(ui, crate::logic::capability::CAL_TINT);
                 for (primary, table) in [
                     (tr(lang, "Red primary"), crate::logic::capability::CAL_RED),
                     (tr(lang, "Green primary"), crate::logic::capability::CAL_GREEN),
@@ -1262,7 +1275,7 @@ impl AutoShadeApp {
                 ] {
                     ui.add_space(SPACE_XS);
                     ui.label(egui::RichText::new(primary).weak().small());
-                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, table);
+                    changed |= self.capability_rows(ui, table);
                 }
             });
         changed
@@ -1295,7 +1308,7 @@ impl AutoShadeApp {
                 {
                     changed = true;
                 }
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::HDR_HEADROOM);
+                changed |= self.capability_rows(ui, crate::logic::capability::HDR_HEADROOM);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "SDR rendition")).weak().small());
                 ui.label(
@@ -1303,7 +1316,7 @@ impl AutoShadeApp {
                         .weak()
                         .small(),
                 );
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::HDR_SDR);
+                changed |= self.capability_rows(ui, crate::logic::capability::HDR_SDR);
             });
         changed
     }
@@ -1408,11 +1421,11 @@ impl AutoShadeApp {
                     // their bands, feels and companion defaults live in
                     // `logic::capability` (the radius is a Fine companion: the
                     // sidecar writes one decimal, so the track shows one).
-                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::SHARPEN);
+                    changed |= self.capability_rows(ui, crate::logic::capability::SHARPEN);
                     ui.add_space(SPACE_SM);
-                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::NOISE_LUMA);
+                    changed |= self.capability_rows(ui, crate::logic::capability::NOISE_LUMA);
                     ui.add_space(SPACE_SM);
-                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::NOISE_COLOR);
+                    changed |= self.capability_rows(ui, crate::logic::capability::NOISE_COLOR);
                 }
                 let denoise_raw = self.denoise_uses_raw();
                 // AI denoise as an ACTIVE op: run now, see it on canvas —
@@ -1558,10 +1571,10 @@ impl AutoShadeApp {
                 // companion encoding live in `logic::capability`. The style row
                 // is an operator INDEX (1/2/3); the track starts at 1 because
                 // 0 means "the sidecar named none" and only a reset reaches it.
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::VIGNETTE);
+                changed |= self.capability_rows(ui, crate::logic::capability::VIGNETTE);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "Grain")).weak().small());
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::GRAIN);
+                changed |= self.capability_rows(ui, crate::logic::capability::GRAIN);
             });
         changed
     }
@@ -1667,7 +1680,7 @@ impl AutoShadeApp {
                 // work; that one is a creative darkening after the crop.
                 // Manual vignetting / midpoint / distortion: one capability
                 // table (bands and resets from `logic::capability`).
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::LENS_MANUAL);
+                changed |= self.capability_rows(ui, crate::logic::capability::LENS_MANUAL);
                 // --- manual lateral CA (R25 B3) -------------------------
                 // RENDERED, so NO disclosure line: these two fold onto the
                 // very per-channel radius LUT the profile CA above uses
@@ -1683,10 +1696,10 @@ impl AutoShadeApp {
                 // imported from Lightroom shows what it carries.
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "Profile correction strength")).weak().small());
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::LENS_PROFILE);
+                changed |= self.capability_rows(ui, crate::logic::capability::LENS_PROFILE);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "Chromatic aberration (manual)")).weak().small());
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::LENS_CA);
+                changed |= self.capability_rows(ui, crate::logic::capability::LENS_CA);
                 // …and the rest of the same panel: Adobe's auto switch and the
                 // whole de-fringe block. Carried and unrendered until v1.5.0;
                 // the switch is an INSTRUCTION, so its tooltip says what the
@@ -1706,7 +1719,7 @@ impl AutoShadeApp {
                 // Adobe's bands and neutrals: amounts rest at 0, the hue
                 // windows at 30/70 and 40/60 (the one block whose neutral is
                 // not zero — the row resets carry them).
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::LENS_DEFRINGE);
+                changed |= self.capability_rows(ui, crate::logic::capability::LENS_DEFRINGE);
                 ui.add_space(SPACE_SM);
                 explainer(ui, lang, tr(lang, "Vignette: positive brightens the corners (compensates falloff), negative darkens; a radial gain in linear light. Distortion: positive fixes barrel (wide-angle bulge), negative fixes pincushion (tele pinch); auto-scales to fill the frame, and masks / brush still position on the corrected image. Preview / export / XMP match. Manual CA, the auto-CA switch and de-fringe all render here too."));
             });
@@ -1798,7 +1811,7 @@ impl AutoShadeApp {
                 ui.add_space(SPACE_SM);
                 // One capability table: bands and resets (Rotate ±10, scale
                 // 50..150 resetting to 100) come from `logic::capability`.
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::TRANSFORM);
+                changed |= self.capability_rows(ui, crate::logic::capability::TRANSFORM);
                 if ui
                     .checkbox(&mut self.recipe.crop_constrain_to_warp, tr(lang, "Constrain crop"))
                     .on_hover_text(tr(lang, "Shrink the crop until it lies inside the warped frame instead of showing the empty corners"))
@@ -1965,7 +1978,7 @@ impl AutoShadeApp {
                 // Straighten: rotate + auto-crop (engine rotate_straighten);
                 // the preview shows exactly the export geometry. Fine class:
                 // levelling needs 0.1°, not the wide-range integer snap.
-                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::CROP);
+                changed |= self.capability_rows(ui, crate::logic::capability::CROP);
                 explainer(ui, lang, tr(lang, "Once in (R): drag corner/edge handles to resize, drag inside to move, drag OUTSIDE the box (or the canvas border while the box is full-frame) to rotate-straighten; arrows nudge the box, Enter commits; preview, export and XMP all match. Straighten auto-crops the black corners."));
             });
         changed
