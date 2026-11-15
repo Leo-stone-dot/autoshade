@@ -9,15 +9,16 @@
 use autoshade::advisor::catalogue::global_control;
 use autoshade::recipe::EditRecipe;
 
-/// How one row is drawn. `Companion` is the Lightroom companion encoding (a
+/// How one row is drawn. `Companion*` is the Lightroom companion encoding (a
 /// stored 0 means "the sidecar said nothing", read and written through
-/// [`EditRecipe::resolved`]/[`EditRecipe::set_resolved`]); the others are plain
-/// recipe fields differing only in slider feel.
+/// [`EditRecipe::resolved`]/[`EditRecipe::set_resolved`]); the siblings are
+/// plain recipe fields differing only in slider feel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SliderKind {
     Plain,
     Fine,
-    Companion,
+    CompanionInt,
+    CompanionFine,
 }
 
 /// Which scalar the form edits — the handle the renderer's read/write pair is
@@ -53,6 +54,41 @@ pub(crate) enum CapabilityId {
     SdrWhites,
     SdrClarity,
     Straighten,
+    SharpenRadius,
+    SharpenDetail,
+    SharpenMasking,
+    NoiseReduction,
+    NoiseDetail,
+    NoiseContrast,
+    ColorNoiseReduction,
+    ColorNoiseDetail,
+    ColorNoiseSmooth,
+    PerspectiveVertical,
+    PerspectiveHorizontal,
+    PerspectiveRotate,
+    PerspectiveScale,
+    PerspectiveAspect,
+    PerspectiveX,
+    PerspectiveY,
+}
+
+impl CapabilityId {
+    #[cfg(test)]
+    fn is_companion(self) -> bool {
+        matches!(
+            self,
+            CapabilityId::CompanionPostCropMid
+                | CapabilityId::CompanionPostCropFeather
+                | CapabilityId::CompanionPostCropStyle
+                | CapabilityId::CompanionGrainSize
+                | CapabilityId::CompanionGrainRough
+                | CapabilityId::SharpenRadius
+                | CapabilityId::SharpenDetail
+                | CapabilityId::NoiseDetail
+                | CapabilityId::ColorNoiseDetail
+                | CapabilityId::ColorNoiseSmooth
+        )
+    }
 }
 
 /// One row of the form: the field, the catalogue spelling it must resolve to,
@@ -72,62 +108,98 @@ impl Capability {
     }
 }
 
+macro_rules! cap {
+    ($id:ident, $control:literal, $reset:literal, $kind:ident) => {
+        Capability { id: CapabilityId::$id, control: $control, reset: $reset, kind: SliderKind::$kind }
+    };
+}
+
 /// Lightroom's Basic-panel tone controls, in the panel's order.
 pub(crate) const TONE: &[Capability] = &[
-    Capability { id: CapabilityId::Exposure, control: "exposure_ev", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Contrast, control: "contrast", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Highlights, control: "highlights", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Shadows, control: "shadows", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Whites, control: "whites", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Blacks, control: "blacks", reset: 0.0, kind: SliderKind::Plain },
+    cap!(Exposure, "exposure_ev", 0.0, Plain),
+    cap!(Contrast, "contrast", 0.0, Plain),
+    cap!(Highlights, "highlights", 0.0, Plain),
+    cap!(Shadows, "shadows", 0.0, Plain),
+    cap!(Whites, "whites", 0.0, Plain),
+    cap!(Blacks, "blacks", 0.0, Plain),
 ];
 
 /// Presence, in the engine's own order (texture → clarity → dehaze, then the
 /// two colour dials).
 pub(crate) const PRESENCE: &[Capability] = &[
-    Capability { id: CapabilityId::Texture, control: "texture", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Clarity, control: "clarity", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Dehaze, control: "dehaze", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Vibrance, control: "vibrance", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::Saturation, control: "saturation", reset: 0.0, kind: SliderKind::Plain },
+    cap!(Texture, "texture", 0.0, Plain),
+    cap!(Clarity, "clarity", 0.0, Plain),
+    cap!(Dehaze, "dehaze", 0.0, Plain),
+    cap!(Vibrance, "vibrance", 0.0, Plain),
+    cap!(Saturation, "saturation", 0.0, Plain),
 ];
 
 /// Post-crop vignetting, in the panel's row order.
 pub(crate) const VIGNETTE: &[Capability] = &[
-    Capability { id: CapabilityId::PostCropVignette, control: "post_crop_vignette", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::CompanionPostCropMid, control: "post_crop_vignette_mid", reset: 0.0, kind: SliderKind::Companion },
-    Capability { id: CapabilityId::CompanionPostCropFeather, control: "post_crop_vignette_feather", reset: 0.0, kind: SliderKind::Companion },
-    Capability { id: CapabilityId::PostCropVignetteRound, control: "post_crop_vignette_round", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::CompanionPostCropStyle, control: "post_crop_vignette_style", reset: 0.0, kind: SliderKind::Companion },
-    Capability { id: CapabilityId::PostCropVignetteHl, control: "post_crop_vignette_hl", reset: 0.0, kind: SliderKind::Plain },
+    cap!(PostCropVignette, "post_crop_vignette", 0.0, Plain),
+    cap!(CompanionPostCropMid, "post_crop_vignette_mid", 0.0, CompanionInt),
+    cap!(CompanionPostCropFeather, "post_crop_vignette_feather", 0.0, CompanionInt),
+    cap!(PostCropVignetteRound, "post_crop_vignette_round", 0.0, Plain),
+    cap!(CompanionPostCropStyle, "post_crop_vignette_style", 0.0, CompanionInt),
+    cap!(PostCropVignetteHl, "post_crop_vignette_hl", 0.0, Plain),
 ];
 
 /// Grain, below the vignette rows.
 pub(crate) const GRAIN: &[Capability] = &[
-    Capability { id: CapabilityId::Grain, control: "grain", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::CompanionGrainSize, control: "grain_size", reset: 0.0, kind: SliderKind::Companion },
-    Capability { id: CapabilityId::CompanionGrainRough, control: "grain_rough", reset: 0.0, kind: SliderKind::Companion },
+    cap!(Grain, "grain", 0.0, Plain),
+    cap!(CompanionGrainSize, "grain_size", 0.0, CompanionInt),
+    cap!(CompanionGrainRough, "grain_rough", 0.0, CompanionInt),
 ];
 
 /// HDR edit mode's own dial (above the SDR block).
-pub(crate) const HDR_HEADROOM: &[Capability] = &[
-    Capability { id: CapabilityId::HdrMaxEv, control: "hdr_max_ev", reset: 0.0, kind: SliderKind::Fine },
-];
+pub(crate) const HDR_HEADROOM: &[Capability] = &[cap!(HdrMaxEv, "hdr_max_ev", 0.0, Fine)];
 
 /// The SDR rendition's seven dials, in panel order.
 pub(crate) const HDR_SDR: &[Capability] = &[
-    Capability { id: CapabilityId::SdrBlend, control: "sdr_blend", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::SdrBrightness, control: "sdr_brightness", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::SdrContrast, control: "sdr_contrast", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::SdrHighlights, control: "sdr_highlights", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::SdrShadows, control: "sdr_shadows", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::SdrWhites, control: "sdr_whites", reset: 0.0, kind: SliderKind::Plain },
-    Capability { id: CapabilityId::SdrClarity, control: "sdr_clarity", reset: 0.0, kind: SliderKind::Plain },
+    cap!(SdrBlend, "sdr_blend", 0.0, Plain),
+    cap!(SdrBrightness, "sdr_brightness", 0.0, Plain),
+    cap!(SdrContrast, "sdr_contrast", 0.0, Plain),
+    cap!(SdrHighlights, "sdr_highlights", 0.0, Plain),
+    cap!(SdrShadows, "sdr_shadows", 0.0, Plain),
+    cap!(SdrWhites, "sdr_whites", 0.0, Plain),
+    cap!(SdrClarity, "sdr_clarity", 0.0, Plain),
 ];
 
 /// The crop section's one scalar row (the box itself is a canvas tool).
-pub(crate) const CROP: &[Capability] = &[
-    Capability { id: CapabilityId::Straighten, control: "straighten_deg", reset: 0.0, kind: SliderKind::Fine },
+pub(crate) const CROP: &[Capability] = &[cap!(Straighten, "straighten_deg", 0.0, Fine)];
+
+/// Detail's sharpening rows below the amount (whose RAW/baked default is the
+/// custom `sharpening_slider` arm, so it stays out of this table).
+pub(crate) const SHARPEN: &[Capability] = &[
+    cap!(SharpenRadius, "sharpen_radius", 0.0, CompanionFine),
+    cap!(SharpenDetail, "sharpen_detail", 0.0, CompanionInt),
+    cap!(SharpenMasking, "sharpen_mask", 0.0, Plain),
+];
+
+/// Luminance noise reduction's rows.
+pub(crate) const NOISE_LUMA: &[Capability] = &[
+    cap!(NoiseReduction, "noise_reduction", 0.0, Plain),
+    cap!(NoiseDetail, "nr_detail", 0.0, CompanionInt),
+    cap!(NoiseContrast, "nr_contrast", 0.0, Plain),
+];
+
+/// Colour noise reduction's rows.
+pub(crate) const NOISE_COLOR: &[Capability] = &[
+    cap!(ColorNoiseReduction, "color_nr", 0.0, Plain),
+    cap!(ColorNoiseDetail, "color_nr_detail", 0.0, CompanionInt),
+    cap!(ColorNoiseSmooth, "color_nr_smooth", 0.0, CompanionInt),
+];
+
+/// Transform's projective sliders, in panel order. The Upright mode, its notes
+/// and the constrain-crop checkbox stay custom.
+pub(crate) const TRANSFORM: &[Capability] = &[
+    cap!(PerspectiveVertical, "perspective_vertical", 0.0, Plain),
+    cap!(PerspectiveHorizontal, "perspective_horizontal", 0.0, Plain),
+    cap!(PerspectiveRotate, "perspective_rotate", 0.0, Plain),
+    cap!(PerspectiveScale, "perspective_scale", 100.0, Plain),
+    cap!(PerspectiveAspect, "perspective_aspect", 0.0, Plain),
+    cap!(PerspectiveX, "perspective_x", 0.0, Plain),
+    cap!(PerspectiveY, "perspective_y", 0.0, Plain),
 ];
 
 /// Read a plain/fine row's current value.
@@ -157,13 +229,18 @@ pub(crate) fn value(recipe: &EditRecipe, id: CapabilityId) -> f32 {
         CapabilityId::SdrWhites => recipe.sdr_whites,
         CapabilityId::SdrClarity => recipe.sdr_clarity,
         CapabilityId::Straighten => recipe.straighten_deg,
-        CapabilityId::CompanionPostCropMid
-        | CapabilityId::CompanionPostCropFeather
-        | CapabilityId::CompanionPostCropStyle
-        | CapabilityId::CompanionGrainSize
-        | CapabilityId::CompanionGrainRough => {
-            unreachable!("companion rows are read through `EditRecipe::resolved`")
-        }
+        CapabilityId::SharpenMasking => recipe.sharpen_mask,
+        CapabilityId::NoiseReduction => recipe.noise_reduction,
+        CapabilityId::NoiseContrast => recipe.nr_contrast,
+        CapabilityId::ColorNoiseReduction => recipe.color_nr,
+        CapabilityId::PerspectiveVertical => recipe.perspective_vertical,
+        CapabilityId::PerspectiveHorizontal => recipe.perspective_horizontal,
+        CapabilityId::PerspectiveRotate => recipe.perspective_rotate,
+        CapabilityId::PerspectiveScale => recipe.perspective_scale,
+        CapabilityId::PerspectiveAspect => recipe.perspective_aspect,
+        CapabilityId::PerspectiveX => recipe.perspective_x,
+        CapabilityId::PerspectiveY => recipe.perspective_y,
+        other => unreachable!("companion row {other:?} is read through `EditRecipe::resolved`"),
     }
 }
 
@@ -194,13 +271,18 @@ pub(crate) fn set_value(recipe: &mut EditRecipe, id: CapabilityId, value: f32) {
         CapabilityId::SdrWhites => recipe.sdr_whites = value,
         CapabilityId::SdrClarity => recipe.sdr_clarity = value,
         CapabilityId::Straighten => recipe.straighten_deg = value,
-        CapabilityId::CompanionPostCropMid
-        | CapabilityId::CompanionPostCropFeather
-        | CapabilityId::CompanionPostCropStyle
-        | CapabilityId::CompanionGrainSize
-        | CapabilityId::CompanionGrainRough => {
-            unreachable!("companion rows are written through `EditRecipe::set_resolved`")
-        }
+        CapabilityId::SharpenMasking => recipe.sharpen_mask = value,
+        CapabilityId::NoiseReduction => recipe.noise_reduction = value,
+        CapabilityId::NoiseContrast => recipe.nr_contrast = value,
+        CapabilityId::ColorNoiseReduction => recipe.color_nr = value,
+        CapabilityId::PerspectiveVertical => recipe.perspective_vertical = value,
+        CapabilityId::PerspectiveHorizontal => recipe.perspective_horizontal = value,
+        CapabilityId::PerspectiveRotate => recipe.perspective_rotate = value,
+        CapabilityId::PerspectiveScale => recipe.perspective_scale = value,
+        CapabilityId::PerspectiveAspect => recipe.perspective_aspect = value,
+        CapabilityId::PerspectiveX => recipe.perspective_x = value,
+        CapabilityId::PerspectiveY => recipe.perspective_y = value,
+        other => unreachable!("companion row {other:?} is written through `EditRecipe::set_resolved`"),
     }
 }
 
@@ -208,7 +290,19 @@ pub(crate) fn set_value(recipe: &mut EditRecipe, id: CapabilityId, value: f32) {
 mod tests {
     use super::*;
 
-    const ALL: &[&[Capability]] = &[TONE, PRESENCE, VIGNETTE, GRAIN, HDR_HEADROOM, HDR_SDR, CROP];
+    const ALL: &[&[Capability]] = &[
+        TONE,
+        PRESENCE,
+        VIGNETTE,
+        GRAIN,
+        HDR_HEADROOM,
+        HDR_SDR,
+        CROP,
+        SHARPEN,
+        NOISE_LUMA,
+        NOISE_COLOR,
+        TRANSFORM,
+    ];
 
     #[test]
     fn every_row_resolves_to_a_catalogue_band() {
@@ -254,6 +348,21 @@ mod tests {
             ],
         );
         assert_eq!(names(CROP), ["straighten_deg"]);
+        assert_eq!(names(SHARPEN), ["sharpen_radius", "sharpen_detail", "sharpen_mask"]);
+        assert_eq!(names(NOISE_LUMA), ["noise_reduction", "nr_detail", "nr_contrast"]);
+        assert_eq!(names(NOISE_COLOR), ["color_nr", "color_nr_detail", "color_nr_smooth"]);
+        assert_eq!(
+            names(TRANSFORM),
+            [
+                "perspective_vertical",
+                "perspective_horizontal",
+                "perspective_rotate",
+                "perspective_scale",
+                "perspective_aspect",
+                "perspective_x",
+                "perspective_y",
+            ],
+        );
     }
 
     #[test]
@@ -266,11 +375,21 @@ mod tests {
     }
 
     #[test]
+    fn the_table_kind_and_the_id_agree_about_companions() {
+        for table in ALL {
+            for cap in *table {
+                let companion_kind = matches!(cap.kind, SliderKind::CompanionInt | SliderKind::CompanionFine);
+                assert_eq!(cap.id.is_companion(), companion_kind, "row `{}` disagrees with itself", cap.control);
+            }
+        }
+    }
+
+    #[test]
     fn the_read_and_write_halves_round_trip_each_plain_field() {
         let mut recipe = EditRecipe::default();
         for table in ALL {
             for cap in *table {
-                if cap.kind == SliderKind::Companion {
+                if cap.id.is_companion() {
                     continue;
                 }
                 set_value(&mut recipe, cap.id, 12.5);
