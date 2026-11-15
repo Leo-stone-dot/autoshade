@@ -15,11 +15,9 @@ pub(crate) struct ActiveBaseline<'a> {
     pub(crate) origin: Option<&'a std::path::Path>,
 }
 
+/// The persisted develop of one saved card: only the halves the baseline
+/// guard compares. Identity matching happens in `logic::strip`.
 struct PersistedCard<'a> {
-    position: usize,
-    kind: VariantKind,
-    id: Option<&'a str>,
-    name: Option<&'a str>,
     recipe: &'a EditRecipe,
     origin: Option<&'a std::path::Path>,
 }
@@ -366,10 +364,6 @@ impl AutoShadeApp {
                         0,
                     );
                 return trivial.then_some(PersistedCard {
-                    position: 0,
-                    kind: VariantKind::Original,
-                    id: Some(ORIGINAL_VARIANT_ID),
-                    name: None,
                     recipe: &self.hist.saved_recipe,
                     origin: self.hist.pixels_on_disk.as_deref(),
                 });
@@ -386,10 +380,6 @@ impl AutoShadeApp {
             )
         {
             return Some(PersistedCard {
-                position: rec.active_pos,
-                kind,
-                id: rec.active_id.as_deref(),
-                name: rec.active_name.as_deref(),
                 recipe: &self.hist.saved_recipe,
                 origin: self.hist.pixels_on_disk.as_deref(),
             });
@@ -406,10 +396,6 @@ impl AutoShadeApp {
                 entry.id.as_deref(),
             )
             .then_some(PersistedCard {
-                position,
-                kind,
-                id: entry.id.as_deref(),
-                name: entry.name.as_deref(),
                 recipe: &entry.recipe,
                 origin: entry.origin.as_deref(),
             })
@@ -477,94 +463,33 @@ impl AutoShadeApp {
     /// generate→fit flow) counted dirty forever, no save could clear it, and
     /// the quit dialog re-armed until 「Discard」.
     pub(crate) fn open_dirty_variants(&self) -> usize {
-        if self.variants.is_empty() {
-            return 0;
-        }
-        let Some(rec) = &self.hist.saved_strip else {
-            let active = self.active_variant();
-            let trivial = self.variants.len() == 1
-                && self.active == 0
-                && active.is_some_and(|v| {
-                    crate::model::strip_is_trivial(
-                        v.kind,
-                        &v.id,
-                        v.name.as_deref(),
-                        0,
-                    )
+        let saved = self.hist.saved_strip.as_ref().map(|rec| {
+            use crate::logic::strip::SavedCard;
+            let mut cards: Vec<SavedCard<'_>> = Vec::with_capacity(rec.others.len() + 1);
+            if let Some(kind) = VariantKind::from_store_str(&rec.active_kind) {
+                cards.push(SavedCard {
+                    kind,
+                    position: rec.active_pos,
+                    id: rec.active_id.as_deref(),
+                    name: rec.active_name.as_deref(),
+                    recipe: &self.hist.saved_recipe,
+                    origin: self.hist.pixels_on_disk.as_deref(),
                 });
-            let background = self.variants.len().saturating_sub(1);
-            return if background > 0 {
-                background
-            } else if trivial {
-                0
-            } else {
-                1
-            };
-        };
-
-        let mut persisted = Vec::with_capacity(rec.others.len() + 1);
-        if let Some(kind) = VariantKind::from_store_str(&rec.active_kind) {
-            persisted.push(PersistedCard {
-                position: rec.active_pos,
-                kind,
-                id: rec.active_id.as_deref(),
-                name: rec.active_name.as_deref(),
-                recipe: &self.hist.saved_recipe,
-                origin: self.hist.pixels_on_disk.as_deref(),
-            });
-        }
-        persisted.extend(rec.others.iter().enumerate().filter_map(|(i, entry)| {
-            let kind = VariantKind::from_store_str(&entry.kind)?;
-            Some(PersistedCard {
-                position: if i < rec.active_pos { i } else { i + 1 },
-                kind,
-                id: entry.id.as_deref(),
-                name: entry.name.as_deref(),
-                recipe: &entry.recipe,
-                origin: entry.origin.as_deref(),
-            })
-        }));
-
-        let mut dirty = 0usize;
-        for (position, live) in self.variants.iter().enumerate() {
-            let Some(saved) = persisted.iter().find(|saved| {
-                Self::persisted_identity_matches(
-                    live,
-                    position,
-                    saved.kind,
-                    saved.position,
-                    saved.id,
-                )
-            }) else {
-                dirty += 1;
-                continue;
-            };
-            let develop_dirty = position != self.active
-                && (dirty_vs(&live.recipe, saved.recipe)
-                    || !same_master_opt(live.origin.as_deref(), saved.origin));
-            if live.kind != saved.kind || live.name.as_deref() != saved.name || develop_dirty {
-                dirty += 1;
             }
-        }
-
-        // Persisted cards with no live identity are deletions. Selection drift
-        // never enters this comparison, so merely viewing another card stays
-        // clean and reopening still returns to the last SAVED active card.
-        dirty
-            + persisted
-                .iter()
-                .filter(|saved| {
-                    !self.variants.iter().enumerate().any(|(position, live)| {
-                        Self::persisted_identity_matches(
-                            live,
-                            position,
-                            saved.kind,
-                            saved.position,
-                            saved.id,
-                        )
-                    })
+            cards.extend(rec.others.iter().enumerate().filter_map(|(i, entry)| {
+                let kind = VariantKind::from_store_str(&entry.kind)?;
+                Some(SavedCard {
+                    kind,
+                    position: if i < rec.active_pos { i } else { i + 1 },
+                    id: entry.id.as_deref(),
+                    name: entry.name.as_deref(),
+                    recipe: &entry.recipe,
+                    origin: entry.origin.as_deref(),
                 })
-                .count()
+            }));
+            cards
+        });
+        crate::logic::strip::open_dirty_count(&self.variants, self.active, saved.as_deref())
     }
 
     pub(crate) fn inactive_dirty_variants(&self) -> usize {
