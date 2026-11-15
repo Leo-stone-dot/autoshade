@@ -76,10 +76,10 @@
             "Msg::",
             "ToastKind",
             ".as_mut()",
-            "self.status =",
+            "self.workspace.status =",
             "self.toast(",
-            "self.busy =",
-            "self.session.dirty =",
+            "self.workspace.busy =",
+            "self.editor.session.dirty =",
         ];
         // `lens_blur.rs` — the pilot: it must not start the depth worker, open
         // a dialog or reach into the recipe.
@@ -96,8 +96,8 @@
         for needle in common.into_iter().chain([
             "open_gallery_index",
             "request_thumb(",
-            "self.gal.thumbs.retain",
-            "self.gal.thumb_requested",
+            "self.workspace.gal.thumbs.retain",
+            "self.workspace.gal.thumb_requested",
             "multi_sel.insert",
             "multi_sel.remove",
             "multi_sel.clear",
@@ -136,7 +136,7 @@
             concat!("crate::budget::heavy_permit", "("),
             "autoshade::store::",
             "rfd::",
-            "self.doc.recipe.pixel_layers.push(",
+            "self.editor.doc.recipe.pixel_layers.push(",
         ] {
             assert!(
                 !retouch.contains(needle),
@@ -284,10 +284,10 @@
             concat!("crate::budget::heavy_permit", "("),
             "autoshade::store::",
             "self.start_",
-            "self.doc.recipe =",
-            "self.doc.recipe.masks.push(",
-            "self.doc.recipe.point_colors.push(",
-            "self.doc.recipe.pixel_layers.push(",
+            "self.editor.doc.recipe =",
+            "self.editor.doc.recipe.masks.push(",
+            "self.editor.doc.recipe.point_colors.push(",
+            "self.editor.doc.recipe.pixel_layers.push(",
         ] {
             assert!(
                 !canvas.contains(needle),
@@ -305,8 +305,8 @@
                 "autoshade::store::",
                 "ToastKind",
                 "self.start_",
-                "self.doc.recipe =",
-                "self.doc.recipe.masks.push(",
+                "self.editor.doc.recipe =",
+                "self.editor.doc.recipe.masks.push(",
             ] {
                 assert!(
                     !src.contains(needle),

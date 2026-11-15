@@ -30,17 +30,17 @@ pub(crate) fn spawn_master_load(
     photo: PathBuf,
     origin: PathBuf,
 ) {
-    let edge = self.genai.preview_edge.clamp(640, 8192);
+    let edge = self.workspace.genai.preview_edge.clamp(640, 8192);
     // Cache probe first: a revisited card installs synchronously, with
     // no worker and no "loading…" status to flash.
     if let Some(arc) = self.cached_master(&origin, edge) {
         self.install_master(ctx, &photo, &origin, arc);
         return;
     }
-    if !self.open.master_loads.insert((photo.clone(), origin.clone())) {
+    if !self.workspace.open.master_loads.insert((photo.clone(), origin.clone())) {
         return;
     }
-    self.status = tr(
+    self.workspace.status = tr(
         self.lang,
         K_GUI_LOADING_THIS_VARIANT_S_RETOUCHED_MASTER_SHOWING,
     )
@@ -90,7 +90,7 @@ pub(crate) fn cached_master(
     edge: u32,
 ) -> Option<Arc<image::DynamicImage>> {
     let stamp = file_stamp(origin);
-    crate::logic::lru::get(&mut self.open.master_cache, |(p, e, t)| {
+    crate::logic::lru::get(&mut self.workspace.open.master_cache, |(p, e, t)| {
         p == origin && *e == edge && *t == stamp
     })
 }
@@ -109,7 +109,7 @@ pub(crate) fn remember_master(
     img: Arc<image::DynamicImage>,
 ) {
     crate::logic::lru::insert(
-        &mut self.open.master_cache,
+        &mut self.workspace.open.master_cache,
         (origin.to_path_buf(), edge, stamp),
         img,
         |(p, e, _)| p == origin && *e == edge,
@@ -127,14 +127,14 @@ pub(crate) fn install_master(
     origin: &PathBuf,
     arc: Arc<image::DynamicImage>,
 ) {
-    if self.photo.src_path.as_ref() != Some(photo) {
+    if self.editor.photo.src_path.as_ref() != Some(photo) {
         return;
     }
     let mut hit_active = false;
-    for (i, v) in self.doc.variants.iter_mut().enumerate() {
+    for (i, v) in self.editor.doc.variants.iter_mut().enumerate() {
         if v.base.is_none() && v.origin.as_ref() == Some(origin) {
             v.base = Some(arc.clone());
-            hit_active |= i == self.doc.active;
+            hit_active |= i == self.editor.doc.active;
         }
     }
     if hit_active {
@@ -152,7 +152,7 @@ pub(crate) fn install_master(
 /// session — and every scroll-back after texture eviction — a ~1 ms JPEG
 /// read instead of a full decode.
 pub(crate) fn request_thumb(&mut self, idx: usize) {
-    if self.gal.thumbs.contains_key(&idx) || self.gal.thumb_requested.contains(&idx) {
+    if self.workspace.gal.thumbs.contains_key(&idx) || self.workspace.gal.thumb_requested.contains(&idx) {
         return;
     }
     // A BOUNDED retry, because both extremes are wrong. Dropping the
@@ -163,16 +163,16 @@ pub(crate) fn request_thumb(&mut self, idx: usize) {
     // under that size never retried at all. Three attempts covers the
     // transient causes (AV lock, a slow share) and stops dead on a file
     // that simply cannot be decoded.
-    if self.gal.thumb_fail.get(&idx).is_some_and(|n| *n >= 3) {
+    if self.workspace.gal.thumb_fail.get(&idx).is_some_and(|n| *n >= 3) {
         return;
     }
-    if self.gal.thumb_inflight >= MAX_THUMB_INFLIGHT {
+    if self.workspace.gal.thumb_inflight >= MAX_THUMB_INFLIGHT {
         return;
     }
-    let Some(path) = self.gal.gallery.get(idx).cloned() else { return };
-    self.gal.thumb_requested.insert(idx);
-    self.gal.thumb_inflight += 1;
-    let generation = self.gal.gallery_gen;
+    let Some(path) = self.workspace.gal.gallery.get(idx).cloned() else { return };
+    self.workspace.gal.thumb_requested.insert(idx);
+    self.workspace.gal.thumb_inflight += 1;
+    let generation = self.workspace.gal.gallery_gen;
     self.spawn_worker(
         move || {
             let res = (|| -> anyhow::Result<image::DynamicImage> {
@@ -222,36 +222,36 @@ pub(crate) fn request_thumb(&mut self, idx: usize) {
 /// base pixels are Arc-shared and the recipe is small. While a frame is in
 /// flight, edits only set `dirty`; no parallel render storm is possible.
 pub(crate) fn start_redevelop(&mut self) {
-    if self.scheduler.inflight {
+    if self.editor.scheduler.inflight {
         return;
     }
     // The canvas is only right over pixels that carry its recipe's base
     // part (v1.17.0): hold the frame until they do.
     if !self.ensure_source_part() {
-        self.session.dirty = false;
+        self.editor.session.dirty = false;
         return;
     }
-    let Some(base) = self.photo.base_preview.clone() else {
-        self.session.dirty = false;
+    let Some(base) = self.editor.photo.base_preview.clone() else {
+        self.editor.session.dirty = false;
         return;
     };
     // The frame of the pixels (v1.17.0): a master's own marker says
     // whether it is lens-corrected, and a recipe that develops other lens
     // geometry than the one baked into it is refused, as the export
     // refuses it — the canvas keeps its last frame and says why.
-    let source = match self.source_frame().and_then(|f| f.check(&self.doc.recipe).map(|()| f)) {
+    let source = match self.source_frame().and_then(|f| f.check(&self.editor.doc.recipe).map(|()| f)) {
         Ok(f) => f,
         Err(e) => {
-            self.session.dirty = false;
-            self.status = format!("{}: {e:#}", tr(self.lang, K_GUI_PREVIEW_DEVELOP_FAILED));
+            self.editor.session.dirty = false;
+            self.workspace.status = format!("{}: {e:#}", tr(self.lang, K_GUI_PREVIEW_DEVELOP_FAILED));
             return;
         }
     };
-    let recipe = self.doc.recipe.clone();
-    let show_clipping = self.chrome.show_clipping;
+    let recipe = self.editor.doc.recipe.clone();
+    let show_clipping = self.workspace.chrome.show_clipping;
     let film = self.film_short_edge();
-    self.scheduler.inflight = true;
-    self.session.dirty = false;
+    self.editor.scheduler.inflight = true;
+    self.editor.session.dirty = false;
     self.spawn_worker(
         move || Msg::Developed(Box::new(Ok(build_preview(base, recipe, show_clipping, film, source)))),
         |e| Msg::Developed(Box::new(Err(e))),
@@ -275,16 +275,16 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
     if !self.source_is_raw() || self.active_variant().is_some_and(|v| v.base.is_some()) {
         return true;
     }
-    let want = autoshade::render::BasePart::of(&self.doc.recipe);
-    if want == self.open.source_part {
+    let want = autoshade::render::BasePart::of(&self.editor.doc.recipe);
+    if want == self.workspace.open.source_part {
         return true;
     }
-    if self.open.source_part_inflight.as_ref() == Some(&want) {
+    if self.workspace.open.source_part_inflight.as_ref() == Some(&want) {
         return false;
     }
-    let Some(path) = self.photo.src_path.clone() else { return true };
-    let edge = self.genai.preview_edge.clamp(640, 8192);
-    self.open.source_part_inflight = Some(want.clone());
+    let Some(path) = self.editor.photo.src_path.clone() else { return true };
+    let edge = self.workspace.genai.preview_edge.clamp(640, 8192);
+    self.workspace.open.source_part_inflight = Some(want.clone());
     let (p, part) = (path.clone(), want.clone());
     self.spawn_worker(
         move || {
@@ -314,14 +314,14 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
 pub(crate) fn film_short_edge(&mut self) -> Option<u32> {
     let path = self.active_source_path()?;
     let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-    if let Some((cached, when, edge)) = &self.photo.film_edge
+    if let Some((cached, when, edge)) = &self.editor.photo.film_edge
         && *cached == path
         && *when == modified
     {
         return *edge;
     }
     let edge = autoshade::decode::film_short_edge(&path);
-    self.photo.film_edge = Some((path, modified, edge));
+    self.editor.photo.film_edge = Some((path, modified, edge));
     edge
 }
 
@@ -350,7 +350,7 @@ pub(crate) fn source_frame(&self) -> anyhow::Result<autoshade::render::SourceFra
 /// set by the newer edit and starts next. Texture handles are UPDATED in
 /// place, avoiding a manager allocate/free cycle on every slider tick.
 pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Result<PreviewDone>) {
-    self.scheduler.inflight = false;
+    self.editor.scheduler.inflight = false;
     let frame = match done {
         Ok(frame) => frame,
         // Pure preview work has no ordinary error path; only a caught panic
@@ -360,28 +360,27 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         // mid-export used to unlock every busy-gated action.
         Err(e) => {
             let text = format!("{}: {e}", tr(self.lang, K_GUI_PREVIEW_DEVELOP_FAILED));
-            self.status = text.clone();
+            self.workspace.status = text.clone();
             self.toast(ToastKind::Error, text);
             return;
         }
     };
-    let current = self
-        .photo.base_preview
+    let current = self.editor.photo.base_preview
         .as_ref()
         .is_some_and(|base| Arc::ptr_eq(base, &frame.base))
-        && self.doc.recipe == frame.recipe;
+        && self.editor.doc.recipe == frame.recipe;
     if !current {
         // The frame was solved for a recipe that changed mid-flight. The
         // redispatch gate is `dirty && !develop_inflight`, so a caller
         // that mutated the recipe WITHOUT setting dirty (historically the
         // crop path) would freeze the preview here forever — always
         // re-arm, the gate coalesces to a single fresh develop.
-        self.session.dirty = true;
+        self.editor.session.dirty = true;
         ctx.request_repaint();
         return;
     }
-    self.scheduler.count += 1;
-    self.chrome.histogram = Some(frame.histogram);
+    self.editor.scheduler.count += 1;
+    self.workspace.chrome.histogram = Some(frame.histogram);
 
     // The ColorImage arrives worker-built (see PreviewDone.after) — the UI
     // thread only uploads. The raw RGB is retained so the clipping toggle
@@ -389,21 +388,21 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     // A frame of the SAME photo and version re-renders in place (a slider
     // drag must not flicker); the first frame of a different one lands on
     // a fresh texture and the old one fades out over it (MOTION_FADE_S).
-    let shows = self.photo.src_path.clone().map(|p| (p, self.doc.active));
-    match &mut self.plates.after_tex {
-        Some(tex) if self.plates.after_shows == shows => tex.set(frame.after, egui::TextureOptions::LINEAR),
+    let shows = self.editor.photo.src_path.clone().map(|p| (p, self.editor.doc.active));
+    match &mut self.editor.plates.after_tex {
+        Some(tex) if self.editor.plates.after_shows == shows => tex.set(frame.after, egui::TextureOptions::LINEAR),
         old => {
             let fresh = ctx.load_texture("after", frame.after, egui::TextureOptions::LINEAR);
-            self.plates.canvas_fade = Some((old.replace(fresh), Instant::now()));
+            self.editor.plates.canvas_fade = Some((old.replace(fresh), Instant::now()));
             ctx.request_repaint();
         }
     }
-    self.plates.after_shows = shows;
+    self.editor.plates.after_shows = shows;
     // The clipping layer follows the CURRENT toggle, not the one baked at
     // dispatch: pressing J changes no recipe field, so an in-flight frame
     // is still accepted — its stale decision used to blank the layer under
     // a lit ▲ (or resurrect a ghost layer after J-off).
-    let clip = if self.chrome.show_clipping {
+    let clip = if self.workspace.chrome.show_clipping {
         // Crop-blanked like the worker path — the J-mid-flight fallback
         // used to warn outside the crop while the worker's layer did not.
         Some(
@@ -414,19 +413,19 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     } else {
         None
     };
-    self.chrome.last_rgb = Some(frame.rgb);
+    self.workspace.chrome.last_rgb = Some(frame.rgb);
     match clip {
         Some(clip) => {
-            if let Some(tex) = &mut self.chrome.clip_tex {
+            if let Some(tex) = &mut self.workspace.chrome.clip_tex {
                 tex.set(clip, egui::TextureOptions::NEAREST);
             } else {
-                self.chrome.clip_tex =
+                self.workspace.chrome.clip_tex =
                     Some(ctx.load_texture("clip", clip, egui::TextureOptions::NEAREST));
             }
         }
-        None => self.chrome.clip_tex = None,
+        None => self.workspace.chrome.clip_tex = None,
     }
-    if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
+    if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
         if let Some(tex) = &mut v.thumb {
             tex.set(frame.thumb, egui::TextureOptions::LINEAR);
         } else {
@@ -436,7 +435,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     // A global change can alter a Range Mask's coverage reference. The
     // coverage-aware key makes this a cheap no-op for ordinary local effect
     // sliders, whose coverage is independent of their pixel adjustment.
-    self.overlay.overlay_stale = true;
+    self.workspace.overlay.overlay_stale = true;
     ctx.request_repaint();
 }
 }

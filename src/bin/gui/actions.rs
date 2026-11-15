@@ -61,9 +61,9 @@ impl AutoShadeApp {
         // (which decides the language) and outside it, so headless tests that
         // restore prefs run no interpreter.
         if let Some(note) = app.refresh_python_check() {
-            app.chrome.startup_note = Some(note);
+            app.workspace.chrome.startup_note = Some(note);
         }
-        if !app.busy {
+        if !app.workspace.busy {
             app.show_startup_note();
         }
         // The quit guard's two process-wide hooks (see `quit.rs`): the repaint
@@ -101,54 +101,54 @@ impl AutoShadeApp {
         app.aip.style_src_dir = prefs.style_src_dir.clone().filter(|d| d.is_dir());
         app.aip.style_raw_dir = prefs.style_raw_dir.clone().filter(|d| d.is_dir());
         app.aip.direction_adherence = autoshade::recipe::DirectionAdherence::new(prefs.direction_adherence).get();
-        app.exp.format = ExportFormat::from_pref(prefs.exp_format, prefs.save_jpeg);
-        app.exp.dest = ExportDest::from_pref(prefs.exp_dest);
-        app.exp.last_dir = prefs.last_export_dir.clone();
-        app.exp.save_denoise = prefs.save_denoise;
-        app.exp.save_denoise_strength = crate::logic::prefs::clamp01(prefs.save_denoise_strength);
-        app.exp.denoise_strength = crate::logic::prefs::clamp01(prefs.denoise_strength);
-        app.exp.baked_denoise_strength = crate::logic::prefs::clamp01(prefs.baked_denoise_strength);
-        app.exp.baked_save_denoise_strength = crate::logic::prefs::clamp01(prefs.baked_save_denoise_strength);
-        app.fit.zoned_fit = prefs.zoned_fit;
-        app.fit.zoned_four_regions = prefs.zoned_four_regions;
-        app.fit.fit_ai_judge = prefs.fit_ai_judge;
-        app.fit.fit_deep = prefs.fit_deep;
-        app.fit.reimagine_retry = prefs.reimagine_retry;
-        app.fit.ask_fit_after_generate = prefs.ask_fit_after_generate;
-        app.genai.adjust_quality = crate::logic::prefs::choice(prefs.adjust_quality);
-        app.view.mode = prefs.view_mode;
-        app.exp.long_edge = prefs.exp_long_edge;
-        app.exp.sharpen = crate::logic::prefs::clamp_sharpen(prefs.exp_sharpen);
-        app.exp.quality = crate::logic::prefs::clamp_quality(prefs.exp_quality);
-        app.chrome.show_clipping = prefs.show_clipping;
+        app.workspace.exp.format = ExportFormat::from_pref(prefs.exp_format, prefs.save_jpeg);
+        app.workspace.exp.dest = ExportDest::from_pref(prefs.exp_dest);
+        app.workspace.exp.last_dir = prefs.last_export_dir.clone();
+        app.workspace.exp.save_denoise = prefs.save_denoise;
+        app.workspace.exp.save_denoise_strength = crate::logic::prefs::clamp01(prefs.save_denoise_strength);
+        app.workspace.exp.denoise_strength = crate::logic::prefs::clamp01(prefs.denoise_strength);
+        app.workspace.exp.baked_denoise_strength = crate::logic::prefs::clamp01(prefs.baked_denoise_strength);
+        app.workspace.exp.baked_save_denoise_strength = crate::logic::prefs::clamp01(prefs.baked_save_denoise_strength);
+        app.workspace.fit.zoned_fit = prefs.zoned_fit;
+        app.workspace.fit.zoned_four_regions = prefs.zoned_four_regions;
+        app.workspace.fit.fit_ai_judge = prefs.fit_ai_judge;
+        app.workspace.fit.fit_deep = prefs.fit_deep;
+        app.workspace.fit.reimagine_retry = prefs.reimagine_retry;
+        app.workspace.fit.ask_fit_after_generate = prefs.ask_fit_after_generate;
+        app.workspace.genai.adjust_quality = crate::logic::prefs::choice(prefs.adjust_quality);
+        app.workspace.view.mode = prefs.view_mode;
+        app.workspace.exp.long_edge = prefs.exp_long_edge;
+        app.workspace.exp.sharpen = crate::logic::prefs::clamp_sharpen(prefs.exp_sharpen);
+        app.workspace.exp.quality = crate::logic::prefs::clamp_quality(prefs.exp_quality);
+        app.workspace.chrome.show_clipping = prefs.show_clipping;
         // Restore the UI language (an older save without this key decoded to
         // `Lang::En` via `#[serde(default)]`, so this is always valid).
         app.lang = prefs.lang;
         // Restore the theme and re-apply it — main() installed the Dark
         // default before prefs were readable (same shape as the greeting).
-        app.ui.theme = prefs.theme;
-        app.ui.accent = prefs.accent;
-        install_look(&app.services.egui_ctx, app.ui.theme, app.ui.accent);
+        app.workspace.ui.theme = prefs.theme;
+        app.workspace.ui.accent = prefs.accent;
+        install_look(&app.services.egui_ctx, app.workspace.ui.theme, app.workspace.ui.accent);
         // The greeting was set by default() BEFORE the language was known —
         // re-issue it, or a Chinese install opens with one English line.
-        app.status =
+        app.workspace.status =
             tr(app.lang, K_ACTIONS_OPEN_A_PHOTO_OR_OPEN_A_FOLDER_TO_BROWSE_YOUR_LIB).into();
         // Each saved file advances to the current dial law; a current/future
         // file keeps the choices made under its own law. The wording of the
         // reset note uses the values the file actually carried.
         for era in prefs.prefs_era..PREFS_ERA {
             let migrated = crate::logic::prefs::migrate_era(era, prefs.denoise_strength, prefs.save_denoise_strength);
-            app.exp.denoise_strength = migrated.raw_detail;
-            app.exp.save_denoise_strength = migrated.raw_export;
+            app.workspace.exp.denoise_strength = migrated.raw_detail;
+            app.workspace.exp.save_denoise_strength = migrated.raw_export;
             if let Some(v) = migrated.baked_detail {
-                app.exp.baked_denoise_strength = v;
+                app.workspace.exp.baked_denoise_strength = v;
             }
             if let Some(v) = migrated.baked_export {
-                app.exp.baked_save_denoise_strength = v;
+                app.workspace.exp.baked_save_denoise_strength = v;
             }
             if let Some((a, b)) = migrated.reset_note {
                 let default = autoshade::denoise::DEFAULT_STRENGTH_RAW;
-                app.chrome.startup_note = Some(trf(
+                app.workspace.chrome.startup_note = Some(trf(
                     app.lang,
                     K_ACTIONS_AI_DENOISE_STRENGTH_FOR_RAW_FILES_WAS_RESET_TO_W,
                     &[
@@ -161,14 +161,14 @@ impl AutoShadeApp {
         }
         // Only known color spaces and working-preview steps: a corrupt pref
         // must not produce an unrenderable space or a 1-px / 100-MP preview.
-        app.exp.space = crate::logic::prefs::known_space(prefs.exp_space);
-        app.genai.preview_edge = crate::logic::prefs::known_preview_edge(prefs.preview_edge);
+        app.workspace.exp.space = crate::logic::prefs::known_space(prefs.exp_space);
+        app.workspace.genai.preview_edge = crate::logic::prefs::known_preview_edge(prefs.preview_edge);
         if let Some(dir) = prefs.gallery_dir.filter(|d| d.is_dir()) {
             app.open_folder(dir);
         }
         // A restored folder's asynchronous status must not erase the note
         // before the user sees it. Its completion uses the same status line.
-        if !app.busy {
+        if !app.workspace.busy {
             app.show_startup_note();
         }
     }
@@ -183,17 +183,17 @@ impl AutoShadeApp {
         crate::logic::noise::selected_strength(
             self.denoise_uses_raw(),
             on_export,
-            self.exp.denoise_strength,
-            self.exp.save_denoise_strength,
-            self.exp.baked_denoise_strength,
-            self.exp.baked_save_denoise_strength,
+            self.workspace.exp.denoise_strength,
+            self.workspace.exp.save_denoise_strength,
+            self.workspace.exp.baked_denoise_strength,
+            self.workspace.exp.baked_save_denoise_strength,
         )
     }
 
     pub(crate) fn show_startup_note(&mut self) {
-        if let Some(note) = self.chrome.startup_note.take() {
-            self.status.push_str(" — ");
-            self.status.push_str(&note);
+        if let Some(note) = self.workspace.chrome.startup_note.take() {
+            self.workspace.status.push_str(" — ");
+            self.workspace.status.push_str(&note);
         }
     }
 
@@ -210,11 +210,11 @@ impl AutoShadeApp {
     /// The `||` chain is ordered by cost: `inactive_dirty_variants` walks the
     /// strip deep-comparing recipes, so it is asked last.
     pub(crate) fn quit_state(&self) -> crate::quit::QuitState {
-        crate::quit::QuitState::from_app(self.busy, self.open.discard_requested, || {
-            self.masks.mask_name_buf.is_some()
-                || self.cards.version_name_buf.is_some()
-                || self.cards.variant_name_buf.is_some()
-                || !self.open.nav_stash.is_empty()
+        crate::quit::QuitState::from_app(self.workspace.busy, self.workspace.open.discard_requested, || {
+            self.workspace.masks.mask_name_buf.is_some()
+                || self.workspace.cards.version_name_buf.is_some()
+                || self.workspace.cards.variant_name_buf.is_some()
+                || !self.workspace.open.nav_stash.is_empty()
                 || self.quit_guard_open_dirty()
                 || self.inactive_dirty_variants() > 0
         })
@@ -232,21 +232,20 @@ impl AutoShadeApp {
     /// `install_fonts`), so a test that reads it sees whatever another test
     /// in the same process installed; tests pass their own.
     pub(crate) fn disclose_undrawable_names_given(&mut self, installed: &[&'static str]) {
-        let stems: Vec<String> = self
-            .gal.gallery
+        let stems: Vec<String> = self.workspace.gal.gallery
             .iter()
             .map(|p| autoshade::pipeline::stem(p).to_string())
             .collect();
         for stem in &stems {
             for (script, sample) in undrawable_scripts(stem, installed) {
-                if self.analysis.disclosed_scripts.insert(script) {
+                if self.editor.analysis.disclosed_scripts.insert(script) {
                     let t = trf(
                         self.lang,
                         K_ACTIONS_SOME_FILE_NAMES_USE_CHARACTERS_NO_INSTALLED_FONT,
                         &[("sample", &sample.to_string())],
                     );
                     self.toast(ToastKind::Error, t.clone());
-                    self.status = t;
+                    self.workspace.status = t;
                 }
             }
         }
@@ -260,21 +259,21 @@ impl AutoShadeApp {
         // toasts from the ring. The refresh MOVES it to the back — it is
         // the newest content, and refreshing in place left it first in
         // line for eviction, the exact loss the dedup exists to prevent.
-        if let Some(i) = self.chrome.toasts.iter().position(|t| t.text == text && t.kind == kind) {
-            self.chrome.toasts.remove(i);
+        if let Some(i) = self.workspace.chrome.toasts.iter().position(|t| t.text == text && t.kind == kind) {
+            self.workspace.chrome.toasts.remove(i);
         }
-        self.chrome.toasts.push(Toast { text, kind, born: Instant::now() });
-        if self.chrome.toasts.len() > 5 {
-            self.chrome.toasts.remove(0); // keep the stack readable
+        self.workspace.chrome.toasts.push(Toast { text, kind, born: Instant::now() });
+        if self.workspace.chrome.toasts.len() > 5 {
+            self.workspace.chrome.toasts.remove(0); // keep the stack readable
         }
     }
 
     /// A worker finished successfully: status line + a success toast, unbusy.
     pub(crate) fn done(&mut self, text: impl Into<String>) {
         let text = text.into();
-        self.status = text.clone();
+        self.workspace.status = text.clone();
         self.toast(ToastKind::Success, text);
-        self.busy = false;
+        self.workspace.busy = false;
     }
 
     /// A worker failed: status line + a lingering error toast, unbusy. A single
@@ -286,9 +285,9 @@ impl AutoShadeApp {
         // this app attaches — the file, the stage, the cause — was being
         // dropped exactly where the user needed it, in the toast.
         let text = format!("{what}: {e:#}");
-        self.status = text.clone();
+        self.workspace.status = text.clone();
         self.toast(ToastKind::Error, text);
-        self.busy = false;
+        self.workspace.busy = false;
     }
 
     /// Decoded-base LRU lookup (most-recent entry kept last). Missing metadata
@@ -297,7 +296,7 @@ impl AutoShadeApp {
     pub(crate) fn cached_base(&mut self, path: &std::path::Path, edge: u32) -> Option<OpenedBase> {
         let mtime = file_stamp(path);
         let pixels = pixel_identity(path);
-        crate::logic::lru::get(&mut self.open.base_cache, |(p, e, t, px)| {
+        crate::logic::lru::get(&mut self.workspace.open.base_cache, |(p, e, t, px)| {
             p == path && *e == edge && *t == mtime && *px == pixels
         })
     }
@@ -313,7 +312,7 @@ impl AutoShadeApp {
     pub(crate) fn remember_base(&mut self, path: &std::path::Path, opened: &OpenedBase) {
         let (edge, mtime, pixels) = opened.5.clone();
         crate::logic::lru::insert(
-            &mut self.open.base_cache,
+            &mut self.workspace.open.base_cache,
             (path.to_path_buf(), edge, mtime, pixels),
             opened.clone(),
             |(p, e, _, _)| p == path && *e == edge,
@@ -326,8 +325,8 @@ impl AutoShadeApp {
     /// pixels.json) — the source mtime doesn't move then, so the mtime guard
     /// alone would happily serve a hit with stale baked pixels.
     pub(crate) fn forget_open_base(&mut self) {
-        if let Some(p) = self.photo.src_path.clone() {
-            crate::logic::lru::retain(&mut self.open.base_cache, |(q, _, _, _)| q != &p);
+        if let Some(p) = self.editor.photo.src_path.clone() {
+            crate::logic::lru::retain(&mut self.workspace.open.base_cache, |(q, _, _, _)| q != &p);
         }
     }
 
@@ -352,11 +351,11 @@ impl AutoShadeApp {
     }
 
     fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {
-        let live = self.doc.variants.get(live_position)?;
-        let rec = match &self.session.hist.saved_strip {
+        let live = self.editor.doc.variants.get(live_position)?;
+        let rec = match &self.editor.session.hist.saved_strip {
             Some(rec) => rec,
             None => {
-                let trivial = self.doc.variants.len() == 1
+                let trivial = self.editor.doc.variants.len() == 1
                     && live_position == 0
                     && crate::model::strip_is_trivial(
                         live.kind,
@@ -365,8 +364,8 @@ impl AutoShadeApp {
                         0,
                     );
                 return trivial.then_some(PersistedCard {
-                    recipe: &self.session.hist.saved_recipe,
-                    origin: self.session.hist.pixels_on_disk.as_deref(),
+                    recipe: &self.editor.session.hist.saved_recipe,
+                    origin: self.editor.session.hist.pixels_on_disk.as_deref(),
                 });
             }
         };
@@ -381,8 +380,8 @@ impl AutoShadeApp {
             )
         {
             return Some(PersistedCard {
-                recipe: &self.session.hist.saved_recipe,
-                origin: self.session.hist.pixels_on_disk.as_deref(),
+                recipe: &self.editor.session.hist.saved_recipe,
+                origin: self.editor.session.hist.pixels_on_disk.as_deref(),
             });
         }
 
@@ -408,16 +407,16 @@ impl AutoShadeApp {
     /// unsaved. With no strip record, only the trivial lone Original maps to
     /// `recipe.json` / `pixels.json`.
     pub(crate) fn active_baseline(&self) -> Option<ActiveBaseline<'_>> {
-        let saved = self.persisted_card_for(self.doc.active)?;
+        let saved = self.persisted_card_for(self.editor.doc.active)?;
         Some(ActiveBaseline { recipe: saved.recipe, origin: saved.origin })
     }
 
     fn active_canvas_dirty(&self) -> bool {
-        if self.photo.src_path.is_none() || self.active_variant().is_none() {
+        if self.editor.photo.src_path.is_none() || self.active_variant().is_none() {
             return false;
         }
         self.active_baseline().is_none_or(|saved| {
-            dirty_vs(&self.doc.recipe, saved.recipe)
+            dirty_vs(&self.editor.doc.recipe, saved.recipe)
                 || !same_master_opt(
                     self.active_variant().and_then(|v| v.origin.as_deref()),
                     saved.origin,
@@ -464,7 +463,7 @@ impl AutoShadeApp {
     /// generate→fit flow) counted dirty forever, no save could clear it, and
     /// the quit dialog re-armed until 「Discard」.
     pub(crate) fn open_dirty_variants(&self) -> usize {
-        let saved = self.session.hist.saved_strip.as_ref().map(|rec| {
+        let saved = self.editor.session.hist.saved_strip.as_ref().map(|rec| {
             use crate::logic::strip::SavedCard;
             let mut cards: Vec<SavedCard<'_>> = Vec::with_capacity(rec.others.len() + 1);
             if let Some(kind) = VariantKind::from_store_str(&rec.active_kind) {
@@ -473,8 +472,8 @@ impl AutoShadeApp {
                     position: rec.active_pos,
                     id: rec.active_id.as_deref(),
                     name: rec.active_name.as_deref(),
-                    recipe: &self.session.hist.saved_recipe,
-                    origin: self.session.hist.pixels_on_disk.as_deref(),
+                    recipe: &self.editor.session.hist.saved_recipe,
+                    origin: self.editor.session.hist.pixels_on_disk.as_deref(),
                 });
             }
             cards.extend(rec.others.iter().enumerate().filter_map(|(i, entry)| {
@@ -490,7 +489,7 @@ impl AutoShadeApp {
             }));
             cards
         });
-        crate::logic::strip::open_dirty_count(&self.doc.variants, self.doc.active, saved.as_deref())
+        crate::logic::strip::open_dirty_count(&self.editor.doc.variants, self.editor.doc.active, saved.as_deref())
     }
 
     pub(crate) fn inactive_dirty_variants(&self) -> usize {
@@ -501,7 +500,7 @@ impl AutoShadeApp {
         // deliberately stays conservative (every stashed background variant,
         // not only those differing from their photo's on-disk record: that
         // comparison would cost a disk read per stash entry per check).
-        let stashed: usize = self.open.nav_stash.values().map(|st| st.others.len()).sum();
+        let stashed: usize = self.workspace.open.nav_stash.values().map(|st| st.others.len()).sum();
         self.open_dirty_variants() + stashed
     }
 
@@ -517,7 +516,7 @@ impl AutoShadeApp {
             ak,
             self.active_variant().map_or("", |v| v.id.as_str()),
             self.active_variant().and_then(|v| v.name.as_deref()),
-            self.doc.variants.len().saturating_sub(1),
+            self.editor.doc.variants.len().saturating_sub(1),
         ) {
             return None;
         }
@@ -525,12 +524,11 @@ impl AutoShadeApp {
             extra: Default::default(),
             v: 1,
             active_kind: ak.store_str().to_string(),
-            active_pos: self.doc.active,
-            others: self
-                .doc.variants
+            active_pos: self.editor.doc.active,
+            others: self.editor.doc.variants
                 .iter()
                 .enumerate()
-                .filter(|(i, _)| *i != self.doc.active)
+                .filter(|(i, _)| *i != self.editor.doc.active)
                 .map(|(_, v)| autoshade::store::VariantEntry {
                     extra: Default::default(),
                     kind: v.kind.store_str().to_string(),
@@ -560,11 +558,11 @@ impl AutoShadeApp {
         match self.current_strip_record() {
             Some(rec) => {
                 autoshade::store::write_variants(path, &rec)?;
-                self.session.hist.saved_strip = Some(rec);
+                self.editor.session.hist.saved_strip = Some(rec);
             }
             None => {
                 autoshade::store::clear_variants(path)?;
-                self.session.hist.saved_strip = None;
+                self.editor.session.hist.saved_strip = None;
             }
         }
         Ok(())
@@ -572,7 +570,7 @@ impl AutoShadeApp {
 
     /// The active variant, if a photo is open.
     pub(crate) fn active_variant(&self) -> Option<&Variant> {
-        self.doc.variants.get(self.doc.active)
+        self.editor.doc.variants.get(self.editor.doc.active)
     }
 
     /// The on-disk PIXEL SOURCE the active variant renders / retouches /
@@ -586,8 +584,8 @@ impl AutoShadeApp {
     /// the untouched negative underneath a generated / retouched rendition.
     pub(crate) fn active_source_path(&self) -> Option<PathBuf> {
         match self.active_variant() {
-            Some(v) => v.origin.clone().or_else(|| self.photo.src_path.clone()),
-            None => self.photo.src_path.clone(),
+            Some(v) => v.origin.clone().or_else(|| self.editor.photo.src_path.clone()),
+            None => self.editor.photo.src_path.clone(),
         }
     }
 
@@ -625,7 +623,7 @@ impl AutoShadeApp {
         } else {
             trf(self.lang, K_ACTIONS_NOT_SAVED_A_DEVELOP_STORE_WRITE_FAILED, &a)
         };
-        self.status = t.clone();
+        self.workspace.status = t.clone();
         self.toast(ToastKind::Error, t);
     }
 
@@ -636,24 +634,24 @@ impl AutoShadeApp {
     /// tool reinterpreted a crop-relative pan as full-frame and the
     /// viewport landed outside the crop box at higher zoom.
     pub(crate) fn set_crop_mode(&mut self, on: bool) {
-        if self.crop.mode == on {
+        if self.workspace.crop.mode == on {
             return;
         }
-        if let Some(c) = &self.doc.recipe.crop {
+        if let Some(c) = &self.editor.doc.recipe.crop {
             let (l, t) = (c.left.min(c.right), c.top.min(c.bottom));
             let (w, h) =
                 ((c.right - c.left).abs().max(1e-6), (c.bottom - c.top).abs().max(1e-6));
-            self.view.pan = if on {
+            self.workspace.view.pan = if on {
                 // crop-window coords → full-frame coords
-                egui::vec2(l + self.view.pan.x * w, t + self.view.pan.y * h)
+                egui::vec2(l + self.workspace.view.pan.x * w, t + self.workspace.view.pan.y * h)
             } else {
                 // full-frame coords → crop-window coords
-                egui::vec2((self.view.pan.x - l) / w, (self.view.pan.y - t) / h)
+                egui::vec2((self.workspace.view.pan.x - l) / w, (self.workspace.view.pan.y - t) / h)
             };
             // view_uv re-clamps against zoom each frame; keep it sane here.
-            self.view.pan = egui::vec2(self.view.pan.x.clamp(0.0, 1.0), self.view.pan.y.clamp(0.0, 1.0));
+            self.workspace.view.pan = egui::vec2(self.workspace.view.pan.x.clamp(0.0, 1.0), self.workspace.view.pan.y.clamp(0.0, 1.0));
         }
-        self.crop.mode = on;
+        self.workspace.crop.mode = on;
     }
 
     /// Recipe replaced wholesale (undo/redo/Reset/version load/AI apply): the
@@ -670,22 +668,22 @@ impl AutoShadeApp {
     /// pin) deliberately survives — samples stay for resuming, like paint.
     pub(crate) fn disarm_tools(&mut self) {
         self.set_crop_mode(false);
-        self.masks.paint_mode = false;
-        self.tools.clone_mode = false;
-        self.tools.wb_picking = false;
-        self.tools.range_picking = None;
-        self.tools.point_color_picking = false;
-        self.tools.lens_focus_picking = false;
-        self.masks.placing_mask = None;
-        self.masks.place_start = None;
-        self.crop.drag = None;
-        self.masks.mask_drag = None;
-        self.masks.paint_last = None;
+        self.workspace.masks.paint_mode = false;
+        self.workspace.tools.clone_mode = false;
+        self.workspace.tools.wb_picking = false;
+        self.workspace.tools.range_picking = None;
+        self.workspace.tools.point_color_picking = false;
+        self.workspace.tools.lens_focus_picking = false;
+        self.workspace.masks.placing_mask = None;
+        self.workspace.masks.place_start = None;
+        self.workspace.crop.drag = None;
+        self.workspace.masks.mask_drag = None;
+        self.workspace.masks.paint_last = None;
         self.end_mask_brush();
         // A preset change armed for the crop tool must die with it — the
         // flag survived Esc / Done / a hold-B detour and rewrote the box as
         // a surprise on the next crop entry (CX5-4).
-        self.crop.aspect_pending = false;
+        self.workspace.crop.aspect_pending = false;
     }
 
     /// End a live mask-brush session (the Esc teardown, extracted from
@@ -697,9 +695,9 @@ impl AutoShadeApp {
     /// session was actually live, so a caller whose teardown is NOT
     /// user-initiated can disclose the discarded strokes.
     pub(crate) fn end_mask_brush(&mut self) -> bool {
-        if self.masks.mask_brush.take().is_some() {
-            self.masks.mask_brush_gray = None;
-            self.masks.paint_mode = false;
+        if self.workspace.masks.mask_brush.take().is_some() {
+            self.workspace.masks.mask_brush_gray = None;
+            self.workspace.masks.paint_mode = false;
             self.clear_mask();
             // The owner's area the session displaced comes back (2026-09-27).
             self.unstash_owner_area();
@@ -722,16 +720,16 @@ impl AutoShadeApp {
     /// user paint), for the caller's disclosure.
     pub(crate) fn disarm_selection_bound_tools(&mut self, keep: Option<usize>) -> bool {
         if matches!(
-            self.masks.placing_mask,
+            self.workspace.masks.placing_mask,
             Some((_, PlaceTarget::Redraw(j) | PlaceTarget::Component(j, _))) if Some(j) != keep
         ) {
-            self.masks.placing_mask = None;
-            self.masks.place_start = None;
+            self.workspace.masks.placing_mask = None;
+            self.workspace.masks.place_start = None;
         }
         // The colour sampler drops unconditionally — its 💧 label lives on
         // the row that was just left (the first fix of this class).
-        self.tools.range_picking = None;
-        if matches!(self.masks.mask_brush, Some((Some(j), _)) if Some(j) != keep) {
+        self.workspace.tools.range_picking = None;
+        if matches!(self.workspace.masks.mask_brush, Some((Some(j), _)) if Some(j) != keep) {
             return self.end_mask_brush();
         }
         false
@@ -739,13 +737,13 @@ impl AutoShadeApp {
 
     /// Any canvas tool armed? (the once-hand-written OR list)
     pub(crate) fn tool_armed(&self) -> bool {
-        self.crop.mode
-            || self.masks.paint_mode
-            || self.tools.clone_mode
-            || self.tools.wb_picking
-            || self.tools.range_picking.is_some()
-            || self.tools.point_color_picking
-            || self.masks.placing_mask.is_some()
+        self.workspace.crop.mode
+            || self.workspace.masks.paint_mode
+            || self.workspace.tools.clone_mode
+            || self.workspace.tools.wb_picking
+            || self.workspace.tools.range_picking.is_some()
+            || self.workspace.tools.point_color_picking
+            || self.workspace.masks.placing_mask.is_some()
     }
 
     /// Commit a pending mask-rename buffer to its own mask (the same
@@ -754,21 +752,21 @@ impl AutoShadeApp {
     /// runs while the TextEdit still holds focus — without this it saved the
     /// old name and the advanced baseline dropped the rename.
     pub(crate) fn commit_mask_name_buf(&mut self) {
-        if let Some((j, orig, buf)) = self.masks.mask_name_buf.clone()
-            && let Some(prev) = self.doc.recipe.masks.get_mut(j)
+        if let Some((j, orig, buf)) = self.workspace.masks.mask_name_buf.clone()
+            && let Some(prev) = self.editor.doc.recipe.masks.get_mut(j)
             && prev.name == orig
             && buf != orig
         {
             prev.name = buf.clone();
             // Re-seed so the panel's own lost-focus commit stays a no-op.
-            self.masks.mask_name_buf = Some((j, buf.clone(), buf));
+            self.workspace.masks.mask_name_buf = Some((j, buf.clone(), buf));
         }
     }
 
     /// A modal layer is up — the quit confirm or the fit prompt — and owns
     /// the keyboard and the pointer (D13).
     pub(crate) fn modal_up(&self) -> bool {
-        self.ui.confirm_quit || self.fit.fit_prompt.is_some()
+        self.workspace.ui.confirm_quit || self.workspace.fit.fit_prompt.is_some()
     }
 
     /// Add a recipe file the user picked (our own recipe.json, or a Lightroom
@@ -808,7 +806,7 @@ impl AutoShadeApp {
         match autoshade::recipe_library::create(&name, &entry) {
             Ok(()) => {
                 self.refresh_recipes();
-                self.rlib.recipe_sel = Some(name.clone());
+                self.workspace.rlib.recipe_sel = Some(name.clone());
                 let base = trf(self.lang, K_ACTIONS_IMPORTED, &[("name", &name)]);
                 let text = if losses.is_empty() {
                     base
@@ -831,7 +829,7 @@ impl AutoShadeApp {
 
     /// The jpg the Save group delivers.
     pub(crate) fn normal_export_opts(&self) -> autoshade::render::ExportOpts {
-        autoshade::render::ExportOpts { jpeg_quality: self.normal.quality.jpeg_quality(), ..Default::default() }
+        autoshade::render::ExportOpts { jpeg_quality: self.workspace.normal.quality.jpeg_quality(), ..Default::default() }
     }
 
     /// 「Save as jpg」: the single export of the card on screen (the ◈ card
@@ -841,7 +839,7 @@ impl AutoShadeApp {
     /// already there; a file picked in the save window is replaced, as that
     /// window confirmed.
     pub(crate) fn start_normal_save(&mut self) {
-        if self.active_source_path().is_none() || self.busy {
+        if self.active_source_path().is_none() || self.workspace.busy {
             return;
         }
         let name = self.export_file_name_as("jpg");
@@ -858,9 +856,9 @@ impl AutoShadeApp {
         // 「the folder you last saved to」 has somewhere to point.
         let picked = (how == OutName::Chosen).then(|| out.parent().map(|d| d.to_path_buf())).flatten();
         if self.start_render_with(out, export, None, false, how) {
-            self.normal.delivering = true;
+            self.workspace.normal.delivering = true;
             if picked.is_some() {
-                self.exp.last_dir = picked;
+                self.workspace.exp.last_dir = picked;
             }
         }
     }
@@ -868,11 +866,11 @@ impl AutoShadeApp {
     /// The save window's answer (`None` = cancelled).
     fn pick_save_file(&mut self, name: String) -> Option<PathBuf> {
         #[cfg(test)]
-        if let Some(pick) = self.normal.file_pick.take() {
+        if let Some(pick) = self.workspace.normal.file_pick.take() {
             return pick;
         }
         let mut dlg = rfd::FileDialog::new().add_filter("jpg", &["jpg"]).set_file_name(name);
-        if let Some(d) = self.exp.last_dir.clone().filter(|d| d.is_dir()) {
+        if let Some(d) = self.workspace.exp.last_dir.clone().filter(|d| d.is_dir()) {
             dlg = dlg.set_directory(d);
         }
         dlg.save_file()
@@ -885,20 +883,20 @@ impl AutoShadeApp {
     /// jpgs' folder is settled FIRST: a folder dialog cancelled after the
     /// paste would have left every photo's look changed and nothing saved.
     pub(crate) fn start_apply_to_folder(&mut self) {
-        if self.busy || self.gal.gallery.is_empty() || self.photo.src_path.is_none() {
+        if self.workspace.busy || self.workspace.gal.gallery.is_empty() || self.editor.photo.src_path.is_none() {
             return;
         }
         let Some(dest) = self.apply_all_dest() else {
             // Cancelled: nothing was changed, and the line says nothing.
-            self.status.clear();
+            self.workspace.status.clear();
             return;
         };
         self.commit_pending_names();
-        let targets = self.gal.gallery.clone();
-        self.normal.apply_all = Some(dest);
-        self.start_paste_to(self.doc.recipe.clone(), self.photo.src_path.clone(), targets, false);
-        if !self.busy {
-            self.normal.apply_all = None;
+        let targets = self.workspace.gal.gallery.clone();
+        self.workspace.normal.apply_all = Some(dest);
+        self.start_paste_to(self.editor.doc.recipe.clone(), self.editor.photo.src_path.clone(), targets, false);
+        if !self.workspace.busy {
+            self.workspace.normal.apply_all = None;
         }
     }
 
@@ -909,7 +907,7 @@ impl AutoShadeApp {
             return Some(d);
         }
         #[cfg(test)]
-        if let Some(pick) = self.normal.folder_pick.take() {
+        if let Some(pick) = self.workspace.normal.folder_pick.take() {
             return pick;
         }
         self.pick_batch_folder()
@@ -923,11 +921,11 @@ impl AutoShadeApp {
             if i == 0 { return }
             i - 1
         } else {
-            if i + 1 >= self.doc.recipe.masks.len() { return }
+            if i + 1 >= self.editor.doc.recipe.masks.len() { return }
             i + 1
         };
         crate::logic::command::apply(
-            &mut self.doc.recipe,
+            &mut self.editor.doc.recipe,
             crate::logic::command::Command::Mask(if up {
                 crate::logic::command::MaskCommand::MoveUp { index: i }
             } else {
@@ -935,20 +933,20 @@ impl AutoShadeApp {
             }),
         );
         self.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
-        self.overlay.overlay_stale = true;
-        self.session.dirty = true;
+        self.workspace.overlay.overlay_stale = true;
+        self.editor.session.dirty = true;
     }
 
     /// Duplicate a mask: its tuned sliders come along, its rasters are DETACHED
     /// copies (the version-load rule), so the twins never share a mutable file.
     pub(crate) fn duplicate_mask(&mut self, lang: Lang, i: usize) {
-        if self.doc.recipe.masks.len() >= 64 {
+        if self.editor.doc.recipe.masks.len() >= 64 {
             let t = tr(lang, K_ACTIONS_MASK_LIMIT_REACHED_64_DELETE_ONE_FIRST);
             self.toast(ToastKind::Error, t.to_string());
             return;
         }
-        let Some(mut clone) = self.doc.recipe.masks.get(i).cloned() else { return };
-        if let Some(p) = self.photo.src_path.as_deref() {
+        let Some(mut clone) = self.editor.doc.recipe.masks.get(i).cloned() else { return };
+        if let Some(p) = self.editor.photo.src_path.as_deref() {
             let mut tmp = EditRecipe { masks: vec![clone], ..Default::default() };
             autoshade::store::detach_rasters(p, &mut tmp, "mask-dup");
             clone = tmp.masks.remove(0);
@@ -957,24 +955,24 @@ impl AutoShadeApp {
             clone.name = format!("{} 2", clone.name);
         }
         crate::logic::command::apply(
-            &mut self.doc.recipe,
+            &mut self.editor.doc.recipe,
             crate::logic::command::Command::InsertMask { after: i, mask: Box::new(clone) },
         );
         self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
-        self.masks.sel_mask = Some(i + 1);
-        self.masks.sel_component = None;
-        self.overlay.overlay_stale = true;
+        self.workspace.masks.sel_mask = Some(i + 1);
+        self.workspace.masks.sel_component = None;
+        self.workspace.overlay.overlay_stale = true;
         // The remap maps an armed Redraw(i)/brush(i) to ITSELF (s > i is false
         // at s == i) while the selection jumps to the copy — armed on the
         // original, pointed at the duplicate. Selection moved ⇒ same rule.
-        if self.disarm_selection_bound_tools(self.masks.sel_mask) {
+        if self.disarm_selection_bound_tools(self.workspace.masks.sel_mask) {
             let t = tr(
                 self.lang,
                 K_ACTIONS_THE_RASTER_EDIT_BRUSH_SESSION_ENDED_YOU_SELECTED,
             );
             self.toast(ToastKind::Error, t.to_string());
         }
-        self.session.dirty = true;
+        self.editor.session.dirty = true;
     }
 
 }

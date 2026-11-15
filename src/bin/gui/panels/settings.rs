@@ -9,7 +9,7 @@ impl AutoShadeApp {
         let mut do_save = false;
         let mut fetch: Option<ModelRole> = None;
         // `lang` is a Copy snapshot so `tr`/`trf` never borrow `self` — the
-        // `let f = &mut self.ui.settings` block below holds a partial borrow of self.
+        // `let f = &mut self.workspace.ui.settings` block below holds a partial borrow of self.
         let lang = self.lang;
         ui.label(
             // "& Theme", not "& Reverse-fit": the reverse-fit switch this
@@ -38,24 +38,24 @@ impl AutoShadeApp {
         // Four surface schemes and an accent picked apart from them (see
         // ThemeColors) — switching either re-installs the egui style this
         // frame and persists with the other prefs.
-        let before = (self.ui.theme, self.ui.accent);
+        let before = (self.workspace.ui.theme, self.workspace.ui.accent);
         egui::ComboBox::from_id_salt("theme_picker")
-            .selected_text(tr(lang, self.ui.theme.label()))
+            .selected_text(tr(lang, self.workspace.ui.theme.label()))
             .show_ui(ui, |ui| {
                 for t in ThemePref::ALL {
-                    ui.selectable_value(&mut self.ui.theme, t, tr(lang, t.label()));
+                    ui.selectable_value(&mut self.workspace.ui.theme, t, tr(lang, t.label()));
                 }
             });
         ui.horizontal(|ui| {
             ui.label(tr(lang, K_SETTINGS_ACCENT_COLOUR));
             for a in AccentPref::ALL {
-                if accent_swatch(ui, a.hue(), self.ui.accent == a).on_hover_text(tr(lang, a.label())).clicked() {
-                    self.ui.accent = a;
+                if accent_swatch(ui, a.hue(), self.workspace.ui.accent == a).on_hover_text(tr(lang, a.label())).clicked() {
+                    self.workspace.ui.accent = a;
                 }
             }
         });
-        if (self.ui.theme, self.ui.accent) != before {
-            install_look(ui.ctx(), self.ui.theme, self.ui.accent);
+        if (self.workspace.ui.theme, self.workspace.ui.accent) != before {
+            install_look(ui.ctx(), self.workspace.ui.theme, self.workspace.ui.accent);
         }
         // 「Zoned fit (sky)」 MOVED to the AI panel's reverse-fit sub-area (R22
         // #4): it is a setting for ONE button, and it sat two panels away from
@@ -71,7 +71,7 @@ impl AutoShadeApp {
         // guessing, and "where is my XMP" is the question this row exists to
         // answer. Falls back to the root when no photo is open, which is all
         // there is to say then.
-        let shown = match self.photo.src_path.as_deref() {
+        let shown = match self.editor.photo.src_path.as_deref() {
             Some(p) => autoshade::store::develop_dir(p),
             None => autoshade::store::store_root(),
         };
@@ -98,7 +98,7 @@ impl AutoShadeApp {
             && let Err(e) = reveal_folder(&shown)
         {
             let t = trf(lang, K_SETTINGS_COULD_NOT_OPEN_THE_FOLDER, &[("err", &e.to_string())]);
-            self.status = t.clone();
+            self.workspace.status = t.clone();
             self.toast(ToastKind::Error, t);
         }
         // The pixel masters (2026-10-18): the AI denoise / stack / heal /
@@ -126,7 +126,7 @@ impl AutoShadeApp {
             && let Err(e) = reveal_folder(&masters)
         {
             let t = trf(lang, K_SETTINGS_COULD_NOT_OPEN_THE_FOLDER, &[("err", &e.to_string())]);
-            self.status = t.clone();
+            self.workspace.status = t.clone();
             self.toast(ToastKind::Error, t);
         }
         if action(ui, true, tr(lang, K_SETTINGS_IMPORT_DEVELOPS_FROM_AN_OLD_OUT_FOLDER))
@@ -152,7 +152,7 @@ impl AutoShadeApp {
         let resolved = autoshade::config::delivery_root();
         let mut browse_delivery = false;
         {
-            let f = &mut self.ui.settings;
+            let f = &mut self.workspace.ui.settings;
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut f.out_dir)
@@ -204,7 +204,7 @@ impl AutoShadeApp {
         // the resolved one, and it is what the next save pins.
         ui.heading(tr(lang, K_SETTINGS_COMFYUI_LOCAL_GENERATION));
         {
-            let f = &mut self.ui.settings;
+            let f = &mut self.workspace.ui.settings;
             let width = |ui: &egui::Ui| FIELD_W_MAX.min(ui.available_width() - 140.0).max(80.0);
             for (label, field) in [
                 ("ComfyUI CLI", &mut f.comfy_cli),
@@ -225,7 +225,7 @@ impl AutoShadeApp {
         let cfg_now = autoshade::config::Config::load();
         ui.heading(tr(lang, K_SETTINGS_PYTHON_INTERPRETER));
         {
-            let f = &mut self.ui.settings;
+            let f = &mut self.workspace.ui.settings;
             ui.horizontal(|ui| {
                 ui.add(
                     egui::TextEdit::singleline(&mut f.python_bin)
@@ -291,7 +291,7 @@ impl AutoShadeApp {
                 }
             }
         });
-        if action(ui, !self.busy, tr(lang, K_SETTINGS_PREPARE_PYTHON_ENVIRONMENT))
+        if action(ui, !self.workspace.busy, tr(lang, K_SETTINGS_PREPARE_PYTHON_ENVIRONMENT))
             .on_hover_text(tr(
                 lang,
                 K_SETTINGS_RUNS_UV_TO_CREATE_A_PRIVATE_ENVIRONMENT_AND_INST,
@@ -302,13 +302,13 @@ impl AutoShadeApp {
                 logic::settings::SettingsAction::InstallPython,
             )]);
         }
-        if let Some(line) = &self.ui.python_env_line {
+        if let Some(line) = &self.workspace.ui.python_env_line {
             ui.label(egui::RichText::new(line).small().weak());
         }
         // What the sidecars will actually launch — the launch check's answer,
         // which is the only place a wrong interpreter becomes visible before a
         // sidecar fails.
-        if let Some(check) = &self.ui.python_check {
+        if let Some(check) = &self.workspace.ui.python_check {
             use autoshade::python_env::PythonState;
             let fact = match &check.state {
                 PythonState::Managed(_) => None,
@@ -373,7 +373,7 @@ impl AutoShadeApp {
             );
         }
         {
-            let f = &mut self.ui.settings;
+            let f = &mut self.workspace.ui.settings;
             // Fetched ids belong to the endpoint recorded at fetch time; once
             // that role's URL stops matching (typed edit, provider auto-swap),
             // they describe a DIFFERENT server — self-invalidate so the

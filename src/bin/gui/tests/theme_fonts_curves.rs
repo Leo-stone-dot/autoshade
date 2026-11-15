@@ -545,7 +545,7 @@
         // presses; pass 3 releases → egui reports the click (which pass
         // reports the change depends on egui's drag-vs-click bookkeeping,
         // so the two are OR-ed).
-        let mut app = AutoShadeApp { curve_channel: 2, ..Default::default() };
+        let mut app = AutoShadeApp { workspace: WorkspaceView { curve_channel: 2, ..Default::default() }, ..Default::default() };
         let ctx = egui::Context::default();
         let run_pass = |app: &mut AutoShadeApp, events: Vec<egui::Event>| -> bool {
             let mut changed = false;
@@ -577,17 +577,17 @@
         let changed_release = run_pass(&mut app, vec![button(false)]);
         assert!(changed_press || changed_release, "the editor must report the edit");
         assert_eq!(
-            curve_points(&app.doc.recipe, CurveTarget::Global, 2).expect("global").len(),
+            curve_points(&app.editor.doc.recipe, CurveTarget::Global, 2).expect("global").len(),
             1,
             "the click adds one point to the SELECTED channel"
         );
         for ch in [0usize, 1, 3] {
             assert!(
-                curve_points(&app.doc.recipe, CurveTarget::Global, ch).expect("global").is_empty(),
+                curve_points(&app.editor.doc.recipe, CurveTarget::Global, ch).expect("global").is_empty(),
                 "no cross-channel write (ch {ch})"
             );
         }
-        let p = &curve_points(&app.doc.recipe, CurveTarget::Global, 2).expect("global")[0];
+        let p = &curve_points(&app.editor.doc.recipe, CurveTarget::Global, 2).expect("global")[0];
         assert!(
             (p.input as f32 - 255.0 * 0.25).abs() <= 2.0,
             "the point lands at the clicked input: {}",
@@ -627,12 +627,7 @@
             ..Default::default()
         };
         let scrub = Scrub(vec![mask_path.clone()]);
-        let app = AutoShadeApp {
-            masks: MaskEditState {
-                sel_mask: Some(0),
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 source_preview: Some(base.clone()),
 
@@ -640,9 +635,7 @@
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![Variant {
@@ -662,9 +655,9 @@
                 ..Default::default()
 
 
-            },
-
-            ..AutoShadeApp::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { masks: MaskEditState {
+                sel_mask: Some(0),
+                ..Default::default()
+            }, ..Default::default() }, ..AutoShadeApp::default() };
         (app, scrub)
     }

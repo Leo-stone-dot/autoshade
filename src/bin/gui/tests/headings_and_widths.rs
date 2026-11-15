@@ -17,12 +17,11 @@
                 thumb: None,
             })
             .collect();
-        AutoShadeApp { lang, doc: Document {
+        AutoShadeApp { editor: Editor { doc: Document {
      variants,
      active: 1,
      ..Default::default()
- },
- ..Default::default() }
+ }, ..Default::default() }, lang, ..Default::default() }
     }
 
     /// Two frames of the AI panel in a side panel `width` px wide (the panel

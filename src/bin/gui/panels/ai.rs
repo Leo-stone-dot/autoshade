@@ -53,7 +53,7 @@ impl AutoShadeApp {
     /// inputs carry state", and a remembered dial or folder says nothing
     /// about this photo.
     pub(crate) fn ai_section_active(&self) -> bool {
-        self.analysis.verdict.is_some() || !self.ai.guidance.is_empty()
+        self.editor.analysis.verdict.is_some() || !self.workspace.ai.guidance.is_empty()
     }
 
     /// The AI area — TWO first-level sections (user ruling 2026-10-20: the two
@@ -73,7 +73,7 @@ impl AutoShadeApp {
     /// gate) — only the open transition freezes it.
     pub(crate) fn ai_panel(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang; // Copy — never borrows self, safe inside egui closures.
-        let editable = !self.open.open_in_flight;
+        let editable = !self.workspace.open.open_in_flight;
         // The gate wraps BOTH areas, headers included — exactly how
         // develop_panel wraps its sections, so the three read the same mid-open
         // (greyed) instead of one panel looking live beside a dead one.
@@ -184,7 +184,7 @@ impl AutoShadeApp {
 
     /// Whether the last analysis left anything to read.
     fn has_analysis_output(&self) -> bool {
-        self.analysis.verdict.is_some() || !self.analysis.rationale.is_empty()
+        self.editor.analysis.verdict.is_some() || !self.editor.analysis.rationale.is_empty()
     }
 
     /// What one Analyze run wrote — the verdict, the rationale sentence and
@@ -192,7 +192,7 @@ impl AutoShadeApp {
     /// box and the full-text window, so the two can never disagree.
     fn analysis_output(&self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        if let Some((d, reasons)) = &self.analysis.verdict {
+        if let Some((d, reasons)) = &self.editor.analysis.verdict {
             // Accept reads calm; anything else (Revise/Reject)
             // gets the warn colour so it can't be skimmed past.
             // Matched on the TYPED decision, never its rendered
@@ -228,15 +228,14 @@ impl AutoShadeApp {
         // surfaces); the split is a display decision, and on the fallback
         // path the working is still inside `shown`, so no box is drawn.
         let (working, tail): (Vec<_>, Vec<_>) =
-            self.analysis.rationale_notes.iter().partition(|n| is_working_note(n.key));
-        let localized = (!self.analysis.rationale_notes.is_empty())
+            self.editor.analysis.rationale_notes.iter().partition(|n| is_working_note(n.key));
+        let localized = (!self.editor.analysis.rationale_notes.is_empty())
             .then(|| {
-                let det: String = self
-                    .analysis.rationale_notes
+                let det: String = self.editor.analysis.rationale_notes
                     .iter()
                     .map(autoshade::rationale::render_one)
                     .collect();
-                self.analysis.rationale.strip_suffix(det.as_str()).map(|prose| {
+                self.editor.analysis.rationale.strip_suffix(det.as_str()).map(|prose| {
                     let mut s = String::from(prose);
                     for n in &tail {
                         s.push_str(&trf(lang, n.key, &note_args(n)));
@@ -245,7 +244,7 @@ impl AutoShadeApp {
                 })
             })
             .flatten();
-        let shown = localized.as_deref().unwrap_or(&self.analysis.rationale);
+        let shown = localized.as_deref().unwrap_or(&self.editor.analysis.rationale);
         if !shown.is_empty() {
             ui.label(
                 egui::RichText::new(format!("“{shown}”"))
@@ -263,7 +262,7 @@ impl AutoShadeApp {
     /// is a reading pane, so the editor's keys stay live beside it. Closes
     /// itself once there is nothing to show (a new photo, a cleared result).
     pub(crate) fn analysis_full_window(&mut self, ctx: &egui::Context) {
-        if !self.ui.show_analysis_full {
+        if !self.workspace.ui.show_analysis_full {
             return;
         }
         let mut open = self.has_analysis_output();
@@ -280,7 +279,7 @@ impl AutoShadeApp {
                     .auto_shrink([false, false])
                     .show(ui, |ui| self.analysis_output(ui));
             });
-        self.ui.show_analysis_full = open;
+        self.workspace.ui.show_analysis_full = open;
     }
 
     /// Sub-area ① — ANALYSIS (paid API): the verdict and rationale one Analyze
@@ -325,7 +324,7 @@ impl AutoShadeApp {
                 if out.content_size.y > out.inner_rect.height() + 0.5
                     && action_row(ui, true, tr(lang, K_AI_VIEW_FULL_TEXT)).clicked()
                 {
-                    self.ui.show_analysis_full = true;
+                    self.workspace.ui.show_analysis_full = true;
                 }
             }
             // Library OR direction (user ruling 2026-10-14): the switch heads
@@ -349,7 +348,7 @@ impl AutoShadeApp {
                 // shows the whole text on hover.
                 let _field = prompt_field(
                     ui,
-                    &mut self.ai.guidance,
+                    &mut self.workspace.ai.guidance,
                     tr(lang, K_AI_E_G_WARMER_AND_MOODIER_LIFT_THE_SHADOWS),
                 );
                 #[cfg(test)]
@@ -369,8 +368,8 @@ impl AutoShadeApp {
             // A button that looks live and does nothing, for up to the
             // 600 s stall budget, with the status line saying the app
             // is free, is worse than one that says why it is greyed.
-            let ready = self.photo.src_path.is_some() && !self.busy && !self.tools.analyze_inflight;
-            let waiting = self.tools.analyze_inflight && !self.busy;
+            let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
+            let waiting = self.workspace.tools.analyze_inflight && !self.workspace.busy;
             let why = |ui: egui::Response| {
                 if waiting {
                     ui.on_hover_text(tr(
@@ -388,8 +387,8 @@ impl AutoShadeApp {
                 .clicked()
             {
                 let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Analyze);
-                intent.typed = self.ai.guidance.clone();
-                intent.region = self.overlay.region;
+                intent.typed = self.workspace.ai.guidance.clone();
+                intent.region = self.workspace.overlay.region;
                 self.apply_actions(vec![logic::Action::Look(intent)]);
             }
             // The two TASTE DIALS get their own lines, below the verbs (R23-3).
@@ -432,7 +431,7 @@ impl AutoShadeApp {
                 // when the status is KNOWN and negative (never while it is still
                 // being read, which would flash a false warning every launch).
                 if matches!(
-                    self.ai.style_info,
+                    self.workspace.ai.style_info,
                     Some(autoshade::library::Summary::Absent | autoshade::library::Summary::Unusable(_))
                 ) {
                     ui.label(
@@ -461,7 +460,7 @@ impl AutoShadeApp {
                     K_AI_HOW_BOLD_THE_AI_S_EDIT_IS_A_DIFFERENT_AXIS_FROM,
                 ),
             );
-            let has_direction = by_direction && !self.ai.guidance.trim().is_empty();
+            let has_direction = by_direction && !self.workspace.ai.guidance.trim().is_empty();
             ui.add_enabled_ui(has_direction, |ui| {
                 #[cfg(test)]
                 {
@@ -508,15 +507,15 @@ impl AutoShadeApp {
                 explainer(ui, lang, tr(lang, K_AI_TYPE_WHAT_TO_CHANGE_ON_THE_SELECTED_CARD_THE_AI));
                 let _field = prompt_field(
                     ui,
-                    &mut self.genai.adjust_edit_prompt,
+                    &mut self.workspace.genai.adjust_edit_prompt,
                     tr(lang, K_AI_E_G_DARKEN_THE_SKY_A_LITTLE_WARM_THE_FACES_MORE),
                 );
                 #[cfg(test)]
                 {
                     self.seams.prompt_rects.push(_field.rect);
                 }
-                let ready = self.photo.src_path.is_some() && !self.busy && !self.tools.analyze_inflight;
-                let asked = ready && !self.genai.adjust_edit_prompt.trim().is_empty();
+                let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
+                let asked = ready && !self.workspace.genai.adjust_edit_prompt.trim().is_empty();
                 let resp = primary_row(ui, asked, tr(lang, K_AI_AI_ADJUST))
                     .on_hover_text(tr(lang,
                         K_AI_ADJUST_THE_SELECTED_CARD_S_DEVELOP_AS_YOU_ASK_TH,
@@ -527,9 +526,9 @@ impl AutoShadeApp {
                 }
                 if resp.clicked() {
                     let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Adjust);
-                    intent.typed = self.genai.adjust_edit_prompt.clone();
-                    intent.region = self.overlay.region;
-                    intent.base = Some(self.doc.recipe.clone());
+                    intent.typed = self.workspace.genai.adjust_edit_prompt.clone();
+                    intent.region = self.workspace.overlay.region;
+                    intent.base = Some(self.editor.doc.recipe.clone());
                     intent.pixels = self
                         .active_on_ai_pixels()
                         .then(|| self.active_variant().and_then(|v| v.origin.clone()))
@@ -553,7 +552,7 @@ impl AutoShadeApp {
         // sub-area up reads this same answer, so a collapsed fold must not
         // starve it. Not in tests: a headless frame would spawn a worker
         // reading the developer's own store; tests set `style_info` directly.
-        if self.ai.style_info.is_none() && !self.ai.style_info_loading {
+        if self.workspace.ai.style_info.is_none() && !self.workspace.ai.style_info_loading {
             self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::RefreshLibraryStatus)]);
         }
         ui.add_space(SPACE_XS);
@@ -595,7 +594,7 @@ impl AutoShadeApp {
     /// Which library, how big, how old, and where — or why there is none.
     fn ai_library_status(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let line = match &self.ai.style_info {
+        let line = match &self.workspace.ai.style_info {
             Some(autoshade::library::Summary::Built { photos, phrased, with_settings, dir, age }) => {
                 let mut t = trf(
                     lang,
@@ -645,7 +644,7 @@ impl AutoShadeApp {
     /// the BUILD side, live at every Style value; only a running build greys it.
     fn ai_library_build(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let building = self.ai.style_build_inflight;
+        let building = self.workspace.ai.style_build_inflight;
         let mut pick = false;
         let mut build: Option<PathBuf> = None;
         ui.add_enabled_ui(!building, |ui| {
@@ -711,7 +710,7 @@ impl AutoShadeApp {
                     K_AI_A_LOCAL_MODEL_QWEN3_VL_2B_4_3_GB_DOWNLOADED_ONCE,
                 ));
         });
-        if let Some((stage, done, total)) = self.ai.style_build_progress {
+        if let Some((stage, done, total)) = self.workspace.ai.style_build_progress {
             ui.label(
                 egui::RichText::new(trf(
                     lang,
@@ -736,7 +735,7 @@ impl AutoShadeApp {
     /// the references also go to the model as pictures.
     fn ai_library_use(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let built = matches!(self.ai.style_info, Some(autoshade::library::Summary::Built { .. }));
+        let built = matches!(self.workspace.ai.style_info, Some(autoshade::library::Summary::Built { .. }));
         ui.checkbox(&mut self.aip.style_embed, tr(lang, K_AI_SEARCH_THE_LIBRARY_WHEN_ANALYSING))
             .on_hover_text(tr(lang,
                 K_AI_EACH_ANALYSIS_MEASURES_THIS_PHOTO_WITH_A_LOCAL_M,
@@ -840,7 +839,7 @@ impl AutoShadeApp {
                         .clamp(FIELD_W_MIN, FIELD_W_MAX);
                     let field_w = field_drawn - TE_MARGIN.sum().x;
                     let _field = ui.add(
-                        egui::TextEdit::singleline(&mut self.genai.reimagine_prompt)
+                        egui::TextEdit::singleline(&mut self.workspace.genai.reimagine_prompt)
                             .margin(TE_MARGIN)
                             .desired_width(field_w)
                             .hint_text(tr(lang, K_AI_STYLE_TO_REPAINT_TOWARD_E_G_GOLDEN_HOUR_GLOW_MOO)),
@@ -849,7 +848,7 @@ impl AutoShadeApp {
                     {
                         self.seams.prompt_rects.push(_field.rect);
                     }
-                    ui.add_enabled_ui(!self.busy, |ui| {
+                    ui.add_enabled_ui(!self.workspace.busy, |ui| {
                         let resp = ui.add(primary_button(btn_label).wrap_mode(egui::TextWrapMode::Extend));
                         #[cfg(test)]
                         {
@@ -868,7 +867,7 @@ impl AutoShadeApp {
                 // Its OWN row, deliberately: a fourth item in the wrapped
                 // prompt+button row re-opens the R19 width arithmetic.
                 ui.checkbox(
-                    &mut self.fit.reimagine_retry,
+                    &mut self.workspace.fit.reimagine_retry,
                     tr(lang, K_AI_AUTO_RETRY_ONCE_IF_THE_RESULT_DIVERGES),
                 )
                 .on_hover_text(trf(
@@ -883,8 +882,8 @@ impl AutoShadeApp {
     /// Adjust owns every input, its painted area included (`BrushOwner::Adjust`).
     /// Generated and Edited both read AI pixels; the negative never does.
     pub(crate) fn can_adjust(&self) -> bool {
-        !self.busy && self.active_on_ai_pixels()
-            && (self.area_painted(BrushOwner::Adjust) || !self.genai.adjust_prompt.trim().is_empty())
+        !self.workspace.busy && self.active_on_ai_pixels()
+            && (self.area_painted(BrushOwner::Adjust) || !self.workspace.genai.adjust_prompt.trim().is_empty())
     }
 
     fn ai_adjust(&mut self, ui: &mut egui::Ui) {
@@ -897,7 +896,7 @@ impl AutoShadeApp {
             , |ui| {
                 let _field = prompt_field(
                     ui,
-                    &mut self.genai.adjust_prompt,
+                    &mut self.workspace.genai.adjust_prompt,
                     tr(lang, K_AI_WHAT_TO_CHANGE_E_G_MAKE_THE_SKY_BLUER_REMOVE_THE),
                 );
                 #[cfg(test)]
@@ -905,11 +904,11 @@ impl AutoShadeApp {
                     self.seams.prompt_rects.push(_field.rect);
                 }
                 egui::ComboBox::from_id_salt("adjust_quality")
-                    .selected_text(tr(lang, ["high", "medium", "low"][self.genai.adjust_quality.min(2)]))
+                    .selected_text(tr(lang, ["high", "medium", "low"][self.workspace.genai.adjust_quality.min(2)]))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.genai.adjust_quality, 0, tr(lang, K_AI_HIGH));
-                        ui.selectable_value(&mut self.genai.adjust_quality, 1, tr(lang, K_AI_MEDIUM));
-                        ui.selectable_value(&mut self.genai.adjust_quality, 2, tr(lang, K_AI_LOW));
+                        ui.selectable_value(&mut self.workspace.genai.adjust_quality, 0, tr(lang, K_AI_HIGH));
+                        ui.selectable_value(&mut self.workspace.genai.adjust_quality, 1, tr(lang, K_AI_MEDIUM));
+                        ui.selectable_value(&mut self.workspace.genai.adjust_quality, 2, tr(lang, K_AI_LOW));
                     })
                     .response
                     .on_hover_text(tr(lang, K_AI_GPT_IMAGE_RENDER_QUALITY_HIGHER_LOOKS_BETTER_AND));
@@ -971,7 +970,7 @@ impl AutoShadeApp {
             // exists to catch.
             .open(fold_open_in_tests())
             , |ui| {
-            let can_fit = self.fit_target().is_some() && self.photo.source_preview.is_some();
+            let can_fit = self.fit_target().is_some() && self.editor.photo.source_preview.is_some();
             if !can_fit {
                 // An ✎ card is not a fit target (`fit_target`): the fit reads
                 // pixels, and the card's edits are sliders the user already
@@ -993,16 +992,16 @@ impl AutoShadeApp {
             // choosable. Until then the fold showed the target only, and the
             // source was a rule nobody could see (`negative_index`).
             let (auto, sources) = self.fit_source_menu();
-            let to = (self.fit.fit_ref.is_none() && self.fit_target().is_some())
-                .then(|| trf(lang, K_ACTIONS_TO, &[("card", &self.numbered_card_label(self.doc.active))]));
+            let to = (self.workspace.fit.fit_ref.is_none() && self.fit_target().is_some())
+                .then(|| trf(lang, K_ACTIONS_TO, &[("card", &self.numbered_card_label(self.editor.doc.active))]));
             if !sources.is_empty() {
-                let shown = match self.fit.fit_from.as_deref() {
+                let shown = match self.workspace.fit.fit_from.as_deref() {
                     Some(id) => sources.iter().find(|(s, _)| s == id).map(|(_, l)| l.clone()),
                     None => None,
                 }
                 .unwrap_or_else(|| auto.clone());
                 let mut pick: Option<Option<String>> = None;
-                let busy = self.busy;
+                let busy = self.workspace.busy;
                 ui.horizontal(|ui| {
                     // The row's width is measured at its start, before the
                     // label, and capped at FIELD_W_MAX (`columns`), so the menu
@@ -1018,11 +1017,11 @@ impl AutoShadeApp {
                             .truncate()
                             .selected_text(shown)
                             .show_ui(ui, |ui| {
-                                if ui.selectable_label(self.fit.fit_from.is_none(), &auto).clicked() {
+                                if ui.selectable_label(self.workspace.fit.fit_from.is_none(), &auto).clicked() {
                                     pick = Some(None);
                                 }
                                 for (id, label) in &sources {
-                                    let on = self.fit.fit_from.as_deref() == Some(id.as_str());
+                                    let on = self.workspace.fit.fit_from.as_deref() == Some(id.as_str());
                                     if ui.selectable_label(on, label).clicked() {
                                         pick = Some(Some(id.clone()));
                                     }
@@ -1039,7 +1038,7 @@ impl AutoShadeApp {
                     }
                 });
                 if let Some(p) = pick {
-                    self.fit.fit_from = p;
+                    self.workspace.fit.fit_from = p;
                 }
             }
             // ── the TARGET, named when it is the active card (a picked
@@ -1057,7 +1056,7 @@ impl AutoShadeApp {
                 // Two cells of the grid, measured at the row's start: the
                 // verb, then the file name with its ✕ (2026-09-27, 2026-10-14).
                 let cell = columns(ui, 2);
-                if action_in(ui, cell, !self.busy, tr(lang, K_AI_CHOOSE_REFERENCE))
+                if action_in(ui, cell, !self.workspace.busy, tr(lang, K_AI_CHOOSE_REFERENCE))
                     .on_hover_text(tr(lang,
                         K_AI_REVERSE_FIT_TOWARD_ANY_FINISHED_VERSION_OF_THIS,
                     ))
@@ -1065,7 +1064,7 @@ impl AutoShadeApp {
                 {
                     pick_ref = true;
                 }
-                if let Some(p) = self.fit.fit_ref.clone() {
+                if let Some(p) = self.workspace.fit.fit_ref.clone() {
                     let name = p
                         .file_name()
                         .map(|n| n.to_string_lossy().into_owned())
@@ -1099,10 +1098,10 @@ impl AutoShadeApp {
             // rfd OUTSIDE the closure above (it borrows `ui`) and after the row is
             // laid out: the dialog is modal and blocks this thread.
             if pick_ref && let Some(p) = util::photo_file_dialog() {
-                self.fit.fit_ref = Some(p);
+                self.workspace.fit.fit_ref = Some(p);
             }
             if clear_ref {
-                self.fit.fit_ref = None;
+                self.workspace.fit.fit_ref = None;
             }
             // The fit's OWN Strength, directly above the verb that reads it (user
             // decision 2026-09-12: a control belongs to the section whose function
@@ -1123,7 +1122,7 @@ impl AutoShadeApp {
             );
             ui.horizontal_wrapped(|ui| {
                 let cell = columns(ui, 2);
-                let can = !self.busy && can_fit;
+                let can = !self.workspace.busy && can_fit;
                 if primary_in(ui, cell, can, tr(lang, K_AI_REVERSE_FIT_RECIPE))
                     .on_hover_text(format!(
                         "{}{}",
@@ -1156,8 +1155,8 @@ impl AutoShadeApp {
             // is the witness — that test exists because this panel's width
             // has run away once before).
             ui.horizontal(|ui| {
-                ui.add_enabled_ui(!self.busy, |ui| {
-                    ui.checkbox(&mut self.fit.fit_ai_judge, tr(lang, K_AI_AI_REVIEW))
+                ui.add_enabled_ui(!self.workspace.busy, |ui| {
+                    ui.checkbox(&mut self.workspace.fit.fit_ai_judge, tr(lang, K_AI_AI_REVIEW))
                         .on_hover_text(tr(lang,
                             K_AI_AFTER_THE_FIT_SHOW_THE_TARGET_AND_THE_FITTED_REN,
                         ));
@@ -1166,9 +1165,9 @@ impl AutoShadeApp {
                 //「AI review」 and gated on it, because a deep fit IS that review
                 // plus a loop — a checkbox that silently switched the other one
                 // on would be two settings pretending to be one.
-                ui.add_enabled_ui(!self.busy && self.fit.fit_ai_judge, |ui| {
-                    ui.checkbox(&mut self.fit.fit_deep, tr(lang, K_AI_RETRY_ONCE))
-                        .on_hover_text(if self.fit.fit_ai_judge {
+                ui.add_enabled_ui(!self.workspace.busy && self.workspace.fit.fit_ai_judge, |ui| {
+                    ui.checkbox(&mut self.workspace.fit.fit_deep, tr(lang, K_AI_RETRY_ONCE))
+                        .on_hover_text(if self.workspace.fit.fit_ai_judge {
                             tr(lang,
                                 K_AI_RETRY_ONCE_RUNS_THE_AI_REVIEW_BEFORE_SAVING_IF_T,
                             )
@@ -1179,7 +1178,7 @@ impl AutoShadeApp {
             });
             // The way back from the fit prompt's 「Don't ask again」 (v1.17.0),
             // beside the verb it asks about. A preference, so no gate.
-            ui.checkbox(&mut self.fit.ask_fit_after_generate, tr(lang, K_AI_ASK_AFTER_EACH_AI_GENERATION))
+            ui.checkbox(&mut self.workspace.fit.ask_fit_after_generate, tr(lang, K_AI_ASK_AFTER_EACH_AI_GENERATION))
                 .on_hover_text(tr(lang,
                     K_AI_WHEN_AI_GENERATE_LANDS_A_NEW_CARD_ASK_WHETHER_TO,
                 ));
@@ -1188,11 +1187,11 @@ impl AutoShadeApp {
             // preference, so no can_fit gate (and, as in Settings, no busy gate:
             // `start_fit` reads the flag when it runs).
             let zoned_rows = |app: &mut Self, ui: &mut egui::Ui| {
-                ui.checkbox(&mut app.fit.zoned_fit, tr(lang, K_AI_FIT_LOCAL_AREAS_TOO)).on_hover_text(tr(
+                ui.checkbox(&mut app.workspace.fit.zoned_fit, tr(lang, K_AI_FIT_LOCAL_AREAS_TOO)).on_hover_text(tr(
                     lang,
                     K_AI_AFTER_THE_GLOBAL_FIT_TRIES_EXTRA_LOCAL_MASKS_WHE,
                 ));
-                ui.checkbox(&mut app.fit.zoned_four_regions, tr(lang, K_AI_UP_TO_FOUR_SEMANTIC_REGIONS))
+                ui.checkbox(&mut app.workspace.fit.zoned_four_regions, tr(lang, K_AI_UP_TO_FOUR_SEMANTIC_REGIONS))
                     .on_hover_text(tr(lang, K_AI_OPT_IN_TO_SEMANTIC_REGIONS_BEYOND_THE_HISTORICAL));
             };
             zoned_rows(self, ui);

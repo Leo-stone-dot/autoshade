@@ -358,7 +358,7 @@ impl AutoShadeApp {
         // the panel live; only the open transition freezes it.
         // The AI area carries its OWN copy of this gate (panels/ai.rs) — it
         // used to ride inside this closure as `dev_ai`.
-        let editable = !self.open.open_in_flight;
+        let editable = !self.workspace.open.open_in_flight;
         ui.add_enabled_ui(editable, |ui| {
         // Lightroom-style grouping: a wall of 16 sliders scans terribly; four
         // titled sections (tone open, the rest by activity) scan at a glance.
@@ -376,14 +376,14 @@ impl AutoShadeApp {
         // family set each ● reads, and which sections are registered custom
         // widgets. This loop is the only place the panel enumerates them.
         for section in SECTIONS {
-            let active = section_active(&self.doc.recipe, section);
+            let active = section_active(&self.editor.doc.recipe, section);
             changed |= (section.draw)(self, ui, active);
         }
         });
 
         if changed {
-            self.doc.recipe.clamp();
-            self.session.dirty = true;
+            self.editor.doc.recipe.clamp();
+            self.editor.session.dirty = true;
         }
     }
 
@@ -393,7 +393,7 @@ impl AutoShadeApp {
     /// selector that makes an AI develop a first-class, non-reverting version.
     pub(crate) fn variant_strip(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let accent = self.ui.theme.colors().accent_text; // Copy — safe in closures
+        let accent = self.workspace.ui.theme.colors().accent_text; // Copy — safe in closures
         // ONE deferred action for the whole strip (R24-5): the five separate
         // `Option`s this replaced were dispatched by an `else if` chain whose
         // exclusivity was a property of the chain; a single value makes it a
@@ -402,7 +402,7 @@ impl AutoShadeApp {
         // fixed priority — reachable only if two widgets were clicked in one
         // frame, which one pointer cannot do.
         let mut act: Option<VariantAction> = None;
-        let busy = self.busy; // Copy — read before the card closures borrow self
+        let busy = self.workspace.busy; // Copy — read before the card closures borrow self
         // The card column is centered by an EXPLICIT top pad, not by
         // cross-align: Align::Center positioned the row before its content
         // grew — egui seeds a horizontal row at interact_size.y, centered
@@ -465,13 +465,13 @@ impl AutoShadeApp {
             ui.add_space(SPACE_SM + title_w + SPACE_SM + 6.0 + SPACE_SM);
             egui::ScrollArea::horizontal().show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    for i in 0..self.doc.variants.len() {
-                        let active = i == self.doc.active;
-                        let kind = self.doc.variants[i].kind;
+                    for i in 0..self.editor.doc.variants.len() {
+                        let active = i == self.editor.doc.active;
+                        let kind = self.editor.doc.variants[i].kind;
                         ui.vertical(|ui| {
                             // Developed thumbnail (or a placeholder until the
                             // variant has been developed once).
-                            let resp = if let Some(t) = &self.doc.variants[i].thumb {
+                            let resp = if let Some(t) = &self.editor.doc.variants[i].thumb {
                                 let s = t.size_vec2();
                                 let h = STRIP_THUMB_H;
                                 let w = (s.x / s.y.max(1.0) * h).clamp(30.0, 104.0);
@@ -488,7 +488,7 @@ impl AutoShadeApp {
                                 // any theme change.
                                 const CARD_RADIUS: f32 = 4.0;
                                 const GLOW_EXPAND: f32 = 3.0;
-                                let ring = self.ui.theme.colors().accent_fill;
+                                let ring = self.workspace.ui.theme.colors().accent_fill;
                                 if active {
                                     ui.painter().rect_filled(
                                         rect.expand(GLOW_EXPAND),
@@ -564,17 +564,17 @@ impl AutoShadeApp {
                                 // 「Name…」 placeholder on every card would
                                 // widen the whole strip for an affordance
                                 // that acts on one of them).
-                                let card_id = self.doc.variants[i].id.clone();
-                                let named = self.doc.variants[i].name.clone();
+                                let card_id = self.editor.doc.variants[i].id.clone();
+                                let named = self.editor.doc.variants[i].name.clone();
                                 let editing = active
-                                    && self.cards.variant_name_buf.as_ref().is_some_and(|(p, id, ..)| {
+                                    && self.workspace.cards.variant_name_buf.as_ref().is_some_and(|(p, id, ..)| {
                                         *id == card_id
-                                            && Some(p.as_path()) == self.photo.src_path.as_deref()
+                                            && Some(p.as_path()) == self.editor.photo.src_path.as_deref()
                                     });
                                 if editing {
                                     let resp = {
                                         let buf =
-                                            &mut self.cards.variant_name_buf.as_mut().expect("checked just above").3;
+                                            &mut self.workspace.cards.variant_name_buf.as_mut().expect("checked just above").3;
                                         ui.add(
                                             // Keyed by the CARD's id, like
                                             // the buffer: an index key made
@@ -603,7 +603,7 @@ impl AutoShadeApp {
                                     }
                                     if resp.lost_focus() {
                                         self.commit_variant_name_buf();
-                                        self.cards.variant_name_buf = None;
+                                        self.workspace.cards.variant_name_buf = None;
                                     } else if !resp.has_focus() {
                                         resp.request_focus();
                                     }
@@ -676,7 +676,7 @@ impl AutoShadeApp {
         surface: VariantSurface,
     ) -> Option<VariantAction> {
         let lang = self.lang;
-        let kind = self.doc.variants[i].kind;
+        let kind = self.editor.doc.variants[i].kind;
         let mut act: Option<VariantAction> = None;
         // Which glyphs this row actually laid out — the list surface's test
         // seam, since it has no rects of its own to assert on.
@@ -742,8 +742,8 @@ impl AutoShadeApp {
         // second deletes — the button says which, because a deleted card
         // cannot be brought back (unlike a version, whose number the registry
         // keeps burned rather than the card recoverable).
-        let armed = self.cards.variant_delete_confirm == Some(i);
-        if self.doc.variants.len() > 1
+        let armed = self.workspace.cards.variant_delete_confirm == Some(i);
+        if self.editor.doc.variants.len() > 1
             && kind != VariantKind::Original
             && glyph(ui, true, if armed { "✕?" } else { "✕" })
                 .on_hover_text(if armed {
@@ -756,7 +756,7 @@ impl AutoShadeApp {
             act = Some(VariantAction::Delete(i));
         }
         #[cfg(test)]
-        if self.doc.variants.len() > 1 && kind != VariantKind::Original {
+        if self.editor.doc.variants.len() > 1 && kind != VariantKind::Original {
             drawn.push(if armed { "✕?" } else { "✕" });
         }
         #[cfg(test)]
@@ -770,7 +770,7 @@ impl AutoShadeApp {
     /// implementation and reports a data change (id + value); the registry
     /// applies it. The panel does not know a control by name.
     pub(crate) fn capability_rows(&mut self, ui: &mut egui::Ui, table: &[&dyn crate::controls::ControlWidget]) -> bool {
-        crate::panels::develop_forms::render_and_apply(ui, self.lang, &mut self.doc.recipe, table)
+        crate::panels::develop_forms::render_and_apply(ui, self.lang, &mut self.editor.doc.recipe, table)
     }
 
     pub(crate) fn dev_tone_wb(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
@@ -786,7 +786,7 @@ impl AutoShadeApp {
         let tone_active = CONTROL_FAMILIES
             .iter()
             .filter(|f| f.name == "tone" || f.name == "white_balance")
-            .any(|f| family_is_active(f, &self.doc.recipe));
+            .any(|f| family_is_active(f, &self.editor.doc.recipe));
 
         // #14b: the FIRST of the panel's group captions (its air is its own:
         // `headings::group_caption`). The two existing group
@@ -813,37 +813,37 @@ impl AutoShadeApp {
                     // showing "off = as-shot" over an active tint, with its
                     // slider disabled, was a lie with no way out.
                     let mut custom_wb =
-                        self.doc.recipe.temperature_k.is_some() || self.doc.recipe.tint != 0.0;
+                        self.editor.doc.recipe.temperature_k.is_some() || self.editor.doc.recipe.tint != 0.0;
                     if ui.checkbox(&mut custom_wb, tr(lang, K_DEVELOP_CUSTOM_WHITE_BALANCE_OFF_AS_SHOT)).changed() {
                         // Arm AT the as-shot anchor when stamped: checking
                         // the box must not shift the image — the slider then
                         // starts from the camera's real Kelvin, not 5500.
-                        self.doc.recipe.temperature_k =
-                            if custom_wb { Some(self.doc.recipe.as_shot_k.unwrap_or(5500.0)) } else { None };
+                        self.editor.doc.recipe.temperature_k =
+                            if custom_wb { Some(self.editor.doc.recipe.as_shot_k.unwrap_or(5500.0)) } else { None };
                         if !custom_wb {
                             // "As-shot" is the WHOLE white balance: a custom
                             // Tint surviving the un-check kept a WB edit
                             // active behind a label claiming there was none.
-                            self.doc.recipe.tint = 0.0;
+                            self.editor.doc.recipe.tint = 0.0;
                         }
                         changed = true;
                     }
-                    let label = if self.tools.wb_picking { tr(lang, K_DEVELOP_CLICK_IN_IMAGE) } else { tr(lang, K_DEVELOP_EYEDROPPER) };
+                    let label = if self.workspace.tools.wb_picking { tr(lang, K_DEVELOP_CLICK_IN_IMAGE) } else { tr(lang, K_DEVELOP_EYEDROPPER) };
                     if action_in(ui, cell, true, label)
                         .on_hover_text(tr(lang,
                             K_DEVELOP_CLICK_A_SPOT_IN_THE_IMAGE_THAT_SHOULD_BE_NEUTRAL,
                         ))
                         .clicked()
                     {
-                        let on = !self.tools.wb_picking;
+                        let on = !self.workspace.tools.wb_picking;
                         self.disarm_tools();
-                        self.tools.wb_picking = on;
+                        self.workspace.tools.wb_picking = on;
                         if on {
-                            self.status = tr(lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into();
+                            self.workspace.status = tr(lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into();
                         }
                     }
                 });
-                if let (Some(k), Some(t)) = (self.doc.recipe.as_shot_k, self.doc.recipe.as_shot_tint) {
+                if let (Some(k), Some(t)) = (self.editor.doc.recipe.as_shot_k, self.editor.doc.recipe.as_shot_tint) {
                     // The camera's own WB in absolute terms — the reference
                     // the Temp slider is anchored on for this photo. BOTH
                     // halves required: the era pin (anchor 5500, tint None)
@@ -857,14 +857,14 @@ impl AutoShadeApp {
                 }
                 // Double-click reset lands on the as-shot Kelvin when stamped
                 // (the honest "no shift" position), 5500 for legacy recipes.
-                let anchor_k = self.doc.recipe.as_shot_k.unwrap_or(5500.0);
-                if let Some(mut k) = self.doc.recipe.temperature_k
+                let anchor_k = self.editor.doc.recipe.as_shot_k.unwrap_or(5500.0);
+                if let Some(mut k) = self.editor.doc.recipe.temperature_k
                     && Self::slider_log(ui, lang, tr(lang, K_DEVELOP_TEMP_K), &mut k, 2000.0, 50000.0, anchor_k)
                 {
-                    self.doc.recipe.temperature_k = Some(k);
+                    self.editor.doc.recipe.temperature_k = Some(k);
                     changed = true;
                 }
-                let custom_wb = self.doc.recipe.temperature_k.is_some() || self.doc.recipe.tint != 0.0;
+                let custom_wb = self.editor.doc.recipe.temperature_k.is_some() || self.editor.doc.recipe.tint != 0.0;
                 // Tint is HALF of the white balance: editable only under
                 // Custom WB, or a tint move silently contradicted the
                 // checkbox's "off = as-shot" promise. A legacy tint-only
@@ -967,7 +967,7 @@ impl AutoShadeApp {
             .default_open(false)
             , |ui| {
                 if ui
-                    .checkbox(&mut self.doc.recipe.hdr_edit, tr(lang, K_DEVELOP_HDR_EDIT_MODE))
+                    .checkbox(&mut self.editor.doc.recipe.hdr_edit, tr(lang, K_DEVELOP_HDR_EDIT_MODE))
                     .on_hover_text(tr(
                         lang,
                         K_DEVELOP_THIS_PHOTOGRAPH_WAS_EDITED_ABOVE_DIFFUSE_WHITE_E,
@@ -1016,7 +1016,7 @@ impl AutoShadeApp {
                     // holds none — and reset to it (`companion_slider_edit`,
                     // `sharpening_slider`).
                     let raw_source = self.source_is_raw();
-                    changed |= Self::sharpening_slider(ui, lang, tr(lang, K_DEVELOP_SHARPENING), &mut self.doc.recipe, raw_source);
+                    changed |= Self::sharpening_slider(ui, lang, tr(lang, K_DEVELOP_SHARPENING), &mut self.editor.doc.recipe, raw_source);
                     // The rows below the amount are one capability table each;
                     // their bands, feels and companion defaults live in
                     // `logic::capability` (the radius is a Fine companion: the
@@ -1042,7 +1042,7 @@ impl AutoShadeApp {
                     ui,
                     lang,
                     tr(lang, K_DEVELOP_AI_DENOISE_STRENGTH),
-                    if denoise_raw { &mut self.exp.denoise_strength } else { &mut self.exp.baked_denoise_strength },
+                    if denoise_raw { &mut self.workspace.exp.denoise_strength } else { &mut self.workspace.exp.baked_denoise_strength },
                     1.0,
                     if denoise_raw { autoshade::denoise::DEFAULT_STRENGTH_RAW } else { autoshade::denoise::DEFAULT_STRENGTH },
                     tr(lang,
@@ -1058,7 +1058,7 @@ impl AutoShadeApp {
                     // renders in the user's language, so the button says so up
                     // front instead of spending the click to find out.
                     let has_helper = denoise_helper_available();
-                    let ready = self.photo.src_path.is_some() && !self.busy && has_helper;
+                    let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy && has_helper;
                     let missing = tr(lang,
                         K_DEVELOP_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPERS_WH,
                     );
@@ -1101,7 +1101,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         // The section's ● says this photo HAS a stacked card, which is the
         // only state this fold owns that outlives the click.
-        let has = self.doc.variants.iter().any(|v| v.kind == VariantKind::Stacked);
+        let has = self.editor.doc.variants.iter().any(|v| v.kind == VariantKind::Stacked);
         ui.add_space(SPACE_MD);
         card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_STACK), has))
             .id_salt("sec_stack")
@@ -1110,10 +1110,10 @@ impl AutoShadeApp {
                 explainer(ui, lang, tr(lang, K_DEVELOP_MERGE_SEVERAL_FRAMES_OF_ONE_SCENE_INTO_A_NEW_NEG));
                 ui.add_space(SPACE_SM);
                 egui::ComboBox::from_id_salt("stack_kind")
-                    .selected_text(tr(lang, self.tools.stack_kind.label()))
+                    .selected_text(tr(lang, self.workspace.tools.stack_kind.label()))
                     .show_ui(ui, |ui| {
                         for k in autoshade::stack::merge::StackKind::ALL {
-                            ui.selectable_value(&mut self.tools.stack_kind, k, tr(lang, k.label()));
+                            ui.selectable_value(&mut self.workspace.tools.stack_kind, k, tr(lang, k.label()));
                         }
                     })
                     .response
@@ -1121,14 +1121,14 @@ impl AutoShadeApp {
                         lang,
                         K_DEVELOP_HDR_MERGE_AN_EXPOSURE_BRACKET_INTO_ONE_FRAME_HOL,
                     ));
-                ui.checkbox(&mut self.tools.stack_tripod, tr(lang, K_DEVELOP_SHOT_ON_A_TRIPOD_SKIP_ALIGNMENT))
+                ui.checkbox(&mut self.workspace.tools.stack_tripod, tr(lang, K_DEVELOP_SHOT_ON_A_TRIPOD_SKIP_ALIGNMENT))
                     .on_hover_text(tr(
                         lang,
                         K_DEVELOP_ALIGNMENT_IS_THE_EXPENSIVE_HALF_OF_A_STACK_AND_O,
                     ));
                 ui.add_space(SPACE_SM);
                 ui.horizontal(|ui| {
-                    let ready = self.photo.src_path.is_some() && !self.busy;
+                    let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy;
                     if action_row(ui, ready, tr(lang, K_DEVELOP_STACK_WITH_OTHER_FRAMES))
                         .on_hover_text(tr(
                             lang,
@@ -1195,8 +1195,8 @@ impl AutoShadeApp {
         let lens_active = CONTROL_FAMILIES
             .iter()
             .filter(|f| f.name == "lens" || f.name == "lens_effects")
-            .any(|f| family_is_active(f, &self.doc.recipe))
-            || !self.doc.recipe.lens_profile.is_as_opened();
+            .any(|f| family_is_active(f, &self.editor.doc.recipe))
+            || !self.editor.doc.recipe.lens_profile.is_as_opened();
         card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_LENS), lens_active))
             .id_salt("sec_lens")
             .default_open(false)
@@ -1205,8 +1205,8 @@ impl AutoShadeApp {
                 // exact per-shot data read from the RAW itself — no lens
                 // database. Toggling a component ON whose data a legacy
                 // restore dropped re-fills it from this photo's metadata.
-                let photo = self.open.photo_lens.clone();
-                let lp = &mut self.doc.recipe.lens_profile;
+                let photo = self.workspace.open.photo_lens.clone();
+                let lp = &mut self.editor.doc.recipe.lens_profile;
                 let has_v = !lp.vignette.is_empty() || !photo.vignette.is_empty();
                 let has_d = !lp.distortion.is_empty() || !photo.distortion.is_empty();
                 let has_c = (!lp.ca_r.is_empty() || !photo.ca_r.is_empty())
@@ -1258,11 +1258,11 @@ impl AutoShadeApp {
                         }
                     });
                     if pch {
-                        self.overlay.overlay_stale = true;
+                        self.workspace.overlay.overlay_stale = true;
                         changed = true;
                     }
                     ui.add_space(SPACE_MD);
-                } else if self.photo.src_path.as_deref().is_some_and(autoshade::decode::is_raw) {
+                } else if self.editor.photo.src_path.as_deref().is_some_and(autoshade::decode::is_raw) {
                     ui.label(
                         egui::RichText::new(tr(lang, K_DEVELOP_NO_IN_CAMERA_LENS_CORRECTION_DATA_IN_THIS_FILE))
                             .weak()
@@ -1303,7 +1303,7 @@ impl AutoShadeApp {
                 // the switch is an INSTRUCTION, so its tooltip says what the
                 // instruction does rather than what the number means.
                 if ui
-                    .checkbox(&mut self.doc.recipe.auto_lateral_ca, tr(lang, K_DEVELOP_AUTO_LATERAL_CA))
+                    .checkbox(&mut self.editor.doc.recipe.auto_lateral_ca, tr(lang, K_DEVELOP_AUTO_LATERAL_CA))
                     .on_hover_text(tr(
                         lang,
                         K_DEVELOP_MEASURES_THIS_FRAME_S_OWN_RED_BLUE_MISALIGNMENT,
@@ -1359,7 +1359,7 @@ impl AutoShadeApp {
                 // (`render::perspective::solve_upright`).
                 const MODES: [&str; 6] =
                     ["Off", "Auto", "Level", "Vertical", "Full", "Guided"];
-                let mut mode = self.doc.recipe.perspective_upright.round().clamp(0.0, 5.0) as usize;
+                let mut mode = self.editor.doc.recipe.perspective_upright.round().clamp(0.0, 5.0) as usize;
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(tr(lang, K_DEVELOP_UPRIGHT)).small());
                     egui::ComboBox::from_id_salt("upright_mode")
@@ -1371,8 +1371,8 @@ impl AutoShadeApp {
                             }
                         });
                 });
-                if mode as f32 != self.doc.recipe.perspective_upright {
-                    self.doc.recipe.perspective_upright = mode as f32;
+                if mode as f32 != self.editor.doc.recipe.perspective_upright {
+                    self.editor.doc.recipe.perspective_upright = mode as f32;
                     changed = true;
                 }
                 // Which side will answer, said out loud — the difference
@@ -1380,8 +1380,7 @@ impl AutoShadeApp {
                 // solver, which may differ slightly" is exactly what a
                 // photographer comparing the two apps needs to know.
                 if mode > 0 {
-                    let adobes = self
-                        .doc.recipe
+                    let adobes = self.editor.doc.recipe
                         .upright_transform
                         .get(mode)
                         .is_some_and(|m| *m != [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
@@ -1411,7 +1410,7 @@ impl AutoShadeApp {
                 // 50..150 resetting to 100) come from `logic::capability`.
                 changed |= self.capability_rows(ui, crate::controls::TRANSFORM);
                 if ui
-                    .checkbox(&mut self.doc.recipe.crop_constrain_to_warp, tr(lang, K_DEVELOP_CONSTRAIN_CROP))
+                    .checkbox(&mut self.editor.doc.recipe.crop_constrain_to_warp, tr(lang, K_DEVELOP_CONSTRAIN_CROP))
                     .on_hover_text(tr(lang, K_DEVELOP_SHRINK_THE_CROP_UNTIL_IT_LIES_INSIDE_THE_WARPED))
                     .changed()
                 {
@@ -1424,8 +1423,8 @@ impl AutoShadeApp {
                 // photographer's machine and the Look is Adobe's own creative
                 // block, so the panel's job is to say what is being used, not
                 // to offer a picker for something the sidecar decides.
-                let look = self.doc.recipe.look.clone();
-                if !self.doc.recipe.camera_profile.is_empty() || look.is_some() {
+                let look = self.editor.doc.recipe.look.clone();
+                if !self.editor.doc.recipe.camera_profile.is_empty() || look.is_some() {
                     ui.add_space(SPACE_MD);
                     let pair = |ui: &mut egui::Ui, label: String, value: &str| {
                         ui.horizontal(|ui| {
@@ -1433,11 +1432,11 @@ impl AutoShadeApp {
                             ui.label(egui::RichText::new(value).small().strong());
                         });
                     };
-                    if !self.doc.recipe.camera_profile.is_empty() {
+                    if !self.editor.doc.recipe.camera_profile.is_empty() {
                         pair(
                             ui,
                             tr(lang, K_DEVELOP_CAMERA_PROFILE).to_string(),
-                            &self.doc.recipe.camera_profile,
+                            &self.editor.doc.recipe.camera_profile,
                         );
                     }
                     if let Some(look) = look.as_ref().filter(|l| !l.name.is_empty()) {
@@ -1462,7 +1461,7 @@ impl AutoShadeApp {
                         ui.label(egui::RichText::new(line).weak().small());
                     }
                 }
-                if self.doc.recipe.passthrough.is_empty() {
+                if self.editor.doc.recipe.passthrough.is_empty() {
                     return;
                 }
                 ui.add_space(SPACE_MD);
@@ -1473,7 +1472,7 @@ impl AutoShadeApp {
                     let present: Vec<(&str, &str)> = keys
                         .iter()
                         .filter_map(|k| {
-                            self.doc.recipe.passthrough.get(*k).map(|v| (*k, v.as_str()))
+                            self.editor.doc.recipe.passthrough.get(*k).map(|v| (*k, v.as_str()))
                         })
                         .collect();
                     if present.is_empty() {
@@ -1522,7 +1521,7 @@ impl AutoShadeApp {
         let crop_active = CONTROL_FAMILIES
             .iter()
             .filter(|f| f.name == "framing")
-            .any(|f| family_is_active(f, &self.doc.recipe));
+            .any(|f| family_is_active(f, &self.editor.doc.recipe));
         card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_CROP), crop_active))
             .id_salt("sec_crop")
             .default_open(false)
@@ -1535,14 +1534,14 @@ impl AutoShadeApp {
                     let cell = columns(ui, 2);
                     // ✓ (geometric) — same finish-glyph as 「✓ Apply」; the
                     // emoji ✅ was the odd one out of the check family.
-                    let label = if self.crop.mode { tr(lang, K_DEVELOP_DONE) } else { tr(lang, K_DEVELOP_ENTER_CROP) };
+                    let label = if self.workspace.crop.mode { tr(lang, K_DEVELOP_DONE) } else { tr(lang, K_DEVELOP_ENTER_CROP) };
                     if action_in(ui, cell, true, label).clicked() {
-                        let on = !self.crop.mode;
+                        let on = !self.workspace.crop.mode;
                         self.disarm_tools();
                         self.set_crop_mode(on);
                     }
                     if action_in(ui, cell, true, tr(lang, K_DEVELOP_CLEAR_CROP)).clicked()
-                        && self.doc.recipe.crop.take().is_some()
+                        && self.editor.doc.recipe.crop.take().is_some()
                     {
                         // Through the panel's own change path: clamp + dirty,
                         // so the crop-restricted histogram/clipping refresh.
@@ -1551,13 +1550,13 @@ impl AutoShadeApp {
                 });
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(tr(lang, K_DEVELOP_ASPECT)).weak().small());
-                    let prev_aspect = self.crop.aspect;
+                    let prev_aspect = self.workspace.crop.aspect;
                     egui::ComboBox::from_id_salt("crop_aspect")
-                        .selected_text(tr(lang, CROP_ASPECTS[self.crop.aspect].0))
+                        .selected_text(tr(lang, CROP_ASPECTS[self.workspace.crop.aspect].0))
                         .width(70.0)
                         .show_ui(ui, |ui| {
                             for (i, (name, _)) in CROP_ASPECTS.iter().enumerate() {
-                                ui.selectable_value(&mut self.crop.aspect, i, tr(lang, name));
+                                ui.selectable_value(&mut self.workspace.crop.aspect, i, tr(lang, name));
                             }
                         });
                     // LR applies a picked preset to the box IMMEDIATELY — the
@@ -1569,8 +1568,8 @@ impl AutoShadeApp {
                     // some later session's crop entry and rewrite the box as
                     // a surprise (Codex batch-38); tool-off keeps the old
                     // arm-for-the-next-drag meaning.
-                    if self.crop.aspect != prev_aspect && self.crop.mode {
-                        self.crop.aspect_pending = true;
+                    if self.workspace.crop.aspect != prev_aspect && self.workspace.crop.mode {
+                        self.workspace.crop.aspect_pending = true;
                     }
                 });
                 // Straighten: rotate + auto-crop (engine rotate_straighten);
@@ -1592,8 +1591,8 @@ impl AutoShadeApp {
         // section's dot has to see it. `renderable()` is the engine's own
         // question, asked here for the same reason `mask_active` is — one
         // rule, so the dot and the render cannot disagree.
-        self.doc.recipe.colour_field.as_ref().is_some_and(|f| f.renderable())
-            || self.doc.recipe.masks.iter().any(mask_active)
+        self.editor.doc.recipe.colour_field.as_ref().is_some_and(|f| f.renderable())
+            || self.editor.doc.recipe.masks.iter().any(mask_active)
     }
 
 
@@ -1611,7 +1610,7 @@ impl AutoShadeApp {
         // Versions previously opened with a bare sibling-section fence while
         // being the head of a different KIND of group.
         group_caption(ui, tr(lang, K_DEVELOP_VERSIONS_EXPORT));
-        let n_ver = self.cards.versions.len();
+        let n_ver = self.workspace.cards.versions.len();
         let n_ver_s = n_ver.to_string();
         // Deferred like the strip's, and dispatched through the same owner
         // after the section's closures release `self` (R24-5).
@@ -1628,7 +1627,7 @@ impl AutoShadeApp {
                 // develop. Nothing here is meaningful until the open settles,
                 // so the whole section goes inert rather than each button
                 // carrying its own guard.
-                ui.add_enabled_ui(!self.busy, |ui| {
+                ui.add_enabled_ui(!self.workspace.busy, |ui| {
                 // R24-4 (#1, phase 2 — minimal): ONE place that answers
                 // "what edit states does this photo have". A photo is one
                 // negative + N variant CARDS + one version history, so the
@@ -1653,15 +1652,15 @@ impl AutoShadeApp {
                 // line is how a side panel starts growing per frame, which is
                 // a defect this repo has shipped twice (R19, R22-3) and now
                 // has width-stability tests for.
-                let n_var = self.doc.variants.len();
-                let busy = self.busy;
+                let n_var = self.editor.doc.variants.len();
+                let busy = self.workspace.busy;
                 #[cfg(test)]
                 {
                     self.seams.edit_list_rows.clear();
                     self.seams.edit_list_actions.clear();
                 }
                 if n_var > 0 {
-                    let accent = self.ui.theme.colors().accent_text;
+                    let accent = self.workspace.ui.theme.colors().accent_text;
                     ui.label(
                         egui::RichText::new(trf(
                             lang,
@@ -1671,14 +1670,14 @@ impl AutoShadeApp {
                         .weak()
                         .small(),
                     );
-                    let active_i = self.doc.active;
+                    let active_i = self.editor.doc.active;
                     for i in 0..n_var {
                         // Read the three facts the row shows BEFORE the layout
                         // closure borrows `self` (Variant is not Clone, and
                         // making it so for a display row would be the wrong
                         // fix — the card's texture handle rides on it).
                         let (kind, name, on_pixels) = {
-                            let v = &self.doc.variants[i];
+                            let v = &self.editor.doc.variants[i];
                             (v.kind, v.name.clone(), v.origin.is_some())
                         };
                         #[cfg(test)]
@@ -1773,8 +1772,8 @@ impl AutoShadeApp {
                 // a shrinking list is never mistaken for lost versions.
                 let active_id = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
                 let active_kind = self.active_variant().map(|v| v.kind);
-                if !self.cards.versions.is_empty() {
-                    ui.checkbox(&mut self.cards.versions_current_only, tr(lang, K_DEVELOP_ONLY_THIS_VARIANT))
+                if !self.workspace.cards.versions.is_empty() {
+                    ui.checkbox(&mut self.workspace.cards.versions_current_only, tr(lang, K_DEVELOP_ONLY_THIS_VARIANT))
                         .on_hover_text(tr(
                             lang,
                             K_DEVELOP_SHOW_ONLY_SNAPSHOTS_TAKEN_FROM_THE_VARIANT_YOU_A,
@@ -1786,11 +1785,11 @@ impl AutoShadeApp {
                 let mut hidden = 0usize;
                 // The list is cloned so the rows may borrow `self` mutably
                 // (the rename buffer) — it is a handful of u32.
-                let versions = self.cards.versions.clone();
-                let photo = self.photo.src_path.clone();
+                let versions = self.workspace.cards.versions.clone();
+                let photo = self.editor.photo.src_path.clone();
                 for n in versions {
-                    let meta = self.cards.version_meta.get(&n).cloned();
-                    if self.cards.versions_current_only
+                    let meta = self.workspace.cards.version_meta.get(&n).cloned();
+                    if self.workspace.cards.versions_current_only
                         && !Self::version_is_from(meta.as_ref(), &active_id, active_kind)
                     {
                         hidden += 1;
@@ -1799,8 +1798,7 @@ impl AutoShadeApp {
                     #[cfg(test)]
                     self.seams.edit_list_rows.push(format!("version:{n}"));
                     let named = meta.as_ref().and_then(|m| m.name.clone());
-                    let editing = self
-                        .cards.version_name_buf
+                    let editing = self.workspace.cards.version_name_buf
                         .as_ref()
                         .is_some_and(|(p, j, ..)| *j == n && Some(p) == photo.as_ref());
                     ui.horizontal(|ui| {
@@ -1808,8 +1806,7 @@ impl AutoShadeApp {
                         let field_id = ui.make_persistent_id(("version_name", n));
                         if editing {
                             let resp = {
-                                let buf = &mut self
-                                    .cards.version_name_buf
+                                let buf = &mut self.workspace.cards.version_name_buf
                                     .as_mut()
                                     .expect("checked just above")
                                     .3;
@@ -1828,7 +1825,7 @@ impl AutoShadeApp {
                             // for focus below and never give it back.
                             if resp.lost_focus() {
                                 self.commit_version_name_buf();
-                                self.cards.version_name_buf = None;
+                                self.workspace.cards.version_name_buf = None;
                             } else if !resp.has_focus() {
                                 // The frame the box first appears in: the
                                 // click that opened it landed on the LABEL
@@ -1907,12 +1904,11 @@ impl AutoShadeApp {
                     // (photo, number) first — the mask panel's cross-commit
                     // rule, made structural by keying on the number.
                     self.commit_version_name_buf();
-                    let cur = self
-                        .cards.version_meta
+                    let cur = self.workspace.cards.version_meta
                         .get(&n)
                         .and_then(|m| m.name.clone())
                         .unwrap_or_default();
-                    self.cards.version_name_buf = Some((p, n, cur.clone(), cur));
+                    self.workspace.cards.version_name_buf = Some((p, n, cur.clone(), cur));
                 }
                 if let Some(n) = load {
                     self.apply_actions(vec![logic::Action::Develop(
@@ -1920,16 +1916,16 @@ impl AutoShadeApp {
                     )]);
                 }
                 if let Some(n) = delete
-                    && let Some(src) = self.photo.src_path.clone()
+                    && let Some(src) = self.editor.photo.src_path.clone()
                 {
                     // A rename buffer aimed at the row being deleted dies
                     // WITH it (R24-2): committing it afterwards would write a
                     // name for a number that no longer exists and can never
                     // be re-issued — a record only the next delete would
                     // clean up.
-                    if self.cards.version_name_buf.as_ref().is_some_and(|(p, j, ..)| *j == n && *p == src)
+                    if self.workspace.cards.version_name_buf.as_ref().is_some_and(|(p, j, ..)| *j == n && *p == src)
                     {
-                        self.cards.version_name_buf = None;
+                        self.workspace.cards.version_name_buf = None;
                     }
                     self.apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::DeleteVersion(n),
@@ -1971,11 +1967,11 @@ impl AutoShadeApp {
                 ui.horizontal(|ui| {
                     ui.label(tr(lang, K_DEVELOP_DESTINATION));
                     egui::ComboBox::from_id_salt("exp_dest")
-                        .selected_text(tr(lang, self.exp.dest.label()))
+                        .selected_text(tr(lang, self.workspace.exp.dest.label()))
                         .width(170.0)
                         .show_ui(ui, |ui| {
                             for d in ExportDest::ALL {
-                                ui.selectable_value(&mut self.exp.dest, d, tr(lang, d.label()));
+                                ui.selectable_value(&mut self.workspace.exp.dest, d, tr(lang, d.label()));
                             }
                         });
                 });
@@ -1995,44 +1991,44 @@ impl AutoShadeApp {
                 ui.horizontal(|ui| {
                     ui.label(tr(lang, K_DEVELOP_FORMAT));
                     egui::ComboBox::from_id_salt("save_fmt")
-                        .selected_text(tr(lang, self.exp.format.label()))
+                        .selected_text(tr(lang, self.workspace.exp.format.label()))
                         .width(130.0)
                         .show_ui(ui, |ui| {
                             for f in ExportFormat::ALL {
-                                ui.selectable_value(&mut self.exp.format, f, tr(lang, f.label()));
+                                ui.selectable_value(&mut self.workspace.exp.format, f, tr(lang, f.label()));
                             }
                         });
                 });
                 ui.horizontal(|ui| {
                     ui.label(tr(lang, K_DEVELOP_LONG_EDGE));
                     egui::ComboBox::from_id_salt("exp_long_edge")
-                        .selected_text(if self.exp.long_edge == 0 {
+                        .selected_text(if self.workspace.exp.long_edge == 0 {
                             tr(lang, K_EXPORT_ORIGINAL_SIZE).to_string()
                         } else {
-                            format!("{} px", self.exp.long_edge)
+                            format!("{} px", self.workspace.exp.long_edge)
                         })
                         .width(110.0)
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.exp.long_edge, 0, tr(lang, K_EXPORT_ORIGINAL_SIZE));
+                            ui.selectable_value(&mut self.workspace.exp.long_edge, 0, tr(lang, K_EXPORT_ORIGINAL_SIZE));
                             for px in [1600u32, 2048, 2560, 3840, 5120] {
-                                ui.selectable_value(&mut self.exp.long_edge, px, format!("{px} px"));
+                                ui.selectable_value(&mut self.workspace.exp.long_edge, px, format!("{px} px"));
                             }
                         });
                 });
-                Self::slider(ui, lang, tr(lang, K_EXPORT_OUTPUT_SHARPENING), &mut self.exp.sharpen, 0.0, 100.0, 0.0);
+                Self::slider(ui, lang, tr(lang, K_EXPORT_OUTPUT_SHARPENING), &mut self.workspace.exp.sharpen, 0.0, 100.0, 0.0);
                 // Always allocated, merely disabled for TIFF — the old
                 // appear/disappear reflowed every control to its right.
-                ui.add_enabled_ui(self.exp.format == ExportFormat::Jpeg, |ui| {
-                    Self::slider(ui, lang, tr(lang, K_DEVELOP_JPEG_QUALITY), &mut self.exp.quality, 60.0, 100.0, 95.0);
+                ui.add_enabled_ui(self.workspace.exp.format == ExportFormat::Jpeg, |ui| {
+                    Self::slider(ui, lang, tr(lang, K_DEVELOP_JPEG_QUALITY), &mut self.workspace.exp.quality, 60.0, 100.0, 95.0);
                 });
                 ui.horizontal(|ui| {
                     ui.label(tr(lang, K_DEVELOP_COLOUR_SPACE));
                     egui::ComboBox::from_id_salt("exp_space")
-                        .selected_text(tr(lang, EXPORT_SPACES[(self.exp.space as usize).min(2)]))
+                        .selected_text(tr(lang, EXPORT_SPACES[(self.workspace.exp.space as usize).min(2)]))
                         .width(170.0)
                         .show_ui(ui, |ui| {
                             for (i, name) in EXPORT_SPACES.iter().enumerate() {
-                                ui.selectable_value(&mut self.exp.space, i as u8, tr(lang, name));
+                                ui.selectable_value(&mut self.workspace.exp.space, i as u8, tr(lang, name));
                             }
                         });
                 });
@@ -2043,7 +2039,7 @@ impl AutoShadeApp {
                 // pixel until then, that one bakes a clean base into the current
                 // variant immediately. Same-named twins in two panels made the
                 // difference invisible until an export took minutes.
-                ui.checkbox(&mut self.exp.save_denoise, tr(lang, K_DEVELOP_AI_DENOISE_ON_EXPORT)).on_hover_text(
+                ui.checkbox(&mut self.workspace.exp.save_denoise, tr(lang, K_DEVELOP_AI_DENOISE_ON_EXPORT)).on_hover_text(
                     ai_xref(lang, tr(lang, K_DEVELOP_AI_DENOISE_BEFORE_DEVELOPING_AT_THE_EXPORT_DENOI)),
                 );
                 // The checkbox's OWN dial, directly under it (user decision
@@ -2052,12 +2048,12 @@ impl AutoShadeApp {
                 // disabled while the checkbox is off — the appear/disappear
                 // reflow rule the JPEG quality slider above follows.
                 let denoise_raw = self.denoise_uses_raw();
-                ui.add_enabled_ui(self.exp.save_denoise, |ui| {
+                ui.add_enabled_ui(self.workspace.exp.save_denoise, |ui| {
                     Self::slider_pct_hinted(
                         ui,
                         lang,
                         tr(lang, K_DEVELOP_EXPORT_DENOISE_STRENGTH),
-                        if denoise_raw { &mut self.exp.save_denoise_strength } else { &mut self.exp.baked_save_denoise_strength },
+                        if denoise_raw { &mut self.workspace.exp.save_denoise_strength } else { &mut self.workspace.exp.baked_save_denoise_strength },
                         1.0,
                         if denoise_raw { autoshade::denoise::DEFAULT_STRENGTH_RAW } else { autoshade::denoise::DEFAULT_STRENGTH },
                         tr(lang,
@@ -2074,7 +2070,7 @@ impl AutoShadeApp {
                 // hand-off as "browse into %LOCALAPPDATA% yourself".
                 ui.add_space(SPACE_LG);
                 let raw = self.can_export_xmp_beside();
-                let label = if self.exp.xmp_beside_confirm {
+                let label = if self.workspace.exp.xmp_beside_confirm {
                     tr(lang, K_DEVELOP_OVERWRITE_THE_XMP_ALREADY_THERE)
                 } else {
                     tr(lang, K_DEVELOP_EXPORT_XMP_BESIDE_THE_PHOTO)
@@ -2086,12 +2082,12 @@ impl AutoShadeApp {
                     // line), so a baked PNG/TIFF's neighbouring .xmp belongs to
                     // some other program and must not be written over.
                     tr(lang, K_DEVELOP_RAW_ONLY_A_BAKED_PNG_TIFF_HAS_NO_LIGHTROOM_SIDEC)
-                } else if self.exp.xmp_beside_confirm {
+                } else if self.workspace.exp.xmp_beside_confirm {
                     tr(lang, K_DEVELOP_A_XMP_ALREADY_SITS_BESIDE_THIS_PHOTO_LIGHTROOM_S)
                 } else {
                     tr(lang, K_DEVELOP_COPY_THIS_PHOTO_S_STORED_LIGHTROOM_ACR_SIDECAR_I)
                 };
-                if action_row(ui, raw && !self.busy, label)
+                if action_row(ui, raw && !self.workspace.busy, label)
                     .on_hover_text(hint)
                     .clicked()
                 {

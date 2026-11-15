@@ -15,21 +15,21 @@ impl AutoShadeApp {
     /// view transform so painting stays accurate at any zoom, and the brush
     /// radius converts display px → canvas px by the current pixel scale.
     pub(crate) fn handle_paint(&mut self, resp: &egui::Response, xf: ViewXform) {
-        let brush = self.masks.brush;
+        let brush = self.workspace.masks.brush;
         let tip = self.brush_tip();
         let (dims, deg, dist) = self.geom_ctx();
         // Mask-brush session: strokes write the display canvas AND the
         // greyscale weight buffer; erase clears both.
-        let erase = self.masks.mask_brush.is_some_and(|(_, e)| e);
+        let erase = self.workspace.masks.mask_brush.is_some_and(|(_, e)| e);
         let display_px = if erase {
             image::Rgba([0, 0, 0, 0])
         } else {
             image::Rgba([255, 64, 64, 160])
         };
         let gray_v: u8 = if erase { 0 } else { 255 };
-        let mut gray = self.masks.mask_brush_gray.take();
-        let Some(m) = self.masks.mask_paint.as_mut() else {
-            self.masks.mask_brush_gray = gray;
+        let mut gray = self.workspace.masks.mask_brush_gray.take();
+        let Some(m) = self.workspace.masks.mask_paint.as_mut() else {
+            self.workspace.masks.mask_brush_gray = gray;
             return;
         };
         let (mw, mh) = (m.width() as f32, m.height() as f32);
@@ -91,7 +91,7 @@ impl AutoShadeApp {
             if let Some(p) = resp.interact_pointer_pos().or(resp.hover_pos()) {
                 let cur = to_mask(p);
                 let r = brush_at(p);
-                match self.masks.paint_last {
+                match self.workspace.masks.paint_last {
                     Some(prev) => {
                         stamped = stamp_line_px(m, prev, cur, r, display_px, tip);
                         if let Some(g) = gray.as_mut() {
@@ -107,11 +107,11 @@ impl AutoShadeApp {
                         if let Some(g) = gray.as_mut() {
                             stamp_line_gray(g, start, cur, r, gray_v, tip);
                         }
-                        grow(&mut self.overlay.mask_dirty_rect, start, cur, r);
+                        grow(&mut self.workspace.overlay.mask_dirty_rect, start, cur, r);
                     }
                 }
-                grow(&mut self.overlay.mask_dirty_rect, self.masks.paint_last.unwrap_or(cur), cur, r);
-                self.masks.paint_last = Some(cur);
+                grow(&mut self.workspace.overlay.mask_dirty_rect, self.workspace.masks.paint_last.unwrap_or(cur), cur, r);
+                self.workspace.masks.paint_last = Some(cur);
             }
         } else {
             // No stroke is in flight while the button is up — clearing here
@@ -119,9 +119,9 @@ impl AutoShadeApp {
             // Esc / hold-B / an Alt source-pick, whose drag_stopped frame
             // never reaches this handler and used to leave a stale anchor
             // that drew a full-width connecting streak into the next stroke.
-            self.masks.paint_last = None;
+            self.workspace.masks.paint_last = None;
         }
-        self.masks.mask_brush_gray = gray;
+        self.workspace.masks.mask_brush_gray = gray;
         if stamped {
             if erase {
                 self.paint_mask_changed(None);
@@ -144,8 +144,8 @@ impl AutoShadeApp {
             {
                 let (dims, deg, dist) = self.geom_ctx();
                 let (nx, ny) = xf.to_norm(q);
-                self.tools.clone_src = Some(view_norm_to_orig(nx, ny, dims, deg, &dist));
-                self.status = tr(
+                self.workspace.tools.clone_src = Some(view_norm_to_orig(nx, ny, dims, deg, &dist));
+                self.workspace.status = tr(
                     self.lang,
                     K_RETOUCH_CLONE_SOURCE_SAMPLED_BRUSH_THE_AREA_TO_COVER_THE,
                 )
@@ -154,7 +154,7 @@ impl AutoShadeApp {
         } else {
             self.handle_paint(resp, xf);
         }
-        if let Some((sx, sy)) = self.tools.clone_src {
+        if let Some((sx, sy)) = self.workspace.tools.clone_src {
             let (dims, deg, dist) = self.geom_ctx();
             let (vx, vy) = orig_norm_to_view(sx, sy, dims, deg, &dist);
             let q = xf.to_screen(vx, vy);
@@ -199,10 +199,10 @@ impl AutoShadeApp {
     ///
     /// Returns `true` when the caller must stop.
     pub(crate) fn refuse_pixel_work_on_a_turned_photo(&mut self) -> bool {
-        if self.doc.recipe.quarter_turns.is_multiple_of(4) {
+        if self.editor.doc.recipe.quarter_turns.is_multiple_of(4) {
             return false;
         }
-        self.status = tr(
+        self.workspace.status = tr(
             self.lang,
             K_RETOUCH_THIS_PHOTO_IS_TURNED_AND_PIXEL_REPAIRS_STILL_WOR,
         )
@@ -265,7 +265,7 @@ impl AutoShadeApp {
     /// model. The result lands in the Direction box (ready to reimagine OTHER
     /// photos with the same look) and is saved to ./out/<stem>.style.txt.
         /// The brush-radius slider, rendered wherever a brush is actually IN USE
-    /// (#9). There is exactly ONE radius in the app — `self.masks.brush`, also
+    /// (#9). There is exactly ONE radius in the app — `self.workspace.masks.brush`, also
     /// driven by the `[` / `]` keys (see the shortcut in app.rs) — and until
     /// R22 its only slider lived in the Retouch panel, beside Fill / Heal /
     /// Stamp. The mask brush, which starts from Develop → Local Masks and
@@ -284,21 +284,21 @@ impl AutoShadeApp {
     /// marks the centre with a minus.
     pub(crate) fn draw_brush_cursor(&self, ui: &egui::Ui, resp: &egui::Response, rect: egui::Rect) {
         let now = ui.input(|i| i.time);
-        let resized = self.masks.brush_resized_at.is_some_and(|t| now - t < BRUSH_SIZE_FLASH_S);
+        let resized = self.workspace.masks.brush_resized_at.is_some_and(|t| now - t < BRUSH_SIZE_FLASH_S);
         let Some(c) = resp.hover_pos().or_else(|| resized.then(|| rect.center())) else { return };
         if resp.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::None);
         }
         let p = ui.painter_at(rect);
-        let r = self.masks.brush;
+        let r = self.workspace.masks.brush;
         p.circle_stroke(c, r, egui::Stroke::new(3.0, egui::Color32::from_black_alpha(150)));
         p.circle_stroke(c, r, egui::Stroke::new(1.25, egui::Color32::from_white_alpha(235)));
         // Lightroom's second ring: where the feather starts to fade.
-        let inner = r * (1.0 - self.masks.brush_feather);
-        if self.masks.brush_feather > 0.005 && inner > 2.0 {
+        let inner = r * (1.0 - self.workspace.masks.brush_feather);
+        if self.workspace.masks.brush_feather > 0.005 && inner > 2.0 {
             p.circle_stroke(c, inner, egui::Stroke::new(1.0, egui::Color32::from_white_alpha(140)));
         }
-        if self.masks.mask_brush.is_some_and(|(_, erase)| erase) {
+        if self.workspace.masks.mask_brush.is_some_and(|(_, erase)| erase) {
             let s = (r * 0.35).clamp(3.0, 8.0);
             p.line_segment([c - egui::vec2(s, 0.0), c + egui::vec2(s, 0.0)], egui::Stroke::new(1.5, egui::Color32::WHITE));
         } else {
@@ -318,13 +318,13 @@ impl AutoShadeApp {
     /// The tip every brush paints with: the Feather and Flow dials beside
     /// Brush size (both shared by every brush, as the radius is).
     pub(crate) fn brush_tip(&self) -> BrushTip {
-        BrushTip { feather: self.masks.brush_feather, flow: self.masks.brush_flow }
+        BrushTip { feather: self.workspace.masks.brush_feather, flow: self.workspace.masks.brush_flow }
     }
 
     /// Set the one brush radius, clamped to its range, and flash the ring.
     pub(crate) fn set_brush(&mut self, radius: f32, now: f64) {
-        self.masks.brush = radius.clamp(BRUSH_R_MIN, BRUSH_R_MAX);
-        self.masks.brush_resized_at = Some(now);
+        self.workspace.masks.brush = radius.clamp(BRUSH_R_MIN, BRUSH_R_MAX);
+        self.workspace.masks.brush_resized_at = Some(now);
     }
 
     pub(crate) fn brush_size_slider(&mut self, ui: &mut egui::Ui) {
@@ -336,7 +336,7 @@ impl AutoShadeApp {
         let before = ui.cursor();
         // The radius is live tool state, never a recipe field: no dirty flag,
         // no redevelop — a change only flashes the ring on the canvas.
-        let mut radius = self.masks.brush;
+        let mut radius = self.workspace.masks.brush;
         if Self::slider_hinted(
             ui,
             lang,
@@ -359,7 +359,7 @@ impl AutoShadeApp {
             ui,
             lang,
             tr(lang, K_DEVELOP_FEATHER),
-            &mut self.masks.brush_feather,
+            &mut self.workspace.masks.brush_feather,
             1.0,
             0.0,
             tr(lang, K_RETOUCH_HOW_SOFT_THE_BRUSH_EDGE_IS_0_A_HARD_EDGE_100_FAD),
@@ -368,7 +368,7 @@ impl AutoShadeApp {
             ui,
             lang,
             tr(lang, K_RETOUCH_FLOW),
-            &mut self.masks.brush_flow,
+            &mut self.workspace.masks.brush_flow,
             1.0,
             1.0,
             tr(lang, K_RETOUCH_HOW_MUCH_ONE_PASS_LAYS_DOWN_100_FULL_STRENGTH_AT),
@@ -425,15 +425,15 @@ impl AutoShadeApp {
     /// so an undone removal has its pixels to come back to.
     fn layer_rows(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        if self.doc.recipe.pixel_layers.is_empty() {
+        if self.editor.doc.recipe.pixel_layers.is_empty() {
             return;
         }
         sub_caption(ui, tr(lang, K_RETOUCH_LAYERS_ON_THIS_CARD));
         let mut remove = None;
         let mut changed = false;
-        for i in 0..self.doc.recipe.pixel_layers.len() {
+        for i in 0..self.editor.doc.recipe.pixel_layers.len() {
             ui.horizontal(|ui| {
-                let layer = &mut self.doc.recipe.pixel_layers[i];
+                let layer = &mut self.editor.doc.recipe.pixel_layers[i];
                 if glyph_toggle(ui, layer.enabled, "👁")
                     .on_hover_text(tr(lang, K_RETOUCH_SHOW_OR_HIDE_THIS_LAYER_A_HIDDEN_LAYER_IS_KEPT_A))
                     .clicked()
@@ -454,18 +454,18 @@ impl AutoShadeApp {
                 ui,
                 lang,
                 tr(lang, K_RETOUCH_LAYER_OPACITY),
-                &mut self.doc.recipe.pixel_layers[i].opacity,
+                &mut self.editor.doc.recipe.pixel_layers[i].opacity,
                 1.0,
                 1.0,
                 tr(lang, K_RETOUCH_HOW_STRONGLY_THIS_LAYER_COVERS_THE_DEVELOP_UNDER),
             );
         }
         if let Some(i) = remove {
-            self.doc.recipe.pixel_layers.remove(i);
+            self.editor.doc.recipe.pixel_layers.remove(i);
             changed = true;
         }
         if changed {
-            self.session.dirty = true;
+            self.editor.session.dirty = true;
         }
     }
 
@@ -488,10 +488,10 @@ impl AutoShadeApp {
         //
         // Silent on the photographs that carry none, which is 150 of the
         // reference library's 175.
-        if !self.doc.recipe.retouch.is_empty() {
-            let total = self.doc.recipe.retouch.len();
+        if !self.editor.doc.recipe.retouch.is_empty() {
+            let total = self.editor.doc.recipe.retouch.len();
             let synth =
-                self.doc.recipe.retouch.iter().filter(|a| a.origin.is_synthesised()).count();
+                self.editor.doc.recipe.retouch.iter().filter(|a| a.origin.is_synthesised()).count();
             sub_caption(ui, tr(lang, K_RETOUCH_IMPORTED_REMOVAL));
             ui.label(
                 egui::RichText::new(trf(
@@ -515,7 +515,7 @@ impl AutoShadeApp {
                     .weak()
                     .small(),
                 );
-                ui.add_enabled_ui(!self.busy, |ui| {
+                ui.add_enabled_ui(!self.workspace.busy, |ui| {
                     if action_row(ui, true, tr(lang, K_RETOUCH_REGENERATE_THOSE_AREAS))
                         .on_hover_text(tr(lang, K_RETOUCH_PAINT_THE_SYNTHESISED_AREAS_INTO_GENERATIVE_FILL))
                         .clicked()
@@ -547,7 +547,7 @@ impl AutoShadeApp {
                 // #14a: was `desired_width(f32::INFINITY)`.
                 let _field = prompt_field(
                     ui,
-                    &mut self.genai.fill_prompt,
+                    &mut self.workspace.genai.fill_prompt,
                     tr(lang, K_RETOUCH_WHAT_TO_CHANGE_E_G_REMOVE_THE_WIRES_ON_THE_LEFT),
                 );
                 #[cfg(test)]
@@ -560,11 +560,11 @@ impl AutoShadeApp {
                 // (2026-09-27: a row's one verb takes the whole row).
                 ui.horizontal_wrapped(|ui| {
                     egui::ComboBox::from_id_salt("fill_quality")
-                        .selected_text(tr(lang, ["high", "medium", "low"][self.genai.fill_quality.min(2)]))
+                        .selected_text(tr(lang, ["high", "medium", "low"][self.workspace.genai.fill_quality.min(2)]))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.genai.fill_quality, 0, tr(lang, K_AI_HIGH));
-                            ui.selectable_value(&mut self.genai.fill_quality, 1, tr(lang, K_AI_MEDIUM));
-                            ui.selectable_value(&mut self.genai.fill_quality, 2, tr(lang, K_AI_LOW));
+                            ui.selectable_value(&mut self.workspace.genai.fill_quality, 0, tr(lang, K_AI_HIGH));
+                            ui.selectable_value(&mut self.workspace.genai.fill_quality, 1, tr(lang, K_AI_MEDIUM));
+                            ui.selectable_value(&mut self.workspace.genai.fill_quality, 2, tr(lang, K_AI_LOW));
                         })
                         .response
                         .on_hover_text(tr(lang, K_AI_GPT_IMAGE_RENDER_QUALITY_HIGHER_LOOKS_BETTER_AND));
@@ -576,7 +576,7 @@ impl AutoShadeApp {
                     // across three panels, and this is the only one still gated
                     // RAW-only — a distinction its label could not carry while it
                     // was a twin of the other three.
-                    ui.add_enabled(src_is_raw, egui::Checkbox::new(&mut self.genai.fill_fullres, tr(lang, K_RETOUCH_FULL_RES_FILL)))
+                    ui.add_enabled(src_is_raw, egui::Checkbox::new(&mut self.workspace.genai.fill_fullres, tr(lang, K_RETOUCH_FULL_RES_FILL)))
                         .on_hover_text(tr(lang, K_RETOUCH_COMPOSITE_ONTO_THE_FULL_SENSOR_DEVELOP_SLOW_RAW));
                 });
                 // One verb, two ways in (2026-10-12): a painted area is
@@ -594,7 +594,7 @@ impl AutoShadeApp {
                         tr(lang, K_RETOUCH_SEND_THIS_CARD_S_PICTURE_WITH_YOUR_WORDS_AND_NO),
                     )
                 };
-                let ready = !self.busy && (painted || !self.genai.fill_prompt.trim().is_empty());
+                let ready = !self.workspace.busy && (painted || !self.workspace.genai.fill_prompt.trim().is_empty());
                 if primary_row(ui, ready, verb).on_hover_text(hint).clicked() {
                     self.start_fill();
                 }
@@ -612,7 +612,7 @@ impl AutoShadeApp {
                 // in a non-wrapping row overran the default panel width.
                 ui.horizontal(|ui| {
                     let cell = columns(ui, 2);
-                    ui.add_enabled_ui(!self.busy, |ui| {
+                    ui.add_enabled_ui(!self.workspace.busy, |ui| {
                         // 🤖, the one AI prefix app-wide (#4): ✦ was this
                         // verb's private glyph. The tooltip carries the
                         // AI-panel cross-reference — this stays HERE, at
@@ -636,7 +636,7 @@ impl AutoShadeApp {
                 // types since b4c6c30, but the RAW-only gate left a
                 // 61 MP baked TIFF no way to opt out of the 2048px
                 // downsample the unchecked path bakes into the master.
-                ui.checkbox(&mut self.genai.heal_fullres, tr(lang, K_RETOUCH_FULL_RES_HEAL))
+                ui.checkbox(&mut self.workspace.genai.heal_fullres, tr(lang, K_RETOUCH_FULL_RES_HEAL))
                     .on_hover_text(tr(lang, K_RETOUCH_HEAL_AT_FULL_RESOLUTION_SLOW_WITHOUT_IT_THE_RETO));
                 explainer(ui, lang, tr(lang, K_RETOUCH_AI_AUTO_DETECTS_DUST_BLEMISHES_OR_PAINT_A_MASK_A));
             });
@@ -664,7 +664,7 @@ impl AutoShadeApp {
                             // canvas; what was painted for Fill / Heal stays
                             // theirs. Only 「Clear area」 wipes.
                             self.arm_brush(BrushOwner::Stamp);
-                            self.status =
+                            self.workspace.status =
                                 tr(lang, K_RETOUCH_STAMP_ALT_CLICK_TO_SET_THE_SOURCE_BRUSH_THE_TARG).into();
                         }
                     }
@@ -678,7 +678,7 @@ impl AutoShadeApp {
                 if armed {
                     self.brush_size_slider(ui);
                 }
-                if primary_row(ui, !self.busy && self.tools.clone_mode, tr(lang, K_RETOUCH_CLONE_AREA))
+                if primary_row(ui, !self.workspace.busy && self.workspace.tools.clone_mode, tr(lang, K_RETOUCH_CLONE_AREA))
                     .on_hover_text(tr(lang, K_RETOUCH_COPY_THE_SAMPLED_SOURCE_OVER_THE_BRUSHED_AREA_VE))
                     .clicked()
                 {
@@ -687,7 +687,7 @@ impl AutoShadeApp {
                 // Enabled for BAKED sources too — clone_stamp honours
                 // the flag on both source types (retouch.rs), the same
                 // rule as Heal beside it (L15-7).
-                ui.checkbox(&mut self.tools.clone_fullres, tr(lang, K_RETOUCH_FULL_RES_CLONE))
+                ui.checkbox(&mut self.workspace.tools.clone_fullres, tr(lang, K_RETOUCH_FULL_RES_CLONE))
                     .on_hover_text(tr(lang, K_RETOUCH_CLONE_AT_FULL_RESOLUTION_SLOW_WITHOUT_IT_THE_RET));
                 explainer(ui, lang, tr(lang, K_RETOUCH_PHOTOSHOP_STYLE_CLONE_STAMP_ALT_CLICK_TO_SAMPLE));
             });

@@ -977,15 +977,15 @@ impl AutoShadeApp {
     /// without an alpha (a Lightroom sidecar's), on a worker — the segmenter
     /// is a sidecar run, seconds of GPU the first time, cached after.
     pub(crate) fn start_ai_mask_resolve(&mut self, lang: Lang) {
-        if self.busy || self.open.open_in_flight || unresolved_develop_masks(&self.doc.recipe) == 0 {
+        if self.workspace.busy || self.workspace.open.open_in_flight || unresolved_develop_masks(&self.editor.doc.recipe) == 0 {
             return;
         }
-        let (Some(photo), Some(pixels)) = (self.photo.src_path.clone(), self.active_source_path()) else { return };
+        let (Some(photo), Some(pixels)) = (self.editor.photo.src_path.clone(), self.active_source_path()) else { return };
         let card = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
-        let mut recipe = self.doc.recipe.clone();
+        let mut recipe = self.editor.doc.recipe.clone();
         let run = self.ai_mask_runner();
-        self.busy = true;
-        self.status = if unresolved_ai_masks(&recipe) > 0 {
+        self.workspace.busy = true;
+        self.workspace.status = if unresolved_ai_masks(&recipe) > 0 {
             tr(lang, K_PERSIST_RE_DERIVING_THE_AI_MASKS_FROM_LIGHTROOM_ON_THIS)
         } else {
             tr(lang, K_PERSIST_FINDING_THE_FACES_THE_FIRST_RUN_DOWNLOADS_THE_MO)
@@ -1018,32 +1018,32 @@ impl AutoShadeApp {
         lang: Lang,
         (photo, card, resolved, res, faces): (PathBuf, String, EditRecipe, autoshade::pipeline::DevelopMasks, FaceOutcomes),
     ) {
-        self.busy = false;
+        self.workspace.busy = false;
         let here = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
-        if self.photo.src_path.as_ref() != Some(&photo) || here != card {
+        if self.editor.photo.src_path.as_ref() != Some(&photo) || here != card {
             return;
         }
         let fill = |r: &mut EditRecipe| {
             fill_ai_rasters(r, &resolved);
             fill_face_intents(r, &faces);
         };
-        let n = fill_ai_rasters(&mut self.doc.recipe, &resolved);
-        let nf = fill_face_intents(&mut self.doc.recipe, &faces);
-        fill(&mut self.session.hist.saved_recipe);
-        fill(&mut self.session.hist.committed.recipe);
-        for s in self.session.hist.undo_stack.iter_mut().chain(self.session.hist.redo_stack.iter_mut()) {
+        let n = fill_ai_rasters(&mut self.editor.doc.recipe, &resolved);
+        let nf = fill_face_intents(&mut self.editor.doc.recipe, &faces);
+        fill(&mut self.editor.session.hist.saved_recipe);
+        fill(&mut self.editor.session.hist.committed.recipe);
+        for s in self.editor.session.hist.undo_stack.iter_mut().chain(self.editor.session.hist.redo_stack.iter_mut()) {
             fill(&mut s.recipe);
         }
-        if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
+        if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
             fill(&mut v.recipe);
         }
         if n + nf > 0 || faces.iter().any(Option::is_none) {
-            self.session.dirty = true;
-            self.overlay.overlay_stale = true;
+            self.editor.session.dirty = true;
+            self.workspace.overlay.overlay_stale = true;
         }
         if let Some(why) = res.warning() {
             let t = trf(lang, K_LANDING_SOME_MASKS_COULD_NOT_BE_DRAWN_SO_THEY_ARE_NOT_AP, &[("why", &why)]);
-            self.status = t.clone();
+            self.workspace.status = t.clone();
             self.toast(ToastKind::Error, t);
         } else {
             let mut said: Vec<String> = Vec::new();

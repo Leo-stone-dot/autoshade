@@ -19,18 +19,18 @@ impl AutoShadeApp {
     /// forgotten: a dangling index used to make the range sampler write into
     /// whatever mask slid under it.
     pub(crate) fn remap_mask_indices(&mut self, f: impl Fn(usize) -> Option<usize>) {
-        let sel_before = self.masks.sel_mask;
-        self.masks.sel_mask = self.masks.sel_mask.and_then(&f);
+        let sel_before = self.workspace.masks.sel_mask;
+        self.workspace.masks.sel_mask = self.workspace.masks.sel_mask.and_then(&f);
         // Component selection is meaningful only while the SAME mask stays
         // selected under the same index-space; a moved/vanished mask drops it
         // (its component list travelled with the mask, but every canvas tool
         // re-derives from sel_mask — a stale pair here was the same class of
         // bug as the dangling range sampler).
-        if self.masks.sel_mask != sel_before || self.masks.sel_mask.is_none() {
-            self.masks.sel_component = None;
+        if self.workspace.masks.sel_mask != sel_before || self.workspace.masks.sel_mask.is_none() {
+            self.workspace.masks.sel_component = None;
         }
-        self.tools.range_picking = self.tools.range_picking.and_then(&f);
-        self.masks.placing_mask = self.masks.placing_mask.take().and_then(|(k, t)| match t {
+        self.workspace.tools.range_picking = self.workspace.tools.range_picking.and_then(&f);
+        self.workspace.masks.placing_mask = self.workspace.masks.placing_mask.take().and_then(|(k, t)| match t {
             PlaceTarget::NewMask => Some((k, PlaceTarget::NewMask)),
             // A vanished redraw target degrades to a NEW mask placement (the
             // pre-v0.22 `Option<usize>` behaviour, kept); a vanished
@@ -47,8 +47,8 @@ impl AutoShadeApp {
         // reorder its seed-guard (name-at-seed must still match) correctly
         // refused to cross-commit — but the SAME mask at its new index then
         // failed the match as well, and the typed rename silently died.
-        self.masks.mask_name_buf =
-            self.masks.mask_name_buf.take().and_then(|(j, o, b)| Some((f(j)?, o, b)));
+        self.workspace.masks.mask_name_buf =
+            self.workspace.masks.mask_name_buf.take().and_then(|(j, o, b)| Some((f(j)?, o, b)));
         // The mask-brush session carries its TARGET index: 「Apply」 bakes the
         // stroke into `mask_brush.0`, so after a delete/reorder it painted
         // whatever mask slid under the stale slot — the dangling-range-sampler
@@ -57,10 +57,10 @@ impl AutoShadeApp {
         // like Esc (gray buffer AND paint canvas — see disarm_tools: fill/heal
         // would inherit the strokes as a phantom retouch selection). Not a
         // new-mask fallback: that would resurrect a just-deleted mask.
-        if let Some((target, erase)) = self.masks.mask_brush {
+        if let Some((target, erase)) = self.workspace.masks.mask_brush {
             match target.map(&f) {
-                None => self.masks.mask_brush = Some((None, erase)),
-                Some(Some(j)) => self.masks.mask_brush = Some((Some(j), erase)),
+                None => self.workspace.masks.mask_brush = Some((None, erase)),
+                Some(Some(j)) => self.workspace.masks.mask_brush = Some((Some(j), erase)),
                 Some(None) => {
                     self.end_mask_brush();
                 }
@@ -69,7 +69,7 @@ impl AutoShadeApp {
     }
 
     /// Rescan the photo's develop dir for version snapshots (cached in
-    /// `self.cards.versions`; called on photo open and after saving a version — NOT
+    /// `self.workspace.cards.versions`; called on photo open and after saving a version — NOT
     /// every frame). The advisory name/provenance sidecar is read in the same
     /// pass and RESTRICTED to numbers that are actually listed: a crash
     /// between a delete's sweep and its metadata drop can leave a record for
@@ -77,15 +77,15 @@ impl AutoShadeApp {
     /// a phantom row (it can never be re-attached either — the number is
     /// burned in the deleted-version registry).
     pub(crate) fn refresh_versions(&mut self) {
-        self.cards.versions.clear();
-        self.cards.version_meta.clear();
-        let Some(src) = self.photo.src_path.as_deref() else { return };
+        self.workspace.cards.versions.clear();
+        self.workspace.cards.version_meta.clear();
+        let Some(src) = self.editor.photo.src_path.as_deref() else { return };
         // ONE store query for the photo's whole edit-state list (R24-4
         // `store::list_edits`), which joins the version family with its
         // advisory metadata — including the listed-numbers-only restriction
         // this used to spell for itself. The VARIANT half is deliberately
         // dropped here: it describes the LAST SAVED strip, while
-        // `self.doc.variants` is the live one (pushes, deletes and renames that
+        // `self.editor.doc.variants` is the live one (pushes, deletes and renames that
         // have not been saved yet), and an editor must never renumber its own
         // cards from a stale record. For every non-GUI surface that half IS
         // the list.
@@ -93,8 +93,8 @@ impl AutoShadeApp {
             if let autoshade::store::EditStateKind::Version { n, from_kind, from_id, source } =
                 e.state
             {
-                self.cards.versions.push(n);
-                self.cards.version_meta.insert(
+                self.workspace.cards.versions.push(n);
+                self.workspace.cards.version_meta.insert(
                     n,
                     autoshade::store::VersionMetaEntry {
                         n,
@@ -133,7 +133,7 @@ impl AutoShadeApp {
     /// The write is advisory: a failure is disclosed and the buffer is left
     /// alone so the next boundary retries.
     pub(crate) fn commit_version_name_buf(&mut self) {
-        let Some((photo, n, seed, buf)) = self.cards.version_name_buf.clone() else { return };
+        let Some((photo, n, seed, buf)) = self.workspace.cards.version_name_buf.clone() else { return };
         if buf == seed {
             return;
         }
@@ -150,9 +150,9 @@ impl AutoShadeApp {
                 // Re-seed rather than clear: the row is very likely still on
                 // screen, and a SECOND rename in the same row has to compare
                 // against what we just wrote, not the original.
-                self.cards.version_name_buf = Some((photo.clone(), n, buf.clone(), buf));
-                if self.photo.src_path.as_deref() == Some(photo.as_path()) {
-                    self.cards.version_meta
+                self.workspace.cards.version_name_buf = Some((photo.clone(), n, buf.clone(), buf));
+                if self.editor.photo.src_path.as_deref() == Some(photo.as_path()) {
+                    self.workspace.cards.version_meta
                         .entry(n)
                         .or_insert_with(|| autoshade::store::VersionMetaEntry {
                             n,
@@ -188,11 +188,11 @@ impl AutoShadeApp {
                 lang,
                 K_ACTIONS_A_PRISTINE_AI_GENERATED_CARD_HAS_NO_DEVELOP_TO_S,
             );
-            self.status = t.into();
+            self.workspace.status = t.into();
             self.toast(ToastKind::Error, t);
             return;
         }
-        let Some(src) = self.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo.src_path.clone() else { return };
         // Attribution for the record below, read before the lock closure
         // borrows `self`: which card this snapshot is a picture OF (R24-2).
         let from_kind = self.active_variant().map(|v| v.kind.store_str().to_string());
@@ -212,7 +212,7 @@ impl AutoShadeApp {
             Ok(v) => v,
             Err(e) => {
                 let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
-                self.status = t.clone();
+                self.workspace.status = t.clone();
                 self.toast(ToastKind::Error, t);
                 return Ok(());
             }
@@ -221,11 +221,11 @@ impl AutoShadeApp {
         // pair): a version whose recipe pointed at another version's frozen
         // raster (load v3 → save as v4) broke the moment v3 was deleted.
         let dev = autoshade::store::develop_dir(&src);
-        let mut snap = self.doc.recipe.clone();
+        let mut snap = self.editor.doc.recipe.clone();
         if let Err(e) = autoshade::store::snapshot_rasters(&mut snap, &dev, n) {
             let _ = std::fs::remove_file(&vpath); // release the claim
             let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
-            self.status = t.clone();
+            self.workspace.status = t.clone();
             self.toast(ToastKind::Error, t);
             return Ok(());
         }
@@ -255,7 +255,7 @@ impl AutoShadeApp {
                     },
                 );
                 self.refresh_versions();
-                self.status = trf(
+                self.workspace.status = trf(
                     lang,
                     K_ACTIONS_VERSION_V_SAVED,
                     &[("n", &n.to_string()), ("path", &p.display().to_string())],
@@ -263,7 +263,7 @@ impl AutoShadeApp {
             }
             Err(e) => {
                 let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
-                self.status = t.clone();
+                self.workspace.status = t.clone();
                 self.toast(ToastKind::Error, t);
             }
         }
@@ -278,7 +278,7 @@ impl AutoShadeApp {
     /// Load version `n` as the working recipe (one undo step, like AI Analyze).
     pub(crate) fn load_version(&mut self, n: u32) {
         let lang = self.lang;
-        let Some(src) = self.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo.src_path.clone() else { return };
         let p = Self::version_path(&src, n);
         // ONE NoWait lock across the whole snapshot read: the version file,
         // the mask re-anchor probes and the raster detach copies are separate
@@ -392,13 +392,13 @@ impl AutoShadeApp {
                 // still has geometry) and toasted rather than folded into the
                 // status line, so the raster caveat has room.
                 let reframe = autoshade::pipeline::migrate_recipe_coord_frame(&src, &mut r);
-                self.doc.recipe = r;
+                self.editor.doc.recipe = r;
                 // Read from disk: "Keep skin natural" is decided afresh for
                 // this card (`panels/portrait.rs`) — opening never changes a
                 // value.
                 self.decide_keep_skin_for_card();
                 self.resync_recipe_display();
-                self.session.dirty = true;
+                self.editor.session.dirty = true;
                 // A snapshot loaded onto the pristine ✨ card is an edit like
                 // any other: it lands on a new ✎ card (the immutability rule),
                 // and the load announcement below names that card's canvas.
@@ -427,7 +427,7 @@ impl AutoShadeApp {
                     ),
                     Ok(None) => {}
                 }
-                self.status = if relook {
+                self.workspace.status = if relook {
                     // The GUI's OWN sentence, localized: the engine note is
                     // English prose meant for the CLI/HTTP surfaces, and
                     // embedding it verbatim put raw English into a localized
@@ -449,7 +449,7 @@ impl AutoShadeApp {
                     K_ACTIONS_LOAD_V_FAILED,
                     &[("n", &n.to_string()), ("err", &e.to_string())],
                 );
-                self.status = t.clone();
+                self.workspace.status = t.clone();
                 self.toast(ToastKind::Error, t);
             }
         }
@@ -466,7 +466,7 @@ impl AutoShadeApp {
         ) {
             Ok(()) => {
                 self.refresh_versions();
-                self.status = trf(lang, K_ACTIONS_VERSION_V_DELETED, &[("n", &n.to_string())]);
+                self.workspace.status = trf(lang, K_ACTIONS_VERSION_V_DELETED, &[("n", &n.to_string())]);
             }
             Err(e) => {
                 self.persist_postponed(&e, "Delete v{n} failed: {err}", &[("n", &n.to_string())]);

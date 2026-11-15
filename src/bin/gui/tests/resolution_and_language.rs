@@ -11,17 +11,14 @@
         // the five call sites that use it — the bake starters spawn network
         // workers and cannot run headless, so reverting one of those
         // single-expression uses would not fail here. Reviewed by reading.
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
+        let mut app = AutoShadeApp { workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 4096,
                 ..Default::default()
-            },
-            ..Default::default()
-        };
+            }, ..Default::default() }, ..Default::default() };
         assert_eq!(app.canvas_edge(), 4096, "no canvas yet: the preference is all there is");
-        app.photo.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853)));
+        app.editor.photo.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853)));
         assert_eq!(app.canvas_edge(), 1280, "a baked canvas bakes at its OWN resolution");
-        app.photo.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(853, 1280)));
+        app.editor.photo.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(853, 1280)));
         assert_eq!(app.canvas_edge(), 1280, "…measured on the long edge, portrait included");
     }
 
@@ -42,30 +39,13 @@
         std::fs::remove_file(&gone).unwrap(); // recorded, and now unresolvable
         assert!(autoshade::store::has_pixel_source(src), "premise: a record survives");
         let ctx = egui::Context::default();
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 4096,
-                ..Default::default()
-            },
-            cards: CardsState {
-                keep_recipe: true,
-                ..Default::default()
-            },
-            open: OpenState {
-                edge_before_flight: Some(1280),
-                open_same_path: true,
-                open_in_flight: true,
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 src_path: Some(src.to_path_buf()),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![Variant {
@@ -82,10 +62,18 @@
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 4096,
+                ..Default::default()
+            }, cards: CardsState {
+                keep_recipe: true,
+                ..Default::default()
+            }, open: OpenState {
+                edge_before_flight: Some(1280),
+                open_same_path: true,
+                open_in_flight: true,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
         app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 Arc::new(image::DynamicImage::new_rgb8(8, 6)),
@@ -98,45 +86,28 @@
             )))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.genai.preview_edge, 1280, "premise: the switch is refused");
+        assert_eq!(app.workspace.genai.preview_edge, 1280, "premise: the switch is refused");
         assert!(
-            app.status.contains("no longer on disk"),
+            app.workspace.status.contains("no longer on disk"),
             "the missing-master case names its own cause: {}",
-            app.status
+            app.workspace.status
         );
         assert!(
-            !app.status.contains("save the photo"),
+            !app.workspace.status.contains("save the photo"),
             "…and never prescribes a save that cannot restore a master that is gone: {}",
-            app.status
+            app.workspace.status
         );
         // ...and a GENERATED canvas is not told to save either: Ctrl+S refuses
         // a generated variant outright, so that remedy is unreachable for it.
         let present = dev.join("present-master.png");
         std::fs::write(&present, b"png").unwrap();
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 4096,
-                ..Default::default()
-            },
-            cards: CardsState {
-                keep_recipe: true,
-                ..Default::default()
-            },
-            open: OpenState {
-                edge_before_flight: Some(1280),
-                open_same_path: true,
-                open_in_flight: true,
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 src_path: Some(src.to_path_buf()),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![Variant {
@@ -153,10 +124,18 @@
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 4096,
+                ..Default::default()
+            }, cards: CardsState {
+                keep_recipe: true,
+                ..Default::default()
+            }, open: OpenState {
+                edge_before_flight: Some(1280),
+                open_same_path: true,
+                open_in_flight: true,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
         app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 Arc::new(image::DynamicImage::new_rgb8(8, 6)),
@@ -170,14 +149,14 @@
             .unwrap();
         app.poll_workers(&ctx);
         assert!(
-            app.status.contains("generated variant"),
+            app.workspace.status.contains("generated variant"),
             "a generated canvas names its own cause: {}",
-            app.status
+            app.workspace.status
         );
         assert!(
-            !app.status.contains("save the photo"),
+            !app.workspace.status.contains("save the photo"),
             "…and is not told to save, which Ctrl+S refuses for it: {}",
-            app.status
+            app.workspace.status
         );
     }
 
@@ -198,20 +177,13 @@
             thumb: None,
         };
         // (1) source-based canvas, sensor below the preference: no disclosure.
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 1280,
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![src(None), src(None)],
@@ -220,32 +192,25 @@
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
         app.switch_variant(1, &ctx);
         assert_eq!(app.canvas_edge(), 800, "premise: the canvas is below the preference");
         assert!(
-            !app.status.contains("baked"),
+            !app.workspace.status.contains("baked"),
             "a source-based canvas is not a bake: {}",
-            app.status
+            app.workspace.status
         );
         // (2) the same size gap, but the canvas really is a baked raster.
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 1280,
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![
@@ -257,33 +222,26 @@
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
         app.switch_variant(1, &ctx);
         assert!(
-            app.status.contains("640px"),
+            app.workspace.status.contains("640px"),
             "a baked canvas says which resolution it kept: {}",
-            app.status
+            app.workspace.status
         );
         // (3) a baked canvas at the resolution the source DELIVERS — a
         // sub-preference sensor, freshly healed. Measured against the raw
         // preference this fresh bake was called a stale one.
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 1280,
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![
@@ -295,35 +253,28 @@
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
         app.switch_variant(1, &ctx);
         assert!(
-            !app.status.contains("800px"),
+            !app.workspace.status.contains("800px"),
             "a bake at the delivered resolution is not a stale bake: {}",
-            app.status
+            app.workspace.status
         );
         // (4) …and a baked canvas at the PREFERENCE on that same photo — a
         // recorded master re-decoded on open, which `thumbnail` UPSCALES to
         // exactly the preference. Measured against the delivered edge alone,
         // this said "stays at 1280px … not the preview preference" while the
         // preference was 1280.
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 1280,
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![
@@ -335,15 +286,15 @@
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
         app.switch_variant(1, &ctx);
         assert!(
-            !app.status.contains("1280px"),
+            !app.workspace.status.contains("1280px"),
             "a canvas at the preference is not a stale bake either: {}",
-            app.status
+            app.workspace.status
         );
         // (A third value — neither the preference nor what the source
         // delivers — is case (2) above: 640 under a 1280 preference on an 800
@@ -368,16 +319,10 @@
             origin: Some(PathBuf::from(format!("out/_{tag}.png"))),
             keep_skin: None,
         };
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 1280,
-                ..Default::default()
-            },
-                        session: EditorSession { hist: HistoryState {
+        let mut app = AutoShadeApp { editor: Editor { session: EditorSession { hist: HistoryState {
                 committed: step(&current, "current"),
                 ..Default::default()
-            }, ..Default::default() },
-            photo: PhotoPixels {
+            }, ..Default::default() }, photo: PhotoPixels {
 
                 // A REAL source: without it the ruler took its `unwrap_or`
 // fallback and never the delivered-edge path this test covers.
@@ -387,9 +332,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![Variant {
@@ -406,26 +349,26 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
-        app.session.hist.undo_stack.push(step(&superseded, "superseded"));
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
+        app.editor.session.hist.undo_stack.push(step(&superseded, "superseded"));
         app.undo(&ctx);
         assert!(
-            app.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &superseded)),
+            app.editor.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &superseded)),
             "premise: the superseded raster is back on the canvas"
         );
         assert!(
-            app.status.contains("640px"),
+            app.workspace.status.contains("640px"),
             "the undo door discloses the resolution it restored: {}",
-            app.status
+            app.workspace.status
         );
         // ...and REDOING back to a reachable canvas must RETRACT it: a
         // disclosure left standing is false in both halves.
         app.redo(&ctx);
         assert!(
-            app.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &current)),
+            app.editor.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &current)),
             "premise: the matching-edge raster is back"
         );
         // EXACT, not `!contains("640px")`: a negative substring cannot tell
@@ -433,7 +376,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // delivered-edge conjunct (the redo then claims 800px, which contains
         // no "640px"). This is what makes the fixture pin that arm.
         assert_eq!(
-            app.status, "restored the canvas pixels",
+            app.workspace.status, "restored the canvas pixels",
             "the claim is retracted when the disagreement ends, not merely reworded"
         );
     }
@@ -454,20 +397,13 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             origin: Some(PathBuf::from(format!("out/_{tag}.png"))),
             thumb: None,
         };
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 1280,
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![baked(640, 480, "keep"), baked(1280, 853, "drop")],
@@ -479,43 +415,36 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
         // R24-4: the ✕ ARMS first — a deleted card cannot be brought back, so
         // the first call asks and changes nothing about the strip.
         app.delete_variant(1, &ctx);
-        assert_eq!(app.doc.variants.len(), 2, "the arming click deletes nothing");
-        assert_eq!(app.doc.active, 1, "…and does not re-anchor the strip either");
+        assert_eq!(app.editor.doc.variants.len(), 2, "the arming click deletes nothing");
+        assert_eq!(app.editor.doc.active, 1, "…and does not re-anchor the strip either");
         assert_eq!(
-            app.cards.variant_delete_confirm,
+            app.workspace.cards.variant_delete_confirm,
             Some(1),
             "the arming click names the card the next one deletes"
         );
         app.delete_variant(1, &ctx);
-        assert_eq!(app.doc.active, 0, "premise: the strip re-anchored");
-        assert_eq!(app.cards.variant_delete_confirm, None, "the arm is spent");
+        assert_eq!(app.editor.doc.active, 0, "premise: the strip re-anchored");
+        assert_eq!(app.workspace.cards.variant_delete_confirm, None, "the arm is spent");
         assert!(
-            app.status.contains("640px"),
+            app.workspace.status.contains("640px"),
             "the landing canvas's resolution is disclosed: {}",
-            app.status
+            app.workspace.status
         );
         // ...and landing on a canvas the preference DOES reach says so plainly.
-        let mut app = AutoShadeApp {
-            genai: GenerativeState {
-                preview_edge: 1280,
-                ..Default::default()
-            },
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![
@@ -538,16 +467,16 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            }, ..Default::default() }, ..Default::default() };
         app.delete_variant(1, &ctx); // arm
         app.delete_variant(1, &ctx); // …and confirm
         assert!(
-            app.status.contains("variant removed"),
+            app.workspace.status.contains("variant removed"),
             "no disagreement, no claim: {}",
-            app.status
+            app.workspace.status
         );
     }
 
@@ -561,8 +490,8 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // lost: open_path stashed it before the flight.)
         let mut app = AutoShadeApp::default();
         let ctx = egui::Context::default();
-        app.photo.src_path = Some(std::env::temp_dir().join(format!("autoshade-deadopen-{}/__autoshade_deadopen__.ARW", std::process::id())));
-        app.doc.variants = vec![Variant {
+        app.editor.photo.src_path = Some(std::env::temp_dir().join(format!("autoshade-deadopen-{}/__autoshade_deadopen__.ARW", std::process::id())));
+        app.editor.doc.variants = vec![Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Original,
@@ -577,21 +506,21 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             origin: None,
             keep_skin: None,
         };
-        app.session.hist.undo_stack.push(step());
-        app.session.hist.redo_stack.push(step());
+        app.editor.session.hist.undo_stack.push(step());
+        app.editor.session.hist.redo_stack.push(step());
         app.services.tx
             .send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed")))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert!(app.photo.src_path.is_none(), "premise: a FRESH open failed into the no-photo state");
+        assert!(app.editor.photo.src_path.is_none(), "premise: a FRESH open failed into the no-photo state");
         assert!(
-            app.session.hist.undo_stack.is_empty() && app.session.hist.redo_stack.is_empty(),
+            app.editor.session.hist.undo_stack.is_empty() && app.editor.session.hist.redo_stack.is_empty(),
             "the dead photo's history goes with it"
         );
         // …so an undo here cannot reinstate the recipe of a photo that is gone.
         app.undo(&ctx);
-        assert_eq!(app.doc.recipe.contrast, 0.0, "nothing left to restore");
-        assert!(app.doc.variants.is_empty(), "…and no canvas to restore it onto");
+        assert_eq!(app.editor.doc.recipe.contrast, 0.0, "nothing left to restore");
+        assert!(app.editor.doc.variants.is_empty(), "…and no canvas to restore it onto");
     }
 
     #[test]
@@ -607,7 +536,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             ..Default::default()
         };
         let p = &std::env::temp_dir().join(format!("autoshade-nonexistent-{}/x.ARW", std::process::id()));
-        // The entry's edge (2560) deliberately DIFFERS from app.genai.preview_edge
+        // The entry's edge (2560) deliberately DIFFERS from app.workspace.genai.preview_edge
         // (1280): the key must come from the worker's pre-read ident riding
         // OpenedBase — a body that re-derives the EDGE from app state files
         // under 1280 and both edge asserts flip. (The stamp halves are
@@ -648,7 +577,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         }
         assert!(app.cached_base(p, 2560).is_none(), "least-recent evicted at cap");
         assert!(app.cached_base(&others[1], 1280).is_some(), "newer entries survive");
-        assert!(app.open.base_cache.len() <= BASE_CACHE_CAP, "cap holds");
+        assert!(app.workspace.open.base_cache.len() <= BASE_CACHE_CAP, "cap holds");
     }
 
     /// L02: the cold-variant master LRU — hits by (origin, edge), misses on a
@@ -669,7 +598,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         );
         // Re-remembering the same (path, edge) replaces rather than stacks.
         app.remember_master(p, 1280, file_stamp(p), master.clone());
-        assert_eq!(app.open.master_cache.len(), 1, "same key replaces its entry");
+        assert_eq!(app.workspace.open.master_cache.len(), 1, "same key replaces its entry");
         let others: Vec<std::path::PathBuf> = (0..MASTER_CACHE_CAP)
             .map(|i| std::env::temp_dir().join(format!("autoshade-nonexistent-{}/m{i}.tif", std::process::id())))
             .collect();
@@ -678,56 +607,56 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         }
         assert!(app.cached_master(p, 1280).is_none(), "least-recent evicted at cap");
         assert!(app.cached_master(&others[1], 1280).is_some(), "newer entries survive");
-        assert!(app.open.master_cache.len() <= MASTER_CACHE_CAP, "cap holds");
+        assert!(app.workspace.open.master_cache.len() <= MASTER_CACHE_CAP, "cap holds");
     }
 
     #[test]
     fn the_mask_brush_session_follows_index_remaps() {
         let mut app = AutoShadeApp::default();
-        app.doc.recipe.masks =
+        app.editor.doc.recipe.masks =
             vec![Default::default(), Default::default(), Default::default()];
         // Session open on mask 2, deleting mask 0 shifts it to 1 — the stroke
         // must keep committing into the SAME mask, not whatever slid under
         // index 2.
-        app.masks.mask_brush = Some((Some(2), false));
-        app.masks.mask_brush_gray = Some(image::GrayImage::new(4, 4));
-        app.masks.paint_mode = true;
-        app.doc.recipe.masks.remove(0);
+        app.workspace.masks.mask_brush = Some((Some(2), false));
+        app.workspace.masks.mask_brush_gray = Some(image::GrayImage::new(4, 4));
+        app.workspace.masks.paint_mode = true;
+        app.editor.doc.recipe.masks.remove(0);
         app.remap_mask_indices(|s| match s {
             0 => None,
             s => Some(s - 1),
         });
-        assert_eq!(app.masks.mask_brush, Some((Some(1), false)), "target follows its mask");
-        assert!(app.masks.mask_brush_gray.is_some(), "a surviving session keeps its buffer");
+        assert_eq!(app.workspace.masks.mask_brush, Some((Some(1), false)), "target follows its mask");
+        assert!(app.workspace.masks.mask_brush_gray.is_some(), "a surviving session keeps its buffer");
 
         // Deleting the session's OWN mask ends it like Esc: buffer gone,
         // paint mode disarmed — never a new-mask fallback that would
         // resurrect the deleted mask under a fresh slot.
-        app.doc.recipe.masks.remove(1);
+        app.editor.doc.recipe.masks.remove(1);
         app.remap_mask_indices(|s| match s {
             1 => None,
             s => Some(s),
         });
-        assert_eq!(app.masks.mask_brush, None, "a vanished target ends the session");
-        assert!(app.masks.mask_brush_gray.is_none(), "the weight buffer dies with it");
-        assert!(!app.masks.paint_mode, "paint mode disarms with the dead session");
+        assert_eq!(app.workspace.masks.mask_brush, None, "a vanished target ends the session");
+        assert!(app.workspace.masks.mask_brush_gray.is_none(), "the weight buffer dies with it");
+        assert!(!app.workspace.masks.paint_mode, "paint mode disarms with the dead session");
 
         // A NEW-mask session carries no index and survives any remap.
-        app.masks.mask_brush = Some((None, true));
+        app.workspace.masks.mask_brush = Some((None, true));
         app.remap_mask_indices(|_| None);
-        assert_eq!(app.masks.mask_brush, Some((None, true)));
+        assert_eq!(app.workspace.masks.mask_brush, Some((None, true)));
     }
 
     #[test]
     fn an_async_variant_push_commits_a_typed_mask_rename_first() {
         let mut app = AutoShadeApp::default();
-        app.doc.recipe.masks = vec![autoshade::recipe::LocalAdjustment {
+        app.editor.doc.recipe.masks = vec![autoshade::recipe::LocalAdjustment {
             name: "old".into(),
             ..Default::default()
         }];
         // A photo is open: its strip holds the outgoing variant that
         // push_variant snapshots the live canvas into.
-        app.doc.variants = vec![Variant {
+        app.editor.doc.variants = vec![Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Original,
@@ -736,11 +665,11 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             origin: None,
             thumb: None,
         }];
-        app.doc.active = 0;
+        app.editor.doc.active = 0;
         // The user is mid-typing "sky gradient" when a reverse-fit lands and
         // push_variant auto-switches: the switch's M15 boundary clear used to
         // discard the buffer, and the outgoing variant snapshotted "old".
-        app.masks.mask_name_buf = Some((0, "old".into(), "sky gradient".into()));
+        app.workspace.masks.mask_name_buf = Some((0, "old".into(), "sky gradient".into()));
         app.push_variant(
             Variant {
                 id: String::new(),
@@ -754,7 +683,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             &egui::Context::default(),
         );
         assert_eq!(
-            app.doc.variants[0].recipe.masks[0].name, "sky gradient",
+            app.editor.doc.variants[0].recipe.masks[0].name, "sky gradient",
             "the typed rename survives into the outgoing variant's snapshot"
         );
     }
@@ -910,15 +839,15 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     #[test]
     fn a_recipe_swap_clears_stale_rationale_notes() {
         let mut app = AutoShadeApp::default();
-        app.doc.recipe.rationale = "old english tail".into();
-        app.analysis.rationale_notes = vec![autoshade::rationale::Note::plain(
+        app.editor.doc.recipe.rationale = "old english tail".into();
+        app.editor.analysis.rationale_notes = vec![autoshade::rationale::Note::plain(
             autoshade::rationale::keys::FIT_NOTE_SAT_PEGGED,
         )];
-        app.doc.recipe = EditRecipe { rationale: "a different develop".into(), ..Default::default() };
+        app.editor.doc.recipe = EditRecipe { rationale: "a different develop".into(), ..Default::default() };
         app.resync_recipe_display();
-        assert_eq!(app.analysis.rationale, "a different develop");
+        assert_eq!(app.editor.analysis.rationale, "a different develop");
         assert!(
-            app.analysis.rationale_notes.is_empty(),
+            app.editor.analysis.rationale_notes.is_empty(),
             "stale notes must not survive a recipe swap — they rendered another rationale"
         );
     }
@@ -998,21 +927,18 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // Disclosure-once: two folder opens with Thai names disclose once.
         // (Constructed chars — see undrawable_scripts_names_the_char…)
         let thai = char::from_u32(0x0E1F).expect("probe codepoint");
-        let mut app = AutoShadeApp {
-            gal: GalleryState {
+        let mut app = AutoShadeApp { workspace: WorkspaceView { gal: GalleryState {
                 gallery: vec![std::path::PathBuf::from(format!("DSC_{thai}_01.arw"))],
             
                 ..Default::default()
-            },
-            ..Default::default()
-        };
+            }, ..Default::default() }, ..Default::default() };
         // The installed set is this test's own: the session's is
         // process-wide, and a test that ran `install_fonts` first (any
         // window-drawing test) leaves Thai in it on a machine with Tahoma.
         app.disclose_undrawable_names_given(&[]);
-        let after_first = app.chrome.toasts.len();
+        let after_first = app.workspace.chrome.toasts.len();
         assert_eq!(after_first, 1, "one script, one toast");
         app.disclose_undrawable_names_given(&[]);
-        assert_eq!(app.chrome.toasts.len(), after_first, "the second open stays silent");
-        assert!(app.analysis.disclosed_scripts.contains("thai"));
+        assert_eq!(app.workspace.chrome.toasts.len(), after_first, "the second open stays silent");
+        assert!(app.editor.analysis.disclosed_scripts.contains("thai"));
     }

@@ -14,12 +14,12 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                 // FACT agrees the flight was same-path: a stale request
                 // must never graft the outgoing photo's whole canvas,
                 // strip and history onto an incoming photo.
-                let keep = std::mem::take(&mut self.cards.keep_recipe) && self.open.open_same_path;
-                let edge_revert = self.open.edge_before_flight.take();
-                self.open.open_in_flight = false; // both arms: the transition ended
+                let keep = std::mem::take(&mut self.workspace.cards.keep_recipe) && self.workspace.open.open_same_path;
+                let edge_revert = self.workspace.open.edge_before_flight.take();
+                self.workspace.open.open_in_flight = false; // both arms: the transition ended
                 match *boxed {
                 Ok((base, (start, part), lens, as_shot, baked, src_ident, baked_note)) => {
-                    self.busy = false;
+                    self.workspace.busy = false;
                     // Surfaced BEFORE anything else can early-return
                     // (L11-3): the worker degraded to the un-retouched
                     // source, and stderr is invisible in the windowed
@@ -32,7 +32,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         );
                         self.toast(ToastKind::Error, t);
                     }
-                    if let Some(p) = self.photo.src_path.clone() {
+                    if let Some(p) = self.editor.photo.src_path.clone() {
                         self.remember_base(
                             &p,
                             &(
@@ -76,9 +76,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // edge) while the repair memo pins its FIRST answer
                     // for persistence determinism — the two agree within
                     // the estimator's documented tolerance.
-                    self.open.photo_start = start.clone();
-                    self.open.photo_lens = lens.clone();
-                    self.open.photo_as_shot = as_shot;
+                    self.workspace.open.photo_start = start.clone();
+                    self.workspace.open.photo_lens = lens.clone();
+                    self.workspace.open.photo_as_shot = as_shot;
                     if keep {
                         // Preview-resolution re-decode: the SOURCE pixels just
                         // changed resolution — keep the whole variant set,
@@ -97,8 +97,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // resurrect the pre-undo edits on the next return.
                         // (Both outcomes below keep the canvas in place, so
                         // this is unconditional.)
-                        if let Some(p) = self.photo.src_path.clone() {
-                            self.open.nav_stash.remove(&p);
+                        if let Some(p) = self.editor.photo.src_path.clone() {
+                            self.workspace.open.nav_stash.remove(&p);
                         }
                         let active_source =
                             self.active_variant().is_none_or(|v| v.base.is_none());
@@ -129,7 +129,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // canvas and edge cannot disagree in either
                             // direction (a later switch after saving
                             // re-decodes the master properly).
-                            self.genai.preview_edge = e;
+                            self.workspace.genai.preview_edge = e;
                             // The remedy is read off THIS CANVAS, never
                             // off the photo's record: a stale broken
                             // record (an ./out cleanup) plus a NEW unsaved
@@ -179,29 +179,29 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // announcing itself forever is the same lie one
                             // door along, on the surface that does not
                             // expire.
-                            self.status = t.to_string();
+                            self.workspace.status = t.to_string();
                             self.toast(ToastKind::Error, t);
                         } else {
-                            self.photo.source_preview = Some(base.clone());
-                            self.open.source_part = part.clone();
-                            self.open.source_part_inflight = None;
+                            self.editor.photo.source_preview = Some(base.clone());
+                            self.workspace.open.source_part = part.clone();
+                            self.workspace.open.source_part_inflight = None;
                             // Fresh decode = the EXIF display frame,
                             // i.e. turn 0 (`render_to_image` is given
                             // a NEUTRAL recipe). Declaring it here is
                             // what lets `sync_base_turns` put the plate
                             // into the recipe's own frame on the next
                             // frame — one mover for every path (R27).
-                            self.photo.base_turns = 0;
+                            self.editor.photo.base_turns = 0;
                             if active_source {
-                                let start = self.doc.recipe.start_only();
+                                let start = self.editor.doc.recipe.start_only();
                                 self.set_before(ctx, &base, &start);
                                 self.rebind_paint_canvas(mw, mh);
                                 // The range-mask reference develop was computed
                                 // from the OLD base — recipe-only keying would
                                 // serve it stale against these new pixels.
-                                self.overlay.overlay_ref = None;
-                                self.overlay.overlay_stale = true;
-                                self.photo.base_preview = Some(base);
+                                self.workspace.overlay.overlay_ref = None;
+                                self.workspace.overlay.overlay_stale = true;
+                                self.editor.photo.base_preview = Some(base);
                             } else if master_hit
                                 && let Some((bimg, _, _)) = &baked
                             {
@@ -212,11 +212,10 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // the old Arc are repointed — same master, new
                                 // resolution — so Ctrl+Z can't flip the canvas
                                 // back to the stale-res pixels.
-                                let old = self
-                                    .doc.variants
-                                    .get(self.doc.active)
+                                let old = self.editor.doc.variants
+                                    .get(self.editor.doc.active)
                                     .and_then(|v| v.base.clone());
-                                if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
+                                if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
                                     v.base = Some(bimg.clone());
                                 }
                                 // Bound, stated instead of implied: only
@@ -239,28 +238,28 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                             s.base = Some(bimg.clone());
                                         }
                                     };
-                                    repoint(&mut self.session.hist.committed);
-                                    self.session.hist.undo_stack.iter_mut().for_each(repoint);
-                                    self.session.hist.redo_stack.iter_mut().for_each(repoint);
+                                    repoint(&mut self.editor.session.hist.committed);
+                                    self.editor.session.hist.undo_stack.iter_mut().for_each(repoint);
+                                    self.editor.session.hist.redo_stack.iter_mut().for_each(repoint);
                                 }
                                 let (bw, bh) = bimg.dimensions();
                                 // Canvas-curve Before, same rule as every
                                 // restore path: an InPlace master is NEUTRAL
                                 // (needs the camera curve); a Generated
                                 // canvas recipe carries an empty curve.
-                                let start = self.doc.recipe.start_only();
+                                let start = self.editor.doc.recipe.start_only();
                                 self.set_before(ctx, bimg, &start);
                                 self.rebind_paint_canvas(bw, bh);
-                                self.overlay.overlay_ref = None;
-                                self.overlay.overlay_stale = true;
-                                self.photo.base_preview = Some(bimg.clone());
+                                self.workspace.overlay.overlay_ref = None;
+                                self.workspace.overlay.overlay_stale = true;
+                                self.editor.photo.base_preview = Some(bimg.clone());
                             }
-                            self.chrome.last_rgb = None; // resolution changed under the frame
-                            self.session.dirty = true;
-                            self.status = trf(
+                            self.workspace.chrome.last_rgb = None; // resolution changed under the frame
+                            self.editor.session.dirty = true;
+                            self.workspace.status = trf(
                                 lang,
                                 K_CANVAS_PREVIEW_RESOLUTION_PX_RE_DECODED,
-                                &[("px", &self.genai.preview_edge.to_string())],
+                                &[("px", &self.workspace.genai.preview_edge.to_string())],
                             );
                         }
                     } else {
@@ -273,17 +272,17 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // before_tex is built AFTER the recipe is settled
                         // below — the Before pane carries the canvas
                         // recipe's own base_curve.
-                        self.photo.source_preview = Some(base.clone());
-                        self.open.source_part = part.clone();
-                        self.open.source_part_inflight = None;
+                        self.editor.photo.source_preview = Some(base.clone());
+                        self.workspace.open.source_part = part.clone();
+                        self.workspace.open.source_part_inflight = None;
                             // Fresh decode = the EXIF display frame,
                             // i.e. turn 0 (`render_to_image` is given
                             // a NEUTRAL recipe). Declaring it here is
                             // what lets `sync_base_turns` put the plate
                             // into the recipe's own frame on the next
                             // frame — one mover for every path (R27).
-                            self.photo.base_turns = 0;
-                        self.photo.base_preview = Some(base);
+                            self.editor.photo.base_turns = 0;
+                        self.editor.photo.base_preview = Some(base);
                         let RestoredDevelop {
                             saved,
                             xmp_bad,
@@ -293,8 +292,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             clamp: clamp_dropped,
                             lr_unreadable,
                             packet_unreadable,
-                        } = self
-                            .photo.src_path
+                        } = self.editor.photo.src_path
                             .as_deref()
                             .map(read_saved_develop)
                             .unwrap_or_default();
@@ -364,10 +362,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // canvas wholesale would discard the repair (dirty_vs keeps ●
                         // safe in both directions).
                         let skip_repair = baked.as_ref().is_some_and(|(_, _, g)| *g)
-                            || self
-                                .photo.src_path
+                            || self.editor.photo.src_path
                                 .as_ref()
-                                .is_some_and(|p| self.open.nav_stash.contains_key(p));
+                                .is_some_and(|p| self.workspace.open.nav_stash.contains_key(p));
                         let ResolvedSaved {
                             mut recipe,
                             restored,
@@ -378,10 +375,10 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             lang,
                             saved,
                             skip_repair,
-                            self.photo.src_path.as_deref(),
+                            self.editor.photo.src_path.as_deref(),
                         );
                         if unresolved {
-                            self.open.open_unresolved = true;
+                            self.workspace.open.open_unresolved = true;
                         }
                         // A6 disclosure: numeric settings in the restored
                         // XMP that do not parse imported as SILENT
@@ -439,7 +436,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // The saved develop is the ● baseline; a canvas
                         // stashed when the user navigated away THIS session
                         // outranks it — that stash is their newest work.
-                        self.session.hist.saved_recipe = recipe.clone();
+                        self.editor.session.hist.saved_recipe = recipe.clone();
                         let mut from_stash = false;
                         // The stash (this session's newest work) outranks
                         // disk WHOLESALE — recipe and pixel identity both:
@@ -447,7 +444,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // was undone) must not resurrect disk pixels.
                         // Disk truth for the per-frame ● comparison —
                         // captured BEFORE the stash override below.
-                        self.session.hist.pixels_on_disk = baked.as_ref().map(|(_, o, _)| o.clone());
+                        self.editor.session.hist.pixels_on_disk = baked.as_ref().map(|(_, o, _)| o.clone());
                         // A RECORDED master that arrived as None failed to
                         // decode/resolve in the worker (it only eprintln'd
                         // there) — a desktop-launched GUI would otherwise
@@ -461,7 +458,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // corrupt pixels.json. Those are precisely the
                         // cases the user must be told about.
                         if baked.is_none()
-                            && let Some(p) = self.photo.src_path.as_deref()
+                            && let Some(p) = self.editor.photo.src_path.as_deref()
                             && autoshade::store::has_pixel_source(p)
                         {
                             let t = tr(
@@ -495,7 +492,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         let mut active_id = ORIGINAL_VARIANT_ID.to_string();
                         let mut active_name: Option<String> = None;
                         if let Some(st) =
-                            self.photo.src_path.as_ref().and_then(|p| self.open.nav_stash.remove(p))
+                            self.editor.photo.src_path.as_ref().and_then(|p| self.workspace.open.nav_stash.remove(p))
                         {
                             recipe = st.recipe;
                             active_kind = st.kind;
@@ -561,7 +558,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // `!= Generated`; they ask
                             // `VariantKind::is_source_based` now, so a
                             // new kind cannot inherit the answer.
-                            if let Some(p) = self.photo.src_path.clone() {
+                            if let Some(p) = self.editor.photo.src_path.clone() {
                                 let mut relooked = active_kind.is_source_based()
                                     && autoshade::pipeline::repair_pre_era_base_curve(
                                         &p, &mut recipe,
@@ -592,8 +589,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // outranks it wholesale: it is also the mirror
                         // the background-variant dirty test compares
                         // against (see `open_dirty_variants`).
-                        let disk_strip = match self
-                            .photo.src_path
+                        let disk_strip = match self.editor.photo.src_path
                             .as_deref()
                             .map(autoshade::store::read_variants_checked)
                         {
@@ -640,10 +636,10 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             );
                             active_name = rec.active_name.clone();
                         }
-                        self.doc.recipe = recipe.clone();
-                        self.analysis.rationale = recipe.rationale.clone();
-                        self.analysis.rationale_notes.clear(); // disk restore carries no typed notes
-                        self.doc.variants = vec![Variant {
+                        self.editor.doc.recipe = recipe.clone();
+                        self.editor.analysis.rationale = recipe.rationale.clone();
+                        self.editor.analysis.rationale_notes.clear(); // disk restore carries no typed notes
+                        self.editor.doc.variants = vec![Variant {
                             // A PENDING master keeps its stashed kind: the
                             // Fitted-or-Original collapse renamed a still-
                             // decoding Generated card to 「▣ 原片」, and a
@@ -662,13 +658,13 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             origin: None,
                             thumb: None,
                         }];
-                        self.doc.active = 0;
+                        self.editor.doc.active = 0;
                         // Before = this photo's starting point under the
                         // canvas recipe's own base calibration: stamped
                         // fresh opens compare bright, legacy saves compare
                         // as originally tuned.
-                        if let Some(b) = self.photo.base_preview.clone() {
-                            let start = self.doc.recipe.start_only();
+                        if let Some(b) = self.editor.photo.base_preview.clone() {
+                            let start = self.editor.doc.recipe.start_only();
                             self.set_before(ctx, &b, &start);
                         }
                         // A fresh, fully-transparent paint mask sized to the
@@ -678,7 +674,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // would have baked the old photo's strokes into this
                         // photo's mask list).
                         self.rebind_paint_canvas(mw, mh);
-                        self.masks.paint_mode = false;
+                        self.workspace.masks.paint_mode = false;
                         if let Some((bimg, borigin, generated)) = pixels {
                             // Restore the baked pixel master (persisted
                             // pixels.json, or this session's stash): the
@@ -694,7 +690,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // (same rule as analyzing a baked variant) or
                             // curve + lens geometry would cook it twice.
                             let (bw, bh) = bimg.dimensions();
-                            if let Some(v) = self.doc.variants.get_mut(0) {
+                            if let Some(v) = self.editor.doc.variants.get_mut(0) {
                                 v.base = Some(bimg.clone());
                                 v.origin = Some(borigin);
                                 if generated {
@@ -710,11 +706,11 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 }
                             }
                             if generated {
-                                self.doc.recipe.strip_baked_start();
-                                self.doc.recipe.as_shot_k = None;
-                                self.doc.recipe.as_shot_tint = None;
-                                if let Some(v) = self.doc.variants.get_mut(0) {
-                                    v.recipe = self.doc.recipe.clone();
+                                self.editor.doc.recipe.strip_baked_start();
+                                self.editor.doc.recipe.as_shot_k = None;
+                                self.editor.doc.recipe.as_shot_tint = None;
+                                if let Some(v) = self.editor.doc.variants.get_mut(0) {
+                                    v.recipe = self.editor.doc.recipe.clone();
                                 }
                                 // The ● baseline lives in CANVAS
                                 // coordinates (same rule as the Analyze
@@ -723,9 +719,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // canvas against it lit ● on lens_profile
                                 // the instant a clean generated save
                                 // opened.
-                                self.session.hist.saved_recipe.strip_baked_start();
-                                self.session.hist.saved_recipe.as_shot_k = None;
-                                self.session.hist.saved_recipe.as_shot_tint = None;
+                                self.editor.session.hist.saved_recipe.strip_baked_start();
+                                self.editor.session.hist.saved_recipe.as_shot_k = None;
+                                self.editor.session.hist.saved_recipe.as_shot_tint = None;
                             }
                             // Before under the canvas recipe's own curve:
                             // empty for a Generated master (stripped just
@@ -733,9 +729,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // camera curve for an InPlace master, whose
                             // pixels are a NEUTRAL develop (an empty curve
                             // there compared 0.6–1.4 EV dark).
-                            let start = self.doc.recipe.start_only();
+                            let start = self.editor.doc.recipe.start_only();
                             self.set_before(ctx, &bimg, &start);
-                            self.photo.base_preview = Some(bimg);
+                            self.editor.photo.base_preview = Some(bimg);
                             self.rebind_paint_canvas(bw, bh);
                         }
                         if let Some(o) = pending_master.clone() {
@@ -744,10 +740,10 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // one is somehow still in flight). Until it
                             // lands the canvas shows the source develop
                             // under spawn_master_load's disclosure.
-                            if let Some(v) = self.doc.variants.get_mut(0) {
+                            if let Some(v) = self.editor.doc.variants.get_mut(0) {
                                 v.origin = Some(o.clone());
                             }
-                            if let Some(photo) = self.photo.src_path.clone() {
+                            if let Some(photo) = self.editor.photo.src_path.clone() {
                                 self.spawn_master_load(ctx, photo, o);
                             }
                         }
@@ -756,7 +752,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // the active canvas alone, silently dropping
                         // every other variant's unsaved work.
                         if from_stash && !stash_others.is_empty() {
-                            let active_v = self.doc.variants.remove(0);
+                            let active_v = self.editor.doc.variants.remove(0);
                             let mut strip: Vec<Variant> = stash_others
                                 .drain(..)
                                 .map(|sv| Variant {
@@ -773,8 +769,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 .collect();
                             let pos = stash_active_pos.min(strip.len());
                             strip.insert(pos, active_v);
-                            self.doc.variants = strip;
-                            self.doc.active = pos;
+                            self.editor.doc.variants = strip;
+                            self.editor.doc.active = pos;
                         } else if !from_stash
                             && let Some(rec) = &disk_strip
                             && !rec.others.is_empty()
@@ -790,13 +786,13 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // BEING the canvas. (dirty_vs neutralises
                             // version/base_curve, so healing the live
                             // strip never lights ● against the mirror.)
-                            let active_v = self.doc.variants.remove(0);
+                            let active_v = self.editor.doc.variants.remove(0);
                             let (mut strip, strip_dropped) =
-                                strip_from_record(rec, self.photo.src_path.as_deref());
+                                strip_from_record(rec, self.editor.photo.src_path.as_deref());
                             let pos = rec.active_pos.min(strip.len());
                             strip.insert(pos, active_v);
-                            self.doc.variants = strip;
-                            self.doc.active = pos;
+                            self.editor.doc.variants = strip;
+                            self.editor.doc.active = pos;
                             // The strip's own W20 disclosure, beside the
                             // active card's above: a card past the caps
                             // is one click from being the canvas.
@@ -829,48 +825,48 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 ),
                             );
                         }
-                        self.session.hist.saved_strip = disk_strip;
+                        self.editor.session.hist.saved_strip = disk_strip;
                         // The strip is settled: each card's "Keep skin
                         // natural" is decided against the edit just read
                         // (`panels/portrait.rs`) — opening never changes
                         // a value.
                         self.decide_keep_skin_for_photo();
-                        self.chrome.last_rgb = None; // retained frame was the old photo's
+                        self.workspace.chrome.last_rgb = None; // retained frame was the old photo's
                         self.reset_history(); // a new photo starts a fresh undo history
-                        self.overlay.region = None; // and a fresh local-edit selection
-                        self.overlay.region_drag = None;
+                        self.workspace.overlay.region = None; // and a fresh local-edit selection
+                        self.workspace.overlay.region_drag = None;
                         // View + tool state is per-photo.
-                        self.view.zoom = 1.0;
-                        self.view.zoom_target = 1.0; // instant — no glide across photos
-                        self.view.pan = egui::vec2(0.5, 0.5);
+                        self.workspace.view.zoom = 1.0;
+                        self.workspace.view.zoom_target = 1.0; // instant — no glide across photos
+                        self.workspace.view.pan = egui::vec2(0.5, 0.5);
                         self.disarm_tools();
                         // The \-latch is per-photo transient state:
                         // carried across an open, the new photo arrived
                         // with every tool locked out (M21).
-                        self.view.before = false;
-                        self.masks.sel_mask = None;
-                        self.masks.sel_component = None;
-                        self.overlay.overlay_ref = None; // the reference develop belongs to ONE base
-                        self.overlay.overlay_stale = true;
-                        self.curve_drag = None; // curve_channel is a UI pref, keep it
-                        self.tools.wb_picking = false;
-                        self.tools.range_picking = None;
-                        self.tools.clone_mode = false;
-                        self.tools.clone_src = None;
-                        self.analysis.verdict = None;
+                        self.workspace.view.before = false;
+                        self.workspace.masks.sel_mask = None;
+                        self.workspace.masks.sel_component = None;
+                        self.workspace.overlay.overlay_ref = None; // the reference develop belongs to ONE base
+                        self.workspace.overlay.overlay_stale = true;
+                        self.workspace.curve_drag = None; // curve_channel is a UI pref, keep it
+                        self.workspace.tools.wb_picking = false;
+                        self.workspace.tools.range_picking = None;
+                        self.workspace.tools.clone_mode = false;
+                        self.workspace.tools.clone_src = None;
+                        self.editor.analysis.verdict = None;
                         // R23-6 B: the chosen reverse-fit reference names
                         // a rendition of THE PREVIOUS photo. Carried
                         // across an open it would silently fit this photo
                         // against the last one's export — the exact
                         // "reference is not this frame" case the fit can
                         // now only warn about.
-                        self.fit.fit_ref = None;
-                        self.fit.fit_from = None; // …and so does a picked source card
-                        self.fit.fit_prompt = None; // …and the question about one
+                        self.workspace.fit.fit_ref = None;
+                        self.workspace.fit.fit_from = None; // …and so does a picked source card
+                        self.workspace.fit.fit_prompt = None; // …and the question about one
                         // (rationale already restored alongside the recipe)
                         self.refresh_versions(); // version snapshots are per-photo
-                        self.session.dirty = true; // render the (restored or neutral) after
-                        self.status = if from_stash {
+                        self.editor.session.dirty = true; // render the (restored or neutral) after
+                        self.workspace.status = if from_stash {
                             tr(
                                 lang,
                                 K_CANVAS_READY_RESTORED_THIS_SESSION_S_UNSAVED_EDITS_NOT,
@@ -899,7 +895,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 K_CANVAS_RESTORED_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE,
                                 &[("px", &px.to_string())],
                             );
-                            self.status.push_str(&extra);
+                            self.workspace.status.push_str(&extra);
                         }
                         if let Some(note) = open_note {
                             // Sidecar anomalies must be seen, not scrolled
@@ -919,16 +915,16 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // no-photo state so src_path and the variants can never
                         // disagree. (A preview-res re-decode failure — keep —
                         // leaves the still-open photo untouched.)
-                        self.photo.src_path = None;
-                        self.doc.variants.clear();
-                        self.doc.active = 0;
-                        self.photo.base_preview = None;
-                        self.photo.source_preview = None;
-                        self.open.source_part = Default::default();
-                        self.open.source_part_inflight = None;
-                        self.plates.before_tex = None;
-                        self.plates.after_tex = None;
-                        self.gal.selected = None;
+                        self.editor.photo.src_path = None;
+                        self.editor.doc.variants.clear();
+                        self.editor.doc.active = 0;
+                        self.editor.photo.base_preview = None;
+                        self.editor.photo.source_preview = None;
+                        self.workspace.open.source_part = Default::default();
+                        self.workspace.open.source_part_inflight = None;
+                        self.editor.plates.before_tex = None;
+                        self.editor.plates.after_tex = None;
+                        self.workspace.gal.selected = None;
                         // …and its HISTORY, which this arm used to leave
                         // standing: the steps hold the dead photo's
                         // rasters and its recipe, so an undo here restored
@@ -939,7 +935,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // photo's unsaved work is NOT lost — open_path
                         // stashed it before the flight.
                         self.reset_history();
-                    } else if let Some(p) = self.photo.src_path.clone() {
+                    } else if let Some(p) = self.editor.photo.src_path.clone() {
                         // A preview-res re-decode failed: the photo (and
                         // its live canvas) is untouched — consume the
                         // stash entry the same-path open_path call just
@@ -947,7 +943,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // Left behind, an undo-to-clean before the next
                         // navigation resurrected these pre-undo edits on
                         // the way back (CX4-4).
-                        self.open.nav_stash.remove(&p);
+                        self.workspace.open.nav_stash.remove(&p);
                         // ...and the switch never materialized: the
                         // canvas kept the OLD edge, so preview_edge
                         // reverts with it (the busy-refusal rule) —
@@ -955,7 +951,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // resolution and fed it to every bake site under
                         // an old-edge canvas.
                         if let Some(e) = edge_revert {
-                            self.genai.preview_edge = e;
+                            self.workspace.genai.preview_edge = e;
                         }
                     }
                 }
@@ -965,8 +961,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
 pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usize, img: anyhow::Result<image::DynamicImage>) {
                 // Ignore thumbnails from a previous folder generation (their
                 // inflight count was already discarded when the folder changed).
-                if generation == self.gal.gallery_gen {
-                    self.gal.thumb_inflight = self.gal.thumb_inflight.saturating_sub(1);
+                if generation == self.workspace.gal.gallery_gen {
+                    self.workspace.gal.thumb_inflight = self.workspace.gal.thumb_inflight.saturating_sub(1);
                     match img {
                         Ok(im) => {
                             let tex = ctx.load_texture(
@@ -974,7 +970,7 @@ pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usi
                                 to_color_image(&im),
                                 egui::TextureOptions::LINEAR,
                             );
-                            self.gal.thumbs.insert(idx, tex);
+                            self.workspace.gal.thumbs.insert(idx, tex);
                         }
                         Err(_) => {
                             // Count the failure and release the queue slot:
@@ -983,8 +979,8 @@ pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usi
                             // share) still recovers on a later frame while
                             // an undecodable file stops for good instead of
                             // respawning decode threads every frame.
-                            *self.gal.thumb_fail.entry(idx).or_insert(0) += 1;
-                            self.gal.thumb_requested.remove(&idx);
+                            *self.workspace.gal.thumb_fail.entry(idx).or_insert(0) += 1;
+                            self.workspace.gal.thumb_requested.remove(&idx);
                         }
                     }
                 }
@@ -997,10 +993,10 @@ pub(crate) fn on_base_redeveloped(
     part: autoshade::render::BasePart,
     img: anyhow::Result<Arc<image::DynamicImage>>,
 ) {
-    if self.open.source_part_inflight.as_ref() == Some(&part) {
-        self.open.source_part_inflight = None;
+    if self.workspace.open.source_part_inflight.as_ref() == Some(&part) {
+        self.workspace.open.source_part_inflight = None;
     }
-    if self.photo.src_path.as_deref() != Some(path.as_path()) {
+    if self.editor.photo.src_path.as_deref() != Some(path.as_path()) {
         return;
     }
     let img = match img {
@@ -1015,29 +1011,29 @@ pub(crate) fn on_base_redeveloped(
             // Said once, then the canvas shows over the base there is:
             // asking again on every frame would repeat a develop that
             // has already failed.
-            self.open.source_part = part;
-            self.session.dirty = true;
+            self.workspace.open.source_part = part;
+            self.editor.session.dirty = true;
             return;
         }
     };
-    let turns = self.photo.base_turns % 4;
+    let turns = self.editor.photo.base_turns % 4;
     let img = if turns == 0 {
         img
     } else {
         Arc::new(autoshade::render::turn_image((*img).clone(), turns))
     };
-    self.photo.source_preview = Some(img.clone());
-    self.open.source_part = part;
+    self.editor.photo.source_preview = Some(img.clone());
+    self.workspace.open.source_part = part;
     if self.active_variant().is_none_or(|v| v.base.is_none()) {
-        self.photo.base_preview = Some(img.clone());
-        let start = self.doc.recipe.start_only();
+        self.editor.photo.base_preview = Some(img.clone());
+        let start = self.editor.doc.recipe.start_only();
         self.set_before(ctx, &img, &start);
         let (mw, mh) = img.dimensions();
         self.rebind_paint_canvas(mw, mh);
-        self.overlay.overlay_ref = None;
-        self.overlay.overlay_stale = true;
-        self.chrome.last_rgb = None;
+        self.workspace.overlay.overlay_ref = None;
+        self.workspace.overlay.overlay_stale = true;
+        self.workspace.chrome.last_rgb = None;
     }
-    self.session.dirty = true;
+    self.editor.session.dirty = true;
 }
 }

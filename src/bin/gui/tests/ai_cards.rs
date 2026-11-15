@@ -10,40 +10,40 @@
         let (mut app, _ctx, _dir, _src, master, ai_px, _scrub) =
             ai_card_fixture("fork", EditRecipe::default());
         assert_eq!(strip_kinds(&app), vec![VariantKind::Original, VariantKind::Generated]);
-        assert_eq!(app.doc.active, 1);
-        assert!(app.doc.recipe.is_noop(), "premise: the ✨ card is pristine");
-        assert!(!app.unsaved_marker_dirty(), "premise: a clean open — {}", app.status);
+        assert_eq!(app.editor.doc.active, 1);
+        assert!(app.editor.doc.recipe.is_noop(), "premise: the ✨ card is pristine");
+        assert!(!app.unsaved_marker_dirty(), "premise: a clean open — {}", app.workspace.status);
         assert!(!app.fork_edited_card(), "a neutral recipe on the ✨ card forks nothing");
-        assert_eq!(app.doc.variants.len(), 2);
+        assert_eq!(app.editor.doc.variants.len(), 2);
 
-        app.doc.recipe.contrast = 7.0;
-        app.session.dirty = true;
+        app.editor.doc.recipe.contrast = 7.0;
+        app.editor.session.dirty = true;
         assert!(app.fork_edited_card(), "the first edit forks");
         assert_eq!(
             strip_kinds(&app),
             vec![VariantKind::Original, VariantKind::Generated, VariantKind::Edited]
         );
-        assert_eq!(app.doc.active, 2);
-        assert_eq!(app.doc.variants[2].recipe.contrast, 7.0);
-        assert!(app.doc.variants[1].recipe.is_noop(), "the ✨ card is pristine again");
-        assert_eq!(app.doc.variants[1].id, "gen-1", "…and keeps its identity");
-        assert_eq!(app.doc.variants[1].name.as_deref(), Some("sky"), "…and its name");
+        assert_eq!(app.editor.doc.active, 2);
+        assert_eq!(app.editor.doc.variants[2].recipe.contrast, 7.0);
+        assert!(app.editor.doc.variants[1].recipe.is_noop(), "the ✨ card is pristine again");
+        assert_eq!(app.editor.doc.variants[1].id, "gen-1", "…and keeps its identity");
+        assert_eq!(app.editor.doc.variants[1].name.as_deref(), Some("sky"), "…and its name");
         assert!(
-            !app.doc.variants[2].id.is_empty() && app.doc.variants[2].id != "gen-1",
+            !app.editor.doc.variants[2].id.is_empty() && app.editor.doc.variants[2].id != "gen-1",
             "the ✎ card is born with its own identity"
         );
-        assert_eq!(app.doc.variants[2].name, None);
+        assert_eq!(app.editor.doc.variants[2].name, None);
         assert!(
-            app.doc.variants[2].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ai_px)),
+            app.editor.doc.variants[2].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ai_px)),
             "the same pixels"
         );
-        assert_eq!(app.doc.variants[2].origin.as_deref(), Some(master.as_path()));
-        assert_eq!(app.doc.recipe.contrast, 7.0, "the canvas is untouched");
-        assert!(app.session.dirty, "…and its pending develop still runs");
+        assert_eq!(app.editor.doc.variants[2].origin.as_deref(), Some(master.as_path()));
+        assert_eq!(app.editor.doc.recipe.contrast, 7.0, "the canvas is untouched");
+        assert!(app.editor.session.dirty, "…and its pending develop still runs");
         assert!(!app.fork_edited_card(), "an ✎ card never forks");
-        assert_eq!(app.doc.variants.len(), 3);
+        assert_eq!(app.editor.doc.variants.len(), 3);
         assert!(app.unsaved_marker_dirty(), "a new card is unsaved work");
-        assert!(app.chrome.toasts.iter().any(|t| t.text.contains("✎")), "said by toast");
+        assert!(app.workspace.chrome.toasts.iter().any(|t| t.text.contains("✎")), "said by toast");
 
     }
 
@@ -67,13 +67,13 @@
             strip_kinds(&app),
             vec![VariantKind::Original, VariantKind::Generated, VariantKind::Edited],
             "{}",
-            app.status
+            app.workspace.status
         );
-        assert_eq!(app.doc.active, 2);
-        assert_eq!(app.doc.recipe.contrast, 7.0);
-        assert!(app.doc.recipe.base_curve.is_empty(), "calibration stripped onto AI pixels");
-        assert!(app.doc.variants[1].recipe.is_noop(), "the ✨ card stays pristine");
-        assert!(app.status.starts_with("Loaded version v1"), "{}", app.status);
+        assert_eq!(app.editor.doc.active, 2);
+        assert_eq!(app.editor.doc.recipe.contrast, 7.0);
+        assert!(app.editor.doc.recipe.base_curve.is_empty(), "calibration stripped onto AI pixels");
+        assert!(app.editor.doc.variants[1].recipe.is_noop(), "the ✨ card stays pristine");
+        assert!(app.workspace.status.starts_with("Loaded version v1"), "{}", app.workspace.status);
     }
 
     /// The Analyze landing forks BEFORE it persists, so the record it writes
@@ -82,7 +82,7 @@
     fn an_analyze_landing_on_the_pristine_ai_card_forks_before_it_saves() {
         let (mut app, _ctx, _dir, src, master, _ai_px, _scrub) =
             ai_card_fixture("analyze", EditRecipe::default());
-        let epoch = app.tools.gen_epoch;
+        let epoch = app.workspace.tools.gen_epoch;
         app.on_analyzed(
             Lang::En,
             epoch,
@@ -104,12 +104,12 @@
             strip_kinds(&app),
             vec![VariantKind::Original, VariantKind::Generated, VariantKind::Edited],
             "{}",
-            app.status
+            app.workspace.status
         );
-        assert_eq!(app.doc.active, 2);
-        assert_eq!(app.doc.recipe.contrast, 7.0);
-        assert!(app.doc.recipe.base_curve.is_empty());
-        assert!(app.doc.variants[1].recipe.is_noop());
+        assert_eq!(app.editor.doc.active, 2);
+        assert_eq!(app.editor.doc.recipe.contrast, 7.0);
+        assert!(app.editor.doc.recipe.base_curve.is_empty());
+        assert!(app.editor.doc.variants[1].recipe.is_noop());
         let rec = saved_strip_of(&src);
         assert_eq!(rec.active_kind, "edited");
         assert_eq!(rec.active_pos, 2);
@@ -129,7 +129,7 @@
         assert!(generated);
         assert_eq!(origin, master);
         assert!(!autoshade::pipeline::xmp_target(&src).exists(), "no projection over AI pixels");
-        assert!(!app.unsaved_marker_dirty(), "the landing saved the forked strip: {}", app.status);
+        assert!(!app.unsaved_marker_dirty(), "the landing saved the forked strip: {}", app.workspace.status);
     }
 
     /// 2026-10-01 (user decision, replacing 2026-09-15's new-card landing): a
@@ -143,11 +143,10 @@
     fn a_fill_lands_as_a_layer_on_the_card_it_was_made_on() {
         let ctx = egui::Context::default();
         let src = std::path::PathBuf::from("_fill_layer_test.ARW");
-        let mut app = AutoShadeApp { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
      src_path: Some(src.clone()),
      ..Default::default()
- },
- ..Default::default() };
+ }, ..Default::default() }, ..Default::default() };
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
         let developed = EditRecipe { contrast: 7.0, ..Default::default() };
         let card = |kind, id: &str, recipe: &EditRecipe, origin: Option<std::path::PathBuf>| Variant {
@@ -159,14 +158,14 @@
             origin,
             thumb: None,
         };
-        app.doc.variants = vec![card(VariantKind::Original, ORIGINAL_VARIANT_ID, &developed, None)];
-        app.doc.active = 0;
-        app.doc.recipe = developed.clone();
-        app.photo.base_preview = Some(b0.clone());
+        app.editor.doc.variants = vec![card(VariantKind::Original, ORIGINAL_VARIANT_ID, &developed, None)];
+        app.editor.doc.active = 0;
+        app.editor.doc.recipe = developed.clone();
+        app.editor.photo.base_preview = Some(b0.clone());
         app.reset_history();
         let out = std::path::PathBuf::from("out/_fill_layer_test.fill.png");
         let land = |app: &mut AutoShadeApp| {
-            let epoch = app.tools.gen_epoch;
+            let epoch = app.workspace.tools.gen_epoch;
             app.on_retouched(
                 &ctx,
                 Lang::En,
@@ -175,35 +174,35 @@
             );
         };
         land(&mut app);
-        assert_eq!(strip_kinds(&app), vec![VariantKind::Original], "{}", app.status);
-        assert_eq!(app.doc.active, 0, "the canvas stays on the card it filled");
-        let layers = &app.doc.recipe.pixel_layers;
+        assert_eq!(strip_kinds(&app), vec![VariantKind::Original], "{}", app.workspace.status);
+        assert_eq!(app.editor.doc.active, 0, "the canvas stays on the card it filled");
+        let layers = &app.editor.doc.recipe.pixel_layers;
         assert_eq!(layers.len(), 1, "one layer on the card");
         assert!(layers[0].draws(), "a new layer is on, at full opacity");
         let abs = std::path::absolute(&out).unwrap();
         assert_eq!(layers[0].path, abs.display().to_string(), "the layer names its file absolutely");
-        assert_eq!(app.doc.recipe.contrast, 7.0, "the card keeps its develop under the layer");
+        assert_eq!(app.editor.doc.recipe.contrast, 7.0, "the card keeps its develop under the layer");
         assert!(
-            app.doc.variants[0].base.as_ref().is_some_and(|b| std::sync::Arc::ptr_eq(b, &b0)),
+            app.editor.doc.variants[0].base.as_ref().is_some_and(|b| std::sync::Arc::ptr_eq(b, &b0)),
             "…and its base"
         );
-        assert_eq!(app.doc.variants[0].origin, None, "…and its pixel source");
-        assert!(app.status.contains("layer"), "{}", app.status);
+        assert_eq!(app.editor.doc.variants[0].origin, None, "…and its pixel source");
+        assert!(app.workspace.status.contains("layer"), "{}", app.workspace.status);
         app.undo(&ctx);
-        assert!(app.doc.recipe.pixel_layers.is_empty(), "one Ctrl+Z takes the layer off");
-        assert_eq!(app.doc.recipe.contrast, 7.0, "…and only the layer");
+        assert!(app.editor.doc.recipe.pixel_layers.is_empty(), "one Ctrl+Z takes the layer off");
+        assert_eq!(app.editor.doc.recipe.contrast, 7.0, "…and only the layer");
 
         // On a pristine ✨ card: the layer continues on an ✎ card.
         let generated = EditRecipe::default();
-        app.doc.variants = vec![card(VariantKind::Generated, "gen", &generated, Some("out/_fill_layer_test.reimagine.png".into()))];
-        app.doc.active = 0;
-        app.doc.recipe = generated.clone();
+        app.editor.doc.variants = vec![card(VariantKind::Generated, "gen", &generated, Some("out/_fill_layer_test.reimagine.png".into()))];
+        app.editor.doc.active = 0;
+        app.editor.doc.recipe = generated.clone();
         app.reset_history();
         land(&mut app);
         assert_eq!(strip_kinds(&app), vec![VariantKind::Generated, VariantKind::Edited]);
-        assert_eq!(app.doc.active, 1, "the ✎ card is under the canvas");
-        assert!(app.doc.variants[0].recipe.pixel_layers.is_empty(), "the ✨ card stays as generated");
-        assert_eq!(app.doc.recipe.pixel_layers.len(), 1, "the layer is the ✎ card's");
+        assert_eq!(app.editor.doc.active, 1, "the ✎ card is under the canvas");
+        assert!(app.editor.doc.variants[0].recipe.pixel_layers.is_empty(), "the ✨ card stays as generated");
+        assert_eq!(app.editor.doc.recipe.pixel_layers.len(), 1, "the layer is the ✎ card's");
 
     }
 
@@ -224,8 +223,7 @@
                     crop: Some(autoshade::recipe::Crop { top: 0.1, left: 0.1, bottom: 0.9, right: 0.9 }),
                     ..Default::default()
                 };
-                let mut app = AutoShadeApp {
-                    photo: PhotoPixels {
+                let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                         src_path: Some(src.clone()),
 
@@ -233,9 +231,7 @@
 
                         ..Default::default()
 
-                    },
-
-                    doc: Document {
+                    }, doc: Document {
 
 
                         variants: vec![Variant {
@@ -248,10 +244,7 @@
                         ..Default::default()
 
 
-                    },
-
-                    ..Default::default()
-                };
+                    }, ..Default::default() }, ..Default::default() };
                 app.reset_history();
                 let out = unique_out(&src, "adjust").unwrap();
                 assert_eq!(out.file_name().unwrap().to_string_lossy(),
@@ -260,20 +253,20 @@
                 assert_eq!(second.file_name().unwrap().to_string_lossy(),
                     format!("adjust-{lang:?}-{region}.adjust-2.png"));
                 release_empty_claim(&second);
-                let source_recipe = app.doc.variants[0].recipe.clone();
-                app.on_retouched(&ctx, lang, app.tools.gen_epoch, Ok((
+                let source_recipe = app.editor.doc.variants[0].recipe.clone();
+                app.on_retouched(&ctx, lang, app.workspace.tools.gen_epoch, Ok((
                     image::DynamicImage::new_rgb8(4, 4),
                     RetouchNote::Adjusted { out: out.clone(), region, divergence: (!region).then_some(0.12) },
                     out.clone(), RetouchKind::NewGenerated,
                 )));
                 assert_eq!(strip_kinds(&app), vec![VariantKind::Generated, VariantKind::Generated]);
-                assert_eq!(app.doc.active, 1, "the new adjusted card is active");
-                assert_eq!(app.doc.variants[0].origin.as_ref(), Some(&origin), "the source keeps its pixels");
-                assert_eq!(app.doc.variants[0].recipe, source_recipe, "the source keeps its recipe");
-                assert!(Arc::ptr_eq(app.doc.variants[0].base.as_ref().unwrap(), &base));
-                assert_eq!(app.doc.variants[1].origin.as_ref(), Some(&out));
+                assert_eq!(app.editor.doc.active, 1, "the new adjusted card is active");
+                assert_eq!(app.editor.doc.variants[0].origin.as_ref(), Some(&origin), "the source keeps its pixels");
+                assert_eq!(app.editor.doc.variants[0].recipe, source_recipe, "the source keeps its recipe");
+                assert!(Arc::ptr_eq(app.editor.doc.variants[0].base.as_ref().unwrap(), &base));
+                assert_eq!(app.editor.doc.variants[1].origin.as_ref(), Some(&out));
                 assert_eq!(app.active_source_path().as_ref(), Some(&out), "the next adjust follows this master");
-                assert!(app.doc.recipe.is_noop() && app.doc.variants[1].recipe.is_noop());
+                assert!(app.editor.doc.recipe.is_noop() && app.editor.doc.variants[1].recipe.is_noop());
                 assert_eq!(app.fit_target().as_ref(), Some(&out), "reverse-fit reads the new generated card");
                 let note = match (lang, region) {
                     (Lang::En, true) => "adjusted → new ✨ card (painted area only)",
@@ -281,21 +274,21 @@
                     (Lang::Zh, true) => "已调整 → 新 ✨ 卡（只改涂抹区域）",
                     (Lang::Zh, false) => "已调整 → 新 ✨ 卡（整张图，结构偏离 D = 0.12）",
                 };
-                assert!(app.status.starts_with(note), "landing language: {}", app.status);
+                assert!(app.workspace.status.starts_with(note), "landing language: {}", app.workspace.status);
                 // An edited AI card's non-neutral develop is just as immutable
                 // under another adjust; crop/straighten do not reach the result.
-                app.doc.variants[1].kind = VariantKind::Edited;
-                app.doc.variants[1].recipe = developed.clone();
-                app.doc.recipe = developed.clone();
-                app.on_retouched(&ctx, lang, app.tools.gen_epoch, Ok((
+                app.editor.doc.variants[1].kind = VariantKind::Edited;
+                app.editor.doc.variants[1].recipe = developed.clone();
+                app.editor.doc.recipe = developed.clone();
+                app.on_retouched(&ctx, lang, app.workspace.tools.gen_epoch, Ok((
                     image::DynamicImage::new_rgb8(4, 4),
                     RetouchNote::Adjusted { out: second.clone(), region, divergence: (!region).then_some(0.0) },
                     second.clone(), RetouchKind::NewGenerated,
                 )));
-                assert_eq!(app.doc.active, 2);
-                assert_eq!(app.doc.variants[1].recipe, developed);
-                assert_eq!(app.doc.variants[1].origin.as_ref(), Some(&out));
-                assert!(app.doc.variants[2].recipe.is_noop());
+                assert_eq!(app.editor.doc.active, 2);
+                assert_eq!(app.editor.doc.variants[1].recipe, developed);
+                assert_eq!(app.editor.doc.variants[1].origin.as_ref(), Some(&out));
+                assert!(app.editor.doc.variants[2].recipe.is_noop());
                 release_empty_claim(&out);
             }
         }        let _ = std::fs::remove_dir_all(&dir);
@@ -325,28 +318,25 @@
     #[test]
     fn the_adjust_verb_is_disabled_off_ai_pixels_and_with_no_prompt_and_no_strokes() {
         // The fold's own area is the live canvas here.
-        let mut app = AutoShadeApp {
-            masks: MaskEditState {
+        let mut app = AutoShadeApp { workspace: WorkspaceView { masks: MaskEditState {
                 paint_owner: BrushOwner::Adjust,
                 ..Default::default()
-            },
-            ..Default::default()
-        };
+            }, ..Default::default() }, ..Default::default() };
         // Off AI pixels, empty AI input, and useful AI input are the three
         // states. Both Generated and Edited count; busy still disables them.
         for kind in [VariantKind::Original, VariantKind::Fitted, VariantKind::Denoised,
             VariantKind::Stacked, VariantKind::Generated, VariantKind::Edited]
         {
-            app.doc.variants = vec![Variant {
+            app.editor.doc.variants = vec![Variant {
                 id: new_variant_id(), name: None, kind, recipe: EditRecipe::default(),
                 base: None, origin: None, thumb: None,
             }];
             for (prompt, strokes, busy) in [("bluer sky", false, false), (" \t ", false, false),
                 ("", true, false), ("bluer sky", true, true)]
             {
-                app.genai.adjust_prompt = prompt.into();
-                app.busy = busy;
-                app.masks.mask_paint = strokes.then(|| image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, 160])));
+                app.workspace.genai.adjust_prompt = prompt.into();
+                app.workspace.busy = busy;
+                app.workspace.masks.mask_paint = strokes.then(|| image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, 160])));
                 app.paint_mask_changed(None);
                 draw_adjust_panel(&mut app);
                 let want = !busy && kind.on_ai_pixels() && (strokes || !prompt.trim().is_empty());
@@ -355,28 +345,28 @@
             }
         }
         // The starter uses the same rule before claiming output or spawning.
-        app.busy = false;
-        app.genai.adjust_prompt.clear();
-        app.masks.mask_paint = None;
+        app.workspace.busy = false;
+        app.workspace.genai.adjust_prompt.clear();
+        app.workspace.masks.mask_paint = None;
         app.paint_mask_changed(Some(false));
-        app.photo.src_path = Some(PathBuf::from("adjust-guard.png"));
+        app.editor.photo.src_path = Some(PathBuf::from("adjust-guard.png"));
         app.start_adjust();
-        assert!(!app.busy, "blank whole-image adjustment never reaches a worker");
+        assert!(!app.workspace.busy, "blank whole-image adjustment never reaches a worker");
     }
 
     #[test]
     fn the_adjust_fold_says_whether_it_reads_the_painted_area() {
         for lang in [Lang::En, Lang::Zh] {
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.doc.variants = vec![Variant {
+            app.editor.doc.variants = vec![Variant {
                 id: new_variant_id(), name: None, kind: VariantKind::Generated,
                 recipe: EditRecipe::default(), base: None, origin: None, thumb: None,
             }];
-            app.masks.paint_owner = BrushOwner::Adjust; // the fold's own area is the live canvas here
+            app.workspace.masks.paint_owner = BrushOwner::Adjust; // the fold's own area is the live canvas here
             // The same >10 alpha predicate as export: a faint/erased mask
             // is whole-image mode, even though the mask buffer exists.
             for alpha in [0, 10, 11, 160] {
-                app.masks.mask_paint = Some(image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, alpha])));
+                app.workspace.masks.mask_paint = Some(image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, alpha])));
                 app.paint_mask_changed(None);
                 let strokes = alpha > 10;
                 assert_eq!(app.has_painted_mask(), strokes);
@@ -388,7 +378,7 @@
                 assert!(text.iter().any(|t| t == yes), "status missing: {yes}");
                 assert!(!text.iter().any(|t| t == no), "stale status: {no}");
             }
-            app.doc.variants[0].kind = VariantKind::Original;
+            app.editor.doc.variants[0].kind = VariantKind::Original;
             let text = draw_adjust_panel(&mut app);
             assert!(text.iter().any(|t| t == tr(lang, K_AI_SELECT_A_AI_GENERATED_CARD_OR_ITS_EDIT_FIRST)));
             assert!(!text.iter().any(|t| t == tr(lang, K_AI_PAINTED_AREA_ONLY)));
@@ -406,8 +396,8 @@
         // panel's three choices, save writes the app's value back.
         let mut restored = AutoShadeApp::default();
         restored.restore_prefs(Prefs { adjust_quality: 7, ..Prefs::default() });
-        assert_eq!(restored.genai.adjust_quality, 2, "restore clamps to the panel's choices");
-        let mut app = AutoShadeApp { genai: GenerativeState { adjust_quality: 1, ..Default::default() }, ..Default::default() };
+        assert_eq!(restored.workspace.genai.adjust_quality, 2, "restore clamps to the panel's choices");
+        let mut app = AutoShadeApp { workspace: WorkspaceView { genai: GenerativeState { adjust_quality: 1, ..Default::default() }, ..Default::default() }, ..Default::default() };
         let mut storage = PrefsMemory::default();
         eframe::App::save(&mut app, &mut storage);
         let saved: Prefs = eframe::get_value(&storage, eframe::APP_KEY).unwrap();
@@ -454,7 +444,7 @@
             for _ in 0..5 {
                 // A texture upload consumes this flag; it must not consume
                 // or invalidate the independent paint-presence memo.
-                app.overlay.mask_dirty = false;
+                app.workspace.overlay.mask_dirty = false;
                 text = draw_adjust_frame(app, ctx);
             }
             let region = "painted area only";
@@ -466,16 +456,13 @@
         }
         for drag in [false, true] {
             let base = Arc::new(image::DynamicImage::new_rgb8(1024, 768));
-            let mut app = AutoShadeApp {
-                photo: PhotoPixels {
+            let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                     base_preview: Some(base.clone()),
 
                     ..Default::default()
 
-                },
-
-                doc: Document {
+                }, doc: Document {
 
 
                     variants: (0..2).map(|_| Variant {
@@ -487,10 +474,7 @@
                     ..Default::default()
 
 
-                },
-
-                ..Default::default()
-            };
+                }, ..Default::default() }, ..Default::default() };
             // The fold's OWN brush on a canvas sized to the plate: the Adjust
             // area is the live canvas (2026-09-27, `BrushOwner`).
             app.rebind_paint_canvas(1024, 768);
@@ -498,35 +482,35 @@
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             five_frames(&mut app, &ctx, false, "an empty brush reads the whole image");
-            assert!(app.overlay.mask_presence_scans.get() <= 1, "five empty frames may scan only once");
-            let empty_scans = app.overlay.mask_presence_scans.get();
+            assert!(app.workspace.overlay.mask_presence_scans.get() <= 1, "five empty frames may scan only once");
+            let empty_scans = app.workspace.overlay.mask_presence_scans.get();
 
             stroke(&mut app, drag);
-            assert!(app.masks.mask_paint.as_ref().unwrap().pixels().any(|p| p[3] > 10), "the real brush added paint");
+            assert!(app.workspace.masks.mask_paint.as_ref().unwrap().pixels().any(|p| p[3] > 10), "the real brush added paint");
             five_frames(&mut app, &ctx, true, "a brush stroke limits the adjust to the painted area");
-            assert_eq!(app.overlay.mask_presence_scans.get(), empty_scans, "adding paint needs no presence scan");
+            assert_eq!(app.workspace.overlay.mask_presence_scans.get(), empty_scans, "adding paint needs no presence scan");
             assert!(app.export_area_png(BrushOwner::Adjust).is_some());
 
             // 「Clear area」 is the fold's eraser (the retouch brushes have no
             // erase mode): the canvas is known blank, so nothing scans.
             app.clear_area(BrushOwner::Adjust);
-            assert!(app.masks.mask_paint.as_ref().unwrap().pixels().all(|p| p[3] <= 10), "clearing removed every stroke");
+            assert!(app.workspace.masks.mask_paint.as_ref().unwrap().pixels().all(|p| p[3] <= 10), "clearing removed every stroke");
             five_frames(&mut app, &ctx, false, "clearing the area must return the adjust fold to whole image");
-            assert_eq!(app.overlay.mask_presence_scans.get(), empty_scans, "a cleared area needs no scan");
+            assert_eq!(app.workspace.overlay.mask_presence_scans.get(), empty_scans, "a cleared area needs no scan");
             assert!(app.export_area_png(BrushOwner::Adjust).is_none());
 
             stroke(&mut app, drag);
             assert!(app.has_painted_mask());
-            let before_switch = app.overlay.mask_presence_scans.get();
+            let before_switch = app.workspace.overlay.mask_presence_scans.get();
             app.switch_variant(1, &ctx);
-            assert_eq!(app.doc.active, 1);
+            assert_eq!(app.editor.doc.active, 1);
             five_frames(&mut app, &ctx, false, "a fresh card starts with an empty brush");
-            assert_eq!(app.overlay.mask_presence_scans.get(), before_switch, "a fresh card needs zero scans");
+            assert_eq!(app.workspace.overlay.mask_presence_scans.get(), before_switch, "a fresh card needs zero scans");
 
             // The other plate-replacement door is also known empty.
             app.rebind_paint_canvas(1024, 768);
             five_frames(&mut app, &ctx, false, "a rebound canvas starts empty");
-            assert_eq!(app.overlay.mask_presence_scans.get(), before_switch, "rebinding needs zero scans");
+            assert_eq!(app.workspace.overlay.mask_presence_scans.get(), before_switch, "rebinding needs zero scans");
         }
     }
 
@@ -560,9 +544,9 @@
         let mut sources = Vec::new();
         walk_rs(&root, &mut sources);
         assert!(sources.len() >= 6, "expected the split GUI module tree");
-        let replace = concat!("self.", "masks.mask_paint = Some(");
-        let dirty = concat!("self.", "overlay.mask_dirty = true");
-        let mutations = [replace, dirty, concat!("self.", "masks.mask_paint.as_mut()"), concat!("&mut self.", "masks.mask_paint")];
+        let replace = concat!("self.", "workspace.masks.mask_paint = Some(");
+        let dirty = concat!("self.", "workspace.overlay.mask_dirty = true");
+        let mutations = [replace, dirty, concat!("self.", "workspace.masks.mask_paint.as_mut()"), concat!("&mut self.", "workspace.masks.mask_paint")];
         let mut found: std::collections::BTreeMap<String, usize> = Default::default();
         for path in sources {
             let text = std::fs::read_to_string(&path).expect("GUI source readable");
@@ -607,7 +591,7 @@
             ai_card_fixture("retouch", EditRecipe::default());
         let healed = dir.join("healed.png");
         std::fs::write(&healed, b"png").unwrap();
-        let epoch = app.tools.gen_epoch;
+        let epoch = app.workspace.tools.gen_epoch;
         app.on_retouched(
             &ctx,
             Lang::En,
@@ -629,21 +613,21 @@
             strip_kinds(&app),
             vec![VariantKind::Original, VariantKind::Generated, VariantKind::Edited],
             "{}",
-            app.status
+            app.workspace.status
         );
-        assert_eq!(app.doc.active, 2);
+        assert_eq!(app.editor.doc.active, 2);
         assert_eq!(
-            app.doc.variants[2].origin.as_deref(),
+            app.editor.doc.variants[2].origin.as_deref(),
             Some(healed.as_path()),
             "the retouch baked into the ✎ card"
         );
-        assert!(app.doc.variants[2].base.as_ref().is_some_and(|b| !Arc::ptr_eq(b, &ai_px)));
+        assert!(app.editor.doc.variants[2].base.as_ref().is_some_and(|b| !Arc::ptr_eq(b, &ai_px)));
         assert_eq!(
-            app.doc.variants[1].origin.as_deref(),
+            app.editor.doc.variants[1].origin.as_deref(),
             Some(master.as_path()),
             "the ✨ card keeps its raster"
         );
-        assert!(app.doc.variants[1].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ai_px)));
+        assert!(app.editor.doc.variants[1].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ai_px)));
     }
 
     /// Every build through v1.3.2 stored an edit made on the ✨ card AS the
@@ -658,20 +642,20 @@
             strip_kinds(&app),
             vec![VariantKind::Original, VariantKind::Generated, VariantKind::Edited],
             "{}",
-            app.status
+            app.workspace.status
         );
-        assert_eq!(app.doc.active, 2, "the canvas follows the edits");
-        assert_eq!(app.doc.recipe.contrast, 7.0);
-        assert!(app.doc.recipe.base_curve.is_empty(), "calibration stripped on AI pixels");
-        assert_eq!(app.doc.variants[2].recipe.contrast, 7.0);
-        assert!(app.doc.variants[2].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ai_px)));
-        assert_eq!(app.doc.variants[2].origin.as_deref(), Some(master.as_path()));
-        assert!(app.doc.variants[1].recipe.is_noop(), "the ✨ card is pristine");
-        assert_eq!(app.doc.variants[1].id, "gen-1", "…and keeps the record's identity");
-        assert_eq!(app.doc.variants[1].name.as_deref(), Some("sky"), "…and its name");
+        assert_eq!(app.editor.doc.active, 2, "the canvas follows the edits");
+        assert_eq!(app.editor.doc.recipe.contrast, 7.0);
+        assert!(app.editor.doc.recipe.base_curve.is_empty(), "calibration stripped on AI pixels");
+        assert_eq!(app.editor.doc.variants[2].recipe.contrast, 7.0);
+        assert!(app.editor.doc.variants[2].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ai_px)));
+        assert_eq!(app.editor.doc.variants[2].origin.as_deref(), Some(master.as_path()));
+        assert!(app.editor.doc.variants[1].recipe.is_noop(), "the ✨ card is pristine");
+        assert_eq!(app.editor.doc.variants[1].id, "gen-1", "…and keeps the record's identity");
+        assert_eq!(app.editor.doc.variants[1].name.as_deref(), Some("sky"), "…and its name");
         assert!(app.unsaved_marker_dirty(), "the split is unsaved work until Ctrl+S");
         assert_eq!(
-            app.chrome.toasts.iter().filter(|t| t.text.contains("separate cards")).count(),
+            app.workspace.chrome.toasts.iter().filter(|t| t.text.contains("separate cards")).count(),
             1,
             "said once at the door"
         );
@@ -682,26 +666,25 @@
 
         // Ctrl+S persists the split; the same door then reopens it as it is.
         app.save_xmp();
-        assert!(!app.unsaved_marker_dirty(), "{}", app.status);
+        assert!(!app.unsaved_marker_dirty(), "{}", app.workspace.status);
         assert_eq!(saved_strip_of(&src).active_kind, "edited");
-        let mut again = AutoShadeApp { photo: PhotoPixels {
+        let mut again = AutoShadeApp { editor: Editor { photo: PhotoPixels {
      src_path: Some(src.clone()),
      ..Default::default()
- },
- ..Default::default() };
+ }, ..Default::default() }, ..Default::default() };
         open_onto_ai_card(&mut again, &ctx, &ai_px, &master);
         assert_eq!(
             strip_kinds(&again),
             vec![VariantKind::Original, VariantKind::Generated, VariantKind::Edited],
             "{}",
-            again.status
+            again.workspace.status
         );
-        assert_eq!(again.doc.active, 2);
-        assert_eq!(again.doc.recipe.contrast, 7.0);
-        assert!(again.doc.variants[1].recipe.is_noop());
-        assert!(!again.unsaved_marker_dirty(), "a split strip reopens clean: {}", again.status);
+        assert_eq!(again.editor.doc.active, 2);
+        assert_eq!(again.editor.doc.recipe.contrast, 7.0);
+        assert!(again.editor.doc.variants[1].recipe.is_noop());
+        assert!(!again.unsaved_marker_dirty(), "a split strip reopens clean: {}", again.workspace.status);
         assert!(
-            !again.chrome.toasts.iter().any(|t| t.text.contains("separate cards")),
+            !again.workspace.chrome.toasts.iter().any(|t| t.text.contains("separate cards")),
             "…and silently"
         );
     }
@@ -722,22 +705,22 @@
         .unwrap();
         // The pristine ✨ card saves as itself.
         app.save_xmp();
-        assert!(!app.status.contains("Reverse-fit"), "no refusal: {}", app.status);
-        assert!(app.status.contains("AI-generated pixels"), "{}", app.status);
+        assert!(!app.workspace.status.contains("Reverse-fit"), "no refusal: {}", app.workspace.status);
+        assert!(app.workspace.status.contains("AI-generated pixels"), "{}", app.workspace.status);
         assert!(!xp.exists(), "the stale projection is retired by the commit");
-        assert!(!app.unsaved_marker_dirty(), "{}", app.status);
+        assert!(!app.unsaved_marker_dirty(), "{}", app.workspace.status);
         assert_eq!(saved_strip_of(&src).active_kind, "generated");
 
         // An edit → ✎; Ctrl+S saves THAT card's develop.
-        app.doc.recipe.contrast = 7.0;
+        app.editor.doc.recipe.contrast = 7.0;
         app.save_xmp(); // the boundary fork runs inside
         assert_eq!(
             strip_kinds(&app),
             vec![VariantKind::Original, VariantKind::Generated, VariantKind::Edited],
             "{}",
-            app.status
+            app.workspace.status
         );
-        assert!(app.status.starts_with("recipe saved"), "{}", app.status);
+        assert!(app.workspace.status.starts_with("recipe saved"), "{}", app.workspace.status);
         let disk: EditRecipe = serde_json::from_str(
             &std::fs::read_to_string(autoshade::store::recipe_target(&src)).unwrap(),
         )
@@ -749,7 +732,7 @@
             "the disk form keeps the RAW's saved calibration"
         );
         assert_eq!(disk.as_shot_k, Some(5653.0));
-        assert!(app.doc.recipe.base_curve.is_empty(), "the canvas stays stripped");
+        assert!(app.editor.doc.recipe.base_curve.is_empty(), "the canvas stays stripped");
         let (origin, generated) = autoshade::store::read_pixel_source(&src).unwrap();
         assert!(generated);
         assert_eq!(origin, master);
@@ -760,7 +743,7 @@
             vec!["original", "generated"]
         );
         assert!(!xp.exists(), "still no projection over AI pixels");
-        assert!(!app.unsaved_marker_dirty(), "{}", app.status);
+        assert!(!app.unsaved_marker_dirty(), "{}", app.workspace.status);
     }
 
     /// The reverse-fit reads the ✨ card's raster, never an ✎ card: the fit
@@ -774,7 +757,7 @@
             Some(master.as_path()),
             "premise: the ✨ card's raster is the default target"
         );
-        app.doc.recipe.contrast = 7.0;
+        app.editor.doc.recipe.contrast = 7.0;
         assert!(app.fork_edited_card());
         assert_eq!(app.fit_target(), None, "an ✎ card is not a fit target");
         app.switch_variant(1, &ctx);
@@ -794,7 +777,7 @@
         let master = std::path::PathBuf::from("out/_negative_master_test.denoise.png");
         let clean = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
         let ai = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
-        app.doc.variants = vec![
+        app.editor.doc.variants = vec![
             Variant {
                 id: ORIGINAL_VARIANT_ID.into(),
                 name: None,
@@ -814,8 +797,8 @@
                 thumb: None,
             },
         ];
-        app.doc.active = 1;
-        app.photo.base_preview = Some(ai.clone());
+        app.editor.doc.active = 1;
+        app.editor.photo.base_preview = Some(ai.clone());
         assert_eq!(
             app.negative_origin().as_deref(),
             Some(master.as_path()),
@@ -831,7 +814,7 @@
             negative,
         };
         app.on_fitted(&ctx, Lang::En, Box::new(Ok(outcome(Some(master.clone())))));
-        let fitted = &app.doc.variants[app.doc.active];
+        let fitted = &app.editor.doc.variants[app.editor.doc.active];
         assert_eq!(fitted.kind, VariantKind::Fitted);
         assert_eq!(
             fitted.origin.as_deref(),
@@ -843,23 +826,23 @@
             "…and shares the ▣ card's decoded pixels"
         );
         assert_eq!(
-            app.session.hist.pixels_on_disk.as_deref(),
+            app.editor.session.hist.pixels_on_disk.as_deref(),
             Some(master.as_path()),
             "the ● pixel mirror follows the persisted link"
         );
-        assert_eq!(app.doc.recipe.contrast, 9.0, "the fit's develop is live on the new card");
+        assert_eq!(app.editor.doc.recipe.contrast, 9.0, "the fit's develop is live on the new card");
 
         // No master on the negative: the fit lands on the loaded photo, as
         // it always did.
-        app.doc.variants[0].origin = None;
-        app.doc.variants[0].base = None;
+        app.editor.doc.variants[0].origin = None;
+        app.editor.doc.variants[0].base = None;
         app.switch_variant(1, &ctx);
         assert_eq!(app.negative_origin(), None);
         app.on_fitted(&ctx, Lang::En, Box::new(Ok(outcome(None))));
-        let fitted = &app.doc.variants[app.doc.active];
+        let fitted = &app.editor.doc.variants[app.editor.doc.active];
         assert_eq!(fitted.kind, VariantKind::Fitted);
         assert_eq!(fitted.origin, None);
-        assert_eq!(app.session.hist.pixels_on_disk, None);
+        assert_eq!(app.editor.session.hist.pixels_on_disk, None);
     }
 
     /// 2026-09-15 (user decision): an AI denoise is NOT an in-place retouch
@@ -874,14 +857,13 @@
     fn an_ai_denoise_lands_as_a_new_denoised_card_and_leaves_the_source_and_negative_alone() {
         let ctx = egui::Context::default();
         let src = std::path::PathBuf::from("_negative_follow_test.ARW");
-        let mut app = AutoShadeApp { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
      src_path: Some(src.clone()),
      ..Default::default()
- },
- ..Default::default() };
+ }, ..Default::default() }, ..Default::default() };
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
         let developed = EditRecipe { contrast: 7.0, ..Default::default() };
-        app.doc.variants = vec![Variant {
+        app.editor.doc.variants = vec![Variant {
             id: ORIGINAL_VARIANT_ID.into(),
             name: None,
             kind: VariantKind::Original,
@@ -890,14 +872,14 @@
             origin: None,
             thumb: None,
         }];
-        app.doc.active = 0;
-        app.doc.recipe = developed.clone();
-        app.photo.base_preview = Some(b0.clone());
+        app.editor.doc.active = 0;
+        app.editor.doc.recipe = developed.clone();
+        app.editor.photo.base_preview = Some(b0.clone());
         app.reset_history();
         assert_eq!(app.negative_origin(), None);
         assert_eq!(app.negative_path().as_deref(), Some(src.as_path()), "no master: the loaded file");
         let out = std::path::PathBuf::from("out/_negative_follow_test.denoise.png");
-        let epoch = app.tools.gen_epoch;
+        let epoch = app.workspace.tools.gen_epoch;
         app.on_retouched(
             &ctx,
             Lang::En,
@@ -913,19 +895,19 @@
             strip_kinds(&app),
             vec![VariantKind::Original, VariantKind::Denoised],
             "{}",
-            app.status
+            app.workspace.status
         );
-        assert_eq!(app.doc.active, 1, "the new ◈ card is under the canvas");
-        assert_eq!(app.doc.variants[1].origin.as_deref(), Some(out.as_path()), "…hanging off the denoised master");
-        assert_eq!(app.doc.variants[1].recipe, developed, "…carrying the source card's develop");
-        assert!(app.doc.variants[1].kind.is_source_based(), "a ◈ card is parametric over its master");
-        assert!(!app.doc.variants[1].kind.on_ai_pixels(), "…and carries no AI-pixel caveats");
-        assert_eq!(app.doc.variants[0].recipe, developed, "the ▣ card keeps its develop");
+        assert_eq!(app.editor.doc.active, 1, "the new ◈ card is under the canvas");
+        assert_eq!(app.editor.doc.variants[1].origin.as_deref(), Some(out.as_path()), "…hanging off the denoised master");
+        assert_eq!(app.editor.doc.variants[1].recipe, developed, "…carrying the source card's develop");
+        assert!(app.editor.doc.variants[1].kind.is_source_based(), "a ◈ card is parametric over its master");
+        assert!(!app.editor.doc.variants[1].kind.on_ai_pixels(), "…and carries no AI-pixel caveats");
+        assert_eq!(app.editor.doc.variants[0].recipe, developed, "the ▣ card keeps its develop");
         assert!(
-            app.doc.variants[0].base.as_ref().is_some_and(|b| std::sync::Arc::ptr_eq(b, &b0)),
+            app.editor.doc.variants[0].base.as_ref().is_some_and(|b| std::sync::Arc::ptr_eq(b, &b0)),
             "…and its base"
         );
-        assert_eq!(app.doc.variants[0].origin, None, "…and its untouched pixel source");
+        assert_eq!(app.editor.doc.variants[0].origin, None, "…and its untouched pixel source");
         assert_eq!(app.negative_origin().as_deref(), Some(out.as_path()), "the negative is now the ◈ master");
         assert_eq!(app.negative_path().as_deref(), Some(out.as_path()), "the reimagine input follows");
         assert_eq!(
@@ -933,8 +915,8 @@
             Some(out.as_path()),
             "and the ◈ card's own source is the same file — one negative"
         );
-        assert!(app.status.contains("new ◈ card"), "{}", app.status);
-        assert!(app.status.contains("sensor mosaic"), "{}", app.status);
+        assert!(app.workspace.status.contains("new ◈ card"), "{}", app.workspace.status);
+        assert!(app.workspace.status.contains("sensor mosaic"), "{}", app.workspace.status);
     }
 
     /// A ◈ card round-trips through the strip record: the store admits the
@@ -953,12 +935,11 @@
         let _scrub = Scrub(vec![dir.clone(), dev.clone()]);
         let master = dir.join("denoise.png");
         let developed = EditRecipe { contrast: 4.0, ..Default::default() };
-        let mut app = AutoShadeApp { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
      src_path: Some(src.clone()),
      ..Default::default()
- },
- ..Default::default() };
-        app.doc.variants = vec![
+ }, ..Default::default() }, ..Default::default() };
+        app.editor.doc.variants = vec![
             Variant {
                 id: ORIGINAL_VARIANT_ID.into(),
                 name: None,
@@ -978,8 +959,8 @@
                 thumb: None,
             },
         ];
-        app.doc.active = 1;
-        app.doc.recipe = developed.clone();
+        app.editor.doc.active = 1;
+        app.editor.doc.recipe = developed.clone();
         assert_eq!(VariantKind::Denoised.store_str(), "denoised");
         assert_eq!(VariantKind::from_store_str("denoised"), Some(VariantKind::Denoised));
         let rec = app.current_strip_record().expect("a two-card strip has a record");
@@ -1015,16 +996,13 @@
         let ctx = egui::Context::default();
         let src = std::path::PathBuf::from("_stack_landing_test.ARW");
         let developed = EditRecipe { contrast: 11.0, ..Default::default() };
-        let mut app = AutoShadeApp {
-            photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
 
                 src_path: Some(src.clone()),
 
                 ..Default::default()
 
-            },
-
-            doc: Document {
+            }, doc: Document {
 
 
                 variants: vec![Variant {
@@ -1044,13 +1022,10 @@
                 ..Default::default()
 
 
-            },
-
-            ..Default::default()
-        };
+            }, ..Default::default() }, ..Default::default() };
         app.reset_history();
         let out = std::path::PathBuf::from("out/_stack_landing_test.stack.png");
-        let epoch = app.tools.gen_epoch;
+        let epoch = app.workspace.tools.gen_epoch;
         app.on_retouched(
             &ctx,
             Lang::En,
@@ -1073,10 +1048,10 @@
             strip_kinds(&app),
             vec![VariantKind::Original, VariantKind::Stacked],
             "{}",
-            app.status
+            app.workspace.status
         );
-        assert_eq!(app.doc.active, 1, "the new ▦ card is under the canvas");
-        let card = &app.doc.variants[1];
+        assert_eq!(app.editor.doc.active, 1, "the new ▦ card is under the canvas");
+        let card = &app.editor.doc.variants[1];
         assert_eq!(card.origin.as_deref(), Some(out.as_path()), "…hanging off the merged master");
         assert_eq!(card.recipe.contrast, developed.contrast, "…carrying the develop it was run from");
         assert!(card.kind.is_source_based(), "a ▦ master is a camera frame, not AI pixels");
@@ -1084,8 +1059,8 @@
         assert!(card.kind.is_remade_negative(), "…and it is the negative, remade");
         assert!(card.recipe.hdr_edit, "the recovered stops must reach the rendition stage");
         assert!((card.recipe.hdr_max_ev - 3.75).abs() < 1e-6, "…with the room the merge measured");
-        assert_eq!(app.doc.variants[0].recipe, developed, "the frame it was made from keeps its develop");
-        assert_eq!(app.doc.variants[0].origin, None, "…and its untouched pixel source");
+        assert_eq!(app.editor.doc.variants[0].recipe, developed, "the frame it was made from keeps its develop");
+        assert_eq!(app.editor.doc.variants[0].origin, None, "…and its untouched pixel source");
         assert_eq!(
             app.negative_origin().as_deref(),
             Some(out.as_path()),
@@ -1096,7 +1071,7 @@
         // The landing line names the merge that ran and carries the three
         // numbers worth reading before trusting a stack.
         for want in ["3 frames", "HDR merge", "new ▦ card", "4.2 px", "1.25%", "3.75 EV"] {
-            assert!(app.status.contains(want), "{want} missing from: {}", app.status);
+            assert!(app.workspace.status.contains(want), "{want} missing from: {}", app.workspace.status);
         }
     }
 
@@ -1114,25 +1089,22 @@
             origin: None,
             thumb: None,
         };
-        let mut app = AutoShadeApp {
-            exp: ExportState {
+        let mut app = AutoShadeApp { workspace: WorkspaceView { exp: ExportState {
                 save_denoise: true,
                 save_denoise_strength: 0.35,
                 ..Default::default()
-            },
-            ..Default::default()
-        };
+            }, ..Default::default() }, ..Default::default() };
         for kind in [VariantKind::Original, VariantKind::Generated, VariantKind::Fitted, VariantKind::Edited] {
-            app.doc.variants = vec![card(kind)];
-            app.doc.active = 0;
+            app.editor.doc.variants = vec![card(kind)];
+            app.editor.doc.active = 0;
             assert!(app.export_denoise_applies(), "{kind:?}");
             assert!(app.export_summary(Lang::En).contains("AI Denoise 35%"), "{kind:?}");
         }
-        app.doc.variants = vec![card(VariantKind::Denoised)];
+        app.editor.doc.variants = vec![card(VariantKind::Denoised)];
         assert!(!app.export_denoise_applies());
         assert!(!app.export_summary(Lang::En).contains("AI Denoise"), "{}", app.export_summary(Lang::En));
-        app.exp.save_denoise = false;
-        app.doc.variants = vec![card(VariantKind::Original)];
+        app.workspace.exp.save_denoise = false;
+        app.editor.doc.variants = vec![card(VariantKind::Original)];
         assert!(!app.export_denoise_applies(), "unticked is unticked on any card");
         // The render reads the gate, not the raw checkbox: `export_summary`'s
         // line above and `export_denoise_applies` are the same two answers the
@@ -1146,13 +1118,13 @@
         let (mut app, _ctx, _dir, src, _master, _ai_px, _scrub) =
             ai_card_fixture("snapshot", EditRecipe::default());
         app.save_version();
-        assert!(app.status.contains("pristine"), "{}", app.status);
+        assert!(app.workspace.status.contains("pristine"), "{}", app.workspace.status);
         assert!(!autoshade::store::version_target(&src, 1).exists());
-        app.doc.recipe.contrast = 7.0;
+        app.editor.doc.recipe.contrast = 7.0;
         app.save_version(); // forks at the boundary, then snapshots the ✎ card
-        assert_eq!(app.doc.variants[app.doc.active].kind, VariantKind::Edited);
+        assert_eq!(app.editor.doc.variants[app.editor.doc.active].kind, VariantKind::Edited);
         let v1 = autoshade::store::version_target(&src, 1);
-        assert!(v1.exists(), "{}", app.status);
+        assert!(v1.exists(), "{}", app.workspace.status);
         let snap: EditRecipe = serde_json::from_str(&std::fs::read_to_string(&v1).unwrap()).unwrap();
         assert_eq!(snap.contrast, 7.0);
         let meta = autoshade::store::read_version_meta(&src);
@@ -1169,12 +1141,12 @@
         let (mut app, ctx, _dir, _src, _master, _ai_px, _scrub) =
             ai_card_fixture("apply", EditRecipe::default());
         app.apply_to_original(1, &ctx);
-        assert!(app.status.contains("lives in its pixels"), "{}", app.status);
-        app.doc.recipe.contrast = 7.0;
+        assert!(app.workspace.status.contains("lives in its pixels"), "{}", app.workspace.status);
+        app.editor.doc.recipe.contrast = 7.0;
         assert!(app.fork_edited_card());
         app.apply_to_original(2, &ctx);
-        assert!(app.status.contains("AI-generated pixels"), "{}", app.status);
-        assert_eq!(app.doc.variants[0].recipe.contrast, 4.0, "the ▣ card is untouched");
+        assert!(app.workspace.status.contains("AI-generated pixels"), "{}", app.workspace.status);
+        assert_eq!(app.editor.doc.variants[0].recipe.contrast, 4.0, "the ▣ card is untouched");
     }
 
     /// The choices that live inside a worker or inside eframe's `update()`
@@ -1210,7 +1182,7 @@
             .find("self.fork_edited_card();")
             .map(|i| i + panels)
             .expect("the frame hook after the panels");
-        let dispatch = src.find("if self.session.dirty && !self.scheduler.inflight {").expect("the dispatch");
+        let dispatch = src.find("if self.editor.session.dirty && !self.editor.scheduler.inflight {").expect("the dispatch");
         assert!(hook < dispatch, "the hook runs before the develop is dispatched");
 
         // The fill develops the card's picture for the model, asks the
@@ -1231,7 +1203,7 @@
         let start = src.find("pub(crate) fn start_adjust(").expect("start_adjust moved");
         let adjust = &src[start..src[start..].find("pub(crate) fn start_heal(").unwrap() + start];
         assert!(adjust.contains("self.active_source_path()"), "the card supplies its own raster");
-        assert!(adjust.contains("self.doc.recipe.clone()"), "the live recipe is captured at the click");
+        assert!(adjust.contains("self.editor.doc.recipe.clone()"), "the live recipe is captured at the click");
         assert!(adjust.contains("developed_card_pixels(&path, &recipe, false)"));
         let split = adjust.find("if let Some(mask_png) = mask_png").unwrap();
         let arms = &adjust[split..];
@@ -1319,7 +1291,7 @@
         let export = &src[src.find("pub(crate) fn start_render_to(").expect("start_render_to moved")..];
         let export = &export[..export.find("\n    pub(crate) fn ").unwrap()];
         assert!(export.contains("let denoise_strength = self.selected_denoise_strength(true);"));
-        assert!(!export.contains("self.exp.denoise_strength"), "the export must not read the Detail dial");
+        assert!(!export.contains("self.workspace.exp.denoise_strength"), "the export must not read the Detail dial");
         for (name, text) in [("start_ai_denoise", now), ("start_render_to", export)] {
             assert!(
                 !text.contains("None, 1.0)") && !text.contains("None, 0.5)"),

@@ -5,19 +5,19 @@
 use crate::*;
 
 impl AutoShadeApp {
-    /// Make `self.doc.active`'s recipe + base pixels the live working state and
+    /// Make `self.editor.doc.active`'s recipe + base pixels the live working state and
     /// rebuild the before texture. Per-variant transient state (undo history,
     /// local selection, view) restarts — like a soft re-open; what persists is
     /// each variant's recipe + pixels. Shared by switch / push / delete.
     pub(crate) fn load_active(&mut self, ctx: &egui::Context) {
         let lang = self.lang;
-        let Some(v) = self.doc.variants.get(self.doc.active) else { return };
-        self.doc.recipe = v.recipe.clone();
+        let Some(v) = self.editor.doc.variants.get(self.editor.doc.active) else { return };
+        self.editor.doc.recipe = v.recipe.clone();
         let vkind = v.kind;
         let vbase = v.base.clone();
         let vorigin = v.origin.clone();
-        self.analysis.rationale = self.doc.recipe.rationale.clone();
-        self.analysis.rationale_notes.clear(); // variant recipes carry no typed notes
+        self.editor.analysis.rationale = self.editor.doc.recipe.rationale.clone();
+        self.editor.analysis.rationale_notes.clear(); // variant recipes carry no typed notes
         // A DISK-restored baked variant (cold strip restore) carries its
         // origin but no decoded base. The master is FULL resolution — a
         // 61 MP TIFF takes seconds — and this runs on the UI thread, so the
@@ -32,7 +32,7 @@ impl AutoShadeApp {
         // after it lands hits `master_cache`: no second decode either way.
         if vbase.is_none()
             && let Some(o) = &vorigin
-            && let Some(photo) = self.photo.src_path.clone()
+            && let Some(photo) = self.editor.photo.src_path.clone()
         {
             self.spawn_master_load(ctx, photo, o.clone());
         }
@@ -57,17 +57,17 @@ impl AutoShadeApp {
             // apply_step gate beside it (whose own callers became
             // busy-gated later), and says so instead of claiming a live
             // scenario.
-            && (!self.open.open_in_flight || (self.open.open_same_path && self.cards.keep_recipe))
-            && let Some(p) = self.photo.src_path.clone()
-            && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.doc.recipe).is_some()
+            && (!self.workspace.open.open_in_flight || (self.workspace.open.open_same_path && self.workspace.cards.keep_recipe))
+            && let Some(p) = self.editor.photo.src_path.clone()
+            && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.editor.doc.recipe).is_some()
         {
             // The strip entry follows the healed canvas (the Ctrl+S rule),
             // and the user is told BY TOAST: the dominant callers
-            // (switch_variant, push_variant) overwrite self.status in the
+            // (switch_variant, push_variant) overwrite self.workspace.status in the
             // same frame, so a status write here died before a single paint
             // — the exact defect the load_version site documented.
-            if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
-                v.recipe = self.doc.recipe.clone();
+            if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
+                v.recipe = self.editor.doc.recipe.clone();
             }
             self.toast(
                 ToastKind::Success,
@@ -80,7 +80,7 @@ impl AutoShadeApp {
         }
         // Base pixels: the variant's own baked raster, else the shared source
         // neutral (Original / Fitted re-develop the same negative).
-        let base = vbase.or_else(|| self.photo.source_preview.clone());
+        let base = vbase.or_else(|| self.editor.photo.source_preview.clone());
         if let Some(base) = base {
             let (mw, mh) = base.dimensions();
             // Before compares under the canvas recipe's own base calibration
@@ -92,60 +92,60 @@ impl AutoShadeApp {
             // healed pixels, not the dark neutral), while a Generated
             // variant's recipe carries an empty curve by construction — the
             // same expression serves both.
-            let start = self.doc.recipe.start_only();
+            let start = self.editor.doc.recipe.start_only();
             self.set_before(ctx, &base, &start);
-            self.photo.base_preview = Some(base);
+            self.editor.photo.base_preview = Some(base);
             // A fresh transparent paint mask sized to THIS base (a generated
             // raster and the source neutral can differ in dimensions).
-            self.masks.mask_paint = Some(image::RgbaImage::new(mw, mh));
+            self.workspace.masks.mask_paint = Some(image::RgbaImage::new(mw, mh));
             self.paint_mask_changed(Some(false));
             // Every tool's area is per card, like the canvas itself.
-            self.masks.paint_store = Default::default();
-            self.overlay.mask_tex = None;
-            self.overlay.mask_dirty = false;
-            self.masks.paint_last = None;
+            self.workspace.masks.paint_store = Default::default();
+            self.workspace.overlay.mask_tex = None;
+            self.workspace.overlay.mask_dirty = false;
+            self.workspace.masks.paint_last = None;
         }
         self.reset_history(); // you can't undo across variants
-        self.overlay.region = None;
-        self.overlay.region_drag = None;
-        self.masks.sel_mask = None;
-        self.masks.sel_component = None;
+        self.workspace.overlay.region = None;
+        self.workspace.overlay.region_drag = None;
+        self.workspace.masks.sel_mask = None;
+        self.workspace.masks.sel_component = None;
         // Same boundary rule as open_path: the rename buffer belongs to the
         // variant it was typed on (M15). The strip's own rename box is keyed
         // by CARD ID, not by what is on screen, so it deliberately survives
         // a switch — but an armed ✕ does not: it named an index in the strip
         // the user has just moved away from (R24-4).
-        self.masks.mask_name_buf = None;
-        self.cards.variant_delete_confirm = None;
-        self.overlay.overlay_ref = None;
-        self.overlay.overlay_stale = true;
-        self.chrome.last_rgb = None; // the retained frame belongs to the OLD variant
+        self.workspace.masks.mask_name_buf = None;
+        self.workspace.cards.variant_delete_confirm = None;
+        self.workspace.overlay.overlay_ref = None;
+        self.workspace.overlay.overlay_stale = true;
+        self.workspace.chrome.last_rgb = None; // the retained frame belongs to the OLD variant
         // …and so does the After texture (L11-2): its only writers are the
         // develop/retouch landings, so until the new variant's first frame
         // lands the canvas showed the OLD variant's pixels under the NEW
         // variant's controls — seconds, on a large photo. The honest
         // "Preparing preview…" placeholder takes over.
-        self.plates.after_tex = None;
+        self.editor.plates.after_tex = None;
         self.disarm_tools();
-        self.tools.clone_src = None; // unlike a mere disarm, a variant switch drops the sample
-        self.view.zoom = 1.0;
-        self.view.zoom_target = 1.0; // instant — a swap must not glide from the old view
+        self.workspace.tools.clone_src = None; // unlike a mere disarm, a variant switch drops the sample
+        self.workspace.view.zoom = 1.0;
+        self.workspace.view.zoom_target = 1.0; // instant — a swap must not glide from the old view
         // The `1` key reads LAST frame's cached 1:1 solve; stale across a
         // switch it jumped the new canvas to the old variant's ratio (L11-5).
-        self.view.one_to_one = 1.0;
-        self.view.pan = egui::vec2(0.5, 0.5);
-        self.analysis.verdict = None;
-        self.session.dirty = true; // re-develop the newly active variant
+        self.workspace.view.one_to_one = 1.0;
+        self.workspace.view.pan = egui::vec2(0.5, 0.5);
+        self.editor.analysis.verdict = None;
+        self.editor.session.dirty = true; // re-develop the newly active variant
 }
 
 /// Switch the active variant losslessly (strip click): in-flight slider
 /// edits are saved back into the variant you leave, then the target's
 /// recipe + pixels become current.
 pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
-    if idx == self.doc.active || idx >= self.doc.variants.len() {
+    if idx == self.editor.doc.active || idx >= self.editor.doc.variants.len() {
         return;
     }
-    if self.busy {
+    if self.workspace.busy {
         // Refusal must be visible — the card stays clickable and a silent
         // no-op reads as a dead UI.
         let t = tr(self.lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
@@ -161,9 +161,9 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     // dispatch; `develop_inflight` = a frame the switch is about to make
     // the acceptance gate reject. Either way no completed frame depicts
     // the recipe snapshotted below.
-    let no_frame_landed = self.session.dirty || self.scheduler.inflight;
-    if let Some(cur) = self.doc.variants.get_mut(self.doc.active) {
-        cur.recipe = self.doc.recipe.clone(); // don't lose the edits in progress
+    let no_frame_landed = self.editor.session.dirty || self.editor.scheduler.inflight;
+    if let Some(cur) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
+        cur.recipe = self.editor.doc.recipe.clone(); // don't lose the edits in progress
         // …and don't keep a CARD that predates them: a background
         // variant's thumb has exactly ONE writer (finish_redevelop,
         // active-only), so an edit that has not landed a frame yet never
@@ -175,10 +175,10 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
             cur.thumb = None;
         }
     }
-    self.doc.active = idx;
+    self.editor.doc.active = idx;
     self.load_active(ctx);
     let lang = self.lang;
-    let name = tr(lang, self.doc.variants[self.doc.active].kind.label());
+    let name = tr(lang, self.editor.doc.variants[self.editor.doc.active].kind.label());
     // A baked variant keeps the resolution it was baked at: switching
     // cannot re-decode a master, so the preference and the canvas can
     // legitimately disagree from here on. Said at the moment the
@@ -186,7 +186,7 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     // followed it.
     // (Both arms, like every canvas door — see `set_canvas_status`; this
     // one names the variant, so it writes its own pair.)
-    self.status = match self.baked_canvas_edge() {
+    self.workspace.status = match self.baked_canvas_edge() {
         None => trf(
             lang,
             K_ACTIONS_SWITCHED_TO_VARIANT_VARIANTS_ARE_INDEPENDENT_SWI,
@@ -213,31 +213,31 @@ pub(crate) fn push_variant(&mut self, v: Variant, ctx: &egui::Context) {
     // Same guarded card drop as switch_variant (L06#6): the async
     // completion switches away from a variant whose latest edits may
     // never have landed a frame.
-    let no_frame_landed = self.session.dirty || self.scheduler.inflight;
-    if let Some(cur) = self.doc.variants.get_mut(self.doc.active) {
-        cur.recipe = self.doc.recipe.clone();
+    let no_frame_landed = self.editor.session.dirty || self.editor.scheduler.inflight;
+    if let Some(cur) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
+        cur.recipe = self.editor.doc.recipe.clone();
         if no_frame_landed {
             cur.thumb = None;
         }
     }
-    self.doc.variants.push(v);
-    self.doc.active = self.doc.variants.len() - 1;
+    self.editor.doc.variants.push(v);
+    self.editor.doc.active = self.editor.doc.variants.len() - 1;
     self.load_active(ctx);
 }
 
 /// Remove variant `idx` (never the last one — the strip stays non-empty).
 /// Only reloads the working state when the ACTIVE variant's identity moves,
 /// so deleting a background variant can't clobber live edits. Refuses while
-/// busy: an in-flight retouch worker resolves its target by `self.doc.active` at
+/// busy: an in-flight retouch worker resolves its target by `self.editor.doc.active` at
 /// COMPLETION time, so re-anchoring `active` mid-flight would bake its result
 /// onto the wrong variant.
 pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
-    if self.busy {
+    if self.workspace.busy {
         let t = tr(self.lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
         self.toast(ToastKind::Error, t);
         return;
     }
-    if self.doc.variants.len() <= 1 || idx >= self.doc.variants.len() {
+    if self.editor.doc.variants.len() <= 1 || idx >= self.editor.doc.variants.len() {
         return;
     }
     // ARM, then act (R24-4). Deleting a card is IRREVERSIBLE in a way
@@ -251,8 +251,8 @@ pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
     // arms this index (the button relabels itself and the status says
     // what the second click will do), the second deletes. The arm dies
     // with any other strip move — `load_active` clears it.
-    if self.cards.variant_delete_confirm != Some(idx) {
-        self.cards.variant_delete_confirm = Some(idx);
+    if self.workspace.cards.variant_delete_confirm != Some(idx) {
+        self.workspace.cards.variant_delete_confirm = Some(idx);
         let lang = self.lang;
         let name = self.variant_label(idx);
         let t = trf(
@@ -260,27 +260,26 @@ pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
             K_ACTIONS_DELETE_VARIANT_CLICK_AGAIN_TO_CONFIRM_A_DELETED,
             &[("name", &name)],
         );
-        self.status = t.clone();
+        self.workspace.status = t.clone();
         self.toast(ToastKind::Error, t);
         return;
     }
-    self.cards.variant_delete_confirm = None;
+    self.workspace.cards.variant_delete_confirm = None;
     // A rename box aimed at the card being deleted dies WITH it — the
     // version rows' rule, on the strip's key.
-    if self
-        .cards.variant_name_buf
+    if self.workspace.cards.variant_name_buf
         .as_ref()
-        .is_some_and(|(_, id, ..)| Some(id.as_str()) == self.doc.variants.get(idx).map(|v| v.id.as_str()))
+        .is_some_and(|(_, id, ..)| Some(id.as_str()) == self.editor.doc.variants.get(idx).map(|v| v.id.as_str()))
     {
-        self.cards.variant_name_buf = None;
+        self.workspace.cards.variant_name_buf = None;
     }
-    let active_removed = idx == self.doc.active;
-    self.doc.variants.remove(idx);
-    if self.doc.active > idx {
-        self.doc.active -= 1; // same variant, shifted left
+    let active_removed = idx == self.editor.doc.active;
+    self.editor.doc.variants.remove(idx);
+    if self.editor.doc.active > idx {
+        self.editor.doc.active -= 1; // same variant, shifted left
     }
-    if self.doc.active >= self.doc.variants.len() {
-        self.doc.active = self.doc.variants.len() - 1; // removed the tail
+    if self.editor.doc.active >= self.editor.doc.variants.len() {
+        self.editor.doc.active = self.editor.doc.variants.len() - 1; // removed the tail
     }
     if active_removed {
         self.load_active(ctx); // the active variant changed identity
@@ -305,13 +304,13 @@ pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
 ///
 /// Called every frame between the panels and the develop dispatch (the
 /// sliders, the shortcuts, a landing — every path that writes
-/// `self.doc.recipe`), and at every persist boundary before the strip is
+/// `self.editor.doc.recipe`), and at every persist boundary before the strip is
 /// read (Ctrl+S, ＋, the quit-time Save-all, the stash, the Analyze and
 /// version-load installs), so no record ever names the ✨ card as the
 /// holder of an edit. A neutral recipe on the ✨ card forks nothing: a
 /// Reset there is the pristine image again. Returns whether it forked.
 pub(crate) fn fork_edited_card(&mut self) -> bool {
-    if self.doc.recipe.is_noop() {
+    if self.editor.doc.recipe.is_noop() {
         return false;
     }
     self.fork_from_generated()
@@ -322,7 +321,7 @@ pub(crate) fn fork_edited_card(&mut self) -> bool {
 /// into a new ✎ card however neutral the recipe is). Forks only while
 /// the active card is the pristine ✨ card.
 pub(crate) fn fork_from_generated(&mut self) -> bool {
-    let Some(cur) = self.doc.variants.get(self.doc.active) else { return false };
+    let Some(cur) = self.editor.doc.variants.get(self.editor.doc.active) else { return false };
     if cur.kind != VariantKind::Generated {
         return false;
     }
@@ -330,12 +329,12 @@ pub(crate) fn fork_from_generated(&mut self) -> bool {
         kind: VariantKind::Edited,
         id: new_variant_id(),
         name: None,
-        recipe: self.doc.recipe.clone(),
+        recipe: self.editor.doc.recipe.clone(),
         base: cur.base.clone(),
         origin: cur.origin.clone(),
         thumb: None,
     };
-    if let Some(cur) = self.doc.variants.get_mut(self.doc.active) {
+    if let Some(cur) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
         // Pristine again. Its card keeps the last frame that landed,
         // which is the pristine render: the edit that triggered this
         // fork has not been developed yet (the hook runs before the
@@ -344,13 +343,13 @@ pub(crate) fn fork_from_generated(&mut self) -> bool {
         // due overwrites it.
         cur.recipe = EditRecipe::default();
     }
-    let (from, to) = (self.doc.variants[self.doc.active].id.clone(), forked.id.clone());
-    self.doc.variants.insert(self.doc.active + 1, forked);
-    self.doc.active += 1;
+    let (from, to) = (self.editor.doc.variants[self.editor.doc.active].id.clone(), forked.id.clone());
+    self.editor.doc.variants.insert(self.editor.doc.active + 1, forked);
+    self.editor.doc.active += 1;
     // The ✎ card is an edit of this one: it keeps its skin switch.
     self.inherit_keep_skin(&from, &to);
     // A ✕ armed on an index past the insertion now names the wrong card.
-    self.cards.variant_delete_confirm = None;
+    self.workspace.cards.variant_delete_confirm = None;
     let lang = self.lang;
     self.toast(
         ToastKind::Success,
@@ -379,25 +378,25 @@ pub(crate) fn fork_from_generated(&mut self) -> bool {
 pub(crate) fn normalize_ai_cards(&mut self) -> bool {
     let mut changed = false;
     let mut i = 0;
-    while i < self.doc.variants.len() {
-        let carries_edits = self.doc.variants[i].kind == VariantKind::Generated
-            && !self.doc.variants[i].recipe.is_noop();
+    while i < self.editor.doc.variants.len() {
+        let carries_edits = self.editor.doc.variants[i].kind == VariantKind::Generated
+            && !self.editor.doc.variants[i].recipe.is_noop();
         if carries_edits {
-            let edits = std::mem::take(&mut self.doc.variants[i].recipe);
+            let edits = std::mem::take(&mut self.editor.doc.variants[i].recipe);
             let forked = Variant {
                 kind: VariantKind::Edited,
                 id: new_variant_id(),
                 name: None,
                 recipe: edits,
-                base: self.doc.variants[i].base.clone(),
-                origin: self.doc.variants[i].origin.clone(),
+                base: self.editor.doc.variants[i].base.clone(),
+                origin: self.editor.doc.variants[i].origin.clone(),
                 thumb: None,
             };
-            self.doc.variants.insert(i + 1, forked);
-            if self.doc.active == i {
-                self.doc.active = i + 1;
-            } else if self.doc.active > i {
-                self.doc.active += 1;
+            self.editor.doc.variants.insert(i + 1, forked);
+            if self.editor.doc.active == i {
+                self.editor.doc.active = i + 1;
+            } else if self.editor.doc.active > i {
+                self.editor.doc.active += 1;
             }
             changed = true;
             i += 1; // past the card just inserted
@@ -411,7 +410,7 @@ pub(crate) fn normalize_ai_cards(&mut self) -> bool {
 /// it has one, else its localized kind label. Owned, so callers can hand
 /// it to `trf` while `self` is borrowed mutably.
 pub(crate) fn variant_label(&self, idx: usize) -> String {
-    match self.doc.variants.get(idx) {
+    match self.editor.doc.variants.get(idx) {
         Some(v) => v.name.clone().unwrap_or_else(|| tr(self.lang, v.kind.label()).to_string()),
         None => String::new(),
     }
@@ -423,7 +422,7 @@ pub(crate) fn variant_label(&self, idx: usize) -> String {
 /// that, so every caller must say something honest instead of assuming
 /// card 0 is the negative.
 pub(crate) fn original_index(&self) -> Option<usize> {
-    crate::logic::cards::original_index(&self.doc.variants)
+    crate::logic::cards::original_index(&self.editor.doc.variants)
 }
 
 
@@ -432,13 +431,13 @@ pub(crate) fn original_index(&self) -> Option<usize> {
 /// Test-only view of [`crate::logic::cards::negative_index`].
 #[cfg(test)]
 pub(crate) fn negative_index(&self) -> Option<usize> {
-    crate::logic::cards::negative_index(&self.doc.variants, self.doc.active)
+    crate::logic::cards::negative_index(&self.editor.doc.variants, self.editor.doc.active)
 }
 
 /// The negative's pixels on disk: its master when it carries one, else
 /// the loaded file — the input a whole-frame reimagine develops from.
 pub(crate) fn negative_path(&self) -> Option<PathBuf> {
-    crate::logic::cards::negative_path(&self.doc.variants, self.doc.active, self.photo.src_path.as_deref())
+    crate::logic::cards::negative_path(&self.editor.doc.variants, self.editor.doc.active, self.editor.photo.src_path.as_deref())
 }
 
 
@@ -451,11 +450,11 @@ pub(crate) fn negative_path(&self) -> Option<PathBuf> {
 /// [`Self::negative_path`] / [`Self::fit_negative`].
 #[cfg(test)]
 pub(crate) fn negative_origin(&self) -> Option<PathBuf> {
-    crate::logic::cards::negative_origin(&self.doc.variants, self.doc.active)
+    crate::logic::cards::negative_origin(&self.editor.doc.variants, self.editor.doc.active)
 }
 
 pub(crate) fn fit_negative(&self) -> Option<PathBuf> {
-    crate::logic::cards::fit_negative(&self.doc.variants, self.doc.active, self.fit.fit_from.as_deref())
+    crate::logic::cards::fit_negative(&self.editor.doc.variants, self.editor.doc.active, self.workspace.fit.fit_from.as_deref())
 }
 
 /// How card `idx` reads in the reverse-fit's rows: its name and its place
@@ -470,11 +469,11 @@ pub(crate) fn numbered_card_label(&self, idx: usize) -> String {
 /// the card [`Self::negative_index`] picks, and every card
 /// [`Self::is_fit_source`] accepts, as `(id, label)` in strip order.
 pub(crate) fn fit_source_menu(&self) -> (String, Vec<(String, String)>) {
-    let cards = crate::logic::cards::fit_source_cards(&self.doc.variants)
+    let cards = crate::logic::cards::fit_source_cards(&self.editor.doc.variants)
         .into_iter()
-        .map(|i| (self.doc.variants[i].id.clone(), self.numbered_card_label(i)))
+        .map(|i| (self.editor.doc.variants[i].id.clone(), self.numbered_card_label(i)))
         .collect();
-    let auto = crate::logic::cards::automatic_fit_card(&self.doc.variants, self.doc.active)
+    let auto = crate::logic::cards::automatic_fit_card(&self.editor.doc.variants, self.editor.doc.active)
         .map(|i| self.numbered_card_label(i))
         .unwrap_or_default();
     (trf(self.lang, K_ACTIONS_AUTOMATIC, &[("card", &auto)]), cards)
@@ -503,12 +502,12 @@ pub(crate) fn fit_source_menu(&self) -> (String, Vec<(String, String)>) {
 /// 「＋ Save as version」's.
 pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     let lang = self.lang;
-    if self.busy {
+    if self.workspace.busy {
         let t = tr(lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
         self.toast(ToastKind::Error, t);
         return;
     }
-    let Some(src) = self.doc.variants.get(idx) else { return };
+    let Some(src) = self.editor.doc.variants.get(idx) else { return };
     if !src.kind.is_source_based() {
         // Two refusals, one axis: a ✨ card has no parameters at all, an
         // ✎ card's are tuned over AI pixels and mean nothing on the
@@ -524,7 +523,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
                 K_DEVELOP_A_GENERATED_VARIANT_S_LOOK_LIVES_IN_ITS_PIXELS_T,
             )
         };
-        self.status = t.into();
+        self.workspace.status = t.into();
         self.toast(ToastKind::Error, t);
         return;
     }
@@ -533,7 +532,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
             lang,
             K_ACTIONS_THIS_PHOTO_S_STRIP_HOLDS_NO_ORIGINAL_CARD_TO_APP,
         );
-        self.status = t.into();
+        self.workspace.status = t.into();
         self.toast(ToastKind::Error, t);
         return;
     };
@@ -548,13 +547,13 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     // "this look" — and the card's stored recipe otherwise. Captured
     // BEFORE the switch, which writes the canvas back into that card.
     let recipe =
-        if idx == self.doc.active { self.doc.recipe.clone() } else { self.doc.variants[idx].recipe.clone() };
+        if idx == self.editor.doc.active { self.editor.doc.recipe.clone() } else { self.editor.doc.variants[idx].recipe.clone() };
     let name = self.variant_label(idx);
     self.switch_variant(dst, ctx);
-    if self.doc.active != dst {
+    if self.editor.doc.active != dst {
         return; // the switch declined (it owns its own refusal message)
     }
-    if let Some(o) = self.doc.variants.get_mut(dst) {
+    if let Some(o) = self.editor.doc.variants.get_mut(dst) {
         o.recipe = recipe.clone();
         // The card's thumbnail renders the develop we just replaced —
         // the cross-card write rule the strip-healing loop in export.rs
@@ -562,11 +561,11 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
         // the next develop lands.
         o.thumb = None;
     }
-    self.doc.recipe = recipe;
+    self.editor.doc.recipe = recipe;
     self.resync_recipe_display();
-    self.session.dirty = true;
+    self.editor.session.dirty = true;
     self.commit_now();
-    self.status = trf(
+    self.workspace.status = trf(
         lang,
         K_ACTIONS_COPIED_ONTO_THE_ORIGINAL_CARD_ITS_PIXELS_ARE_UNT,
         &[("name", &name)],
@@ -583,15 +582,15 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
 /// reaches disk with the strip record at the next save, which is why
 /// `open_dirty_variants` counts a renamed card as unsaved work.
 pub(crate) fn commit_variant_name_buf(&mut self) {
-    let Some((photo, id, seed, buf)) = self.cards.variant_name_buf.clone() else { return };
+    let Some((photo, id, seed, buf)) = self.workspace.cards.variant_name_buf.clone() else { return };
     if buf == seed {
         return;
     }
-    if self.photo.src_path.as_deref() != Some(photo.as_path()) || id.is_empty() {
+    if self.editor.photo.src_path.as_deref() != Some(photo.as_path()) || id.is_empty() {
         // The card belongs to a photo that is no longer open (its strip
         // went with it), or to no identifiable card at all: drop the
         // buffer rather than paint the name onto whatever sits here now.
-        self.cards.variant_name_buf = None;
+        self.workspace.cards.variant_name_buf = None;
         return;
     }
     // Capped HERE, on the way in, to the same byte limit the store applies
@@ -604,13 +603,13 @@ pub(crate) fn commit_variant_name_buf(&mut self) {
         named.pop();
     }
     let named = Some(named).filter(|s| !s.is_empty());
-    if let Some(v) = self.doc.variants.iter_mut().find(|v| v.id == id) {
+    if let Some(v) = self.editor.doc.variants.iter_mut().find(|v| v.id == id) {
         v.name = named;
     }
     // Re-seed rather than clear (the version rule): the box is very
     // likely still on screen, and a SECOND rename in it has to compare
     // against what was just committed, not against the original.
-    self.cards.variant_name_buf = Some((photo, id, buf.clone(), buf));
+    self.workspace.cards.variant_name_buf = Some((photo, id, buf.clone(), buf));
 }
 
 /// Perform one deferred variant action — **the one owner** (R24-5).
@@ -636,14 +635,13 @@ pub(crate) fn dispatch_variant_action(&mut self, act: VariantAction, ctx: &egui:
             // mask panel's cross-commit rule, made structural by keying on
             // the card's id (R24-3).
             self.commit_variant_name_buf();
-            if let Some(photo) = self.photo.src_path.clone() {
-                let cur = self
-                    .doc.variants
+            if let Some(photo) = self.editor.photo.src_path.clone() {
+                let cur = self.editor.doc.variants
                     .iter()
                     .find(|v| v.id == id)
                     .and_then(|v| v.name.clone())
                     .unwrap_or_default();
-                self.cards.variant_name_buf = Some((photo, id, cur.clone(), cur));
+                self.workspace.cards.variant_name_buf = Some((photo, id, cur.clone(), cur));
             }
         }
         // The buttons are already disabled while busy; the second read is
@@ -651,7 +649,7 @@ pub(crate) fn dispatch_variant_action(&mut self, act: VariantAction, ctx: &egui:
         // one bool. (`save_version` is the only arm that writes a file
         // straight from the live canvas.)
         VariantAction::SaveVersion => {
-            if !self.busy {
+            if !self.workspace.busy {
                 self.save_version();
             }
         }

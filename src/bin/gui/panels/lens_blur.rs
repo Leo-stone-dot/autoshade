@@ -25,7 +25,7 @@ impl AutoShadeApp {
 
     fn lens_blur_section(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
         let lang = self.lang;
-        let active = logic::lens_blur::active(&self.doc.recipe);
+        let active = logic::lens_blur::active(&self.editor.doc.recipe);
         let mut actions = Vec::new();
         ui.add_space(SPACE_MD);
         card_fold(
@@ -42,8 +42,8 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut actions = Vec::new();
         let has_helper = depth_helper_available();
-        let can_run = !self.busy && self.photo.base_preview.is_some() && self.photo.src_path.is_some() && has_helper;
-        let has_blur = self.doc.recipe.lens_blur.is_some();
+        let can_run = !self.workspace.busy && self.editor.photo.base_preview.is_some() && self.editor.photo.src_path.is_some() && has_helper;
+        let has_blur = self.editor.doc.recipe.lens_blur.is_some();
         let verb = if has_blur { tr(lang, K_LENS_RE_ESTIMATE_DEPTH) } else { tr(lang, K_LENS_ESTIMATE_DEPTH) };
         let tip = if has_helper {
             ai_xref(lang, tr(lang, K_LENS_MOGE_2_ESTIMATES_HOW_FAR_AWAY_EVERY_PART_OF_THE))
@@ -55,12 +55,12 @@ impl AutoShadeApp {
         }
         // The card's current values, copied out so the draw below never holds a
         // borrow into the recipe the facade is about to change.
-        let Some((enabled, amount, range)) = self.doc.recipe.lens_blur.as_ref().map(|l| (l.enabled, l.amount, l.range)) else {
+        let Some((enabled, amount, range)) = self.editor.doc.recipe.lens_blur.as_ref().map(|l| (l.enabled, l.amount, l.range)) else {
             let hint = tr(lang, K_LENS_ESTIMATE_THE_DEPTH_FIRST_THEN_CLICK_THE_PHOTO_TO);
             ui.label(egui::RichText::new(hint).weak().small());
             return actions;
         };
-        let picking = self.tools.lens_focus_picking;
+        let picking = self.workspace.tools.lens_focus_picking;
         ui.horizontal(|ui| {
             let mute = tr(lang, K_LENS_SHOW_MUTE_THE_LENS_BLUR_WITHOUT_LOSING_ITS_SETTI);
             if glyph_toggle(ui, enabled, "👁").on_hover_text(mute).clicked() {
@@ -107,7 +107,7 @@ impl AutoShadeApp {
     /// The focus point as a small ring while the pick is armed, so the
     /// photographer sees where the current focus sits before moving it.
     pub(crate) fn draw_lens_focus(&self, ui: &egui::Ui, xf: ViewXform) {
-        let Some(lb) = self.doc.recipe.lens_blur.as_ref() else { return };
+        let Some(lb) = self.editor.doc.recipe.lens_blur.as_ref() else { return };
         let ((bw, bh), deg, dist) = self.geom_ctx();
         let (vx, vy) = orig_norm_to_view(lb.focus[0], lb.focus[1], (bw, bh), deg, &dist);
         let c = xf.to_screen(vx, vy);

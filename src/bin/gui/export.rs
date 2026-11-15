@@ -282,7 +282,7 @@ impl AutoShadeApp {
     /// denoised negative, so a second pass (SCUNet over a baked master) would
     /// only smooth it further (2026-09-15).
     pub(crate) fn export_denoise_applies(&self) -> bool {
-        self.exp.save_denoise
+        self.workspace.exp.save_denoise
             && !self.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
     }
 
@@ -294,19 +294,19 @@ impl AutoShadeApp {
     /// the user then has to hunt for.
     pub(crate) fn export_summary(&self, lang: Lang) -> String {
         let mut parts: Vec<String> = Vec::new();
-        parts.push(tr(lang, self.exp.format.label()).to_string());
-        parts.push(if self.exp.long_edge == 0 {
+        parts.push(tr(lang, self.workspace.exp.format.label()).to_string());
+        parts.push(if self.workspace.exp.long_edge == 0 {
             tr(lang, K_EXPORT_ORIGINAL_SIZE).to_string()
         } else {
-            format!("{} px", self.exp.long_edge)
+            format!("{} px", self.workspace.exp.long_edge)
         });
-        if self.exp.format == ExportFormat::Jpeg {
-            parts.push(format!("q{:.0}", self.exp.quality));
+        if self.workspace.exp.format == ExportFormat::Jpeg {
+            parts.push(format!("q{:.0}", self.workspace.exp.quality));
         }
-        if self.exp.sharpen > 0.0 {
-            parts.push(format!("{} {:.0}", tr(lang, K_EXPORT_OUTPUT_SHARPENING), self.exp.sharpen));
+        if self.workspace.exp.sharpen > 0.0 {
+            parts.push(format!("{} {:.0}", tr(lang, K_EXPORT_OUTPUT_SHARPENING), self.workspace.exp.sharpen));
         }
-        parts.push(tr(lang, EXPORT_SPACES[(self.exp.space as usize).min(2)]).to_string());
+        parts.push(tr(lang, EXPORT_SPACES[(self.workspace.exp.space as usize).min(2)]).to_string());
         if self.export_denoise_applies() {
             // With its amount: the dial under the checkbox is the one number
             // that decides how much of the minutes-long sidecar result lands.
@@ -333,7 +333,7 @@ impl AutoShadeApp {
     /// variant exports under its reimagine stem (and its AI pixels), not the
     /// original's.
     pub(crate) fn export_file_name(&self) -> String {
-        self.export_file_name_as(self.exp.format.ext())
+        self.export_file_name_as(self.workspace.exp.format.ext())
     }
 
     /// [`export_file_name`](Self::export_file_name) with the container given
@@ -353,7 +353,7 @@ impl AutoShadeApp {
     /// [`export_dest_dir`] with the app's own state. Read by the single export,
     /// the batch render and both on-screen echoes, so all four name ONE place.
     pub(crate) fn export_dest_dir(&self) -> Option<PathBuf> {
-        export_dest_dir(self.exp.dest, self.exp.last_dir.as_deref())
+        export_dest_dir(self.workspace.exp.dest, self.workspace.exp.last_dir.as_deref())
     }
 
     /// What the Export button will do this click — resolved BEFORE anything is
@@ -383,7 +383,7 @@ impl AutoShadeApp {
         // its own), captured at the click like every other export input.
         let denoise_strength = self.selected_denoise_strength(true);
         let export = self.export_opts();
-        self.start_render_with(out, export, denoise.then_some(denoise_strength), self.exp.save_denoise, OutName::Guarded)
+        self.start_render_with(out, export, denoise.then_some(denoise_strength), self.workspace.exp.save_denoise, OutName::Guarded)
     }
 
     /// [`start_render_to`](Self::start_render_to) with the delivery options
@@ -406,7 +406,7 @@ impl AutoShadeApp {
         name: OutName,
     ) -> bool {
         let Some(path) = self.active_source_path() else { return false };
-        if self.busy {
+        if self.workspace.busy {
             return false;
         }
         let lang = self.lang;
@@ -417,7 +417,7 @@ impl AutoShadeApp {
         // guarding only that would leave the ORIGINAL photo unprotected
         // exactly when a generated variant is active.
         let mut anchors = vec![path.clone()];
-        if let Some(orig) = self.photo.src_path.clone()
+        if let Some(orig) = self.editor.photo.src_path.clone()
             && orig != path
         {
             anchors.push(orig);
@@ -431,7 +431,7 @@ impl AutoShadeApp {
                     continue;
                 }
                 let t = e.to_string();
-                self.status = t.clone();
+                self.workspace.status = t.clone();
                 self.toast(ToastKind::Error, t);
                 return false;
             }
@@ -444,7 +444,7 @@ impl AutoShadeApp {
                 Ok(p) => p,
                 Err(e) => {
                     let t = format!("{e:#}");
-                    self.status = t.clone();
+                    self.workspace.status = t.clone();
                     self.toast(ToastKind::Error, t);
                     return false;
                 }
@@ -452,7 +452,7 @@ impl AutoShadeApp {
         } else {
             out
         };
-        self.busy = true;
+        self.workspace.busy = true;
         // ABSOLUTE, both here and at the landing (workers.rs): `./out` is
         // relative to the directory the app was launched from, so a bare
         // "out/DSC0001.developed.tif" named a place the user had no way to
@@ -460,7 +460,7 @@ impl AutoShadeApp {
         // existing file (this one is about to be created) and, unlike
         // `canonicalize`, it does not hand back a `\\?\` verbatim prefix.
         let shown = abs_display(&out);
-        self.status = if denoise.is_some() {
+        self.workspace.status = if denoise.is_some() {
             trf(
                 lang,
                 K_EXPORT_RENDERING_AI_DENOISE_GPU_SIDECAR_CAN_TAKE_MINUTE,
@@ -475,8 +475,8 @@ impl AutoShadeApp {
         } else {
             trf(lang, K_EXPORT_RENDERING_FULL_RESOLUTION, &[("path", &shown)])
         };
-        let recipe = self.doc.recipe.clone();
-        let src_photo = self.photo.src_path.clone();
+        let recipe = self.editor.doc.recipe.clone();
+        let src_photo = self.editor.photo.src_path.clone();
         let ai_masks = self.ai_mask_runner();
         self.spawn_worker(
             move || {
@@ -557,11 +557,11 @@ impl AutoShadeApp {
     /// batch render.
     pub(crate) fn export_opts(&self) -> autoshade::render::ExportOpts {
         autoshade::render::ExportOpts {
-            long_edge: (self.exp.long_edge > 0).then_some(self.exp.long_edge),
-            sharpen: self.exp.sharpen.clamp(0.0, 100.0),
-            jpeg_quality: self.exp.quality.round().clamp(1.0, 100.0) as u8,
-            eight_bit: self.exp.format.eight_bit(),
-            color_space: match self.exp.space {
+            long_edge: (self.workspace.exp.long_edge > 0).then_some(self.workspace.exp.long_edge),
+            sharpen: self.workspace.exp.sharpen.clamp(0.0, 100.0),
+            jpeg_quality: self.workspace.exp.quality.round().clamp(1.0, 100.0) as u8,
+            eight_bit: self.workspace.exp.format.eight_bit(),
+            color_space: match self.workspace.exp.space {
                 1 => autoshade::render::ExportColorSpace::DisplayP3,
                 2 => autoshade::render::ExportColorSpace::AdobeRgb,
                 _ => autoshade::render::ExportColorSpace::Srgb,
@@ -577,18 +577,18 @@ impl AutoShadeApp {
     /// up. AI denoise is deliberately excluded (minutes per photo via the GPU
     /// sidecar — run it per-photo from the export panel instead).
     pub(crate) fn start_batch_render(&mut self) {
-        if self.busy {
+        if self.workspace.busy {
             return;
         }
         let targets: Vec<PathBuf> = {
-            let mut idx: Vec<usize> = self.gal.multi_sel.iter().copied().collect();
+            let mut idx: Vec<usize> = self.workspace.gal.multi_sel.iter().copied().collect();
             idx.sort_unstable(); // report in gallery order, not hash order
-            idx.into_iter().filter_map(|i| self.gal.gallery.get(i).cloned()).collect()
+            idx.into_iter().filter_map(|i| self.workspace.gal.gallery.get(i).cloned()).collect()
         };
         if targets.is_empty() {
             return;
         }
-        let ext = self.exp.format.ext().to_string();
+        let ext = self.workspace.exp.format.ext().to_string();
         let export = self.export_opts();
         let Some(dest) = self.export_dest_dir().or_else(|| self.pick_batch_folder()) else { return };
         self.start_batch_render_for(targets, ext, export, dest, false);
@@ -611,7 +611,7 @@ impl AutoShadeApp {
     /// started).
     pub(crate) fn pick_batch_folder(&self) -> Option<PathBuf> {
         let mut dlg = rfd::FileDialog::new();
-        if let Some(d) = self.exp.last_dir.clone().filter(|d| d.is_dir()) {
+        if let Some(d) = self.workspace.exp.last_dir.clone().filter(|d| d.is_dir()) {
             dlg = dlg.set_directory(d);
         }
         dlg.pick_folder()
@@ -633,12 +633,12 @@ impl AutoShadeApp {
         dest: PathBuf,
         numbered: bool,
     ) {
-        if self.busy || targets.is_empty() {
+        if self.workspace.busy || targets.is_empty() {
             return;
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
-        self.busy = true;
-        self.status = trf(
+        self.workspace.busy = true;
+        self.workspace.status = trf(
             lang,
             K_EXPORT_BATCH_RENDERING_PHOTOS,
             &[("n", &targets.len().to_string()), ("path", &abs_display(&dest))],
@@ -646,7 +646,7 @@ impl AutoShadeApp {
         // The root travels to the landing as a FACT (L12#4) alongside the
         // BatchNames that consumes it.
         let dest_fact = dest.clone();
-        self.exp.batch_progress = Some((0, targets.len())); // the top-bar progress bar
+        self.workspace.exp.batch_progress = Some((0, targets.len())); // the top-bar progress bar
         // Interim BatchProgress ticks flow through this extra clone; the
         // TERMINAL Msg::Exported is owned by spawn_worker (panic-safe).
         let tx = self.services.tx.clone();
@@ -662,8 +662,7 @@ impl AutoShadeApp {
         // same raster).
         type BatchOverride = (EditRecipe, Option<(PathBuf, bool)>);
         let ai_masks = self.ai_mask_runner();
-        let mut overrides: std::collections::HashMap<PathBuf, BatchOverride> = self
-            .open.nav_stash
+        let mut overrides: std::collections::HashMap<PathBuf, BatchOverride> = self.workspace.open.nav_stash
             .iter()
             .map(|(p, st)| {
                 (
@@ -675,12 +674,12 @@ impl AutoShadeApp {
                 )
             })
             .collect();
-        if let Some(p) = self.photo.src_path.clone() {
+        if let Some(p) = self.editor.photo.src_path.clone() {
             let pix = self
                 .active_variant()
                 .and_then(|v| v.origin.clone())
                 .map(|o| (o, self.active_on_ai_pixels()));
-            overrides.insert(p, (self.doc.recipe.clone(), pix));
+            overrides.insert(p, (self.editor.doc.recipe.clone(), pix));
         }
         self.spawn_worker(
             move || {
@@ -931,12 +930,12 @@ impl AutoShadeApp {
     /// when the render actually started: a target the read-only-library guard
     /// refuses must not become the remembered destination.
     pub(crate) fn export_to_chosen_path(&mut self) {
-        let ext = self.exp.format.ext();
+        let ext = self.workspace.exp.format.ext();
         let mut dlg =
             rfd::FileDialog::new().add_filter(ext, &[ext]).set_file_name(self.export_file_name());
         // Reopen where the last export landed (阶段4) — persisted in Prefs, so
         // it survives restarts.
-        if let Some(d) = self.exp.last_dir.clone().filter(|d| d.is_dir()) {
+        if let Some(d) = self.workspace.exp.last_dir.clone().filter(|d| d.is_dir()) {
             dlg = dlg.set_directory(d);
         }
         let Some(p) = dlg.save_file() else { return };
@@ -945,7 +944,7 @@ impl AutoShadeApp {
         let p = normalize_export_target(p, ext);
         let dir = p.parent().map(|d| d.to_path_buf());
         if self.start_render_to(p) {
-            self.exp.last_dir = dir;
+            self.workspace.exp.last_dir = dir;
         }
     }
 
@@ -963,7 +962,7 @@ impl AutoShadeApp {
     /// click (the store's own NotFound message says exactly that) than a button
     /// that is greyed out for a reason nothing explains.
     pub(crate) fn can_export_xmp_beside(&self) -> bool {
-        self.photo.src_path.as_deref().is_some_and(autoshade::decode::is_raw)
+        self.editor.photo.src_path.as_deref().is_some_and(autoshade::decode::is_raw)
     }
 
     /// SF8-A: hand the stored Lightroom sidecar over to Lightroom — copy this
@@ -978,11 +977,11 @@ impl AutoShadeApp {
     /// answered by a file that appeared in between.
     pub(crate) fn export_xmp_beside(&mut self) {
         let lang = self.lang;
-        let Some(path) = self.photo.src_path.clone() else { return };
-        let overwrite = self.exp.xmp_beside_confirm;
+        let Some(path) = self.editor.photo.src_path.clone() else { return };
+        let overwrite = self.workspace.exp.xmp_beside_confirm;
         match autoshade::store::export_xmp_beside(&path, overwrite) {
             Ok(to) => {
-                self.exp.xmp_beside_confirm = false;
+                self.workspace.exp.xmp_beside_confirm = false;
                 // A file just landed in the user's PHOTO folder — the one place
                 // this app otherwise never writes. That is worth a toast, not
                 // just a status line that the next message scrolls away.
@@ -996,21 +995,21 @@ impl AutoShadeApp {
                 // about to open it in Lightroom (a colour field, a lens blur:
                 // the rendered exports carry them, the sidecar cannot). The
                 // mask half was said on the save that wrote the file.
-                let globals = autoshade::xmp::global_export_losses(&self.session.hist.saved_recipe);
+                let globals = autoshade::xmp::global_export_losses(&self.editor.session.hist.saved_recipe);
                 if let Some(m) = xmp_loss_line(lang, &[], &globals)
                     && xmp_loss_interrupts(&[], &globals)
                 {
                     self.toast(ToastKind::Error, m.clone());
                     t = format!("{t} — ⚠ {m}");
                 }
-                self.status = t.clone();
+                self.workspace.status = t.clone();
                 self.toast(ToastKind::Success, t);
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && !overwrite => {
                 // ARM, do not write. The status says what the second click will
                 // do; the button says it too (develop.rs) so the armed state is
                 // visible even after the status line has moved on.
-                self.exp.xmp_beside_confirm = true;
+                self.workspace.exp.xmp_beside_confirm = true;
                 let there = autoshade::store::xmp_beside_target(&path)
                     .map(|p| abs_display(&p))
                     .unwrap_or_default();
@@ -1019,17 +1018,17 @@ impl AutoShadeApp {
                     K_EXPORT_A_XMP_ALREADY_SITS_BESIDE_THIS_PHOTO_CLICK_AGAIN,
                     &[("path", &there)],
                 );
-                self.status = t.clone();
+                self.workspace.status = t.clone();
                 self.toast(ToastKind::Error, t);
             }
             Err(e) => {
-                self.exp.xmp_beside_confirm = false;
+                self.workspace.exp.xmp_beside_confirm = false;
                 let t = trf(
                     lang,
                     K_EXPORT_THE_XMP_COULD_NOT_BE_DELIVERED,
                     &[("err", &e.to_string())],
                 );
-                self.status = t.clone();
+                self.workspace.status = t.clone();
                 self.toast(ToastKind::Error, t);
             }
         }
@@ -1056,7 +1055,7 @@ impl AutoShadeApp {
         // stale projection that refusal left standing.)
         self.fork_edited_card();
         let lang = self.lang;
-        let Some(path) = self.photo.src_path.clone() else { return };
+        let Some(path) = self.editor.photo.src_path.clone() else { return };
         // Reset-then-save means "clear my edits": writing a neutral pair would
         // only pin a misleading ● badge with no in-app way to remove it —
         // delete the working sidecars instead (version snapshots are kept).
@@ -1072,7 +1071,7 @@ impl AutoShadeApp {
         // a multi-variant strip must take the save path (noop recipe + strip
         // record) — "clear my edits" must not silently destroy the OTHER
         // cards.
-        if self.doc.recipe.is_noop()
+        if self.editor.doc.recipe.is_noop()
             && self.active_variant().is_none_or(|v| v.origin.is_none())
             && self.current_strip_record().is_none()
         {
@@ -1085,15 +1084,15 @@ impl AutoShadeApp {
                 || autoshade::store::clear_develop(&path),
             ) {
                 Ok(o) => {
-                    self.gal.edited_badge.clear();
+                    self.workspace.gal.edited_badge.clear();
                     // The CANVAS is the baseline, not default(): Reset leaves
                     // the stamped lens profile (and knots) on the canvas, and
                     // a default baseline compared dirty on lens_profile
                     // forever — a permanent ● with quit prompts (R4-8).
-                    self.session.hist.saved_recipe = self.doc.recipe.clone();
-                    self.session.hist.pixels_on_disk = None;
-                    self.session.hist.saved_strip = None;
-                    self.open.nav_stash.remove(&path);
+                    self.editor.session.hist.saved_recipe = self.editor.doc.recipe.clone();
+                    self.editor.session.hist.pixels_on_disk = None;
+                    self.editor.session.hist.saved_strip = None;
+                    self.workspace.open.nav_stash.remove(&path);
                     self.forget_open_base();
                     match o.marker_warning {
                         // NEVER a plain success: the store copies are gone, but
@@ -1105,11 +1104,11 @@ impl AutoShadeApp {
                                 K_EXPORT_SAVED_EDITS_CLEARED_BUT_THE_CLEAR_COULD_NOT_BE_M,
                                 &[("err", &w)],
                             );
-                            self.status = t.clone();
+                            self.workspace.status = t.clone();
                             self.toast(ToastKind::Error, t);
                         }
                         None => {
-                            self.status = if o.removed {
+                            self.workspace.status = if o.removed {
                                 tr(lang, K_EXPORT_NEUTRAL_RECIPE_SAVED_EDITS_CLEARED_SAVED_FILES_R)
                                     .into()
                             } else {
@@ -1147,25 +1146,25 @@ impl AutoShadeApp {
         // the washed curve back to the canvas invisibly (dirty_vs neutralises
         // both fields, so no ● would have said so) — while disk and every
         // deliverable stayed repaired.
-        let before = (self.doc.recipe.version, self.doc.recipe.base_curve.clone());
+        let before = (self.editor.doc.recipe.version, self.editor.doc.recipe.base_curve.clone());
         let relooked =
-            autoshade::pipeline::repair_pre_era_base_curve(&path, &mut self.doc.recipe).is_some();
+            autoshade::pipeline::repair_pre_era_base_curve(&path, &mut self.editor.doc.recipe).is_some();
         if relooked {
             let (after_ver, after_curve) =
-                (self.doc.recipe.version, self.doc.recipe.base_curve.clone());
+                (self.editor.doc.recipe.version, self.editor.doc.recipe.base_curve.clone());
             let restamp = |r: &mut EditRecipe| {
                 if r.version == before.0 && r.base_curve == before.1 {
                     r.version = after_ver;
                     r.base_curve = after_curve.clone();
                 }
             };
-            restamp(&mut self.session.hist.committed.recipe);
-            self.session.hist.undo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
-            self.session.hist.redo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
+            restamp(&mut self.editor.session.hist.committed.recipe);
+            self.editor.session.hist.undo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
+            self.editor.session.hist.redo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
             // The strip entry that IS the canvas follows it, and the preview
             // re-develops under the healed curve.
-            if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
-                v.recipe = self.doc.recipe.clone();
+            if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
+                v.recipe = self.editor.doc.recipe.clone();
             }
             // ...and the SIBLINGS follow too (the stash-retry rule): the
             // estimate is already paid, so healing the rest of the strip is
@@ -1174,8 +1173,8 @@ impl AutoShadeApp {
             // sibling also drops its CARD: the thumb is a stale render of
             // the washed recipe, and keeping it showed a stops-dark
             // thumbnail beside a bright canvas until the next rebuild.
-            let active = self.doc.active;
-            for (i, v) in self.doc.variants.iter_mut().enumerate() {
+            let active = self.editor.doc.active;
+            for (i, v) in self.editor.doc.variants.iter_mut().enumerate() {
                 if i != active
                     && v.kind.is_source_based()
                     && autoshade::pipeline::repair_pre_era_base_curve(&path, &mut v.recipe)
@@ -1184,7 +1183,7 @@ impl AutoShadeApp {
                     v.thumb = None;
                 }
             }
-            self.session.dirty = true;
+            self.editor.session.dirty = true;
         }
         // ONE lock across the whole compound save: recipe.json, the
         // pixels.json link, the strip record and the XMP projection publish
@@ -1195,12 +1194,12 @@ impl AutoShadeApp {
             &path,
             autoshade::store::DevelopLockMode::NoWait,
             || -> std::io::Result<()> {
-        if self.open.open_unresolved {
+        if self.workspace.open.open_unresolved {
             // The baseline came from an open that could not READ the saved
             // develop — snapshot whatever is on disk before overwriting it
             // (v<N> copy). Refusing on a failed snapshot beats destroying a
             // save nobody ever looked at.
-            if let Err(e) = autoshade::store::backup_saved_develop(&path, Some(&self.doc.recipe)) {
+            if let Err(e) = autoshade::store::backup_saved_develop(&path, Some(&self.editor.doc.recipe)) {
                 return Err(std::io::Error::other(format!(
                     "the unread develop could not be backed up ({e}) — nothing was overwritten"
                 )));
@@ -1225,11 +1224,11 @@ impl AutoShadeApp {
         let disk = if generated {
             // Every calibration half, the start (v1.17.0) included, through
             // the one stamper.
-            let mut d = self.doc.recipe.clone();
+            let mut d = self.editor.doc.recipe.clone();
             autoshade::pipeline::stamp_fit_calibration(&mut d, autoshade::pipeline::photo_calibration(&path));
             d
         } else {
-            self.doc.recipe.clone()
+            self.editor.doc.recipe.clone()
         };
         // The Lightroom projection is a MEMBER of this commit (2026-09-13):
         // it lands or clears with the recipe it projects, never after it.
@@ -1282,7 +1281,7 @@ impl AutoShadeApp {
         })();
         match committed {
             Ok(()) => {
-                self.open.open_unresolved = false;
+                self.workspace.open.open_unresolved = false;
                 let rp = autoshade::store::recipe_target(&path);
                 let pixel_note: Option<String> = origin.is_some().then(|| {
                     tr(
@@ -1294,11 +1293,11 @@ impl AutoShadeApp {
                 // The strip mirror advances WITH the commit (all-or-nothing:
                 // a failed commit leaves it untouched and the
                 // background-variant unsaved protection armed).
-                self.session.hist.saved_strip = strip_rec;
-                self.gal.edited_badge.clear(); // the open photo just gained its badge
-                self.session.hist.saved_recipe = self.doc.recipe.clone();
-                self.open.nav_stash.remove(&path);
-                self.session.hist.pixels_on_disk = origin;
+                self.editor.session.hist.saved_strip = strip_rec;
+                self.workspace.gal.edited_badge.clear(); // the open photo just gained its badge
+                self.editor.session.hist.saved_recipe = self.editor.doc.recipe.clone();
+                self.workspace.open.nav_stash.remove(&path);
+                self.editor.session.hist.pixels_on_disk = origin;
                 let mut s = if generated {
                     // No sidecar reproduces AI pixels: the projection member
                     // CLEARED, and the line says so instead of "XMP + recipe".
@@ -1334,7 +1333,7 @@ impl AutoShadeApp {
                             // act on, and an error toast on every single
                             // Ctrl+S is how the mask half — which they CAN act
                             // on — stopped being read.
-                            let globals = autoshade::xmp::global_export_losses(&self.doc.recipe);
+                            let globals = autoshade::xmp::global_export_losses(&self.editor.doc.recipe);
                             let interrupts = xmp_loss_interrupts(&losses, &globals);
                             let mask_note = xmp_loss_line(lang, &losses, &globals);
                             if let Some(m) = &mask_note
@@ -1370,7 +1369,7 @@ impl AutoShadeApp {
                             // the two renders starts to matter.
                             if let Some(m) = render_gap_line(
                                 lang,
-                                &autoshade::xmp::global_render_gaps(&self.doc.recipe),
+                                &autoshade::xmp::global_render_gaps(&self.editor.doc.recipe),
                             ) {
                                 s.push_str(&format!(" · {m}"));
                             }
@@ -1406,7 +1405,7 @@ impl AutoShadeApp {
                     ));
                 }
                 self.forget_open_base();
-                self.status = s;
+                self.workspace.status = s;
             }
             Err(e) => {
                 let mut t = trf(lang, K_ACTIONS_SAVE_FAILED, &[("err", &e.to_string())]);
@@ -1423,7 +1422,7 @@ impl AutoShadeApp {
                         )
                     ));
                 }
-                self.status = t.clone();
+                self.workspace.status = t.clone();
                 self.toast(ToastKind::Error, t); // a failed save must be seen
             }
         }
@@ -1447,20 +1446,20 @@ impl AutoShadeApp {
     /// never touched (write_recipe / write_xmp land in the store, never beside
     /// the photo).
     pub(crate) fn start_paste(&mut self) {
-        let Some(src) = self.genai.copied.clone() else { return };
-        if self.busy {
+        let Some(src) = self.workspace.genai.copied.clone() else { return };
+        if self.workspace.busy {
             return;
         }
         let targets: Vec<PathBuf> = {
-            let mut idx: Vec<usize> = self.gal.multi_sel.iter().copied().collect();
+            let mut idx: Vec<usize> = self.workspace.gal.multi_sel.iter().copied().collect();
             idx.sort_unstable(); // report in gallery order, not hash order
-            idx.into_iter().filter_map(|i| self.gal.gallery.get(i).cloned()).collect()
+            idx.into_iter().filter_map(|i| self.workspace.gal.gallery.get(i).cloned()).collect()
         };
         if targets.is_empty() {
             return;
         }
-        let copied_from = self.genai.copied_from.clone();
-        self.start_paste_to(src, copied_from, targets, self.genai.paste_geometry);
+        let copied_from = self.workspace.genai.copied_from.clone();
+        self.start_paste_to(src, copied_from, targets, self.workspace.genai.paste_geometry);
     }
 
     /// [`start_paste`](Self::start_paste) with its inputs given: the recipe
@@ -1475,7 +1474,7 @@ impl AutoShadeApp {
         targets: Vec<PathBuf>,
         geometry: bool,
     ) {
-        if self.busy || targets.is_empty() {
+        if self.workspace.busy || targets.is_empty() {
             return;
         }
         let PastePayload {
@@ -1532,8 +1531,8 @@ impl AutoShadeApp {
         // worker writes this exact recipe to the open photo's store, so
         // leaving `saved_recipe` behind kept a false "● unsaved" lit for
         // edits that were already on disk.
-        self.open.pasted_open = None;
-        if let Some(open) = self.photo.src_path.clone()
+        self.workspace.open.pasted_open = None;
+        if let Some(open) = self.editor.photo.src_path.clone()
             && targets.iter().any(|t| t == &open)
         {
             // Same base_curve rule the worker applies to every target below,
@@ -1555,8 +1554,8 @@ impl AutoShadeApp {
                 live.as_shot_k = None;
                 live.as_shot_tint = None;
             }
-            self.doc.recipe = live.clone();
-            self.session.dirty = true;
+            self.editor.doc.recipe = live.clone();
+            self.editor.session.dirty = true;
             // A paste onto the pristine ✨ card is an edit: it lands on a new
             // ✎ card now (the immutability rule), so the ● baseline below
             // belongs to that card's canvas.
@@ -1564,11 +1563,11 @@ impl AutoShadeApp {
             // Wholesale recipe replacement: disarm index-carrying tools and
             // refresh derived display, like every other whole-swap path.
             self.resync_recipe_display();
-            self.open.pasted_open = Some((open, live));
+            self.workspace.open.pasted_open = Some((open, live));
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
-        self.busy = true;
-        self.status = trf(
+        self.workspace.busy = true;
+        self.workspace.status = trf(
             lang,
             K_EXPORT_PASTING_RECIPE_TO_PHOTOS,
             &[("n", &targets.len().to_string())],

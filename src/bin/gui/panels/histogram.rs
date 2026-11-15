@@ -10,7 +10,7 @@ impl AutoShadeApp {
     /// at the J-overlay thresholds (≤1 / ≥254); clicking toggles that overlay.
     pub(crate) fn histogram_ui(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let Some(hist) = &self.chrome.histogram else { return };
+        let Some(hist) = &self.workspace.chrome.histogram else { return };
         let h = 72.0;
         // The readout keeps the panel's readable ceiling (`FIELD_W_MAX`), as
         // the prompt fields and the button rows do: the side panel itself is
@@ -121,10 +121,10 @@ impl AutoShadeApp {
             let resp = ui
                 .interact(tri, ui.id().with(("clip_tri", right)), egui::Sense::click())
                 .on_hover_text(tip);
-            let color = lit.unwrap_or(if self.chrome.show_clipping {
-                self.ui.theme.colors().clip_tri_on
+            let color = lit.unwrap_or(if self.workspace.chrome.show_clipping {
+                self.workspace.ui.theme.colors().clip_tri_on
             } else {
-                self.ui.theme.colors().clip_tri_off
+                self.workspace.ui.theme.colors().clip_tri_off
             });
             p.add(egui::Shape::convex_polygon(
                 vec![
@@ -158,7 +158,7 @@ impl AutoShadeApp {
 
     /// The same editor pointed at one set of four curves — the recipe's own
     /// (`CurveTarget::Global`) or a mask's (R25 P6). Everything below is the
-    /// original body with `self.doc.recipe.<curve>` replaced by a lookup through
+    /// original body with `self.editor.doc.recipe.<curve>` replaced by a lookup through
     /// `target`; splitting the widget in two instead would have given the mask
     /// curves a second plot, a second gesture model and a second place for the
     /// engine-faithful line to drift.
@@ -170,33 +170,33 @@ impl AutoShadeApp {
         // A stale mask index addresses no curve (see `curve_points`): draw
         // nothing rather than fall through to somebody else's four vectors.
         // Checked ONCE here, so every `expect` below is this guard's.
-        if curve_points(&self.doc.recipe, target, self.curve_channel).is_none() {
+        if curve_points(&self.editor.doc.recipe, target, self.workspace.curve_channel).is_none() {
             return false;
         }
         let lang = self.lang;
-        let label_colors = self.ui.theme.colors().curve_labels;
+        let label_colors = self.workspace.ui.theme.colors().curve_labels;
         let mut changed = false;
         ui.horizontal(|ui| {
             for (i, (name, _)) in CURVE_CHANNELS.iter().enumerate() {
                 if ui
                     .selectable_label(
-                        self.curve_channel == i,
+                        self.workspace.curve_channel == i,
                         egui::RichText::new(tr(lang, name)).color(label_colors[i]).small(),
                     )
                     .clicked()
                 {
-                    self.curve_channel = i;
-                    self.curve_drag = None;
+                    self.workspace.curve_channel = i;
+                    self.workspace.curve_drag = None;
                 }
             }
             if glyph(ui, true, "↺").on_hover_text(tr(lang, K_HISTOGRAM_CLEAR_THE_CURRENT_CHANNEL_S_CURVE)).clicked() {
-                let pts = curve_points_mut(&mut self.doc.recipe, target, self.curve_channel)
+                let pts = curve_points_mut(&mut self.editor.doc.recipe, target, self.workspace.curve_channel)
                     .expect("the target was validated on entry");
                 if !pts.is_empty() {
                     pts.clear();
                     changed = true;
                 }
-                self.curve_drag = None;
+                self.workspace.curve_drag = None;
             }
         });
 
@@ -211,7 +211,7 @@ impl AutoShadeApp {
             self.seams.curve_rect = Some(rect);
         }
         let p = ui.painter_at(rect);
-        let accent = CURVE_CHANNELS[self.curve_channel].1;
+        let accent = CURVE_CHANNELS[self.workspace.curve_channel].1;
         p.rect_filled(rect, RADIUS_SM, egui::Color32::from_gray(16));
 
         // Value space: x = input 0..1 (left→right), y = output 0..1 (bottom→top).
@@ -227,8 +227,8 @@ impl AutoShadeApp {
 
         // Histogram backdrop for the active channel (luma behind the master curve)
         // — same data as the panel histogram, sqrt-scaled the same way.
-        if let Some(hist) = &self.chrome.histogram {
-            let ch = [3usize, 0, 1, 2][self.curve_channel];
+        if let Some(hist) = &self.workspace.chrome.histogram {
+            let ch = [3usize, 0, 1, 2][self.workspace.curve_channel];
             let bar_w = rect.width() / hist.len().max(1) as f32;
             let fill =
                 egui::Color32::from_rgba_unmultiplied(accent.r(), accent.g(), accent.b(), 34);
@@ -264,7 +264,7 @@ impl AutoShadeApp {
         // --- interaction (mutates the active channel's control points) --------
         const HIT: f32 = 10.0; // grab radius around a point, screen px
         let lut_before = autoshade::render::curve_lut(
-            curve_points(&self.doc.recipe, target, self.curve_channel)
+            curve_points(&self.editor.doc.recipe, target, self.workspace.curve_channel)
                 .expect("the target was validated on entry"),
         );
         // The drag belongs to the target it STARTED on: two editors can be
@@ -275,7 +275,7 @@ impl AutoShadeApp {
         let drag_here = |d: Option<(CurveTarget, usize)>| -> Option<usize> {
             d.and_then(|(t, i)| (t == target).then_some(i))
         };
-        let pts = curve_points_mut(&mut self.doc.recipe, target, self.curve_channel)
+        let pts = curve_points_mut(&mut self.editor.doc.recipe, target, self.workspace.curve_channel)
             .expect("the target was validated on entry");
         if (resp.drag_started() || resp.clicked())
             && let Some(q) = resp.interact_pointer_pos()
@@ -296,10 +296,10 @@ impl AutoShadeApp {
                 }
             };
             if resp.drag_started() {
-                self.curve_drag = Some((target, idx));
+                self.workspace.curve_drag = Some((target, idx));
             }
         }
-        if let Some(i) = drag_here(self.curve_drag).filter(|&i| i < pts.len()) {
+        if let Some(i) = drag_here(self.workspace.curve_drag).filter(|&i| i < pts.len()) {
             if resp.dragged()
                 && let Some(q) = resp.interact_pointer_pos()
             {
@@ -313,12 +313,12 @@ impl AutoShadeApp {
                     );
                 } else {
                     pts.remove(i); // dragged well outside → delete (LR gesture)
-                    self.curve_drag = None;
+                    self.workspace.curve_drag = None;
                 }
                 changed = true;
             }
             if resp.drag_stopped() {
-                self.curve_drag = None;
+                self.workspace.curve_drag = None;
             }
         }
 
@@ -334,7 +334,7 @@ impl AutoShadeApp {
         // Control-point handles (the dragged one filled with the channel colour).
         for (i, c) in pts.iter().enumerate() {
             let q = to_screen(c.input as f32 / 255.0, c.output as f32 / 255.0);
-            if drag_here(self.curve_drag) == Some(i) {
+            if drag_here(self.workspace.curve_drag) == Some(i) {
                 p.circle_filled(q, 5.0, accent);
             } else {
                 p.circle_filled(q, 3.5, egui::Color32::from_gray(230));

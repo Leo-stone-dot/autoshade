@@ -23,8 +23,8 @@ pub(crate) fn on_analyzed(
 ) {
                 // Cleared whatever the epoch: the wire is free either way,
                 // and this is what re-arms the Analyze button.
-                self.tools.analyze_inflight = false;
-                if epoch != self.tools.gen_epoch {
+                self.workspace.tools.analyze_inflight = false;
+                if epoch != self.workspace.tools.gen_epoch {
                     // A cancelled Analyze's late result: the user already
                     // moved on. The Ok arm below also PERSISTS (backup +
                     // recipe.json + XMP) — a stale install would not just
@@ -32,7 +32,7 @@ pub(crate) fn on_analyzed(
                     // develop. Discard entirely (Err is just as silent).
                     return; // was `continue` — the match was the loop's last statement
                 }
-                self.tools.gen_cancel = None;
+                self.workspace.tools.gen_cancel = None;
                 match *boxed {
                 Ok((recipe, verdict, rationale_notes)) => {
                     // Sliders stay live while Analyze runs (10-30 s):
@@ -71,7 +71,7 @@ pub(crate) fn on_analyzed(
                         self.active_on_ai_pixels(),
                     );
                     let stamped = shaped.stamped;
-                    self.doc.recipe = shaped.canvas;
+                    self.editor.doc.recipe = shaped.canvas;
                     // The immutability rule, BEFORE the persist below
                     // reads the strip: an analysis landing on the
                     // pristine ✨ card is an edit, and lands on a new ✎
@@ -81,17 +81,17 @@ pub(crate) fn on_analyzed(
                     // refresh rationale, THEN install the fresh verdict
                     // and the typed notes (resync cleared both).
                     self.resync_recipe_display();
-                    self.analysis.rationale_notes = rationale_notes;
-                    self.analysis.verdict =
+                    self.editor.analysis.rationale_notes = rationale_notes;
+                    self.editor.analysis.verdict =
                         Some((verdict.decision.clone(), verdict.reasons.clone()));
-                    self.session.dirty = true;
-                    self.busy = false;
+                    self.editor.session.dirty = true;
+                    self.workspace.busy = false;
                     // Persist like the CLI and the web do — the badge,
                     // batch render and reopening all read recipe.json, so
                     // an unpersisted analyze silently diverges from every
                     // one of them. An existing explicit save is snapshotted
                     // to v<N> first, never destroyed.
-                    self.status = if !accepted {
+                    self.workspace.status = if !accepted {
                         // The verifier itself judged this result not
                         // ready, and a non-Accept verdict may not
                         // auto-save (user decision). The result stays on
@@ -107,7 +107,7 @@ pub(crate) fn on_analyzed(
                                 },
                             ),
                         )
-                    } else { match self.photo.src_path.clone() {
+                    } else { match self.editor.photo.src_path.clone() {
                         // The backup gate comes FIRST: if the existing save
                         // cannot be snapshotted, it is not overwritten —
                         // the analyze result stays on the canvas only.

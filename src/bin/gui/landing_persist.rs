@@ -103,7 +103,7 @@ match autoshade::store::with_develop_lock(
         })();
         match commit_res {
             Ok(()) => {
-                self.gal.edited_badge.clear();
+                self.workspace.gal.edited_badge.clear();
                 // The ● baseline lives in CANVAS
                 // coordinates: on a baked variant
                 // the canvas copy dropped the
@@ -111,16 +111,16 @@ match autoshade::store::with_develop_lock(
                 // baseline keeping them (the
                 // disk form) lit ● the instant a
                 // successful analyze landed.
-                self.session.hist.saved_recipe = self.doc.recipe.clone();
-                self.open.nav_stash.remove(&p);
-                self.session.hist.pixels_on_disk = origin;
+                self.editor.session.hist.saved_recipe = self.editor.doc.recipe.clone();
+                self.workspace.open.nav_stash.remove(&p);
+                self.editor.session.hist.pixels_on_disk = origin;
                 // The strip mirror advances WITH
                 // the commit (the Ctrl+S rule):
                 // all-or-nothing, so a failed
                 // commit leaves it untouched and
                 // the background-variant unsaved
                 // protection armed.
-                self.session.hist.saved_strip = strip_rec;
+                self.editor.session.hist.saved_strip = strip_rec;
                 self.forget_open_base();
                 if backed.is_some() {
                     self.refresh_versions();
@@ -233,7 +233,7 @@ match autoshade::store::with_develop_lock(
             "AI develop applied — but NOT saved: this photo is being changed by another AutoShade process ({err}); Ctrl+S retries",
             &[],
         );
-        self.status.clone()
+        self.workspace.status.clone()
     }
 }
     }

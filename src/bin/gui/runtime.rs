@@ -19,34 +19,34 @@ impl AutoShadeApp {
             match action {
                 Action::Look(intent) => self.start_look(intent),
                 Action::References(dir) => {
-                    let photo = self.photo.src_path.clone();
+                    let photo = self.editor.photo.src_path.clone();
                     let started = logic::look::references_start(
                         photo.as_deref(),
                         dir,
-                        self.busy,
-                        self.tools.analyze_inflight,
-                        self.normal.building,
+                        self.workspace.busy,
+                        self.workspace.tools.analyze_inflight,
+                        self.workspace.normal.building,
                     );
                     self.run_effects(started);
                 }
                 Action::Lens(action) => {
                     let start = match action {
                         logic::lens_blur::LensAction::EstimateDepth => {
-                            self.photo.src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
+                            self.editor.photo.src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
                         }
                         _ => None,
                     };
-                    effects.extend(logic::lens_blur::apply(&mut self.doc.recipe, action, start, self.busy));
+                    effects.extend(logic::lens_blur::apply(&mut self.editor.doc.recipe, action, start, self.workspace.busy));
                 }
                 Action::Gallery(action) => self.apply_gallery(action),
                 Action::Pick(action) => {
-                    effects.extend(logic::pick::apply(&mut self.doc.recipe, action));
+                    effects.extend(logic::pick::apply(&mut self.editor.doc.recipe, action));
                 }
                 Action::Crop(action) => {
-                    effects.extend(logic::crop::apply(&mut self.doc.recipe, action));
+                    effects.extend(logic::crop::apply(&mut self.editor.doc.recipe, action));
                 }
                 Action::MaskEdit(action) => {
-                    effects.extend(logic::mask_edit::apply(&mut self.doc.recipe, action));
+                    effects.extend(logic::mask_edit::apply(&mut self.editor.doc.recipe, action));
                 }
                 Action::Region(action) => effects.extend(logic::region::apply(action)),
                 Action::Portrait(action) => match action {
@@ -54,7 +54,7 @@ impl AutoShadeApp {
                     logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
                     logic::portrait::PortraitAction::KeepPersonSharp(on) => {
                         if self.set_keep_person_sharp(on) {
-                            self.session.dirty = true;
+                            self.editor.session.dirty = true;
                         }
                     }
                     logic::portrait::PortraitAction::SetKeepSkin(on) => self.set_keep_skin(on),
@@ -72,7 +72,7 @@ impl AutoShadeApp {
                     logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
                     logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
                     logic::develop::DevelopAction::DeleteVersion(n) => {
-                        if let Some(src) = self.photo.src_path.clone() {
+                        if let Some(src) = self.editor.photo.src_path.clone() {
                             self.delete_version_clicked(self.lang, src, n);
                         }
                     }
@@ -100,7 +100,7 @@ impl AutoShadeApp {
                     logic::ai::AiAction::RefreshLibraryStatus => {
                         // Not in tests: a headless frame would spawn a worker
                         // reading the developer's own store.
-                        if !cfg!(test) && self.ai.style_info.is_none() && !self.ai.style_info_loading {
+                        if !cfg!(test) && self.workspace.ai.style_info.is_none() && !self.workspace.ai.style_info_loading {
                             self.start_style_info();
                         }
                     }
@@ -133,7 +133,7 @@ impl AutoShadeApp {
                     logic::normal::NormalAction::SetDenoise(on) => self.set_normal_denoise(on),
                     logic::normal::NormalAction::PickReferencesFolder => {
                         let mut dialog = rfd::FileDialog::new();
-                        if let Some(d) = self.normal.ref_dir.clone().filter(|d| d.is_dir()) {
+                        if let Some(d) = self.workspace.normal.ref_dir.clone().filter(|d| d.is_dir()) {
                             dialog = dialog.set_directory(d);
                         }
                         if let Some(dir) = dialog.pick_folder() {
@@ -151,7 +151,7 @@ impl AutoShadeApp {
                     }
                     logic::settings::SettingsAction::PickDeliveryFolder => {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                            self.ui.settings.out_dir = dir.display().to_string();
+                            self.workspace.ui.settings.out_dir = dir.display().to_string();
                         }
                     }
                     logic::settings::SettingsAction::SaveForm => self.save_settings_form(),
@@ -174,25 +174,25 @@ impl AutoShadeApp {
         for effect in effects {
             match effect {
                 Effect::EstimateDepth { photo, base } => self.spawn_depth_worker(photo, base),
-                Effect::Status(text) => self.status = crate::i18n::text(self.lang, &text),
+                Effect::Status(text) => self.workspace.status = crate::i18n::text(self.lang, &text),
                 Effect::ToastError(text) => {
                     self.toast(ToastKind::Error, crate::i18n::text(self.lang, &text));
                 }
                 Effect::LookLine { kind, line } => self.apply_look_line(kind, line),
                 Effect::RememberOneClick { photo, fine } => {
-                    self.normal.result = Some((photo, fine));
+                    self.workspace.normal.result = Some((photo, fine));
                 }
                 Effect::StartLook(intent) => self.start_look(intent),
                 Effect::ReferenceBuild { photo, dir } => self.start_reference_build(photo, dir),
-                Effect::ArmFocusPick(on) => self.tools.lens_focus_picking = on,
-                Effect::SetRegion(region) => self.overlay.region = region,
+                Effect::ArmFocusPick(on) => self.workspace.tools.lens_focus_picking = on,
+                Effect::SetRegion(region) => self.workspace.overlay.region = region,
                 Effect::DisarmPicker(picker) => match picker {
-                    logic::pick::Picker::WhiteBalance => self.tools.wb_picking = false,
-                    logic::pick::Picker::Range => self.tools.range_picking = None,
-                    logic::pick::Picker::PointColor => self.tools.point_color_picking = false,
+                    logic::pick::Picker::WhiteBalance => self.workspace.tools.wb_picking = false,
+                    logic::pick::Picker::Range => self.workspace.tools.range_picking = None,
+                    logic::pick::Picker::PointColor => self.workspace.tools.point_color_picking = false,
                 },
                 Effect::DisarmTools => self.disarm_tools(),
-                Effect::MarkDirty => self.session.dirty = true,
+                Effect::MarkDirty => self.editor.session.dirty = true,
             }
         }
     }
@@ -201,8 +201,8 @@ impl AutoShadeApp {
     /// in-flight flag clears here; the recipe change and its words are the
     /// logic's.
     pub(crate) fn on_depth_estimated(&mut self, res: anyhow::Result<std::path::PathBuf>) {
-        self.busy = false;
-        let effects = logic::lens_blur::landed(&mut self.doc.recipe, res);
+        self.workspace.busy = false;
+        let effects = logic::lens_blur::landed(&mut self.editor.doc.recipe, res);
         self.run_effects(effects);
     }
 
@@ -213,11 +213,11 @@ impl AutoShadeApp {
     /// that was open then. Progress and the built hand-off arrive as messages;
     /// the decisions are the logic layer's.
     fn start_reference_build(&mut self, photo: std::path::PathBuf, dir: std::path::PathBuf) {
-        self.busy = true;
-        self.normal.build_photo = Some(photo);
-        self.normal.building = true;
-        self.normal.build_progress = None;
-        self.normal.ref_dir = Some(dir.clone());
+        self.workspace.busy = true;
+        self.workspace.normal.build_photo = Some(photo);
+        self.workspace.normal.building = true;
+        self.workspace.normal.build_progress = None;
+        self.workspace.normal.ref_dir = Some(dir.clone());
         let tx = self.services.tx.clone();
         let ctx = self.services.egui_ctx.clone();
         self.spawn_worker(
@@ -245,15 +245,15 @@ impl AutoShadeApp {
     /// whether this build hands over to the reference look for the photo it was
     /// started for.
     pub(crate) fn on_one_click_built(&mut self, _lang: Lang, res: Result<usize, String>) {
-        self.busy = false;
-        self.normal.building = false;
-        self.normal.build_progress = None;
-        let for_photo = self.normal.build_photo.take();
+        self.workspace.busy = false;
+        self.workspace.normal.building = false;
+        self.workspace.normal.build_progress = None;
+        let for_photo = self.workspace.normal.build_photo.take();
         let effects = logic::look::references_built(
             &res,
             for_photo.as_deref(),
-            self.photo.src_path.as_deref(),
-            self.tools.analyze_inflight,
+            self.editor.photo.src_path.as_deref(),
+            self.workspace.tools.analyze_inflight,
         );
         self.run_effects(effects);
     }
@@ -270,18 +270,18 @@ impl AutoShadeApp {
             adherence: autoshade::recipe::DirectionAdherence::new(self.aip.direction_adherence),
             embed: autoshade::library::EmbeddingSwitch::resolve(None, self.aip.style_embed),
         };
-        let photo = self.photo.src_path.clone();
+        let photo = self.editor.photo.src_path.clone();
         let Some(started) = logic::look::plan(
             &prefs,
             intent,
             photo.as_deref(),
-            self.busy,
-            self.tools.analyze_inflight,
-            self.tools.gen_epoch,
+            self.workspace.busy,
+            self.workspace.tools.analyze_inflight,
+            self.workspace.tools.gen_epoch,
         ) else {
             return;
         };
-        self.tools.look.pending = Some(started.pending);
+        self.workspace.tools.look.pending = Some(started.pending);
         self.run_effects(started.effects);
         self.spawn_analysis(started.job);
     }
@@ -289,8 +289,8 @@ impl AutoShadeApp {
     /// Run one planned analysis. The job's epoch is the one `plan` read from
     /// the app when the verb was pressed; the worker arms the cancel for it.
     fn spawn_analysis(&mut self, job: AnalysisJob) {
-        debug_assert_eq!(job.epoch, self.tools.gen_epoch, "a planned job starts under the current epoch");
-        self.busy = true;
+        debug_assert_eq!(job.epoch, self.workspace.tools.gen_epoch, "a planned job starts under the current epoch");
+        self.workspace.busy = true;
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
     }
 
@@ -312,14 +312,14 @@ impl AutoShadeApp {
             }
             GalleryAction::Click { index, multi } => match logic::gallery::click(index, multi) {
                 Click::Open(index) => self.open_gallery_index(index),
-                Click::Toggle(index) => logic::gallery::toggle(&mut self.gal.multi_sel, index),
+                Click::Toggle(index) => logic::gallery::toggle(&mut self.workspace.gal.multi_sel, index),
             },
             GalleryAction::CopyRecipe => {
                 // The clipboard must carry the name the user sees in the box.
                 self.commit_pending_names();
-                self.genai.copied = Some(self.doc.recipe.clone());
-                self.genai.copied_from = self.photo.src_path.clone();
-                self.status = crate::i18n::tr(
+                self.workspace.genai.copied = Some(self.editor.doc.recipe.clone());
+                self.workspace.genai.copied_from = self.editor.photo.src_path.clone();
+                self.workspace.status = crate::i18n::tr(
                     self.lang,
                     K_APP_RECIPE_COPIED_CTRL_CLICK_TO_PICK_SEVERAL_THEN_PA,
                 )
@@ -328,11 +328,11 @@ impl AutoShadeApp {
             GalleryAction::PasteToSelected => self.start_paste(),
             GalleryAction::RenderSelected => self.start_batch_render(),
             GalleryAction::OpenRecipeLibrary => self.open_recipe_library(),
-            GalleryAction::ClearSelection => self.gal.multi_sel.clear(),
+            GalleryAction::ClearSelection => self.workspace.gal.multi_sel.clear(),
             GalleryAction::ThumbNeeded(index) => self.request_thumb(index),
             GalleryAction::Trim { start, end } => {
-                self.gal.thumbs.retain(|i, _| (*i >= start) && (*i < end));
-                self.gal.thumb_requested.retain(|i| (*i >= start) && (*i < end));
+                self.workspace.gal.thumbs.retain(|i, _| (*i >= start) && (*i < end));
+                self.workspace.gal.thumb_requested.retain(|i| (*i >= start) && (*i < end));
             }
         }
     }
@@ -343,15 +343,15 @@ impl AutoShadeApp {
     fn apply_look_line(&mut self, kind: LookKind, line: LookLine) {
         match kind {
             LookKind::OneClick(OneClick::Preset(_)) | LookKind::OneClick(OneClick::References) => {
-                self.normal.line = match line {
+                self.workspace.normal.line = match line {
                     LookLine::Idle => crate::panels::normal::NormalLine::Idle,
                     LookLine::Working => crate::panels::normal::NormalLine::Working,
                     LookLine::Done => crate::panels::normal::NormalLine::Done,
                     LookLine::BuiltIn => {
-                        self.normal.key_present = Some(false);
+                        self.workspace.normal.key_present = Some(false);
                         crate::panels::normal::NormalLine::BuiltIn
                     }
-                    LookLine::Failed => crate::panels::normal::NormalLine::Failed(self.status.clone()),
+                    LookLine::Failed => crate::panels::normal::NormalLine::Failed(self.workspace.status.clone()),
                     LookLine::Looked => return,
                 };
                 // A landed one-click says its own plain sentence instead of the
@@ -362,11 +362,11 @@ impl AutoShadeApp {
                 }
             }
             LookKind::Portrait => {
-                self.portrait.line = match line {
+                self.workspace.portrait.line = match line {
                     LookLine::Idle => crate::panels::portrait::PortraitLine::Idle,
                     LookLine::Working => crate::panels::portrait::PortraitLine::Looking,
                     LookLine::Looked => crate::panels::portrait::PortraitLine::Looked,
-                    LookLine::Failed => crate::panels::portrait::PortraitLine::Failed(self.status.clone()),
+                    LookLine::Failed => crate::panels::portrait::PortraitLine::Failed(self.workspace.status.clone()),
                     LookLine::Done | LookLine::BuiltIn => return,
                 };
             }
@@ -379,7 +379,7 @@ impl AutoShadeApp {
     /// status line and toast become the view's strings.
     pub(crate) fn show_words(&mut self, lang: Lang, words: logic::Words) -> String {
         let status = crate::i18n::text(lang, &words.status);
-        self.status = status.clone();
+        self.workspace.status = status.clone();
         if let Some((tone, text)) = words.toast {
             let kind = match tone {
                 logic::Tone::Error => ToastKind::Error,
@@ -395,7 +395,7 @@ impl AutoShadeApp {
         photo: std::path::PathBuf,
         base: std::sync::Arc<image::DynamicImage>,
     ) {
-        self.busy = true;
+        self.workspace.busy = true;
         self.spawn_worker(
             move || Msg::DepthEstimated(logic::lens_blur::estimate_depth(&photo, &base)),
             |e| Msg::DepthEstimated(Err(e)),
