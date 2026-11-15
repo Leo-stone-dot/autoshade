@@ -390,15 +390,14 @@
         }
     }
 
-    /// R25 B2: the Lens section's vignette slider is 「Lens vignetting」 now,
-    /// never the bare 「Vignette」 — the Effects section above carries
-    /// Lightroom's POST-CROP vignette, a different operator at a different
-    /// stage, and one word over both was a name collision.
-    ///
-    /// A negative assertion needs a premise or it passes on an empty frame:
-    /// the positive half runs first, in both languages.
+    /// The lens section's words and its presence dot: the vignette slider is
+    /// named apart from the post-crop one, the retired de-fringe promise is not
+    /// repeated, and a midpoint that changes no pixel lights nothing while a
+    /// real correction does.
     #[test]
-    fn the_lens_vignette_is_no_longer_called_just_vignette() {
+    fn the_lens_section_names_its_controls_and_lights_only_real_corrections() {
+        {
+
         for (lang, renamed, collision, post_crop) in [
             (crate::i18n::Lang::En, "Lens vignetting", "Vignette", "Post-crop vignetting"),
             (crate::i18n::Lang::Zh, "镜头暗角", "暗角", "裁剪后暗角"),
@@ -418,6 +417,59 @@
                 "{lang:?}: the bare {collision:?} label is back, and now names two \
                  different operators: {seen:?}"
             );
+        }
+        }
+        {
+
+        for (lang, promise) in [
+            (crate::i18n::Lang::En, "De-fringe in a later batch"),
+            (crate::i18n::Lang::Zh, "去紫边留待后续批次"),
+        ] {
+            let mut app = AutoShadeApp { lang, ..Default::default() };
+            let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
+            let lens_header = if lang == crate::i18n::Lang::En { "Lens" } else { "镜头 · Lens" };
+            assert!(
+                seen.iter().any(|t| t == lens_header),
+                "{lang:?}: the Lens section was not drawn — this proves nothing: {seen:?}"
+            );
+            // The explanation is folded to one line since 2026-10-14
+            // (`headings::explainer`); the paragraph is its tooltip.
+            let at = seen.iter().position(|t| t == lens_header).unwrap();
+            assert!(
+                seen[at..].iter().any(|t| t == crate::i18n::tr(lang, "ⓘ How this works")),
+                "{lang:?}: the lens explainer line itself is missing: {seen:?}"
+            );
+            let paragraph = crate::i18n::tr(lang,
+                "Vignette: positive brightens the corners (compensates falloff), negative darkens; a radial gain in linear light. Distortion: positive fixes barrel (wide-angle bulge), negative fixes pincushion (tele pinch); auto-scales to fill the frame, and masks / brush still position on the corrected image. Preview / export / XMP match. Manual CA, the auto-CA switch and de-fringe all render here too.",
+            );
+            assert!(paragraph.contains("XMP"), "{lang:?}: not the lens paragraph: {paragraph}");
+            assert!(
+                !paragraph.contains(promise) && !seen.iter().any(|t| t.contains(promise)),
+                "{lang:?}: the retired {promise:?} promise is still in the panel"
+            );
+        }
+        }
+        {
+
+        let mut app = AutoShadeApp::default();
+        app.recipe.lens_vignette_mid = 90.0;
+        assert_eq!(app.recipe.lens_vignette, 0.0, "premise: the amount is at rest");
+        let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
+        assert!(
+            seen.iter().any(|t| t == "Lens"),
+            "the Lens header was not drawn — this test proves nothing: {seen:?}"
+        );
+        assert!(
+            !seen.iter().any(|t| t == "Lens  ●"),
+            "a midpoint that changes no pixel must not claim a lens correction: {seen:?}"
+        );
+        // …and the amount, which DOES render, still lights it.
+        app.recipe.lens_vignette = -35.0;
+        let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
+        assert!(
+            seen.iter().any(|t| t == "Lens  ●"),
+            "a real vignette correction must light the section: {seen:?}"
+        );
         }
     }
 
@@ -942,71 +994,6 @@
                 "{lang:?}: a picker appeared beside the executed sidecar path: {seen:?}"
             );
         }
-    }
-
-    /// R25 B3: the Lens tooltip no longer promises de-fringe for "a later
-    /// batch" — this IS the later batch.
-    ///
-    /// The promise sat in the panel from the round that shipped the manual
-    /// lens sliders. A negative assertion alone would pass on a panel that
-    /// drew nothing at all, so the positive half comes first.
-    #[test]
-    fn the_lens_tooltip_no_longer_promises_defringe_later() {
-        for (lang, promise) in [
-            (crate::i18n::Lang::En, "De-fringe in a later batch"),
-            (crate::i18n::Lang::Zh, "去紫边留待后续批次"),
-        ] {
-            let mut app = AutoShadeApp { lang, ..Default::default() };
-            let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
-            let lens_header = if lang == crate::i18n::Lang::En { "Lens" } else { "镜头 · Lens" };
-            assert!(
-                seen.iter().any(|t| t == lens_header),
-                "{lang:?}: the Lens section was not drawn — this proves nothing: {seen:?}"
-            );
-            // The explanation is folded to one line since 2026-10-14
-            // (`headings::explainer`); the paragraph is its tooltip.
-            let at = seen.iter().position(|t| t == lens_header).unwrap();
-            assert!(
-                seen[at..].iter().any(|t| t == crate::i18n::tr(lang, "ⓘ How this works")),
-                "{lang:?}: the lens explainer line itself is missing: {seen:?}"
-            );
-            let paragraph = crate::i18n::tr(lang,
-                "Vignette: positive brightens the corners (compensates falloff), negative darkens; a radial gain in linear light. Distortion: positive fixes barrel (wide-angle bulge), negative fixes pincushion (tele pinch); auto-scales to fill the frame, and masks / brush still position on the corrected image. Preview / export / XMP match. Manual CA, the auto-CA switch and de-fringe all render here too.",
-            );
-            assert!(paragraph.contains("XMP"), "{lang:?}: not the lens paragraph: {paragraph}");
-            assert!(
-                !paragraph.contains(promise) && !seen.iter().any(|t| t.contains(promise)),
-                "{lang:?}: the retired {promise:?} promise is still in the panel"
-            );
-        }
-    }
-
-    /// R25 P0-0.3: the ONE control the ● deliberately ignores stays ignored
-    /// after the predicate became a derivation — `lens_vignette_mid` renders
-    /// nothing while the amount is at rest (`catalogue::DOT_EXEMPT` carries the
-    /// full reason), and deriving the dot from the `lens` family would have
-    /// silently started lighting it.
-    #[test]
-    fn lens_midpoint_alone_still_lights_no_dot() {
-        let mut app = AutoShadeApp::default();
-        app.recipe.lens_vignette_mid = 90.0;
-        assert_eq!(app.recipe.lens_vignette, 0.0, "premise: the amount is at rest");
-        let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
-        assert!(
-            seen.iter().any(|t| t == "Lens"),
-            "the Lens header was not drawn — this test proves nothing: {seen:?}"
-        );
-        assert!(
-            !seen.iter().any(|t| t == "Lens  ●"),
-            "a midpoint that changes no pixel must not claim a lens correction: {seen:?}"
-        );
-        // …and the amount, which DOES render, still lights it.
-        app.recipe.lens_vignette = -35.0;
-        let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
-        assert!(
-            seen.iter().any(|t| t == "Lens  ●"),
-            "a real vignette correction must light the section: {seen:?}"
-        );
     }
 
     /// Both camera-on and sidecar-disabled calibration are as-opened states.
