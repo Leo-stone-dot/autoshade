@@ -139,9 +139,9 @@ impl AutoShadeApp {
                                         crate::i18n::text(lang, &warn)
                                     );
                                     self.workspace.set_status(t.clone());
-                                    self.toast(ToastKind::Error, t);
+                                    self.workspace.toast(ToastKind::Error, t);
                                 }
-                                None => self.done(line),
+                                None => self.workspace.done(line),
                             }
                         }
                         ExportOutcome::Batch { ok, errs, renamed, relooked, warns, dest } => {
@@ -170,11 +170,11 @@ impl AutoShadeApp {
                                 line.push_str(&crate::i18n::text(lang, &part));
                             }
                             if errs.is_empty() {
-                                self.done(line);
+                                self.workspace.done(line);
                             } else {
                                 // A partial failure keeps the error channel,
                                 // exactly as the worker-side bail! did.
-                                self.fail(tr(lang, K_GUI_EXPORT_FAILED), anyhow::anyhow!("{line}"));
+                                self.workspace.fail(tr(lang, K_GUI_EXPORT_FAILED), anyhow::anyhow!("{line}"));
                             }
                         }
                     }
@@ -185,7 +185,7 @@ impl AutoShadeApp {
                 Msg::Exported(Err(e)) => {
                     self.workspace.exp_mut().batch_progress = None;
                     self.workspace.normal_mut().delivering = false;
-                    self.fail(tr(lang, K_GUI_EXPORT_FAILED), e);
+                    self.workspace.fail(tr(lang, K_GUI_EXPORT_FAILED), e);
                 }
                 Msg::BatchProgress { done, total } => {
                     self.workspace.exp_mut().batch_progress = Some((done, total));
@@ -273,10 +273,10 @@ impl AutoShadeApp {
                             )
                             .to_string(),
                         };
-                        self.done(s);
+                        self.workspace.done(s);
                     }
                     Err(e) => {
-                        self.fail(tr(lang, K_GUI_STYLE_EXTRACTION_FAILED), e);
+                        self.workspace.fail(tr(lang, K_GUI_STYLE_EXTRACTION_FAILED), e);
                     }
                 },
                 Msg::Pasted(res) => {
@@ -294,12 +294,12 @@ impl AutoShadeApp {
                 Msg::LegacyImported(res) => {
                     self.workspace.gal_mut().edited_badge.clear(); // imported sidecars light ● badges
                     match res {
-                        Ok((n, dir)) => self.done(trf(
+                        Ok((n, dir)) => self.workspace.done(trf(
                             lang,
                             K_GUI_IMPORTED_SAVED_DEVELOPS_FOR_PHOTO_S_FROM,
                             &[("n", &n.to_string()), ("path", &dir.display().to_string())],
                         )),
-                        Err(e) => self.fail(tr(lang, K_GUI_IMPORT_FAILED), e),
+                        Err(e) => self.workspace.fail(tr(lang, K_GUI_IMPORT_FAILED), e),
                     }
                 }
                 Msg::Models(role, generation, res) => self.on_models(lang, role, generation, res),

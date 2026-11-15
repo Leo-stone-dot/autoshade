@@ -543,7 +543,7 @@ impl AutoShadeApp {
                             K_CANVAS_BUSY_THE_PREVIEW_RESOLUTION_SWITCH_WAS_NOT_APPLI,
                         )
                         .to_string();
-                        self.toast(ToastKind::Error, t);
+                        self.workspace.toast(ToastKind::Error, t);
                     } else {
                         // The pre-switch edge rides the flight: a FAILED
                         // keep-flight leaves the canvas at the OLD edge, and

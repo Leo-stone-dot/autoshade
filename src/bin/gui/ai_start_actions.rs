@@ -603,7 +603,7 @@ impl AutoShadeApp {
                             K_ACTIONS_SAVED_BUT_VARIANT_S_STILL_COUNT_AS_UNSAVED_THE_W,
                             &[("n", &residue.to_string())],
                         );
-                        self.toast(ToastKind::Error, t);
+                        self.workspace.toast(ToastKind::Error, t);
                     } else if !quit_warns.is_empty() {
                         // Everything IS saved (recipe-write-decides), so
                         // refusing to quit would be wrong — but a toast on a
@@ -617,7 +617,7 @@ impl AutoShadeApp {
                             &[("detail", &quit_warns.join(" · "))],
                         );
                         self.workspace.set_status(t.clone());
-                        self.toast(ToastKind::Error, t);
+                        self.workspace.toast(ToastKind::Error, t);
                     } else {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
@@ -626,7 +626,7 @@ impl AutoShadeApp {
                     // Stay open: a failed save on quit must never quietly quit.
                     let t = trf(lang, K_ACTIONS_SAVE_FAILED, &[("err", &e)]);
                     self.workspace.set_status(t.clone());
-                    self.toast(ToastKind::Error, t);
+                    self.workspace.toast(ToastKind::Error, t);
                     self.workspace.ui_mut().confirm_quit = false;
                 }
             }

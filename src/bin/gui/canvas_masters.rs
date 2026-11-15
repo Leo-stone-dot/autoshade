@@ -362,7 +362,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         Err(e) => {
             let text = format!("{}: {e}", tr(self.lang, K_GUI_PREVIEW_DEVELOP_FAILED));
             self.workspace.set_status(text.clone());
-            self.toast(ToastKind::Error, text);
+            self.workspace.toast(ToastKind::Error, text);
             return;
         }
     };

@@ -48,7 +48,7 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
             // baked into the old mask).
             if self.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
                 let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
             self.workspace.overlay_mut().overlay_stale = true; // fresh raster ⇒ fresh coverage
             self.workspace.set_busy(false);
@@ -59,7 +59,7 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
             }
         }
         Err(e) => {
-            self.fail(tr(lang, K_LANDING_AI_SEGMENTATION_FAILED), e);
+            self.workspace.fail(tr(lang, K_LANDING_AI_SEGMENTATION_FAILED), e);
         }
     }
 }
@@ -89,7 +89,7 @@ pub(crate) fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRef
                 // moved, selection-bound tools on another row follow it.
                 if self.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
                     let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
-                    self.toast(ToastKind::Error, t);
+                    self.workspace.toast(ToastKind::Error, t);
                 }
                 self.workspace.overlay_mut().overlay_stale = true;
             }
@@ -97,7 +97,7 @@ pub(crate) fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRef
             self.run_effects(landed.effects);
         }
         Err(e) => {
-            self.fail(tr(lang, K_LANDING_MASK_REFINE_FAILED), e);
+            self.workspace.fail(tr(lang, K_LANDING_MASK_REFINE_FAILED), e);
         }
     }
 }
@@ -135,7 +135,7 @@ pub(crate) fn on_folder(&mut self, lang: Lang, res: anyhow::Result<(PathBuf, Vec
                     self.disclose_undrawable_names();
                 }
                 Err(e) => {
-                    self.fail(tr(lang, K_LANDING_SCAN_FAILED), e);
+                    self.workspace.fail(tr(lang, K_LANDING_SCAN_FAILED), e);
                 }
             }
 }
@@ -197,7 +197,7 @@ pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo
                                     &[("err", &e.to_string())],
                                 )
                             };
-                            self.toast(ToastKind::Error, t);
+                            self.workspace.toast(ToastKind::Error, t);
                         }
                     }
                 }
@@ -392,7 +392,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             self.forget_open_base();
                         }
                     }
-                    self.done(msg);
+                    self.workspace.done(msg);
                     // A whole-frame reimagine asks whether to reverse-fit
                     // it (v1.17.0) — after `done`, so its job is over. An
                     // adjust lands a ✨ card too, but it edits a look
@@ -407,13 +407,13 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                     // nothing was changed, and that is an answer, not a
                     // failure (typed, never matched by its English).
                     if let Some(none) = e.downcast_ref::<autoshade::retouch::NoSpotInsideLimit>() {
-                        self.done(trf(
+                        self.workspace.done(trf(
                             lang,
                             K_LANDING_NO_SPOTS_ON_THE_FACE_TO_HEAL_NOTHING_WAS_CHANGED,
                             &[("n", &none.found.to_string())],
                         ));
                     } else {
-                        self.fail(tr(lang, K_LANDING_RETOUCH_FAILED), e);
+                        self.workspace.fail(tr(lang, K_LANDING_RETOUCH_FAILED), e);
                     }
                 }
                 }
@@ -498,14 +498,14 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // AFTER the variant load (which cleared them): the
                     // fit rationale's typed copy, for draw-time zh.
                     self.editor.analysis_mut().rationale_notes = out.rationale_notes;
-                    self.done(note);
+                    self.workspace.done(note);
                 }
                 Err(e) => {
                     self.workspace.gal_mut().edited_badge.clear();
                     // The pre-fit snapshot may exist even when the fit
                     // errored — keep the Versions list truthful.
                     self.refresh_versions();
-                    self.fail(tr(lang, K_LANDING_REVERSE_FIT_FAILED), e);
+                    self.workspace.fail(tr(lang, K_LANDING_REVERSE_FIT_FAILED), e);
                 }
             }
 }
@@ -548,16 +548,16 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             for suffix in suffixes {
                 s.push_str(&crate::i18n::text(lang, &suffix));
             }
-            self.done(s);
+            self.workspace.done(s);
         }
         Ok(out) => {
             self.workspace.open_mut().pasted_open = None;
             let msg = crate::i18n::text(lang, &logic::paste::partial_words(out.ok, &out.errs));
-            self.fail(tr(lang, K_LANDING_BATCH_PASTE), anyhow::anyhow!("{}", msg));
+            self.workspace.fail(tr(lang, K_LANDING_BATCH_PASTE), anyhow::anyhow!("{}", msg));
         }
         Err(e) => {
             self.workspace.open_mut().pasted_open = None;
-            self.fail(tr(lang, K_LANDING_BATCH_PASTE), e);
+            self.workspace.fail(tr(lang, K_LANDING_BATCH_PASTE), e);
         }
     }
 }

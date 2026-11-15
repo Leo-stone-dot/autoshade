@@ -176,7 +176,7 @@ impl AutoShadeApp {
                 Effect::EstimateDepth { photo, base } => self.spawn_depth_worker(photo, base),
                 Effect::Status(text) => *self.workspace.status_mut() = crate::i18n::text(self.lang, &text),
                 Effect::ToastError(text) => {
-                    self.toast(ToastKind::Error, crate::i18n::text(self.lang, &text));
+                    self.workspace.toast(ToastKind::Error, crate::i18n::text(self.lang, &text));
                 }
                 Effect::LookLine { kind, line } => self.apply_look_line(kind, line),
                 Effect::RememberOneClick { photo, fine } => {
@@ -385,7 +385,7 @@ impl AutoShadeApp {
                 logic::Tone::Error => ToastKind::Error,
                 logic::Tone::Success => ToastKind::Success,
             };
-            self.toast(kind, crate::i18n::text(lang, &text));
+            self.workspace.toast(kind, crate::i18n::text(lang, &text));
         }
         status
     }

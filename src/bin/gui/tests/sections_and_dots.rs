@@ -1094,14 +1094,14 @@
     fn an_identical_toast_refreshes_instead_of_stacking() {
         let loss = "the Lightroom sidecar dropped 2 bitmap masks";
         let mut app = AutoShadeApp::default();
-        app.toast(ToastKind::Error, loss);
+        app.workspace.toast(ToastKind::Error, loss);
         for i in 0..4 {
-            app.toast(ToastKind::Success, format!("saved {i}"));
+            app.workspace.toast(ToastKind::Success, format!("saved {i}"));
         }
         assert_eq!(app.workspace.chrome().toasts.len(), 5, "the ring is exactly full");
         // Ctrl+S three more times on the same photo: byte-identical disclosure.
         for _ in 0..3 {
-            app.toast(ToastKind::Error, loss);
+            app.workspace.toast(ToastKind::Error, loss);
         }
         assert_eq!(
             app.workspace.chrome().toasts.len(), 5,
@@ -1119,7 +1119,7 @@
         );
         // The KIND is part of the identity: a success saying the same words is a
         // different toast (different colour, different TTL).
-        app.toast(ToastKind::Success, loss);
+        app.workspace.toast(ToastKind::Success, loss);
         assert_eq!(
             app.workspace.chrome().toasts.iter().filter(|t| t.text == loss).count(), 2,
             "dedup keys on (text, kind), not text alone"

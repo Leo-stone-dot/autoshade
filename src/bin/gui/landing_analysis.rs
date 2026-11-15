@@ -125,7 +125,7 @@ pub(crate) fn on_analyzed(
                     } };
                 }
                 Err(e) => {
-                    self.fail(tr(lang, K_LANDING_ANALYZE_FAILED), e);
+                    self.workspace.fail(tr(lang, K_LANDING_ANALYZE_FAILED), e);
                 }
             }
 }

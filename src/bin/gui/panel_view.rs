@@ -18,11 +18,6 @@ pub(crate) struct PanelView<'a, 'b> {
 }
 
 impl PanelView<'_, '_> {
-    /// A toast: the renderer's only user-facing alert door.
-    pub(crate) fn toast(&mut self, kind: ToastKind, text: impl Into<String>) {
-        self.workspace.chrome_mut().toast(kind, text);
-    }
-
     /// Report a batch of intents.
     pub(crate) fn act_all(&mut self, actions: impl IntoIterator<Item = logic::Action>) {
         self.actions.extend(actions);

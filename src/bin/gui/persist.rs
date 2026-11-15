@@ -1045,7 +1045,7 @@ impl AutoShadeApp {
         if let Some(why) = res.warning() {
             let t = trf(lang, K_LANDING_SOME_MASKS_COULD_NOT_BE_DRAWN_SO_THEY_ARE_NOT_AP, &[("why", &why)]);
             self.workspace.set_status(t.clone());
-            self.toast(ToastKind::Error, t);
+            self.workspace.toast(ToastKind::Error, t);
         } else {
             let mut said: Vec<String> = Vec::new();
             if n > 0 || nf == 0 {
@@ -1054,7 +1054,7 @@ impl AutoShadeApp {
             if nf > 0 {
                 said.push(trf(lang, K_PERSIST_FACE_MASKS_OUTLINED_ON_THIS_COMPUTER, &[("n", &nf.to_string())]));
             }
-            self.done(said.join(" · "));
+            self.workspace.done(said.join(" · "));
         }
     }
 }

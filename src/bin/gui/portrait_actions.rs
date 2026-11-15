@@ -155,7 +155,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
                 let t = trf(lang, K_ACTIONS_COULD_NOT_FIND_THE_PEOPLE, &[("err", &format!("{a}; {b}"))]);
                 self.workspace.portrait_mut().line = PortraitLine::Failed(t.clone());
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
                 return;
             }
             (Err(e), _) | (_, Err(e)) => Some(e.clone()),
@@ -169,7 +169,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
         self.editor.session_mut().dirty = true;
         self.workspace.set_status(self.workspace.portrait_line_text(lang));
         if let Some(why) = failed {
-            self.toast(ToastKind::Error, trf(lang, K_ACTIONS_PART_OF_THE_SEARCH_DID_NOT_WORK, &[("err", &why)]));
+            self.workspace.toast(ToastKind::Error, trf(lang, K_ACTIONS_PART_OF_THE_SEARCH_DID_NOT_WORK, &[("err", &why)]));
         }
     }
 

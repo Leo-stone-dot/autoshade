@@ -148,7 +148,7 @@ match autoshade::store::with_develop_lock(
                             // the user's own
                             // Lightroom properties.
                             if let Some(m) = merge_note {
-                                self.toast(ToastKind::Error, m.clone());
+                                self.workspace.toast(ToastKind::Error, m.clone());
                                 s = format!("{s} — ⚠ {m}");
                             }
                             // The projection's own
@@ -166,7 +166,7 @@ match autoshade::store::with_develop_lock(
                             {
                                 if xmp_loss_interrupts(&losses, &globals)
                                 {
-                                    self.toast(
+                                    self.workspace.toast(
                                         ToastKind::Error,
                                         m.clone(),
                                     );
@@ -196,7 +196,7 @@ match autoshade::store::with_develop_lock(
                                 K_EXPORT_RECIPE_SAVED_BUT_THE_LIGHTROOM_XMP_FAILED,
                                 &[("err", &e.to_string())],
                             );
-                            self.toast(ToastKind::Error, t.clone());
+                            self.workspace.toast(ToastKind::Error, t.clone());
                             s = t;
                         }
                     }

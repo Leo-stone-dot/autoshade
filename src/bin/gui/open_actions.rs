@@ -19,7 +19,7 @@ impl AutoShadeApp {
             // no-op reads as a dead UI) — the EMPTY-STATE picker button has
             // no busy gate, so this arm IS user-reachable (L11-4).
             let t = tr(self.lang, K_ACTIONS_BUSY_THE_PHOTO_OPENS_WHEN_THE_CURRENT_TASK_FINIS);
-            self.toast(ToastKind::Error, t);
+            self.workspace.toast(ToastKind::Error, t);
             return;
         }
         // Flush every typed-but-uncommitted name before the stash below

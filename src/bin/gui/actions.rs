@@ -238,38 +238,15 @@ impl AutoShadeApp {
                         K_ACTIONS_SOME_FILE_NAMES_USE_CHARACTERS_NO_INSTALLED_FONT,
                         &[("sample", &sample.to_string())],
                     );
-                    self.toast(ToastKind::Error, t.clone());
+                    self.workspace.toast(ToastKind::Error, t.clone());
                     self.workspace.set_status(t);
                 }
             }
         }
     }
 
-    pub(crate) fn toast(&mut self, kind: ToastKind, text: impl Into<String>) {
-        self.workspace.chrome_mut().toast(kind, text);
-    }
 
-    /// A worker finished successfully: status line + a success toast, unbusy.
-    pub(crate) fn done(&mut self, text: impl Into<String>) {
-        let text = text.into();
-        self.workspace.set_status(text.clone());
-        self.toast(ToastKind::Success, text);
-        self.workspace.set_busy(false);
-    }
 
-    /// A worker failed: status line + a lingering error toast, unbusy. A single
-    /// status line is too easy to miss for a failed export or API call.
-    pub(crate) fn fail(&mut self, what: &str, e: impl std::fmt::Display) {
-        // `{e:#}`, not `{e}`: anyhow's alternate Display prints the WHOLE
-        // chain ("mask refine failed: open image X: The image format could not
-        // be determined" instead of just the outermost line). Every `.context`
-        // this app attaches — the file, the stage, the cause — was being
-        // dropped exactly where the user needed it, in the toast.
-        let text = format!("{what}: {e:#}");
-        self.workspace.set_status(text.clone());
-        self.toast(ToastKind::Error, text);
-        self.workspace.set_busy(false);
-    }
 
     /// Decoded-base LRU lookup (most-recent entry kept last). Missing metadata
     /// (mtime `None`) matches itself, so the cache still works where mtime is
@@ -400,7 +377,7 @@ impl AutoShadeApp {
             trf(self.lang, K_ACTIONS_NOT_SAVED_A_DEVELOP_STORE_WRITE_FAILED, &a)
         };
         self.workspace.set_status(t.clone());
-        self.toast(ToastKind::Error, t);
+        self.workspace.toast(ToastKind::Error, t);
     }
 
     /// Every crop_mode flip goes through here (L13-1): `pan` is stored in
@@ -699,7 +676,7 @@ impl AutoShadeApp {
     pub(crate) fn duplicate_mask(&mut self, lang: Lang, i: usize) {
         if self.editor.doc().recipe.masks.len() >= 64 {
             let t = tr(lang, K_ACTIONS_MASK_LIMIT_REACHED_64_DELETE_ONE_FIRST);
-            self.toast(ToastKind::Error, t.to_string());
+            self.workspace.toast(ToastKind::Error, t.to_string());
             return;
         }
         let Some(mut clone) = self.editor.doc().recipe.masks.get(i).cloned() else { return };
@@ -727,7 +704,7 @@ impl AutoShadeApp {
                 self.lang,
                 K_ACTIONS_THE_RASTER_EDIT_BRUSH_SESSION_ENDED_YOU_SELECTED,
             );
-            self.toast(ToastKind::Error, t.to_string());
+            self.workspace.toast(ToastKind::Error, t.to_string());
         }
         self.editor.session_mut().dirty = true;
     }

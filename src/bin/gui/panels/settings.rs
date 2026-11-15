@@ -99,7 +99,7 @@ impl PanelView<'_, '_> {
         {
             let t = trf(lang, K_SETTINGS_COULD_NOT_OPEN_THE_FOLDER, &[("err", &e.to_string())]);
             self.workspace.set_status(t.clone());
-            self.toast(ToastKind::Error, t);
+            self.workspace.toast(ToastKind::Error, t);
         }
         // The pixel masters (2026-10-18): the AI denoise / stack / heal /
         // clone / fill results cards are built FROM. They left the delivery
@@ -127,7 +127,7 @@ impl PanelView<'_, '_> {
         {
             let t = trf(lang, K_SETTINGS_COULD_NOT_OPEN_THE_FOLDER, &[("err", &e.to_string())]);
             self.workspace.set_status(t.clone());
-            self.toast(ToastKind::Error, t);
+            self.workspace.toast(ToastKind::Error, t);
         }
         if action(ui, true, tr(lang, K_SETTINGS_IMPORT_DEVELOPS_FROM_AN_OLD_OUT_FOLDER))
             .on_hover_text(tr(

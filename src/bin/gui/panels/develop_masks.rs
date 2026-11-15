@@ -152,7 +152,7 @@ impl AutoShadeApp {
                                     self.lang,
                                     K_ACTIONS_THE_RASTER_EDIT_BRUSH_SESSION_ENDED_YOU_SELECTED,
                                 );
-                                self.toast(ToastKind::Error, t.to_string());
+                                self.workspace.toast(ToastKind::Error, t.to_string());
                             }
                         }
                         if glyph(ui, true, "🗑")

@@ -142,7 +142,7 @@ impl AutoShadeApp {
             self.editor.session_mut().hist.committed.recipe = self.editor.doc().recipe.clone();
             self.editor.sync_active_recipe();
             let lang = self.lang;
-            self.toast(
+            self.workspace.toast(
                 ToastKind::Success,
                 tr(
                     lang,
@@ -214,7 +214,7 @@ impl AutoShadeApp {
                 self.lang,
                 K_ACTIONS_THE_MASK_BRUSH_SESSION_ENDED_THE_CANVAS_PIXELS_U,
             );
-            self.toast(ToastKind::Error, t.to_string());
+            self.workspace.toast(ToastKind::Error, t.to_string());
         }
         self.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(w, h));
         self.paint_mask_changed(Some(false));
@@ -300,7 +300,7 @@ impl AutoShadeApp {
                     K_ACTIONS_COULD_NOT_TURN_THIS_PHOTO_NOTHING_WAS_CHANGED,
                     &[("err", &e.to_string())],
                 );
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
         }
     }

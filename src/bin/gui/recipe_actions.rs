@@ -70,7 +70,7 @@ impl AutoShadeApp {
     pub(crate) fn recipe_status(&mut self, ok: bool, text: String) {
         self.workspace.set_status(text.clone());
         if !ok {
-            self.toast(ToastKind::Error, text);
+            self.workspace.toast(ToastKind::Error, text);
         }
     }
 
@@ -167,10 +167,10 @@ impl AutoShadeApp {
                     ("s", &dropped.truncated_string_bytes.to_string()),
                 ],
             );
-            self.toast(ToastKind::Error, t);
+            self.workspace.toast(ToastKind::Error, t);
         }
         if let Err(e) = autoshade::pipeline::migrate_recipe_coord_frame(&src, &mut live) {
-            self.toast(
+            self.workspace.toast(
                 ToastKind::Error,
                 coord_migration_failure_sentence(self.lang, &e.to_string()),
             );

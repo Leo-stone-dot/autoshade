@@ -775,3 +775,31 @@ impl WorkspaceView {
         export_png_of(&self.masks().paint_store[owner.slot()].as_ref()?.canvas)
     }
 }
+
+impl WorkspaceView {
+    pub(crate) fn toast(&mut self, kind: ToastKind, text: impl Into<String>) {
+        self.chrome_mut().toast(kind, text);
+    }
+
+    /// A worker finished successfully: status line + a success toast, unbusy.
+    pub(crate) fn done(&mut self, text: impl Into<String>) {
+        let text = text.into();
+        self.set_status(text.clone());
+        self.chrome_mut().toast(ToastKind::Success, text);
+        self.set_busy(false);
+    }
+
+    /// A worker failed: status line + a lingering error toast, unbusy. A single
+    /// status line is too easy to miss for a failed export or API call.
+    pub(crate) fn fail(&mut self, what: &str, e: impl std::fmt::Display) {
+        // `{e:#}`, not `{e}`: anyhow's alternate Display prints the WHOLE
+        // chain ("mask refine failed: open image X: The image format could not
+        // be determined" instead of just the outermost line). Every `.context`
+        // this app attaches — the file, the stage, the cause — was being
+        // dropped exactly where the user needed it, in the toast.
+        let text = format!("{what}: {e:#}");
+        self.set_status(text.clone());
+        self.chrome_mut().toast(ToastKind::Error, text);
+        self.set_busy(false);
+    }
+}

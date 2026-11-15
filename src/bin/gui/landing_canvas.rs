@@ -30,7 +30,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             K_CANVAS_THIS_VARIANT_S_SAVED_MASTER_COULD_NOT_BE_LOADED,
                             &[("err", err)],
                         );
-                        self.toast(ToastKind::Error, t);
+                        self.workspace.toast(ToastKind::Error, t);
                     }
                     if let Some(p) = self.editor.photo().src_path.clone() {
                         self.remember_base(
@@ -65,7 +65,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                     &[("path", &at.display().to_string())],
                                 ),
                             };
-                            self.toast(ToastKind::Error, t);
+                            self.workspace.toast(ToastKind::Error, t);
                         }
                     }
                     // Kept for Reset: "reset" = the fresh-open look, so it
@@ -180,7 +180,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // door along, on the surface that does not
                             // expire.
                             self.workspace.set_status(t.to_string());
-                            self.toast(ToastKind::Error, t);
+                            self.workspace.toast(ToastKind::Error, t);
                         } else {
                             self.editor.photo_mut().source_preview = Some(base.clone());
                             self.workspace.open_mut().source_part = part.clone();
@@ -314,7 +314,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                     ("s", &clamp_dropped.truncated_string_bytes.to_string()),
                                 ],
                             );
-                            self.toast(ToastKind::Error, t);
+                            self.workspace.toast(ToastKind::Error, t);
                         }
                         // What the sidecar's masks cost on the way in.
                         // R25 P1 replaced a COUNT of refusals with the
@@ -328,7 +328,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         if let Some(t) =
                             crate::util::xmp_import_line(lang, imported_masks, &mask_import)
                         {
-                            self.toast(ToastKind::Error, t);
+                            self.workspace.toast(ToastKind::Error, t);
                         }
                         // R24-5 M0, the GLOBAL half of the same story: the
                         // sidecar's own crs: properties this engine does
@@ -353,7 +353,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 K_CANVAS_THIS_LIGHTROOM_SIDECAR_CARRIES_GLOBAL_SETTING_S,
                                 &[("n", &carried_globals.len().to_string()), ("list", &list)],
                             );
-                            self.toast(ToastKind::Error, t);
+                            self.workspace.toast(ToastKind::Error, t);
                         }
                         // The decision half lives in persist::resolve_saved_develop —
                         // this handler applies it to the canvas. Two reasons to skip
@@ -465,7 +465,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 lang,
                                 K_CANVAS_THE_SAVED_RETOUCH_MASTER_COULD_NOT_BE_LOADED_OPE,
                             );
-                            self.toast(ToastKind::Error, t);
+                            self.workspace.toast(ToastKind::Error, t);
                         }
                         let mut pixels: Option<BakedBase> = baked;
                         // The stashed active card's master when its decode
@@ -603,7 +603,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                     K_CANVAS_THIS_PHOTO_S_VARIANT_LIST_VARIANTS_JSON_IN_ITS_D,
                                 )
                                 .to_string();
-                                self.toast(ToastKind::Error, t);
+                                self.workspace.toast(ToastKind::Error, t);
                                 None
                             }
                             _ => None,
@@ -808,7 +808,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                         ("s", &strip_dropped.truncated_string_bytes.to_string()),
                                     ],
                                 );
-                                self.toast(ToastKind::Error, t);
+                                self.workspace.toast(ToastKind::Error, t);
                             }
                         }
                         // The AI-card invariant, restored at the door
@@ -818,7 +818,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // into the live strip as UNSAVED work (the door
                         // does not write), and said once.
                         if self.normalize_ai_cards() {
-                            self.toast(
+                            self.workspace.toast(
                                 ToastKind::Success,
                                 tr(
                                     lang,
@@ -901,12 +901,12 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         if let Some(note) = open_note {
                             // Sidecar anomalies must be seen, not scrolled
                             // away in the status line.
-                            self.toast(ToastKind::Error, note);
+                            self.workspace.toast(ToastKind::Error, note);
                         }
                     }
                 }
                 Err(e) => {
-                    self.fail(tr(lang, K_CANVAS_COULD_NOT_OPEN), e);
+                    self.workspace.fail(tr(lang, K_CANVAS_COULD_NOT_OPEN), e);
                     if !keep {
                         // A FRESH open failed: open_path already re-pointed
                         // src_path to the file that wouldn't decode, but the
@@ -1008,7 +1008,7 @@ pub(crate) fn on_base_redeveloped(
                 K_CANVAS_THE_CANVAS_COULD_NOT_BE_DEVELOPED_UNDER_THIS_PHO,
                 &[("err", &format!("{e:#}"))],
             );
-            self.toast(ToastKind::Error, t);
+            self.workspace.toast(ToastKind::Error, t);
             // Said once, then the canvas shows over the base there is:
             // asking again on every frame would repeat a develop that
             // has already failed.

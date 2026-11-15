@@ -77,7 +77,7 @@
             "ToastKind",
             ".as_mut()",
             "self.workspace.status() =",
-            "self.toast(",
+            "self.workspace.toast(",
             "self.workspace.busy() =",
             "self.editor.session().dirty =",
         ];

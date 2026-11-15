@@ -273,7 +273,7 @@ impl AutoShadeApp {
                         self.lang,
                         K_APP_BUSY_UNDO_AND_REDO_UNLOCK_WHEN_THE_CURRENT_TASK,
                     );
-                    self.toast(ToastKind::Error, t);
+                    self.workspace.toast(ToastKind::Error, t);
                 }
             } else {
                 if armed_undo { self.undo(ctx); }
@@ -474,7 +474,7 @@ impl AutoShadeApp {
         let n_dropped = dropped.len();
         if let Some(p) = dropped.into_iter().next() {
             if self.workspace.busy() {
-                self.toast(
+                self.workspace.toast(
                     ToastKind::Error,
                     tr(self.lang, K_APP_BUSY_WAIT_FOR_THE_CURRENT_TASK_TO_FINISH_BEFORE),
                 );
@@ -484,7 +484,7 @@ impl AutoShadeApp {
                     // EVERY branch discloses the leftovers — silently eating
                     // them read as "it handled them all" (the photo branch
                     // alone used to say so).
-                    self.toast(
+                    self.workspace.toast(
                         ToastKind::Error,
                         trf(
                             self.lang,
@@ -498,7 +498,7 @@ impl AutoShadeApp {
                 self.open_path(p);
                 if n_dropped > 1 {
                     // Silently eating the rest read as "it opened them all".
-                    self.toast(
+                    self.workspace.toast(
                         ToastKind::Error,
                         trf(
                             self.lang,
@@ -520,7 +520,7 @@ impl AutoShadeApp {
                 } else {
                     trf(self.lang, K_APP_UNSUPPORTED_FILE_TYPE, &[("path", &p.display().to_string())])
                 };
-                self.toast(ToastKind::Error, msg);
+                self.workspace.toast(ToastKind::Error, msg);
             }
         }
 
@@ -1190,7 +1190,7 @@ impl AutoShadeApp {
                     K_APP_A_SYSTEM_FONT_WAS_FOUND_BUT_NOT_LOADED_FILE_NAME,
                     &[("font", font)],
                 );
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
         }
         self.poll_workers(ctx);
@@ -1230,7 +1230,7 @@ impl AutoShadeApp {
                 // Block and say why; close again once the worker lands.
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
                 let t = tr(self.lang, K_APP_AN_OPERATION_IS_STILL_RUNNING_WAIT_FOR_IT_TO_FIN).to_string();
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             } else if !self.workspace.open().discard_requested
                 && (unsaved_open
                     || !self.workspace.open().nav_stash.is_empty()

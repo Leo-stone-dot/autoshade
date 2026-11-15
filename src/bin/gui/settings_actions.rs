@@ -336,7 +336,7 @@ impl AutoShadeApp {
             Err(e) => {
                 let t = format!("{e:#}");
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
                 return;
             }
         };
@@ -376,7 +376,7 @@ impl AutoShadeApp {
                 let t = format!("{e:#}");
                 self.workspace.ui_mut().python_env_line = Some(t.clone());
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
         }
     }

@@ -345,7 +345,7 @@ impl AutoShadeApp {
                         K_GUI_COULD_NOT_LOAD_THIS_MASK_S_RASTER_STARTING_FROM,
                         &[("err", &e.to_string())],
                     );
-                    self.toast(ToastKind::Error, t);
+                    self.workspace.toast(ToastKind::Error, t);
                 }
             }
         }
@@ -374,12 +374,12 @@ impl AutoShadeApp {
         if target.is_none() {
             if gray.pixels().all(|p| p[0] == 0) {
                 let t = tr(lang, K_GUI_NOTHING_PAINTED_YET_DRAG_ON_THE_IMAGE_FIRST);
-                self.toast(ToastKind::Error, t.to_string());
+                self.workspace.toast(ToastKind::Error, t.to_string());
                 return;
             }
             if self.editor.doc().recipe.masks.len() >= 64 {
                 let t = tr(lang, K_ACTIONS_MASK_LIMIT_REACHED_64_DELETE_ONE_FIRST);
-                self.toast(ToastKind::Error, t.to_string());
+                self.workspace.toast(ToastKind::Error, t.to_string());
                 return;
             }
         }
@@ -439,7 +439,7 @@ impl AutoShadeApp {
                     K_GUI_COULD_NOT_SAVE_THE_BRUSH_MASK,
                     &[("err", &e.to_string())],
                 );
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
         }
     }
@@ -498,7 +498,7 @@ impl AutoShadeApp {
                     K_GUI_COULD_NOT_EDIT_THIS_MASK_S_RASTER,
                     &[("err", &e.to_string())],
                 );
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
         }
     }

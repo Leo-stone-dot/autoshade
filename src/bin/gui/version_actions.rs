@@ -167,7 +167,7 @@ impl AutoShadeApp {
                 K_ACTIONS_A_PRISTINE_AI_GENERATED_CARD_HAS_NO_DEVELOP_TO_S,
             );
             self.workspace.set_status(t.into());
-            self.toast(ToastKind::Error, t);
+            self.workspace.toast(ToastKind::Error, t);
             return;
         }
         let Some(src) = self.editor.photo().src_path.clone() else { return };
@@ -191,7 +191,7 @@ impl AutoShadeApp {
             Err(e) => {
                 let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
                 return Ok(());
             }
         };
@@ -204,7 +204,7 @@ impl AutoShadeApp {
             let _ = std::fs::remove_file(&vpath); // release the claim
             let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
             self.workspace.set_status(t.clone());
-            self.toast(ToastKind::Error, t);
+            self.workspace.toast(ToastKind::Error, t);
             return Ok(());
         }
         let res = autoshade::pipeline::write_recipe(&src, &snap, Some(vpath.clone()), autoshade::diag::stderr());
@@ -242,7 +242,7 @@ impl AutoShadeApp {
             Err(e) => {
                 let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
         }
                 Ok(())
@@ -325,7 +325,7 @@ impl AutoShadeApp {
                             ("s", &dropped.truncated_string_bytes.to_string()),
                         ],
                     );
-                    self.toast(ToastKind::Error, t);
+                    self.workspace.toast(ToastKind::Error, t);
                 }
                 // A Generated variant's pixels already carry the camera look
                 // AND the lens corrections — a source-based snapshot's
@@ -386,7 +386,7 @@ impl AutoShadeApp {
                     // Said out loud, in the same channel the other
                     // calibration correction uses: the snapshot on disk holds
                     // no camera base look, and the canvas now does.
-                    self.toast(
+                    self.workspace.toast(
                         ToastKind::Success,
                         tr(
                             lang,
@@ -396,10 +396,10 @@ impl AutoShadeApp {
                     );
                 }
                 match reframe {
-                    Ok(Some(c)) => self.toast(ToastKind::Success, coord_migration_sentence(lang, c)),
+                    Ok(Some(c)) => self.workspace.toast(ToastKind::Success, coord_migration_sentence(lang, c)),
                     // Said as an error: the snapshot loaded, but its geometry
                     // is off the picture until the raster can be re-written.
-                    Err(e) => self.toast(
+                    Err(e) => self.workspace.toast(
                         ToastKind::Error,
                         coord_migration_failure_sentence(lang, &e.to_string()),
                     ),
@@ -428,7 +428,7 @@ impl AutoShadeApp {
                     &[("n", &n.to_string()), ("err", &e.to_string())],
                 );
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
         }
     }

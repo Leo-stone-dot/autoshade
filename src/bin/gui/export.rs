@@ -414,7 +414,7 @@ impl AutoShadeApp {
                 }
                 let t = e.to_string();
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
                 return false;
             }
         }
@@ -427,7 +427,7 @@ impl AutoShadeApp {
                 Err(e) => {
                     let t = format!("{e:#}");
                     self.workspace.set_status(t.clone());
-                    self.toast(ToastKind::Error, t);
+                    self.workspace.toast(ToastKind::Error, t);
                     return false;
                 }
             }
@@ -926,11 +926,11 @@ impl AutoShadeApp {
                 if let Some(m) = xmp_loss_line(lang, &[], &globals)
                     && xmp_loss_interrupts(&[], &globals)
                 {
-                    self.toast(ToastKind::Error, m.clone());
+                    self.workspace.toast(ToastKind::Error, m.clone());
                     t = format!("{t} — ⚠ {m}");
                 }
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Success, t);
+                self.workspace.toast(ToastKind::Success, t);
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && !overwrite => {
                 // ARM, do not write. The status says what the second click will
@@ -946,7 +946,7 @@ impl AutoShadeApp {
                     &[("path", &there)],
                 );
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
             Err(e) => {
                 self.workspace.exp_mut().xmp_beside_confirm = false;
@@ -956,7 +956,7 @@ impl AutoShadeApp {
                     &[("err", &e.to_string())],
                 );
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t);
+                self.workspace.toast(ToastKind::Error, t);
             }
         }
     }
@@ -1032,7 +1032,7 @@ impl AutoShadeApp {
                                 &[("err", &w)],
                             );
                             self.workspace.set_status(t.clone());
-                            self.toast(ToastKind::Error, t);
+                            self.workspace.toast(ToastKind::Error, t);
                         }
                         None => {
                             *self.workspace.status_mut() = if o.removed {
@@ -1240,7 +1240,7 @@ impl AutoShadeApp {
                             // Saying only "saved" is how that loss stayed
                             // invisible until they reopened the catalog.
                             if let Some(m) = &merge_note {
-                                self.toast(ToastKind::Error, m.clone());
+                                self.workspace.toast(ToastKind::Error, m.clone());
                             }
                             // M6a: the projection's own lossy edges — assembled
                             // from what the WRITER just skipped/degraded, so the
@@ -1264,7 +1264,7 @@ impl AutoShadeApp {
                             if let Some(m) = &mask_note
                                 && interrupts
                             {
-                                self.toast(ToastKind::Error, m.clone());
+                                self.workspace.toast(ToastKind::Error, m.clone());
                             }
                             let base = trf(
                                 lang,
@@ -1306,7 +1306,7 @@ impl AutoShadeApp {
                                 K_EXPORT_RECIPE_SAVED_BUT_THE_LIGHTROOM_XMP_FAILED,
                                 &[("err", &e.to_string())],
                             );
-                            self.toast(ToastKind::Error, t.clone());
+                            self.workspace.toast(ToastKind::Error, t.clone());
                             t
                         }
                     }
@@ -1348,7 +1348,7 @@ impl AutoShadeApp {
                     ));
                 }
                 self.workspace.set_status(t.clone());
-                self.toast(ToastKind::Error, t); // a failed save must be seen
+                self.workspace.toast(ToastKind::Error, t); // a failed save must be seen
             }
         }
                 Ok(())
@@ -1416,7 +1416,7 @@ impl AutoShadeApp {
         let skin_held: std::collections::HashSet<PathBuf> =
             targets.iter().filter(|t| self.skin_held_for(t)).cloned().collect();
         if n_raster > 0 && has_foreign_target {
-            self.toast(
+            self.workspace.toast(
                 ToastKind::Error,
                 trf(
                     self.lang,
@@ -1426,7 +1426,7 @@ impl AutoShadeApp {
             );
         }
         if dropped_field && has_foreign_target {
-            self.toast(
+            self.workspace.toast(
                 ToastKind::Error,
                 tr(
                     self.lang,
@@ -1435,13 +1435,13 @@ impl AutoShadeApp {
             );
         }
         if dropped_blur && has_foreign_target {
-            self.toast(
+            self.workspace.toast(
                 ToastKind::Error,
                 tr(self.lang, K_EXPORT_THE_LENS_BLUR_WAS_NOT_PASTED_ITS_DEPTH_MAP_WAS_M),
             );
         }
         if n_layers > 0 && has_foreign_target {
-            self.toast(
+            self.workspace.toast(
                 ToastKind::Error,
                 trf(
                     self.lang,

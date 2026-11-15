@@ -67,7 +67,7 @@ impl AutoShadeApp {
             // same frame, so a status write here died before a single paint
             // — the exact defect the load_version site documented.
             self.editor.sync_active_recipe();
-            self.toast(
+            self.workspace.toast(
                 ToastKind::Success,
                 tr(
                     lang,
@@ -147,7 +147,7 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
         // Refusal must be visible — the card stays clickable and a silent
         // no-op reads as a dead UI.
         let t = tr(self.lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
-        self.toast(ToastKind::Error, t);
+        self.workspace.toast(ToastKind::Error, t);
         return;
     }
     // Flush every typed-but-uncommitted name INTO the snapshot below
@@ -215,7 +215,7 @@ pub(crate) fn push_variant(&mut self, v: Variant, ctx: &egui::Context) {
 pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
     if self.workspace.busy() {
         let t = tr(self.lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
-        self.toast(ToastKind::Error, t);
+        self.workspace.toast(ToastKind::Error, t);
         return;
     }
     if self.editor.doc().variants.len() <= 1 || idx >= self.editor.doc().variants.len() {
@@ -242,7 +242,7 @@ pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
             &[("name", &name)],
         );
         self.workspace.set_status(t.clone());
-        self.toast(ToastKind::Error, t);
+        self.workspace.toast(ToastKind::Error, t);
         return;
     }
     self.workspace.cards_mut().variant_delete_confirm = None;
@@ -331,7 +331,7 @@ pub(crate) fn fork_from_generated(&mut self) -> bool {
     // A ✕ armed on an index past the insertion now names the wrong card.
     self.workspace.cards_mut().variant_delete_confirm = None;
     let lang = self.lang;
-    self.toast(
+    self.workspace.toast(
         ToastKind::Success,
         tr(
             lang,
@@ -484,7 +484,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     let lang = self.lang;
     if self.workspace.busy() {
         let t = tr(lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
-        self.toast(ToastKind::Error, t);
+        self.workspace.toast(ToastKind::Error, t);
         return;
     }
     let Some(src) = self.editor.doc().variants.get(idx) else { return };
@@ -504,7 +504,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
             )
         };
         self.workspace.set_status(t.into());
-        self.toast(ToastKind::Error, t);
+        self.workspace.toast(ToastKind::Error, t);
         return;
     }
     let Some(dst) = self.original_index() else {
@@ -513,7 +513,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
             K_ACTIONS_THIS_PHOTO_S_STRIP_HOLDS_NO_ORIGINAL_CARD_TO_APP,
         );
         self.workspace.set_status(t.into());
-        self.toast(ToastKind::Error, t);
+        self.workspace.toast(ToastKind::Error, t);
         return;
     };
     if dst == idx {
