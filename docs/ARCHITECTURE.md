@@ -7566,7 +7566,13 @@ in its own module — never a new enum variant or a `match` in the renderer. A
 reported change is DATA (`CapabilityChange { id, value }`, no function
 pointers) applied through the registry (`controls::apply`), so
 `logic::command::Command` stays a domain intent (the mask verbs) and a scalar
-write never becomes a command. The labels are text RESOURCES
+write never becomes a command. The slider VOCABULARY the registry and the form
+sections draw with is free functions in
+[`sliders.rs`](../src/bin/gui/sliders.rs) (the shared track, the plain/fine/log/
+pct faces, the hinted tooltip and the companion's explicit-zero encoding) —
+they never touch the app, so they are not app methods; the same holds for the
+static helpers the panels use (`fit_explainer`, `parametric_curve`,
+`portrait_group`, `version_path`, `version_is_from`). The labels are text RESOURCES
 (Android/iOS model): one dotted key per string, its English and Chinese text in
 `resources/strings/{en,zh-Hans}.toml`, compiled by `scripts/gen_text.py` into
 the `K_…` constants (`autoshade::text`); `scripts/check_text.py` keeps the
