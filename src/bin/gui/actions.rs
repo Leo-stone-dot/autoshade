@@ -87,9 +87,9 @@ impl AutoShadeApp {
     pub(crate) fn restore_prefs(&mut self, prefs: Prefs) {
         let app = self;
         app.aip.guide = prefs.guide;
-        app.aip.style_strength = prefs.style_strength.clamp(0.0, 1.0);
-        app.aip.grade_strength = prefs.grade_strength.clamp(0.0, 1.0);
-        app.aip.fit_strength = prefs.fit_strength.clamp(0.0, 1.0);
+        app.aip.style_strength = crate::logic::prefs::clamp01(prefs.style_strength);
+        app.aip.grade_strength = crate::logic::prefs::clamp01(prefs.grade_strength);
+        app.aip.fit_strength = crate::logic::prefs::clamp01(prefs.fit_strength);
         app.aip.send_style_ref_image = prefs.send_style_ref_image;
         app.aip.deep_think = prefs.deep_think;
         app.aip.style_embed = prefs.style_embed;
@@ -104,21 +104,21 @@ impl AutoShadeApp {
         app.exp.dest = ExportDest::from_pref(prefs.exp_dest);
         app.exp.last_dir = prefs.last_export_dir.clone();
         app.exp.save_denoise = prefs.save_denoise;
-        app.exp.save_denoise_strength = prefs.save_denoise_strength.clamp(0.0, 1.0);
-        app.exp.denoise_strength = prefs.denoise_strength.clamp(0.0, 1.0);
-        app.exp.baked_denoise_strength = prefs.baked_denoise_strength.clamp(0.0, 1.0);
-        app.exp.baked_save_denoise_strength = prefs.baked_save_denoise_strength.clamp(0.0, 1.0);
+        app.exp.save_denoise_strength = crate::logic::prefs::clamp01(prefs.save_denoise_strength);
+        app.exp.denoise_strength = crate::logic::prefs::clamp01(prefs.denoise_strength);
+        app.exp.baked_denoise_strength = crate::logic::prefs::clamp01(prefs.baked_denoise_strength);
+        app.exp.baked_save_denoise_strength = crate::logic::prefs::clamp01(prefs.baked_save_denoise_strength);
         app.fit.zoned_fit = prefs.zoned_fit;
         app.fit.zoned_four_regions = prefs.zoned_four_regions;
         app.fit.fit_ai_judge = prefs.fit_ai_judge;
         app.fit.fit_deep = prefs.fit_deep;
         app.fit.reimagine_retry = prefs.reimagine_retry;
         app.fit.ask_fit_after_generate = prefs.ask_fit_after_generate;
-        app.genai.adjust_quality = prefs.adjust_quality.min(2);
+        app.genai.adjust_quality = crate::logic::prefs::choice(prefs.adjust_quality);
         app.view.mode = prefs.view_mode;
         app.exp.long_edge = prefs.exp_long_edge;
-        app.exp.sharpen = prefs.exp_sharpen.clamp(0.0, 100.0);
-        app.exp.quality = prefs.exp_quality.clamp(1.0, 100.0);
+        app.exp.sharpen = crate::logic::prefs::clamp_sharpen(prefs.exp_sharpen);
+        app.exp.quality = crate::logic::prefs::clamp_quality(prefs.exp_quality);
         app.chrome.show_clipping = prefs.show_clipping;
         // Restore the UI language (an older save without this key decoded to
         // `Lang::En` via `#[serde(default)]`, so this is always valid).
@@ -132,48 +132,36 @@ impl AutoShadeApp {
         // re-issue it, or a Chinese install opens with one English line.
         app.status =
             tr(app.lang, "Open a photo, or open a folder to browse your library.").into();
-        // Each arm advances one persisted dial law; current/future files
-        // keep the choices made under their own law.
+        // Each saved file advances to the current dial law; a current/future
+        // file keeps the choices made under its own law. The wording of the
+        // reset note uses the values the file actually carried.
         for era in prefs.prefs_era..PREFS_ERA {
-            match era {
-                0 => {
-                    // Era 1's historical RAW law. The final step below emits
-                    // one note using the original saved values, not this hop.
-                    app.exp.denoise_strength = 1.0;
-                    app.exp.save_denoise_strength = 1.0;
-                }
-                1 => {
-                    // The old file cannot tell which source used a shared
-                    // dial. Preserve its choice for SCUNet, reset only RAW.
-                    app.exp.baked_denoise_strength = prefs.denoise_strength.clamp(0.0, 1.0);
-                    app.exp.baked_save_denoise_strength = prefs.save_denoise_strength.clamp(0.0, 1.0);
-                    let default = autoshade::denoise::DEFAULT_STRENGTH_RAW;
-                    if prefs.denoise_strength != default || prefs.save_denoise_strength != default {
-                        app.chrome.startup_note = Some(trf(
-                            app.lang,
-                            "AI denoise strength for RAW files was reset to {new}% (was {a}% in Detail, {b}% in Export). The new default looks like Lightroom's Denoise at 50; higher removes more luminance grain, any positive strength keeps the colour clean, and 0% leaves the input untouched",
-                            &[
-                                ("new", &format!("{:.0}", default * 100.0)),
-                                ("a", &format!("{:.0}", prefs.denoise_strength * 100.0)),
-                                ("b", &format!("{:.0}", prefs.save_denoise_strength * 100.0)),
-                            ],
-                        ));
-                    }
-                    app.exp.denoise_strength = default;
-                    app.exp.save_denoise_strength = default;
-                }
-                _ => unreachable!("missing preference migration for era {era}"),
+            let migrated = crate::logic::prefs::migrate_era(era, prefs.denoise_strength, prefs.save_denoise_strength);
+            app.exp.denoise_strength = migrated.raw_detail;
+            app.exp.save_denoise_strength = migrated.raw_export;
+            if let Some(v) = migrated.baked_detail {
+                app.exp.baked_denoise_strength = v;
+            }
+            if let Some(v) = migrated.baked_export {
+                app.exp.baked_save_denoise_strength = v;
+            }
+            if let Some((a, b)) = migrated.reset_note {
+                let default = autoshade::denoise::DEFAULT_STRENGTH_RAW;
+                app.chrome.startup_note = Some(trf(
+                    app.lang,
+                    "AI denoise strength for RAW files was reset to {new}% (was {a}% in Detail, {b}% in Export). The new default looks like Lightroom's Denoise at 50; higher removes more luminance grain, any positive strength keeps the colour clean, and 0% leaves the input untouched",
+                    &[
+                        ("new", &format!("{:.0}", default * 100.0)),
+                        ("a", &format!("{:.0}", a * 100.0)),
+                        ("b", &format!("{:.0}", b * 100.0)),
+                    ],
+                ));
             }
         }
-        // Only known color spaces — an out-of-range pref falls back to sRGB.
-        if prefs.exp_space <= 2 {
-            app.exp.space = prefs.exp_space;
-        }
-        // Only the known steps — a corrupt pref must not produce a 1-px
-        // or 100-MP working preview.
-        if [1280, 2560, 4096].contains(&prefs.preview_edge) {
-            app.genai.preview_edge = prefs.preview_edge;
-        }
+        // Only known color spaces and working-preview steps: a corrupt pref
+        // must not produce an unrenderable space or a 1-px / 100-MP preview.
+        app.exp.space = crate::logic::prefs::known_space(prefs.exp_space);
+        app.genai.preview_edge = crate::logic::prefs::known_preview_edge(prefs.preview_edge);
         if let Some(dir) = prefs.gallery_dir.filter(|d| d.is_dir()) {
             app.open_folder(dir);
         }
