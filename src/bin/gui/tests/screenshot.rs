@@ -246,10 +246,10 @@
             "whites eased so the sky keeps its gradient, vibrance up and saturation held so the red rock ",
             "stays believable, a cooler white balance on the sky band only, and a gentle S curve for depth. ",
         );
-        app.rationale = std::iter::once(prose.to_string()).chain(notes.iter().map(render_one)).collect();
-        app.doc.recipe.rationale = app.rationale.clone();
-        app.rationale_notes = notes;
-        app.verdict = Some((autoshade::advisor::Decision::Accept, vec!["balanced".into(), "on target".into()]));
+        app.analysis.rationale = std::iter::once(prose.to_string()).chain(notes.iter().map(render_one)).collect();
+        app.doc.recipe.rationale = app.analysis.rationale.clone();
+        app.analysis.rationale_notes = notes;
+        app.analysis.verdict = Some((autoshade::advisor::Decision::Accept, vec!["balanced".into(), "on target".into()]));
     }
 
     /// The analysis full-text window alone, on a 720 × 560 screen at 2×.

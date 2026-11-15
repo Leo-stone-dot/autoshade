@@ -641,8 +641,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             active_name = rec.active_name.clone();
                         }
                         self.doc.recipe = recipe.clone();
-                        self.rationale = recipe.rationale.clone();
-                        self.rationale_notes.clear(); // disk restore carries no typed notes
+                        self.analysis.rationale = recipe.rationale.clone();
+                        self.analysis.rationale_notes.clear(); // disk restore carries no typed notes
                         self.doc.variants = vec![Variant {
                             // A PENDING master keeps its stashed kind: the
                             // Fitted-or-Original collapse renamed a still-
@@ -857,7 +857,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.tools.range_picking = None;
                         self.tools.clone_mode = false;
                         self.tools.clone_src = None;
-                        self.verdict = None;
+                        self.analysis.verdict = None;
                         // R23-6 B: the chosen reverse-fit reference names
                         // a rendition of THE PREVIOUS photo. Carried
                         // across an open it would silently fit this photo

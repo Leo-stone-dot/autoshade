@@ -20,6 +20,8 @@ pub(crate) struct AutoShadeApp {
     pub(crate) scheduler: DevelopScheduler,
     /// The open document — recipe, cards, active index (see [`Document`]).
     pub(crate) doc: Document,
+    /// The AI analysis session (see [`AnalysisSession`]).
+    pub(crate) analysis: AnalysisSession,
     pub(crate) status: String,
     // Consumed by the startup greeting or the restored folder's status.
     /// The status chrome (toasts, histogram, title, clipping); see [`ChromeState`].
@@ -29,17 +31,13 @@ pub(crate) struct AutoShadeApp {
     pub(crate) services: Services,
     // TYPED, not a baked string: the decision word + reasons are rendered
     // (and translated) at draw time, so a language switch re-renders them.
-    pub(crate) verdict: Option<(autoshade::advisor::Decision, Vec<String>)>,
     /// Scripts already disclosed as undrawable this session (L12#3) — the
     /// tofu warning fires once per script, not once per folder or frame.
-    pub(crate) disclosed_scripts: HashSet<&'static str>,
-    pub(crate) rationale: String,
     /// The rationale's deterministic tail as typed notes (L12#2B). They
     /// render, in order, `rationale`'s SUFFIX — the panel strips it and
     /// draws the notes localized; on any mismatch (or when empty — a
     /// develop restored from disk carries none) the raw English rationale
     /// shows instead. Cleared wherever `rationale` is reloaded from disk.
-    pub(crate) rationale_notes: Vec<autoshade::rationale::Note>,
     /// What guides AI Analyze: the reference library or the Direction text —
     /// either/or (user ruling 2026-10-14). The controls of the one not chosen
     /// are greyed out. Persisted.
@@ -1472,10 +1470,7 @@ impl Default for AutoShadeApp {
             chrome: ChromeState::default(),
             busy: false,
             services: Services::default(),
-            verdict: None,
-            disclosed_scripts: HashSet::new(),
-            rationale: String::new(),
-            rationale_notes: Vec::new(),
+            analysis: AnalysisSession::default(),
             // ONE definition, shared with Prefs::default, the slider's reset
             // target and the AI section's ● baseline (R22 #16) — see
             // model::STYLE_STRENGTH_DEFAULT for why the literal cannot live in

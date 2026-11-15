@@ -418,8 +418,16 @@
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             let mut app = AutoShadeApp {
                 lang,
-                rationale: rationale.clone(),
-                rationale_notes: notes.clone(),
+                analysis: AnalysisSession {
+
+                    rationale: rationale.clone(),
+
+                    rationale_notes: notes.clone(),
+
+                    ..Default::default()
+
+                },
+
                 ..Default::default()
             };
             app.doc.recipe.rationale = rationale.clone();
@@ -452,7 +460,11 @@
             }
         }
         // Fallback: no typed notes → the raw English, whole, and no box.
-        let mut app = AutoShadeApp { rationale: rationale.clone(), ..Default::default() };
+        let mut app = AutoShadeApp { analysis: AnalysisSession {
+     rationale: rationale.clone(),
+     ..Default::default()
+ },
+ ..Default::default() };
         app.doc.recipe.rationale = rationale.clone();
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         let title = tr(app.lang, "Deep thinking · its working");
@@ -671,7 +683,11 @@
         let long = format!("{}END-OF-RATIONALE", "The sky is lifted and the shadows are opened a little. ".repeat(60));
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             let verb = tr(lang, "View full text…");
-            let mut app = AutoShadeApp { lang, rationale: long.clone(), ..Default::default() };
+            let mut app = AutoShadeApp { lang, analysis: AnalysisSession {
+     rationale: long.clone(),
+     ..Default::default()
+ },
+ ..Default::default() };
             let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
             let rect = app.seams.analysis_box_rect.expect("the analysis box was drawn");
             assert!(
@@ -704,7 +720,11 @@
             );
             assert!(app.ui.show_analysis_full, "{lang:?}: the window stays open while there is text");
 
-            let mut short = AutoShadeApp { lang, rationale: "Balanced.".into(), ..Default::default() };
+            let mut short = AutoShadeApp { lang, analysis: AnalysisSession {
+     rationale: "Balanced.".into(),
+     ..Default::default()
+ },
+ ..Default::default() };
             let seen = tall_frame(&mut short, |a, ui| a.ai_panel(ui));
             assert!(!seen.iter().any(|t| t == verb), "{lang:?}: a short analysis offers no {verb:?}");
         }

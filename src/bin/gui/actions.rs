@@ -239,7 +239,7 @@ impl AutoShadeApp {
             .collect();
         for stem in &stems {
             for (script, sample) in undrawable_scripts(stem, installed) {
-                if self.disclosed_scripts.insert(script) {
+                if self.analysis.disclosed_scripts.insert(script) {
                     let t = trf(
                         self.lang,
                         "some file names use characters no installed font can draw ({sample}) — they show as boxes",

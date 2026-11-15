@@ -81,8 +81,8 @@ pub(crate) fn on_analyzed(
                     // refresh rationale, THEN install the fresh verdict
                     // and the typed notes (resync cleared both).
                     self.resync_recipe_display();
-                    self.rationale_notes = rationale_notes;
-                    self.verdict =
+                    self.analysis.rationale_notes = rationale_notes;
+                    self.analysis.verdict =
                         Some((verdict.decision.clone(), verdict.reasons.clone()));
                     self.session.dirty = true;
                     self.busy = false;

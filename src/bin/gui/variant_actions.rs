@@ -16,8 +16,8 @@ impl AutoShadeApp {
         let vkind = v.kind;
         let vbase = v.base.clone();
         let vorigin = v.origin.clone();
-        self.rationale = self.doc.recipe.rationale.clone();
-        self.rationale_notes.clear(); // variant recipes carry no typed notes
+        self.analysis.rationale = self.doc.recipe.rationale.clone();
+        self.analysis.rationale_notes.clear(); // variant recipes carry no typed notes
         // A DISK-restored baked variant (cold strip restore) carries its
         // origin but no decoded base. The master is FULL resolution — a
         // 61 MP TIFF takes seconds — and this runs on the UI thread, so the
@@ -134,7 +134,7 @@ impl AutoShadeApp {
         // switch it jumped the new canvas to the old variant's ratio (L11-5).
         self.view.one_to_one = 1.0;
         self.view.pan = egui::vec2(0.5, 0.5);
-        self.verdict = None;
+        self.analysis.verdict = None;
         self.session.dirty = true; // re-develop the newly active variant
 }
 

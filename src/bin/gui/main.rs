@@ -36,6 +36,7 @@ use i18n::{tr, trf, Lang};
 
 mod model;
 mod services;
+mod analysis_session;
 mod canvas_plates;
 mod document;
 mod photo;
@@ -83,6 +84,7 @@ mod window_chrome;
 mod workers;
 use model::*;
 use services::*;
+use analysis_session::*;
 use canvas_plates::*;
 use document::*;
 use photo::*;
