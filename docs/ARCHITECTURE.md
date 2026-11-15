@@ -7207,7 +7207,10 @@ the user's own browser*, and the guarantees are:
   keeping only its labels and steps locally; the same answer carries each
   control's RESET value (a companion's Lightroom default, e.g. grain size 25,
   rather than the stored 0 that means absent). A failed fetch keeps the local
-  numbers, so the page still works when the endpoint is unreachable.
+  numbers, so the page still works when the endpoint is unreachable. The same
+  table is one library function (`advisor::catalogue::form_controls`: name,
+  clamp band, reset), which the web endpoint and the CLI's `autoshade
+  controls [--json]` both print — the three clients read one answer.
 
 - **Bounded work.** `EditRecipe::clamp` caps masks/curves/knots **and strings**
   (`rationale`, mask names, bitmap-mask paths), and the cap is enforced at

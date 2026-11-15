@@ -997,6 +997,7 @@ autoshade mcp --root DIR [--root DIR ...] [--data-dir DIR]
 autoshade pi-analyze <src> [--harness FILE]
 autoshade session
 autoshade recipe-schema
+autoshade controls [--json]
 ```
 
 `autoshade python-env` prints whether the managed Python environment is

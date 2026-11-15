@@ -3597,6 +3597,33 @@ pub fn global_control(name: &str) -> Option<&'static Control> {
     RECIPE_CONTROLS.iter().find(|c| c.name == name)
 }
 
+/// The scalar controls the develop forms render, as `(name, clamp band, reset
+/// value)`. The band is the catalogue's own (the one `EditRecipe::clamp` is
+/// pinned to) and the reset is the COMPANION's Lightroom default
+/// (`EditRecipe::resolved`, e.g. grain size 25 — the stored 0 means "absent"),
+/// else the default recipe's own scalar. The GUI's capability table, the web
+/// form's sliders and the CLI's `controls` command all read this.
+pub fn form_controls() -> Vec<(&'static str, (f32, f32), Option<f32>)> {
+    let default_recipe = EditRecipe::default();
+    RECIPE_CONTROLS
+        .iter()
+        .filter_map(|c| {
+            let band = c.range?;
+            let reset = if crate::recipe::LR_COMPANION_DEFAULTS.iter().any(|(n, _)| *n == c.name) {
+                Some(default_recipe.resolved(c.name))
+            } else {
+                match global_value(&default_recipe, c.name) {
+                    Some(GlobalValue::Num(v)) => Some(v),
+                    Some(GlobalValue::OptNum(Some(v))) => Some(v),
+                    Some(GlobalValue::Int(v)) => Some(v as f32),
+                    _ => None,
+                }
+            };
+            Some((c.name, band, reset))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4247,6 +4274,25 @@ mod tests {
     /// — re-derived from clamp itself rather than trusted, because these are
     /// the numbers the prompt catalogue tells the model, and a range the
     /// engine does not honour is a lie in a paid request.
+    #[test]
+    fn the_form_controls_state_bands_and_resets() {
+        let rows = form_controls();
+        assert!(rows.len() > 20, "the form list is not the empty set");
+        let exposure = rows.iter().find(|(n, _, _)| *n == "exposure_ev").expect("exposure_ev listed");
+        assert_eq!(exposure.1, (-5.0, 5.0), "the band is the clamp band");
+        assert_eq!(exposure.2, Some(0.0), "the reset is the default recipe's scalar");
+        let grain = rows.iter().find(|(n, _, _)| *n == "grain_size").expect("grain_size listed");
+        assert_eq!(grain.2, Some(25.0), "a companion resets to Lightroom's default");
+        let mut names: Vec<&str> = rows.iter().map(|(n, _, _)| *n).collect();
+        let before = names.len();
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), before, "a control is listed once");
+        for (_, (lo, hi), _) in &rows {
+            assert!(lo < hi, "bands are ordered");
+        }
+    }
+
     #[test]
     fn stated_ranges_are_the_ranges_clamp_enforces() {
         for c in RECIPE_CONTROLS.iter().filter(|c| c.shape.is_scalar()) {

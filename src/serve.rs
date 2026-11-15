@@ -1374,26 +1374,9 @@ fn fresh_base_payload(raw: &Path) -> String {
 /// the web form must not be able to state a range `EditRecipe::clamp` does not
 /// enforce. Its labels and steps stay in the page.
 fn controls_json() -> serde_json::Value {
-    let default_recipe = crate::recipe::EditRecipe::default();
-    let controls: Vec<serde_json::Value> = crate::advisor::catalogue::RECIPE_CONTROLS
-        .iter()
-        .filter_map(|c| {
-            let (lo, hi) = c.range?;
-            // The reset value comes from THIS tree's data: a companion's
-            // Lightroom default (grain size 25, not the stored 0 that means
-            // "absent"), otherwise the default recipe's own scalar.
-            let default = if crate::recipe::LR_COMPANION_DEFAULTS.iter().any(|(n, _)| *n == c.name) {
-                Some(default_recipe.resolved(c.name))
-            } else {
-                match crate::advisor::catalogue::global_value(&default_recipe, c.name) {
-                    Some(crate::advisor::catalogue::GlobalValue::Num(v)) => Some(v),
-                    Some(crate::advisor::catalogue::GlobalValue::OptNum(Some(v))) => Some(v),
-                    Some(crate::advisor::catalogue::GlobalValue::Int(v)) => Some(v as f32),
-                    _ => None,
-                }
-            };
-            Some(json!({ "name": c.name, "range": [lo, hi], "default": default }))
-        })
+    let controls: Vec<serde_json::Value> = crate::advisor::catalogue::form_controls()
+        .into_iter()
+        .map(|(name, (lo, hi), default)| json!({ "name": name, "range": [lo, hi], "default": default }))
         .collect();
     json!({ "controls": controls })
 }
