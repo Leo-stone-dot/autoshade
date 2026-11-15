@@ -7710,7 +7710,9 @@ dispatch — 21 methods, 689 lines) now live in `variant_actions.rs`. The snapsh
 `remap_mask_indices`, the list refresh, `version_is_from`, the name batch,
 save/load/delete — 8 methods, 476 lines) live in `version_actions.rs`. The open path (`open_path` with its decode/
 re-develop hand-off and guards, the gallery row and the folder — 340 lines) lives
-in `open_actions.rs`.
+in `open_actions.rs`. The edit history and the pixel re-develops it drives
+(the undo/redo stacks and commits, `apply_step`, the pixel refresh/rebind and the
+quarter-turn rotate/sync) live in `history_actions.rs`.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
