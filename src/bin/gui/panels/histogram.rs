@@ -10,7 +10,7 @@ impl AutoShadeApp {
     /// at the J-overlay thresholds (≤1 / ≥254); clicking toggles that overlay.
     pub(crate) fn histogram_ui(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let Some(hist) = &self.histogram else { return };
+        let Some(hist) = &self.chrome.histogram else { return };
         let h = 72.0;
         // The readout keeps the panel's readable ceiling (`FIELD_W_MAX`), as
         // the prompt fields and the button rows do: the side panel itself is
@@ -121,7 +121,7 @@ impl AutoShadeApp {
             let resp = ui
                 .interact(tri, ui.id().with(("clip_tri", right)), egui::Sense::click())
                 .on_hover_text(tip);
-            let color = lit.unwrap_or(if self.show_clipping {
+            let color = lit.unwrap_or(if self.chrome.show_clipping {
                 self.theme.colors().clip_tri_on
             } else {
                 self.theme.colors().clip_tri_off
@@ -227,7 +227,7 @@ impl AutoShadeApp {
 
         // Histogram backdrop for the active channel (luma behind the master curve)
         // — same data as the panel histogram, sqrt-scaled the same way.
-        if let Some(hist) = &self.histogram {
+        if let Some(hist) = &self.chrome.histogram {
             let ch = [3usize, 0, 1, 2][self.curve_channel];
             let bar_w = rect.width() / hist.len().max(1) as f32;
             let fill =

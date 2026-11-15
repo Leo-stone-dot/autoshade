@@ -920,13 +920,13 @@ rationale: "stale rationale".into(),
             "a generated card must not mint an empty snapshot"
         );
         assert!(
-            app.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
+            app.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
             "the refusal must be SEEN — the keyboard path has no other channel"
         );
 
         // The same canvas on a PARAMETRIC card saves, and records what it
         // was a picture of.
-        app.toasts.clear();
+        app.chrome.toasts.clear();
         app.variants = vec![crate::model::Variant {
             id: "card-fit".into(),
             ..mk(crate::model::VariantKind::Fitted)

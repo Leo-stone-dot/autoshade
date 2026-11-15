@@ -1115,22 +1115,22 @@
         for i in 0..4 {
             app.toast(ToastKind::Success, format!("saved {i}"));
         }
-        assert_eq!(app.toasts.len(), 5, "the ring is exactly full");
+        assert_eq!(app.chrome.toasts.len(), 5, "the ring is exactly full");
         // Ctrl+S three more times on the same photo: byte-identical disclosure.
         for _ in 0..3 {
             app.toast(ToastKind::Error, loss);
         }
         assert_eq!(
-            app.toasts.len(), 5,
+            app.chrome.toasts.len(), 5,
             "three refreshes must not grow the ring — stacking would have evicted \
              the four successes one by one"
         );
         assert_eq!(
-            app.toasts.iter().filter(|t| t.text == loss).count(), 1,
+            app.chrome.toasts.iter().filter(|t| t.text == loss).count(), 1,
             "one live copy of one disclosure"
         );
         assert_eq!(
-            app.toasts.last().expect("non-empty").text, loss,
+            app.chrome.toasts.last().expect("non-empty").text, loss,
             "the refresh moves it to the BACK, so the ring evicts it LAST — \
              refreshing in place left the error first in line for eviction"
         );
@@ -1138,7 +1138,7 @@
         // different toast (different colour, different TTL).
         app.toast(ToastKind::Success, loss);
         assert_eq!(
-            app.toasts.iter().filter(|t| t.text == loss).count(), 2,
+            app.chrome.toasts.iter().filter(|t| t.text == loss).count(), 2,
             "dedup keys on (text, kind), not text alone"
         );
     }

@@ -43,7 +43,7 @@
         assert!(!app.fork_edited_card(), "an ✎ card never forks");
         assert_eq!(app.variants.len(), 3);
         assert!(app.unsaved_marker_dirty(), "a new card is unsaved work");
-        assert!(app.toasts.iter().any(|t| t.text.contains("✎")), "said by toast");
+        assert!(app.chrome.toasts.iter().any(|t| t.text.contains("✎")), "said by toast");
 
         // The frame hook sits between the panels (where the sliders write
         // the recipe) and the develop dispatch — pinned in the source, since
@@ -744,7 +744,7 @@
         assert_eq!(app.variants[1].name.as_deref(), Some("sky"), "…and its name");
         assert!(app.unsaved_marker_dirty(), "the split is unsaved work until Ctrl+S");
         assert_eq!(
-            app.toasts.iter().filter(|t| t.text.contains("separate cards")).count(),
+            app.chrome.toasts.iter().filter(|t| t.text.contains("separate cards")).count(),
             1,
             "said once at the door"
         );
@@ -770,7 +770,7 @@
         assert!(again.variants[1].recipe.is_noop());
         assert!(!again.unsaved_marker_dirty(), "a split strip reopens clean: {}", again.status);
         assert!(
-            !again.toasts.iter().any(|t| t.text.contains("separate cards")),
+            !again.chrome.toasts.iter().any(|t| t.text.contains("separate cards")),
             "…and silently"
         );
     }

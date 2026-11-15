@@ -61,7 +61,7 @@ impl AutoShadeApp {
         // (which decides the language) and outside it, so headless tests that
         // restore prefs run no interpreter.
         if let Some(note) = app.refresh_python_check() {
-            app.startup_note = Some(note);
+            app.chrome.startup_note = Some(note);
         }
         if !app.busy {
             app.show_startup_note();
@@ -120,7 +120,7 @@ impl AutoShadeApp {
         app.exp.long_edge = prefs.exp_long_edge;
         app.exp.sharpen = prefs.exp_sharpen.clamp(0.0, 100.0);
         app.exp.quality = prefs.exp_quality.clamp(1.0, 100.0);
-        app.show_clipping = prefs.show_clipping;
+        app.chrome.show_clipping = prefs.show_clipping;
         // Restore the UI language (an older save without this key decoded to
         // `Lang::En` via `#[serde(default)]`, so this is always valid).
         app.lang = prefs.lang;
@@ -150,7 +150,7 @@ impl AutoShadeApp {
                     app.exp.baked_save_denoise_strength = prefs.save_denoise_strength.clamp(0.0, 1.0);
                     let default = autoshade::denoise::DEFAULT_STRENGTH_RAW;
                     if prefs.denoise_strength != default || prefs.save_denoise_strength != default {
-                        app.startup_note = Some(trf(
+                        app.chrome.startup_note = Some(trf(
                             app.lang,
                             "AI denoise strength for RAW files was reset to {new}% (was {a}% in Detail, {b}% in Export). The new default looks like Lightroom's Denoise at 50; higher removes more luminance grain, any positive strength keeps the colour clean, and 0% leaves the input untouched",
                             &[
@@ -201,7 +201,7 @@ impl AutoShadeApp {
     }
 
     pub(crate) fn show_startup_note(&mut self) {
-        if let Some(note) = self.startup_note.take() {
+        if let Some(note) = self.chrome.startup_note.take() {
             self.status.push_str(" — ");
             self.status.push_str(&note);
         }
@@ -270,12 +270,12 @@ impl AutoShadeApp {
         // toasts from the ring. The refresh MOVES it to the back — it is
         // the newest content, and refreshing in place left it first in
         // line for eviction, the exact loss the dedup exists to prevent.
-        if let Some(i) = self.toasts.iter().position(|t| t.text == text && t.kind == kind) {
-            self.toasts.remove(i);
+        if let Some(i) = self.chrome.toasts.iter().position(|t| t.text == text && t.kind == kind) {
+            self.chrome.toasts.remove(i);
         }
-        self.toasts.push(Toast { text, kind, born: Instant::now() });
-        if self.toasts.len() > 5 {
-            self.toasts.remove(0); // keep the stack readable
+        self.chrome.toasts.push(Toast { text, kind, born: Instant::now() });
+        if self.chrome.toasts.len() > 5 {
+            self.chrome.toasts.remove(0); // keep the stack readable
         }
     }
 
@@ -1170,7 +1170,7 @@ impl AutoShadeApp {
         self.cards.variant_delete_confirm = None;
         self.overlay.overlay_ref = None;
         self.overlay.overlay_stale = true;
-        self.last_rgb = None; // the retained frame belongs to the OLD variant
+        self.chrome.last_rgb = None; // the retained frame belongs to the OLD variant
         // …and so does the After texture (L11-2): its only writers are the
         // develop/retouch landings, so until the new variant's first frame
         // lands the canvas showed the OLD variant's pixels under the NEW
@@ -2571,7 +2571,7 @@ impl AutoShadeApp {
         }
         self.overlay.overlay_ref = None;
         self.overlay.overlay_stale = true;
-        self.last_rgb = None;
+        self.chrome.last_rgb = None;
     }
 
     /// The base plate under the canvas was REPLACED (a preview-resolution
@@ -2739,7 +2739,7 @@ impl AutoShadeApp {
         }
         self.overlay.overlay_ref = None;
         self.overlay.overlay_stale = true;
-        self.last_rgb = None;
+        self.chrome.last_rgb = None;
         self.overlay.mask_tex = None;
         self.overlay.mask_overlay_tex = None;
         self.overlay.overlay_key = None;

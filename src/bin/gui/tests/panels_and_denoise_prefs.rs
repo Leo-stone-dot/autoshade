@@ -565,7 +565,7 @@
             }
             assert_eq!(app.status.matches(if lang == Lang::En { "reset to" } else { "已重置" }).count(), 1);
             assert!(!app.status.contains("{a}"));
-            assert!(app.toasts.is_empty(), "the startup status is the existing disclosure surface");
+            assert!(app.chrome.toasts.is_empty(), "the startup status is the existing disclosure surface");
         }
     }
 
@@ -574,12 +574,12 @@
         let mut app = AutoShadeApp { busy: true, ..Default::default() };
         app.restore_prefs(Prefs { prefs_era: 0, denoise_strength: 0.65,
             save_denoise_strength: 0.5, ..Prefs::default() });
-        assert!(app.startup_note.is_some());
+        assert!(app.chrome.startup_note.is_some());
         app.tx.send(Msg::Folder(Box::new(Ok((PathBuf::new(), vec![], 0))))).unwrap();
         app.poll_workers(&egui::Context::default());
         assert!(app.status.contains("no photos found"), "{}", app.status);
         assert!(app.status.contains("reset to 71"), "{}", app.status);
-        assert!(app.startup_note.is_none());
+        assert!(app.chrome.startup_note.is_none());
         app.tx.send(Msg::Folder(Box::new(Ok((PathBuf::new(), vec![], 0))))).unwrap();
         app.poll_workers(&egui::Context::default());
         assert!(!app.status.contains("reset to"), "a later scan must not repeat the startup note");
@@ -592,7 +592,7 @@
             save_denoise_strength: 0.5, ..Prefs::default() });
         assert_eq!((app.exp.denoise_strength, app.exp.save_denoise_strength), (0.65, 0.5));
         assert_eq!(app.status, tr(Lang::En, "Open a photo, or open a folder to browse your library."));
-        assert!(app.startup_note.is_none());
+        assert!(app.chrome.startup_note.is_none());
     }
 
     #[test]

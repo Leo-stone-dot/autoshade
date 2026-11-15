@@ -164,18 +164,18 @@ impl AutoShadeApp {
     /// instantly instead of paying a whole develop (100-300 ms at 2560/4096).
     /// Falls back to a redevelop only when no frame is retained yet.
     pub(crate) fn toggle_clipping(&mut self, ctx: &egui::Context) {
-        self.show_clipping = !self.show_clipping;
-        if !self.show_clipping {
-            self.clip_tex = None; // OFF is just dropping the layer
+        self.chrome.show_clipping = !self.chrome.show_clipping;
+        if !self.chrome.show_clipping {
+            self.chrome.clip_tex = None; // OFF is just dropping the layer
             return;
         }
-        match &self.last_rgb {
+        match &self.chrome.last_rgb {
             Some(rgb) => {
                 let clip = clipping_overlay_for(rgb, self.recipe.crop);
-                if let Some(tex) = &mut self.clip_tex {
+                if let Some(tex) = &mut self.chrome.clip_tex {
                     tex.set(clip, egui::TextureOptions::NEAREST);
                 } else {
-                    self.clip_tex =
+                    self.chrome.clip_tex =
                         Some(ctx.load_texture("clip", clip, egui::TextureOptions::NEAREST));
                 }
             }
@@ -572,7 +572,7 @@ impl AutoShadeApp {
                     self.view.zoom_target = 1.0; // glides; the pan clamp eases the rest
                     self.view.pan = egui::vec2(0.5, 0.5);
                 }
-                if glyph_toggle(ui, self.show_clipping, "▲")
+                if glyph_toggle(ui, self.chrome.show_clipping, "▲")
                     .on_hover_text(tr(lang, "Clipping warning (J): red = highlight clip, blue = shadow crush (judged on export pixels)"))
                     .clicked()
                 {
@@ -642,7 +642,7 @@ impl AutoShadeApp {
         // Diagnostic layers, uv-synced with the image (hidden while comparing):
         // clipping warnings, then the selected mask's coverage on top.
         if !comparing {
-            if let Some(t) = &self.clip_tex {
+            if let Some(t) = &self.chrome.clip_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
             if let Some(t) = &self.overlay.mask_overlay_tex {

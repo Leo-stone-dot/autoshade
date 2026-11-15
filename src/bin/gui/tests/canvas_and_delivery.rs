@@ -476,7 +476,7 @@
             "the first click left their sidecar untouched"
         );
         assert!(
-            app.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
+            app.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
             "a refusal must be seen, not only appear in a status line"
         );
 

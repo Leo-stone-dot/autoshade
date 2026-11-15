@@ -136,7 +136,7 @@ impl AutoShadeApp {
     /// wrote — and in its toast, when it raised one.
     pub(crate) fn reword_landing(&mut self, plain: String) {
         let old = std::mem::replace(&mut self.status, plain.clone());
-        if let Some(t) = self.toasts.iter_mut().rev().find(|t| t.text == old) {
+        if let Some(t) = self.chrome.toasts.iter_mut().rev().find(|t| t.text == old) {
             t.text = plain;
         }
     }

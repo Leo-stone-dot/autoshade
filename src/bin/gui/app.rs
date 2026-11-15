@@ -52,7 +52,8 @@ pub(crate) struct AutoShadeApp {
     pub(crate) develop_count: u64, // accepted frames; regression counter (latest-wins)
     pub(crate) status: String,
     // Consumed by the startup greeting or the restored folder's status.
-    pub(crate) startup_note: Option<String>,
+    /// The status chrome (toasts, histogram, title, clipping); see [`ChromeState`].
+    pub(crate) chrome: ChromeState,
     pub(crate) busy: bool, // an analyze/export thread is running
     pub(crate) rx: Option<Receiver<Msg>>,
     pub(crate) tx: Sender<Msg>,
@@ -294,16 +295,10 @@ pub(crate) struct AutoShadeApp {
     pub(crate) adjust_edit_prompt: String,
     pub(crate) adjust_quality: usize,                 // 0=high 1=medium 2=low
     // --- production niceties ---
-    pub(crate) toasts: Vec<Toast>,                    // transient corner notifications
-    pub(crate) histogram: Option<Vec<[f32; 4]>>,      // live RGB+luma histogram of the After preview
-    pub(crate) last_title: String,                    // window title cache (send only on change)
     // --- diagnostic view layers (UX batch) ---
     // Cached masks-cleared develop the coverage's range weights are judged
     // on — reused while the global (non-mask) recipe is unchanged, so a
     // mask-slider drag rebuilds only the coverage map, not a second develop.
-    pub(crate) show_clipping: bool,                   // clipping warnings: red blown / blue crushed (J)
-    pub(crate) last_rgb: Option<image::RgbImage>,     // last accepted frame's pixels (instant clip toggle)
-    pub(crate) clip_tex: Option<egui::TextureHandle>,
     // First-frame OS titlebar sync (see update()'s head): viewport commands
     // sent from the creation closure are dropped before the loop runs.
     pub(crate) os_theme_synced: bool,
@@ -919,9 +914,9 @@ impl AutoShadeApp {
             ),
             None => "AutoShade".to_string(),
         };
-        if title != self.last_title {
+        if title != self.chrome.last_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
-            self.last_title = title;
+            self.chrome.last_title = title;
         }
     }
 
@@ -1552,7 +1547,7 @@ impl Default for AutoShadeApp {
             develop_inflight: false,
             develop_count: 0,
             status: "Open a photo, or open a folder to browse your library.".into(),
-            startup_note: None,
+            chrome: ChromeState::default(),
             busy: false,
             rx: Some(rx),
             tx,
@@ -1608,9 +1603,6 @@ impl Default for AutoShadeApp {
             adjust_prompt: String::new(),
             adjust_edit_prompt: String::new(),
             adjust_quality: 0,
-            toasts: Vec::new(),
-            histogram: None,
-            last_title: String::new(),
             view: ViewState::default(),
             crop: CropState::default(),
             curve_channel: 0,
@@ -1639,9 +1631,6 @@ impl Default for AutoShadeApp {
             active: 0,
             cards: CardsState::default(),
             preview_edge: PREVIEW_EDGE,
-            show_clipping: false,
-            last_rgb: None,
-            clip_tex: None,
             os_theme_synced: false,
             normal: Default::default(),
             portrait: Default::default(),
@@ -1834,8 +1823,8 @@ impl AutoShadeApp {
         // Transient toasts (bottom-right). Errors linger longer than
         // successes, long texts longer than short ones (Toast::ttl), a click
         // dismisses early, and the last 300 ms fade instead of blinking out.
-        self.toasts.retain(|t| t.born.elapsed() < t.ttl());
-        if !self.toasts.is_empty() {
+        self.chrome.toasts.retain(|t| t.born.elapsed() < t.ttl());
+        if !self.chrome.toasts.is_empty() {
             let mut dismiss: Option<usize> = None;
             let mut fading = false;
             egui::Area::new(egui::Id::new("toasts"))
@@ -1847,7 +1836,7 @@ impl AutoShadeApp {
                     // Right-aligned rows: a toast slides in from the right
                     // edge by a shrinking right-hand gap.
                     ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
-                    for (idx, t) in self.toasts.iter().enumerate() {
+                    for (idx, t) in self.chrome.toasts.iter().enumerate() {
                         let (bg, fg) = match t.kind {
                             ToastKind::Success => (c.toast_ok_bg, c.toast_ok_fg),
                             ToastKind::Error => (c.toast_err_bg, c.toast_err_fg),
@@ -1906,7 +1895,7 @@ impl AutoShadeApp {
                     });
                 });
             if let Some(i) = dismiss {
-                self.toasts.remove(i);
+                self.chrome.toasts.remove(i);
             }
             // Keep repainting so expiry doesn't wait for the next input
             // event — per frame while a fade is running, else a coarse poll.
@@ -1981,7 +1970,7 @@ impl eframe::App for AutoShadeApp {
                 exp_quality: self.exp.quality,
                 exp_space: self.exp.space,
                 preview_edge: self.preview_edge,
-                show_clipping: self.show_clipping,
+                show_clipping: self.chrome.show_clipping,
                 lang: self.lang,
                 theme: self.theme,
                 accent: self.accent,
