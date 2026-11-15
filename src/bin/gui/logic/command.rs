@@ -15,6 +15,20 @@ pub(crate) enum Command {
     /// Write one COMPANION control: the value becomes explicit, or the control
     /// returns to absent when the value is its Lightroom default.
     SetCompanion { name: &'static str, value: f32 },
+    /// A local-adjustment list operation (the mask panel's verbs).
+    Mask(MaskCommand),
+}
+
+/// The mask-list verbs a client can ask for. Selection remapping and the
+/// overlay invalidation stay with the caller: this layer owns the recipe list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MaskCommand {
+    /// Drop the mask at `index` (out of range: nothing).
+    Delete { index: usize },
+    /// Flip the mask's eye (out of range: nothing).
+    ToggleEnabled { index: usize },
+    /// Move `from` to the final slot `to` (both pre-checked by the caller).
+    Reorder { from: usize, to: usize },
 }
 
 /// Apply one command to the recipe. The GUI calls this now; the CLI and the
@@ -22,6 +36,22 @@ pub(crate) enum Command {
 pub(crate) fn apply(recipe: &mut EditRecipe, command: Command) {
     match command {
         Command::SetCapability { id, value } => capability::set_value(recipe, id, value),
+        Command::Mask(MaskCommand::Delete { index }) => {
+            if index < recipe.masks.len() {
+                recipe.masks.remove(index);
+            }
+        }
+        Command::Mask(MaskCommand::ToggleEnabled { index }) => {
+            if let Some(m) = recipe.masks.get_mut(index) {
+                m.enabled = !m.enabled;
+            }
+        }
+        Command::Mask(MaskCommand::Reorder { from, to }) => {
+            if from < recipe.masks.len() && to < recipe.masks.len() {
+                let m = recipe.masks.remove(from);
+                recipe.masks.insert(to, m);
+            }
+        }
         Command::SetCompanion { name, value } => {
             let default = autoshade::recipe::LR_COMPANION_DEFAULTS
                 .iter()
@@ -48,6 +78,27 @@ mod tests {
         assert_eq!(recipe.exposure_ev, 1.5);
         assert_eq!(recipe.contrast, -20.0);
         assert_eq!(recipe.highlights, 0.0, "an unnamed field is untouched");
+    }
+
+    #[test]
+    fn the_mask_list_verbs_edit_the_recipe_and_ignore_stale_indices() {
+        use autoshade::recipe::LocalAdjustment;
+        let mut recipe = EditRecipe::default();
+        for name in ["a", "b", "c"] {
+            recipe.masks.push(LocalAdjustment { name: name.into(), ..Default::default() });
+        }
+        apply(&mut recipe, Command::Mask(MaskCommand::ToggleEnabled { index: 1 }));
+        assert!(!recipe.masks[1].enabled);
+        apply(&mut recipe, Command::Mask(MaskCommand::Reorder { from: 0, to: 2 }));
+        assert_eq!(recipe.masks.iter().map(|m| m.name.trim()).collect::<Vec<_>>(), ["b", "c", "a"]);
+        apply(&mut recipe, Command::Mask(MaskCommand::Delete { index: 1 }));
+        assert_eq!(recipe.masks.iter().map(|m| m.name.trim()).collect::<Vec<_>>(), ["b", "a"]);
+        // A stale index from a drag started before the list shrank is a no-op,
+        // not a panic.
+        apply(&mut recipe, Command::Mask(MaskCommand::Delete { index: 9 }));
+        apply(&mut recipe, Command::Mask(MaskCommand::ToggleEnabled { index: 9 }));
+        apply(&mut recipe, Command::Mask(MaskCommand::Reorder { from: 9, to: 0 }));
+        assert_eq!(recipe.masks.len(), 2);
     }
 
     #[test]

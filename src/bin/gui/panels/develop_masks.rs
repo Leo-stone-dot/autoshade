@@ -193,21 +193,30 @@ impl AutoShadeApp {
                 && insert != from + 1
             {
                 let (to, remap) = reorder_move(from, insert);
-                let m = self.doc.recipe.masks.remove(from);
-                self.doc.recipe.masks.insert(to, m);
+                crate::logic::command::apply(
+                    &mut self.doc.recipe,
+                    crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Reorder { from, to }),
+                );
                 self.remap_mask_indices(|s| Some(remap(s)));
                 self.overlay.overlay_stale = true;
                 changed = true;
             }
             if let Some(i) = toggle_eye {
                 // A recipe mutation like any slider: develop + overlay follow,
-                // and commit_if_settled makes it one undo step.
-                self.doc.recipe.masks[i].enabled = !self.doc.recipe.masks[i].enabled;
+                // and commit_if_settled makes it one undo step. Through the
+                // command layer like the develop form's rows.
+                crate::logic::command::apply(
+                    &mut self.doc.recipe,
+                    crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::ToggleEnabled { index: i }),
+                );
                 self.overlay.overlay_stale = true;
                 changed = true;
             }
             if let Some(i) = delete {
-                self.doc.recipe.masks.remove(i);
+                crate::logic::command::apply(
+                    &mut self.doc.recipe,
+                    crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Delete { index: i }),
+                );
                 self.remap_mask_indices(|s| {
                     if s == i {
                         None
