@@ -342,12 +342,14 @@ impl AutoShadeApp {
         saved_position: usize,
         saved_id: Option<&str>,
     ) -> bool {
-        if !live.id.is_empty()
-            && let Some(id) = saved_id.filter(|id| !id.is_empty())
-        {
-            return live.id == id;
-        }
-        live.kind == saved_kind && live_position == saved_position
+        crate::logic::strip::identity_matches(
+            &live.id,
+            live.kind,
+            live_position,
+            saved_kind,
+            saved_position,
+            saved_id,
+        )
     }
 
     fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {
@@ -611,11 +613,11 @@ impl AutoShadeApp {
                     // Hop 1 of 6 (R24-2): the live strip's identities + names
                     // to disk. An EMPTY id is written as absent — the record
                     // must not claim an identity the card does not have.
-                    id: variant_id_field(&v.id),
+                    id: crate::model::variant_id_field(&v.id),
                     name: v.name.clone(),
                 })
                 .collect(),
-            active_id: self.active_variant().and_then(|v| variant_id_field(&v.id)),
+            active_id: self.active_variant().and_then(|v| crate::model::variant_id_field(&v.id)),
             active_name: self.active_variant().and_then(|v| v.name.clone()),
         })
     }
