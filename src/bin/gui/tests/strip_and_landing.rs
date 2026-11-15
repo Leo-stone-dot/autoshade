@@ -132,10 +132,10 @@
         // NewMask is NOT selection-bound — browsing the list keeps it armed;
         // non-mask tools (crop) are none of this helper's business.
         app.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
-        app.crop_mode = true;
+        app.crop.mode = true;
         app.disarm_selection_bound_tools(Some(1));
         assert!(app.masks.placing_mask.is_some(), "a NewMask placement survives");
-        assert!(app.crop_mode, "non-mask tools survive");
+        assert!(app.crop.mode, "non-mask tools survive");
 
         // The kept row's own arming survives.
         app.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::Redraw(1)));

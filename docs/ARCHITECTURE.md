@@ -7662,7 +7662,10 @@ session, selected mask/component, placement gesture), one `masks` field; the
 app struct is at 172 fields. `model::ViewState` owns the canvas view (zoom/pan and
 their glide target, the 1:1 scale, the controls-panel rect, the latched Before
 view and the compare/single switch), one `view` field; the app struct is at 166
-fields.
+fields. `model::CropState` owns the crop overlay (armed,
+preset index and pending re-derive, guide style, drag in flight), one `crop`
+field, and the on-image mask knob drag joins `MaskEditState` (`masks.mask_drag`);
+the app struct is at 161 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

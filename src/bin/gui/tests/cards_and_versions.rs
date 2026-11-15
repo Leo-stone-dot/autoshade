@@ -237,7 +237,7 @@
         let mut input = egui::RawInput::default();
         input.events.push(key(egui::Key::R));
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
-        assert!(app.crop_mode, "positive control: R arms the crop tool");
+        assert!(app.crop.mode, "positive control: R arms the crop tool");
 
         // The negative: a transient (Settings) swallows the tool tier…
         let mut app = AutoShadeApp {
@@ -248,13 +248,13 @@
         let mut input = egui::RawInput::default();
         input.events.push(key(egui::Key::R));
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
-        assert!(!app.crop_mode, "R is dead while a modal transient is up");
+        assert!(!app.crop.mode, "R is dead while a modal transient is up");
         // …and Esc dismisses the transient instead of leaking anywhere.
         let mut input = egui::RawInput::default();
         input.events.push(key(egui::Key::Escape));
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
         assert!(!app.show_settings, "Esc dismissed the transient");
-        assert!(!app.crop_mode);
+        assert!(!app.crop.mode);
     }
 
     /// L16-12: the display resync is exercised through a REAL swap path

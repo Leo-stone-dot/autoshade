@@ -483,6 +483,29 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The crop tool's state: whether the overlay is armed, the preset index and
+/// its pending re-derive, the guide style and the drag in flight. Extracted
+/// from `AutoShadeApp` so crop work does not add fields to the app struct.
+pub(crate) struct CropState {
+    pub(crate) mode: bool,
+    pub(crate) aspect: usize,
+    pub(crate) aspect_pending: bool,
+    pub(crate) grid: u8,
+    pub(crate) drag: Option<(u8, egui::Pos2, [f32; 4], f32)>,
+}
+
+impl Default for CropState {
+    fn default() -> Self {
+        Self {
+            mode: false,
+            aspect: 0,
+            aspect_pending: false,
+            grid: 0,
+            drag: None,
+        }
+    }
+}
+
 /// The canvas's view state: zoom and pan (their glide target and the 1:1 scale),
 /// the controls-panel rect the arrow keys read, the latched Before view and the
 /// compare/single switch. Extracted from `AutoShadeApp` so view features do not
@@ -534,6 +557,7 @@ pub(crate) struct MaskEditState {
     pub(crate) sel_component: Option<usize>,
     pub(crate) component_mode: autoshade::recipe::MaskCombine,
     pub(crate) place_start: Option<(f32, f32)>,
+    pub(crate) mask_drag: Option<(u8, (f32, f32))>,
 }
 
 impl Default for MaskEditState {
@@ -557,6 +581,7 @@ impl Default for MaskEditState {
             sel_component: None,
             component_mode: autoshade::recipe::MaskCombine::Add,
             place_start: None,
+            mask_drag: None,
         }
     }
 }

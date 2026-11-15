@@ -400,7 +400,7 @@ impl AutoShadeApp {
     /// frame) narrowed by zoom/pan. `pan` is stored in crop-window coords and
     /// re-clamped here so edge panning never accumulates out of range.
     pub(crate) fn view_uv(&mut self) -> egui::Rect {
-        let win = match (&self.recipe.crop, self.crop_mode) {
+        let win = match (&self.recipe.crop, self.crop.mode) {
             (Some(c), false) => egui::Rect::from_min_max(
                 egui::pos2(c.left.min(c.right), c.top.min(c.bottom)),
                 egui::pos2(c.right.max(c.left), c.bottom.max(c.top)),
@@ -517,7 +517,7 @@ impl AutoShadeApp {
             } else {
                 tr(lang, "Before (source) — release B to return to editing")
             }
-        } else if self.crop_mode {
+        } else if self.crop.mode {
             tr(lang, "Crop — drag corners/edges to resize, inside to move, outside to rotate · Esc to exit")
         } else if let Some((kind, _)) = self.masks.placing_mask {
             match kind {
@@ -713,7 +713,7 @@ impl AutoShadeApp {
         let space = ui.ctx().memory(|m| m.focused()).is_none()
             && ui.input(|i| i.key_down(egui::Key::Space));
         let ctrl = ui.input(|i| i.modifiers.command);
-        let over_knob = self.mask_drag.is_some()
+        let over_knob = self.masks.mask_drag.is_some()
             || self.sel_target_geometry().is_some_and(|g| {
                 let (dims, deg, dist) = self.geom_ctx();
                 // Probe BOTH positions: egui reports drag_started only
@@ -753,7 +753,7 @@ impl AutoShadeApp {
         } else if (space || zoom_pan) && resp.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
         } else if resp.hovered()
-            && (self.masks.paint_mode || self.masks.placing_mask.is_some() || self.crop_mode)
+            && (self.masks.paint_mode || self.masks.placing_mask.is_some() || self.crop.mode)
         {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
         }
@@ -763,7 +763,7 @@ impl AutoShadeApp {
         }
 
         // --- tool dispatch (one active interaction at a time) -----------------
-        if self.crop_mode {
+        if self.crop.mode {
             self.handle_crop(ui, &resp, xf, tex_size);
         } else if self.masks.placing_mask.is_some() {
             self.handle_place_mask(ui, &resp, xf);
@@ -839,7 +839,7 @@ impl AutoShadeApp {
         // When one of the mask's COMPONENTS is selected, the outline and
         // knobs target THAT shape — the same geometry the edit handler
         // mutates (sel_target_geometry).
-        if !self.crop_mode
+        if !self.crop.mode
             && self.masks.placing_mask.is_none()
             && let Some(m) = self.masks.sel_mask.and_then(|i| self.recipe.masks.get(i))
         {
@@ -1103,21 +1103,21 @@ impl AutoShadeApp {
             return false;
         }
         let Some(target_geom) = self.sel_target_geometry().cloned() else {
-            self.mask_drag = None;
+            self.masks.mask_drag = None;
             return false;
         };
         let (dims, deg, dist) = self.geom_ctx();
         let view_geom = geom_to_view(&target_geom, dims, deg, &dist);
         let handles = mask_handle_points(&view_geom, xf);
         if handles.is_empty() {
-            self.mask_drag = None; // bitmap: nothing parametric to drag
+            self.masks.mask_drag = None; // bitmap: nothing parametric to drag
             return false;
         }
         // A stranded grab (Esc / hold-B / pan swallowed the drag_stopped frame)
         // must not turn the NEXT unrelated drag into a mask reshape: no drag in
         // flight ⇒ no grab.
         if !resp.dragged() && !resp.drag_started() {
-            self.mask_drag = None;
+            self.masks.mask_drag = None;
         }
         // Nearest handle wins, ties broken toward the edge/end knobs — the
         // centre-move knob is emitted first and used to shadow them whenever a
@@ -1146,11 +1146,11 @@ impl AutoShadeApp {
             // the lead-in motion (a short drag left the edge unmoved).
             let origin = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
             if let Some(h) = pick(origin) {
-                self.mask_drag = Some((h, orig_at(origin)));
+                self.masks.mask_drag = Some((h, orig_at(origin)));
             }
         }
         if resp.dragged()
-            && let (Some((h, last)), Some(p)) = (self.mask_drag, resp.interact_pointer_pos())
+            && let (Some((h, last)), Some(p)) = (self.masks.mask_drag, resp.interact_pointer_pos())
         {
             let cur = orig_at(p);
             // The knob's geometry is the logic layer's (`logic/mask_edit`).
@@ -1165,20 +1165,20 @@ impl AutoShadeApp {
                     },
                 )]);
             }
-            self.mask_drag = Some((h, cur));
+            self.masks.mask_drag = Some((h, cur));
             // Masks are develop stages: the preview follows every drag frame.
             self.dirty = true;
             self.overlay.overlay_stale = true;
         }
         if resp.drag_stopped() {
-            self.mask_drag = None; // commit_if_settled turns the drag into ONE undo step
+            self.masks.mask_drag = None; // commit_if_settled turns the drag into ONE undo step
         }
-        if self.mask_drag.is_some() {
+        if self.masks.mask_drag.is_some() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
         } else if hover_h.is_some() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
         }
-        self.mask_drag.is_some() || hover_h.is_some()
+        self.masks.mask_drag.is_some() || hover_h.is_some()
     }
 
     /// Box-select on the After image: drag a rectangle to target a local edit;
@@ -1255,13 +1255,13 @@ impl AutoShadeApp {
         // frame's dims (recorded residual, CX5-5 — recomputing inscribed
         // dims here would duplicate the engine's geometry; the next
         // interaction re-derives correctly).
-        let aspect = CROP_ASPECTS[self.crop_aspect.min(CROP_ASPECTS.len() - 1)]
+        let aspect = CROP_ASPECTS[self.crop.aspect.min(CROP_ASPECTS.len() - 1)]
             .1
             .map(|r| if r == 0.0 { tex_size.x / tex_size.y.max(1.0) } else { r });
         // A preset picked in the panel re-derives the box NOW (LR applies the
         // aspect immediately, D13): largest same-centre fit at the new
         // ratio, shrunk to stay in frame. "Free" keeps the box untouched.
-        if std::mem::take(&mut self.crop_aspect_pending) {
+        if std::mem::take(&mut self.crop.aspect_pending) {
             // The box is the logic layer's geometry (`logic::crop`); this view
             // keeps the pick, the handles and the overlay.
             let current = self.recipe.crop.map(|c| [c.left, c.top, c.right, c.bottom]);
@@ -1327,7 +1327,7 @@ impl AutoShadeApp {
         // A stranded grab (Esc mid-drag, or leaving/re-entering crop mode)
         // must not resume against a stale anchor: no drag in flight ⇒ no grab.
         if !resp.dragged() && !resp.drag_started() {
-            self.crop_drag = None;
+            self.crop.drag = None;
         }
         if resp.drag_started()
             && let Some(p) = resp.interact_pointer_pos()
@@ -1339,12 +1339,12 @@ impl AutoShadeApp {
             // pick follow a small residual instead of the user's gesture).
             let origin = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
             if let Some(h) = pick_handle(&cur, origin) {
-                self.crop_drag = Some((h, origin, cur, self.recipe.straighten_deg));
+                self.crop.drag = Some((h, origin, cur, self.recipe.straighten_deg));
             }
         }
         if resp.dragged()
             && let (Some((h, start, orig, deg0)), Some(p)) =
-                (self.crop_drag, resp.interact_pointer_pos())
+                (self.crop.drag, resp.interact_pointer_pos())
         {
             if h == 9 {
                 // Rotate-straighten: drag outside the box (LR). Angle around
@@ -1371,7 +1371,7 @@ impl AutoShadeApp {
             }
         }
         if resp.drag_stopped() {
-            self.crop_drag = None;
+            self.crop.drag = None;
         }
 
         // Cursor affordance: name the resize direction of the handle under
@@ -1385,7 +1385,7 @@ impl AutoShadeApp {
             .map(|c| [c.left, c.top, c.right, c.bottom])
             .unwrap_or([0.0, 0.0, 1.0, 1.0]);
         let hover_handle = self
-            .crop_drag
+            .crop.drag
             .map(|(h, ..)| h)
             .or_else(|| resp.hover_pos().and_then(|p| pick_handle(&c, p)));
         if let Some(h) = hover_handle {
@@ -1422,7 +1422,7 @@ impl AutoShadeApp {
             }
         }
         // O cycles the guide while cropping (LR): thirds → golden → off.
-        let guide: &[f32] = match self.crop_grid {
+        let guide: &[f32] = match self.crop.grid {
             0 => &[1.0 / 3.0, 2.0 / 3.0],
             1 => &[0.381_966, 0.618_034], // 1−1/φ and 1/φ
             _ => &[],
