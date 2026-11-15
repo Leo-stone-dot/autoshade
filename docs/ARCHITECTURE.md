@@ -7704,7 +7704,9 @@ the recipe clipboard (fill/heal dials and prompts, reimagine/adjust prompts and
 quality, the in-app clipboard and its origin, paste-geometry, the working-preview
 long edge), one `genai` field. A slice is done: the app struct went from 234 to
 47 fields (`app.rs` 2326 → 1916 lines), and what remains is the open photo's
-core state plus the scheduler and status line.
+core state plus the scheduler and status line. The B pass splits `actions.rs` by domain; the variant
+strip's commands (load/switch/push/delete, fork/normalize, labels, row-action
+dispatch — 21 methods, 689 lines) now live in `variant_actions.rs`.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
