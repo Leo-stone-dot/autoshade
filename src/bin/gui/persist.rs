@@ -471,25 +471,7 @@ pub(crate) fn paste_recipe_for(target: &std::path::Path, pasted: &EditRecipe) ->
     r
 }
 
-/// "Does the canvas hold real USER edits vs this baseline?" — the ● marker,
-/// the quit guard and the nav stash all key off this. `base_curve` is the
-/// photo's camera calibration, not an edit: a curve-only difference (a fresh
-/// stamp over a neutral-cleared baseline, a Generated variant's empty curve,
-/// a paste that resolved the target's own curve) must not light ●, block
-/// quit, or stash a canvas — that was exactly the "permanent ● with no way
-/// to clear it" regression the adversarial review caught. `version` is the
-/// SAME calibration's provenance stamp (the pre-era repair bumps it with the
-/// curve), so it is neutralised with it: a repaired canvas against an
-/// unrepaired baseline — either direction: the stash gate produces
-/// baseline-v1 vs canvas-v2, and load_version's rightly-declined pre-era
-/// snapshots produce the reverse — must not read as an edit, or the photo
-/// stays "unsaved" all session and Save-all writes sidecars for zero user
-/// edits.
-pub(crate) fn dirty_vs(canvas: &EditRecipe, baseline: &EditRecipe) -> bool {
-    canvas != baseline
-        && EditRecipe { version: 0, base_curve: Vec::new(), ..canvas.clone() }
-            != EditRecipe { version: 0, base_curve: Vec::new(), ..baseline.clone() }
-}
+pub(crate) use crate::logic::same::dirty_vs;
 
 /// Append one more open-note sentence — notes chain with a middle dot.
 pub(crate) fn merge_note(note: Option<String>, extra: String) -> Option<String> {

@@ -1193,44 +1193,7 @@ pub(crate) fn release_empty_claim(p: &std::path::Path) {
     }
 }
 
-/// Do two spellings name the same baked master?
-///
-/// An in-session retouch can record its master RELATIVE (before v1.12 it
-/// landed in the cwd-relative `out/<stem>.heal.png`), while
-/// `store::write_pixel_source` stores the same file ABSOLUTIZED and
-/// `read_pixel_source` hands the absolute form back. Plain `PathBuf`
-/// equality therefore compared `out/x.png` against `<cwd>/out/x.png` and
-/// missed: a save-then-switch left 1:1 inspection stuck at the old
-/// resolution — the outcome the re-decode branch exists to prevent — and
-/// now would draw a refusal telling the user to save what they just saved.
-/// Lexical only: `std::path::absolute` normalizes without touching the
-/// filesystem, and both sides go through the same normalization the writer
-/// itself used.
-pub(crate) fn same_master(a: &std::path::Path, b: &std::path::Path) -> bool {
-    a == b
-        || matches!(
-            (std::path::absolute(a), std::path::absolute(b)),
-            (Ok(x), Ok(y)) if x == y
-        )
-}
-
-/// Same master identity? `None` means "no baked master", which matches only
-/// itself; the path halves go through [`same_master`], so the two spellings
-/// the store and the GUI produce for ONE file cannot read as a difference.
-///
-/// EVERY master comparison goes through here — the five saved-pixel guards
-/// (navigation stash gate, ● marker, strip dirty count, quit dialog, close
-/// guard) and the history step's pixel identity. Fixing only the site that
-/// happened to be under review left the same bug at those five, where it was
-/// worse: a SAVED retouch was re-reported as unsaved by all of them,
-/// permanently, because nothing rewrites the in-memory origin at save time.
-pub(crate) fn same_master_opt(a: Option<&std::path::Path>, b: Option<&std::path::Path>) -> bool {
-    match (a, b) {
-        (None, None) => true,
-        (Some(x), Some(y)) => same_master(x, y),
-        _ => false,
-    }
-}
+pub(crate) use crate::logic::same::{same_master, same_master_opt};
 
 /// A path as the user can ACT on it: absolute, and readable (R22-7).
 ///
