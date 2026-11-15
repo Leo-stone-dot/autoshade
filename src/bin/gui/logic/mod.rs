@@ -45,6 +45,7 @@ pub(crate) mod region;
 pub(crate) mod retouch;
 pub(crate) mod same;
 pub(crate) mod segmented;
+pub(crate) mod list;
 pub(crate) mod look;
 pub(crate) mod lru;
 pub(crate) mod version;
