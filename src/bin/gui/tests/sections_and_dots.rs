@@ -1129,3 +1129,48 @@
             "dedup keys on (text, kind), not text alone"
         );
     }
+
+    /// OCP proof for the capability row: the form renderer is CLOSED for
+    /// modification. It is handed a table it was never written for — one row,
+    /// built by the same constructors, for a control the renderer does not
+    /// name anywhere — and draws the row from the row's own label, kind and
+    /// access. The command layer is closed too: it runs the row's write.
+    #[test]
+    fn the_form_renderer_accepts_a_table_it_was_not_written_for() {
+        use crate::logic::capability::{Access, Capability, SliderKind};
+        let table = [Capability {
+            control: "contrast",
+            label: K_DEVELOP_CONTRAST,
+            kind: SliderKind::Plain,
+            access: Access::Plain {
+                get: |r: &autoshade::recipe::EditRecipe| r.contrast,
+                set: |r: &mut autoshade::recipe::EditRecipe, v: f32| r.contrast = v,
+            },
+            hint: None,
+        }];
+        let mut recipe = autoshade::recipe::EditRecipe::default();
+        let mut commands = Vec::new();
+        let ctx = egui::Context::default();
+        let mut drew = false;
+        let _ = ctx.run(egui::RawInput::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                crate::panels::develop_forms::render_rows(
+                    ui,
+                    Lang::En,
+                    &mut recipe,
+                    &table,
+                    &mut commands,
+                );
+                drew = true;
+            });
+        });
+        assert!(drew, "the frame ran");
+        assert_eq!(tr(Lang::En, table[0].label), "Contrast", "the row's own label was used");
+        assert!(commands.is_empty(), "no drag, no command");
+        let (get, write) = table[0].plain().expect("a plain row");
+        crate::logic::command::apply(
+            &mut recipe,
+            crate::logic::command::Command::SetCapability { write, value: -12.0 },
+        );
+        assert_eq!(get(&recipe), -12.0, "the row's write ran through the closed apply");
+    }
