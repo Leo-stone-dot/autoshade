@@ -423,30 +423,14 @@
         }
     }
 
-    /// R14 (user report 2026-08-12): after the centering rework the variant
-    /// card sat visibly LOW-or-HIGH in the strip — the air above the
-    /// thumbnail must equal the air below the card column ("变成和下边一样
-    /// 距离"). Headless frame over the REAL variant_strip + REAL theme
-    /// style + the REAL panel height constant; the three test seams record
-    /// what actually laid out.
-    /// R19: the ✨ Generate button renders ONE line tall in both languages,
-    /// and the row's width arithmetic is exact — two distinct failure modes,
-    /// both real: the old fixed 130 px reserve was 1 px short of the
-    /// English label, wrapping the button's text into a two-line button
-    /// (the user report); and the first fix omitted the TextEdit's own
-    /// 8 px frame margin, which — with the button in Extend mode — stopped
-    /// being absorbed by wrapping and instead widened the auto-fitting
-    /// side panel by 8 px EVERY frame (probed during review). Three frames
-    /// pin both: a stable panel width and a one-line button.
-    ///
-    /// R22-6: that row MOVED into the AI panel (`ai_panel`, #4), so this test
-    /// follows its host — driving `retouch_panel` alone would leave
-    /// `reimagine_btn_rect` unset and the assertions vacuous (the seam's
-    /// `expect` is what turns that into a red instead of a silent pass). Both
-    /// panels are driven so the width witness still covers everything the side
-    /// panel stacks below the AI area.
+    /// The layout ceilings: the Generate button and the prompt fields stay on
+    /// one line and inside the readable width, the variant card keeps its air,
+    /// and a gallery thumb keeps its aspect inside a constant slot — each
+    /// scenario in its own scope, so every assertion keeps its own failure.
     #[test]
-    fn the_generate_button_stays_one_line_and_the_panel_stays_put() {
+    fn the_layout_ceilings_hold_across_the_panels() {
+        {
+
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             let mut app = AutoShadeApp { lang, ..Default::default() };
             let ctx = egui::Context::default();
@@ -485,74 +469,9 @@
                 btn.height()
             );
         }
-    }
+        }
+        {
 
-    /// R22-6 (#4): the AI area's mid-open EDITABLE GATE, in its new host.
-    ///
-    /// L15-2: while a decode is in flight (`open_in_flight`) the panel's
-    /// controls address the STASHED photo A, and B is about to land and replace
-    /// the whole recipe — typing a Direction or firing Analyze there is silent
-    /// input loss. The analysis block used to sit INSIDE `develop_panel`'s
-    /// `add_enabled_ui(editable, …)` closure and inherited that gate for free;
-    /// moving it into `ai_panel` (#4) meant re-establishing it by hand, which
-    /// is exactly the kind of migration that loses a guard quietly. `busy`
-    /// alone must NOT gate (a 600 s analyze keeps the panel live), so both
-    /// halves are pinned. Deleting the `add_enabled_ui` wrapper in ai.rs fails
-    /// phase ②.
-    #[test]
-    fn the_ai_panel_freezes_only_while_a_photo_is_opening() {
-        let ctx = egui::Context::default();
-        crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
-        let frame = |app: &mut AutoShadeApp| -> Option<bool> {
-            app.seams.ai_gate_enabled = None; // this frame's evidence only
-            let _ = ctx.run(
-                egui::RawInput {
-                    screen_rect: Some(egui::Rect::from_min_size(
-                        egui::Pos2::ZERO,
-                        egui::vec2(1000.0, 900.0),
-                    )),
-                    ..Default::default()
-                },
-                |ctx| {
-                    egui::SidePanel::left("controls").default_width(320.0).show(ctx, |ui| {
-                        app.ai_panel(ui);
-                    });
-                },
-            );
-            app.seams.ai_gate_enabled
-        };
-        // ① settled: live.
-        let mut app = AutoShadeApp::default();
-        assert_eq!(frame(&mut app), Some(true), "a settled panel must be editable");
-        // ② mid-open: frozen.
-        app.open.open_in_flight = true;
-        assert_eq!(
-            frame(&mut app),
-            Some(false),
-            "mid-open the AI controls address the STASHED photo — they must be inert (L15-2)"
-        );
-        // ③ busy but NOT opening (a 600 s analyze): still live, or cancelling
-        // and re-typing a direction would be impossible for ten minutes.
-        app.open.open_in_flight = false;
-        app.busy = true;
-        assert_eq!(frame(&mut app), Some(true), "a long AI call must not freeze the panel");
-    }
-
-    /// R22-6 (#14a): a prompt field has a READABLE ceiling. Every one of them
-    /// used to take `available_width()` — fine at the 320 px default, an
-    /// 800 px single-line ribbon once the side panel is dragged wide (the panel
-    /// deliberately keeps NO max width: the curve and HSL editors are better
-    /// wide, so the cap belongs on the FIELDS). Laid out at 800 px, which is
-    /// exactly where the old code fails: every field then measures its full
-    /// available width and blows the `FIELD_W_MAX` assertion.
-    ///
-    /// All five prompts are pinned by ONE rule over the `prompt_rects` seam:
-    /// Direction, AI adjust, Adjust and Generative Fill go through `util::prompt_field`, while the
-    /// Reimagine row keeps its own R19 galley arithmetic and only `.min()`s the
-    /// result — four sites, one ceiling, and a further field added later is
-    /// covered without editing this test.
-    #[test]
-    fn a_prompt_field_never_grows_past_its_readable_width() {
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             let mut app = AutoShadeApp { lang, ..Default::default() };
             // Text long enough that a field free to grow would want to: the
@@ -619,10 +538,9 @@
                 );
             }
         }
-    }
+        }
+        {
 
-    #[test]
-    fn the_variant_card_gets_equal_air_above_and_below() {
         let mk = |kind: crate::model::VariantKind| crate::model::Variant {
             id: String::new(),
             name: None,
@@ -695,20 +613,9 @@
                 "[{label}] the Variants title sits {dy:.1} px off the card column's center"
             );
         }
-    }
+        }
+        {
 
-    /// #17 (user report after the v0.27 trial): a PORTRAIT photo's gallery
-    /// thumbnail was squashed into the same 1.4:1 landscape box as everything
-    /// else. The orientation chain (decode's EXIF transpose, render's
-    /// rotation) was never at fault — the panel handed egui a
-    /// `SizedTexture::new(id, (THUMB_W, THUMB_H))`, i.e. a LIE about the
-    /// texture's own size, and a Texture image source is drawn at
-    /// `ImageFit::Exact`. The fix keeps the SLOT constant (that is what keeps
-    /// the filename column aligned) and insets the image at its true aspect.
-    /// Restoring the lie (`let draw = egui::vec2(THUMB_W, THUMB_H)`) fails the
-    /// aspect assertion for the portrait case.
-    #[test]
-    fn a_gallery_thumb_keeps_its_aspect_inside_a_constant_slot() {
         for (tw, th, tag) in [(40u32, 60u32, "portrait 2:3"), (60, 40, "landscape 3:2")] {
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
@@ -764,8 +671,59 @@
                 d.y
             );
         }
+        }
     }
 
+    /// R22-6 (#4): the AI area's mid-open EDITABLE GATE, in its new host.
+    ///
+    /// L15-2: while a decode is in flight (`open_in_flight`) the panel's
+    /// controls address the STASHED photo A, and B is about to land and replace
+    /// the whole recipe — typing a Direction or firing Analyze there is silent
+    /// input loss. The analysis block used to sit INSIDE `develop_panel`'s
+    /// `add_enabled_ui(editable, …)` closure and inherited that gate for free;
+    /// moving it into `ai_panel` (#4) meant re-establishing it by hand, which
+    /// is exactly the kind of migration that loses a guard quietly. `busy`
+    /// alone must NOT gate (a 600 s analyze keeps the panel live), so both
+    /// halves are pinned. Deleting the `add_enabled_ui` wrapper in ai.rs fails
+    /// phase ②.
+    #[test]
+    fn the_ai_panel_freezes_only_while_a_photo_is_opening() {
+        let ctx = egui::Context::default();
+        crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
+        let frame = |app: &mut AutoShadeApp| -> Option<bool> {
+            app.seams.ai_gate_enabled = None; // this frame's evidence only
+            let _ = ctx.run(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1000.0, 900.0),
+                    )),
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::SidePanel::left("controls").default_width(320.0).show(ctx, |ui| {
+                        app.ai_panel(ui);
+                    });
+                },
+            );
+            app.seams.ai_gate_enabled
+        };
+        // ① settled: live.
+        let mut app = AutoShadeApp::default();
+        assert_eq!(frame(&mut app), Some(true), "a settled panel must be editable");
+        // ② mid-open: frozen.
+        app.open.open_in_flight = true;
+        assert_eq!(
+            frame(&mut app),
+            Some(false),
+            "mid-open the AI controls address the STASHED photo — they must be inert (L15-2)"
+        );
+        // ③ busy but NOT opening (a 600 s analyze): still live, or cancelling
+        // and re-typing a direction would be impossible for ten minutes.
+        app.open.open_in_flight = false;
+        app.busy = true;
+        assert_eq!(frame(&mut app), Some(true), "a long AI call must not freeze the panel");
+    }
     /// #9 (user report after the v0.27 trial): "画笔大小的滑杆不见了". It was
     /// never deleted — the app's ONE brush radius (`self.masks.brush`) had its only
     /// slider in the Retouch panel, next to Fill / Heal / Stamp, while the
