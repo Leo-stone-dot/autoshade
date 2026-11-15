@@ -36,8 +36,10 @@ use i18n::{tr, trf, Lang};
 
 mod model;
 mod services;
+mod canvas_plates;
 mod document;
 mod photo;
+mod scheduler;
 mod session;
 mod persist;
 // The PORTABLE half of the quit guard: its state machine, and the
@@ -81,8 +83,10 @@ mod window_chrome;
 mod workers;
 use model::*;
 use services::*;
+use canvas_plates::*;
 use document::*;
 use photo::*;
+use scheduler::*;
 use session::*;
 use persist::*;
 use buttons::*;

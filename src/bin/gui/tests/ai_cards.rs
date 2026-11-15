@@ -1210,7 +1210,7 @@
             .find("self.fork_edited_card();")
             .map(|i| i + panels)
             .expect("the frame hook after the panels");
-        let dispatch = src.find("if self.session.dirty && !self.develop_inflight {").expect("the dispatch");
+        let dispatch = src.find("if self.session.dirty && !self.scheduler.inflight {").expect("the dispatch");
         assert!(hook < dispatch, "the hook runs before the develop is dispatched");
 
         // The fill develops the card's picture for the model, asks the

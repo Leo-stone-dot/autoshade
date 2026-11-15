@@ -347,12 +347,12 @@
         ];
         app.doc.active = 0;
         app.session.dirty = false;
-        app.develop_inflight = false;
+        app.scheduler.inflight = false;
         app.switch_variant(1, &ctx);
         assert!(app.doc.variants[0].thumb.is_some(), "a settled card keeps its thumb");
 
         app.session.dirty = false;
-        app.develop_inflight = false;
+        app.scheduler.inflight = false;
         app.switch_variant(0, &ctx);
         app.session.dirty = true; // an edit awaiting dispatch — no frame depicts it
         app.switch_variant(1, &ctx);

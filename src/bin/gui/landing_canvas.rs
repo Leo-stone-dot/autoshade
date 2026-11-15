@@ -926,8 +926,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.photo.source_preview = None;
                         self.open.source_part = Default::default();
                         self.open.source_part_inflight = None;
-                        self.before_tex = None;
-                        self.after_tex = None;
+                        self.plates.before_tex = None;
+                        self.plates.after_tex = None;
                         self.gal.selected = None;
                         // …and its HISTORY, which this arm used to leave
                         // standing: the steps hold the dead photo's

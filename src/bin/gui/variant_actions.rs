@@ -125,7 +125,7 @@ impl AutoShadeApp {
         // lands the canvas showed the OLD variant's pixels under the NEW
         // variant's controls — seconds, on a large photo. The honest
         // "Preparing preview…" placeholder takes over.
-        self.after_tex = None;
+        self.plates.after_tex = None;
         self.disarm_tools();
         self.tools.clone_src = None; // unlike a mere disarm, a variant switch drops the sample
         self.view.zoom = 1.0;
@@ -161,7 +161,7 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     // dispatch; `develop_inflight` = a frame the switch is about to make
     // the acceptance gate reject. Either way no completed frame depicts
     // the recipe snapshotted below.
-    let no_frame_landed = self.session.dirty || self.develop_inflight;
+    let no_frame_landed = self.session.dirty || self.scheduler.inflight;
     if let Some(cur) = self.doc.variants.get_mut(self.doc.active) {
         cur.recipe = self.doc.recipe.clone(); // don't lose the edits in progress
         // …and don't keep a CARD that predates them: a background
@@ -213,7 +213,7 @@ pub(crate) fn push_variant(&mut self, v: Variant, ctx: &egui::Context) {
     // Same guarded card drop as switch_variant (L06#6): the async
     // completion switches away from a variant whose latest edits may
     // never have landed a frame.
-    let no_frame_landed = self.session.dirty || self.develop_inflight;
+    let no_frame_landed = self.session.dirty || self.scheduler.inflight;
     if let Some(cur) = self.doc.variants.get_mut(self.doc.active) {
         cur.recipe = self.doc.recipe.clone();
         if no_frame_landed {

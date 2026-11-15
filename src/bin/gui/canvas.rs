@@ -154,7 +154,7 @@ impl AutoShadeApp {
         } else {
             to_color_image(&autoshade::render::develop_preview(base, &start.start_only()))
         };
-        self.before_tex = Some(ctx.load_texture("before", img, egui::TextureOptions::LINEAR));
+        self.plates.before_tex = Some(ctx.load_texture("before", img, egui::TextureOptions::LINEAR));
         self.open.before_start = start.start_only();
     }
 
@@ -432,7 +432,7 @@ impl AutoShadeApp {
         // in and its release fades back.
         let to_before = ctx.animate_bool_with_time(egui::Id::new("canvas_compare"), comparing, MOTION_FADE_S);
         let other_alpha = if comparing { 1.0 - to_before } else { to_before };
-        let swap = self.canvas_fade.as_ref().map(|(old, t)| (old.clone(), ease_out(t.elapsed().as_secs_f32() / MOTION_FADE_S)));
+        let swap = self.plates.canvas_fade.as_ref().map(|(old, t)| (old.clone(), ease_out(t.elapsed().as_secs_f32() / MOTION_FADE_S)));
         match &swap {
             // A swap still landing: the outgoing frame under, the new one
             // fading in on top (from the bare canvas when there was none).
@@ -444,11 +444,11 @@ impl AutoShadeApp {
                 ctx.request_repaint();
             }
             _ => {
-                self.canvas_fade = None;
+                self.plates.canvas_fade = None;
                 painter.image(id, rect, uv, egui::Color32::WHITE);
             }
         }
-        let other = if comparing { &self.after_tex } else { &self.before_tex };
+        let other = if comparing { &self.plates.after_tex } else { &self.plates.before_tex };
         if other_alpha > 0.0
             && let Some(t) = other
         {
@@ -458,7 +458,7 @@ impl AutoShadeApp {
 
     pub(crate) fn after_view(&mut self, ui: &mut egui::Ui, max_w: f32, avail_y: f32, comparing: bool) {
         let lang = self.lang;
-        let tex = if comparing { self.before_tex.as_ref() } else { self.after_tex.as_ref() };
+        let tex = if comparing { self.plates.before_tex.as_ref() } else { self.plates.after_tex.as_ref() };
         let Some((id, tex_size)) = tex.map(|t| (t.id(), t.size_vec2())) else {
             // First develop still in flight: say so — a bare "…" read as a
             // hang, a spinner reads as work.

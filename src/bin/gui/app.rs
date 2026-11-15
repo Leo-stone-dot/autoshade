@@ -14,21 +14,12 @@ pub(crate) struct RecipePreview {
 pub(crate) struct AutoShadeApp {
     /// The open photo and its decoded plates (see [`PhotoPixels`]).
     pub(crate) photo: PhotoPixels,
+    /// The canvas textures and their identity (see [`CanvasPlates`]).
+    pub(crate) plates: CanvasPlates,
+    /// The latest-wins develop scheduler's counters (see [`DevelopScheduler`]).
+    pub(crate) scheduler: DevelopScheduler,
     /// The open document — recipe, cards, active index (see [`Document`]).
     pub(crate) doc: Document,
-    pub(crate) before_tex: Option<egui::TextureHandle>,
-    pub(crate) after_tex: Option<egui::TextureHandle>,
-    /// The canvas cross-fade in flight: the frame being faded OUT (`None` =
-    /// fade in from the empty canvas) and when the new one landed. Set when
-    /// the first frame of a different photo or version lands
-    /// (`after_shows` changes); cleared once [`MOTION_FADE_S`] has passed.
-    pub(crate) canvas_fade: Option<(Option<egui::TextureHandle>, Instant)>,
-    /// Which photo and version `after_tex` shows, so a landing frame can tell
-    /// a slider re-render (no fade) from a swap (fade).
-    pub(crate) after_shows: Option<(PathBuf, usize)>,
-    // --- asynchronous develop scheduler (single in-flight, latest wins) ---
-    pub(crate) develop_inflight: bool,
-    pub(crate) develop_count: u64, // accepted frames; regression counter (latest-wins)
     pub(crate) status: String,
     // Consumed by the startup greeting or the restored folder's status.
     /// The status chrome (toasts, histogram, title, clipping); see [`ChromeState`].
@@ -1332,7 +1323,7 @@ impl AutoShadeApp {
                                     .weak()
                                     .small(),
                             );
-                            if let Some(t) = &self.before_tex {
+                            if let Some(t) = &self.plates.before_tex {
                                 let size = t.size_vec2();
                                 let vis = egui::vec2(uv.width() * size.x, uv.height() * size.y);
                                 let disp = fit_in(vis, half, avail.y);
@@ -1474,13 +1465,9 @@ impl Default for AutoShadeApp {
     fn default() -> Self {
         Self {
             photo: PhotoPixels::default(),
-            before_tex: None,
-            after_tex: None,
-            canvas_fade: None,
-            after_shows: None,
+            plates: CanvasPlates::default(),
             doc: Document::default(),
-            develop_inflight: false,
-            develop_count: 0,
+            scheduler: DevelopScheduler::default(),
             status: "Open a photo, or open a folder to browse your library.".into(),
             chrome: ChromeState::default(),
             busy: false,
@@ -1676,10 +1663,10 @@ impl AutoShadeApp {
             self.set_before(ctx, &b, &start);
         }
         // A held-still pointer still needs a repaint to receive the result.
-        if self.session.dirty && !self.develop_inflight {
+        if self.session.dirty && !self.scheduler.inflight {
             self.start_redevelop();
         }
-        if self.develop_inflight {
+        if self.scheduler.inflight {
             ctx.request_repaint();
         }
         // The mask coverage overlay follows develop / selection / toggle /
