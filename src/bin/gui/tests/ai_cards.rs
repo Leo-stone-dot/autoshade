@@ -1112,16 +1112,16 @@
         assert_eq!(app.fit_source_index(), Some(1));
         assert_eq!(app.fit_negative().as_deref(), Some(one.as_path()));
         // The ▣ card picked: the loaded file's own frame, not a master.
-        app.fit_from = Some(ORIGINAL_VARIANT_ID.into());
+        app.fit.fit_from = Some(ORIGINAL_VARIANT_ID.into());
         assert_eq!(app.fit_source_index(), Some(0));
         assert_eq!(app.fit_negative(), None, "the ▣ pick solves from the RAW, not the ◈ master");
         // The second ◈ card picked.
-        app.fit_from = Some("dn2".into());
+        app.fit.fit_from = Some("dn2".into());
         assert_eq!(app.fit_negative().as_deref(), Some(two.as_path()));
         // Not a source (the ✨ card), or gone: automatic again.
-        app.fit_from = Some("gen".into());
+        app.fit.fit_from = Some("gen".into());
         assert_eq!(app.fit_source_index(), Some(1));
-        app.fit_from = Some("dn2".into());
+        app.fit.fit_from = Some("dn2".into());
         app.variants.remove(2);
         assert_eq!(app.fit_negative().as_deref(), Some(one.as_path()));
         // Only ▣ and ◈ / ▦ cards are offered.

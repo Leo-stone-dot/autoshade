@@ -209,34 +209,27 @@ pub(crate) struct AutoShadeApp {
     /// decision 2026-09-12: a control sits in the fold whose verb reads it).
     /// RAW starts at the luminance-grain default; baked sources have
     /// separate saved choices, starting at SCUNet's unchanged 0.5.
-    pub(crate) zoned_fit: bool,        // 反推 adds a sky-to-sky zoned correction (bitmap mask)
-    pub(crate) zoned_four_regions: bool, // opt-in semantic expansion to up to four regions
-    pub(crate) fit_ai_judge: bool,     // 反推 then asks the vision model to SCORE the match (paid, opt-in)
+    /// The reverse-fit dials and its dialog state; see [`FitState`].
+    pub(crate) fit: FitState,
     // R23-6 D: 反推 runs the visual judge BEFORE the persist and buys bounded
     // guided rounds off it. Paid and opt-in, like `fit_ai_judge`, and a
     // REVISION of the R20 decision that the fit's review is informational
     // only — user decision 2026-08-17 ⑥, recorded at `start_fit`.
-    pub(crate) fit_deep: bool,
     // Step-6: opt-in fidelity retry for reimagine — a second billed
     // generation when the first diverges. Paid and opt-in, like `fit_deep`.
-    pub(crate) reimagine_retry: bool,
     // R23-6 B: an explicitly chosen reverse-fit reference (any finished
     // rendition of this frame — a Lightroom export, a camera JPEG, another
     // RAW's develop). SESSION state, not a preference: it names one file for
     // one photo, and remembering it across an app restart would silently fit
     // the next photo against the last photo's reference. Cleared on open.
-    pub(crate) fit_ref: Option<PathBuf>,
     // 2026-09-30 (user decision): the card the reverse-fit solves FROM, by
     // id — `None` = automatic (`negative_index`). Session state, cleared on
     // open, for `fit_ref`'s reason: an id names a card of one photo.
-    pub(crate) fit_from: Option<String>,
     // v1.17.0: the question a whole-frame reimagine landing asks
     // (`fit_prompt_layer`) — None = not asking. Session state: it names a
     // card of the open photo.
-    pub(crate) fit_prompt: Option<FitPrompt>,
     // Whether to ask it at all (a pref): the prompt's 「Don't ask again」 turns
     // it off, the reverse-fit fold's checkbox turns it back on.
-    pub(crate) ask_fit_after_generate: bool,
     pub(crate) show_settings: bool,    // the Settings window is open
     pub(crate) show_shortcuts: bool,   // the keyboard cheat-sheet window is open (F1 / ? / ⌨)
     pub(crate) show_analysis_full: bool, // the AI analysis full-text window is open
@@ -1591,21 +1584,13 @@ impl Default for AutoShadeApp {
             // ./out — the CLI's and the batch renderer's own root; mirror
             // Prefs::default so a missing pref key means exactly this.
             hist: HistoryState::default(),
-            zoned_fit: true,
-            zoned_four_regions: false,
+            fit: FitState::default(),
             // Paid opt-in (a vision call per fit) — mirror Prefs::default.
-            fit_ai_judge: false,
             // Paid opt-in, and up to three vision calls — mirror Prefs::default.
-            fit_deep: false,
             // Paid opt-in (a second image per diverged reimagine) — mirror
             // Prefs::default.
-            reimagine_retry: false,
             // Session state, never persisted (see the field's comment).
-            fit_ref: None,
-            fit_from: None,
-            fit_prompt: None,
             // Mirror Prefs::default.
-            ask_fit_after_generate: true,
             show_settings: false,
             show_shortcuts: false,
             show_analysis_full: false,
@@ -1995,15 +1980,15 @@ impl eframe::App for AutoShadeApp {
                 denoise_strength: self.exp.denoise_strength,
                 baked_denoise_strength: self.exp.baked_denoise_strength,
                 baked_save_denoise_strength: self.exp.baked_save_denoise_strength,
-                zoned_fit: self.zoned_fit,
-                zoned_four_regions: self.zoned_four_regions,
-                fit_ai_judge: self.fit_ai_judge,
+                zoned_fit: self.fit.zoned_fit,
+                zoned_four_regions: self.fit.zoned_four_regions,
+                fit_ai_judge: self.fit.fit_ai_judge,
                 // R23-6 D: the deep reverse-fit toggle persists like every
                 // other paid opt-in. `fit_ref` deliberately does NOT — it
                 // names one file for one photo (see the field).
-                fit_deep: self.fit_deep,
-                reimagine_retry: self.reimagine_retry,
-                ask_fit_after_generate: self.ask_fit_after_generate,
+                fit_deep: self.fit.fit_deep,
+                reimagine_retry: self.fit.reimagine_retry,
+                ask_fit_after_generate: self.fit.ask_fit_after_generate,
                 adjust_quality: self.adjust_quality,
                 view_mode: self.view.mode,
                 exp_long_edge: self.exp.long_edge,

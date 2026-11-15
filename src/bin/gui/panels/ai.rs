@@ -884,7 +884,7 @@ impl AutoShadeApp {
                 // Its OWN row, deliberately: a fourth item in the wrapped
                 // prompt+button row re-opens the R19 width arithmetic.
                 ui.checkbox(
-                    &mut self.reimagine_retry,
+                    &mut self.fit.reimagine_retry,
                     tr(lang, "auto-retry once if the result diverges"),
                 )
                 .on_hover_text(trf(
@@ -1015,10 +1015,10 @@ impl AutoShadeApp {
             // choosable. Until then the fold showed the target only, and the
             // source was a rule nobody could see (`negative_index`).
             let (auto, sources) = self.fit_source_menu();
-            let to = (self.fit_ref.is_none() && self.fit_target().is_some())
+            let to = (self.fit.fit_ref.is_none() && self.fit_target().is_some())
                 .then(|| trf(lang, "To: {card}", &[("card", &self.numbered_card_label(self.active))]));
             if !sources.is_empty() {
-                let shown = match self.fit_from.as_deref() {
+                let shown = match self.fit.fit_from.as_deref() {
                     Some(id) => sources.iter().find(|(s, _)| s == id).map(|(_, l)| l.clone()),
                     None => None,
                 }
@@ -1040,11 +1040,11 @@ impl AutoShadeApp {
                             .truncate()
                             .selected_text(shown)
                             .show_ui(ui, |ui| {
-                                if ui.selectable_label(self.fit_from.is_none(), &auto).clicked() {
+                                if ui.selectable_label(self.fit.fit_from.is_none(), &auto).clicked() {
                                     pick = Some(None);
                                 }
                                 for (id, label) in &sources {
-                                    let on = self.fit_from.as_deref() == Some(id.as_str());
+                                    let on = self.fit.fit_from.as_deref() == Some(id.as_str());
                                     if ui.selectable_label(on, label).clicked() {
                                         pick = Some(Some(id.clone()));
                                     }
@@ -1061,7 +1061,7 @@ impl AutoShadeApp {
                     }
                 });
                 if let Some(p) = pick {
-                    self.fit_from = p;
+                    self.fit.fit_from = p;
                 }
             }
             // ── the TARGET, named when it is the active card (a picked
@@ -1092,7 +1092,7 @@ impl AutoShadeApp {
                 {
                     pick_ref = true;
                 }
-                if let Some(p) = self.fit_ref.clone() {
+                if let Some(p) = self.fit.fit_ref.clone() {
                     let name = p
                         .file_name()
                         .map(|n| n.to_string_lossy().into_owned())
@@ -1126,10 +1126,10 @@ impl AutoShadeApp {
             // rfd OUTSIDE the closure above (it borrows `ui`) and after the row is
             // laid out: the dialog is modal and blocks this thread.
             if pick_ref && let Some(p) = util::photo_file_dialog() {
-                self.fit_ref = Some(p);
+                self.fit.fit_ref = Some(p);
             }
             if clear_ref {
-                self.fit_ref = None;
+                self.fit.fit_ref = None;
             }
             // The fit's OWN Strength, directly above the verb that reads it (user
             // decision 2026-09-12: a control belongs to the section whose function
@@ -1186,7 +1186,7 @@ impl AutoShadeApp {
             // has run away once before).
             ui.horizontal(|ui| {
                 ui.add_enabled_ui(!self.busy, |ui| {
-                    ui.checkbox(&mut self.fit_ai_judge, tr(lang, "AI review"))
+                    ui.checkbox(&mut self.fit.fit_ai_judge, tr(lang, "AI review"))
                         .on_hover_text(tr(lang,
                             "After the fit, show the target and the fitted render to the vision model and \
                              have it SCORE the match (0-100) with a short critique — LLM as a judge. One \
@@ -1200,9 +1200,9 @@ impl AutoShadeApp {
                 //「AI review」 and gated on it, because a deep fit IS that review
                 // plus a loop — a checkbox that silently switched the other one
                 // on would be two settings pretending to be one.
-                ui.add_enabled_ui(!self.busy && self.fit_ai_judge, |ui| {
-                    ui.checkbox(&mut self.fit_deep, tr(lang, "Retry once"))
-                        .on_hover_text(if self.fit_ai_judge {
+                ui.add_enabled_ui(!self.busy && self.fit.fit_ai_judge, |ui| {
+                    ui.checkbox(&mut self.fit.fit_deep, tr(lang, "Retry once"))
+                        .on_hover_text(if self.fit.fit_ai_judge {
                             tr(lang,
                                 "Retry once: runs the AI review before saving; if the review suggests a fix, tries it once and keeps whichever scores higher. Costs up to two paid vision calls instead of one, and the save waits for them; there is no cancel, as for the review itself. Off = the reviewed fit is saved first and the score is a note.",
                             )
@@ -1213,7 +1213,7 @@ impl AutoShadeApp {
             });
             // The way back from the fit prompt's 「Don't ask again」 (v1.17.0),
             // beside the verb it asks about. A preference, so no gate.
-            ui.checkbox(&mut self.ask_fit_after_generate, tr(lang, "Ask after each AI generation"))
+            ui.checkbox(&mut self.fit.ask_fit_after_generate, tr(lang, "Ask after each AI generation"))
                 .on_hover_text(tr(lang,
                     "When 「AI generate」 lands a new ✨ card, ask whether to reverse-fit it and from which negative (the ▣ original unless you pick another).",
                 ));
@@ -1222,11 +1222,11 @@ impl AutoShadeApp {
             // preference, so no can_fit gate (and, as in Settings, no busy gate:
             // `start_fit` reads the flag when it runs).
             let zoned_rows = |app: &mut Self, ui: &mut egui::Ui| {
-                ui.checkbox(&mut app.zoned_fit, tr(lang, "Fit local areas too")).on_hover_text(tr(
+                ui.checkbox(&mut app.fit.zoned_fit, tr(lang, "Fit local areas too")).on_hover_text(tr(
                     lang,
                     "After the global fit, tries extra local masks where the photo differs region by region: the sky, bright and dark ranges, and up to four tiles of a 4×4 grid. Each mask is kept only if it brings the result closer without making any area worse. Sky masks go to Lightroom as its own Select Sky; other masks Lightroom cannot hold are named when you save. Needs Python with transformers and torch; without them only the tonal ranges are tried.",
                 ));
-                ui.checkbox(&mut app.zoned_four_regions, tr(lang, "Up to four semantic regions"))
+                ui.checkbox(&mut app.fit.zoned_four_regions, tr(lang, "Up to four semantic regions"))
                     .on_hover_text(tr(lang, "Opt in to semantic regions beyond the historical sky/land pass; this costs one OneFormer pass per frame and may take longer."));
             };
             zoned_rows(self, ui);

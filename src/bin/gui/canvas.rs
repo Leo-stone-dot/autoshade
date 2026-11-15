@@ -126,7 +126,7 @@ impl AutoShadeApp {
     /// read as an axiom of the method rather than a consequence of the only
     /// target the desktop app could offer.
     pub(crate) fn fit_target(&self) -> Option<PathBuf> {
-        if let Some(p) = &self.fit_ref {
+        if let Some(p) = &self.fit.fit_ref {
             return Some(p.clone());
         }
         let v = self.active_variant()?;
