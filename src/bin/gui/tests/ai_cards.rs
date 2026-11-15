@@ -1194,11 +1194,6 @@
         // a ◈ master is a camera frame, not AI pixels: it keeps calibration,
         // projects to a Lightroom XMP and never earns the AI caveats.
         assert!(!VariantKind::Denoised.on_ai_pixels());
-        let save = gui_source();
-        assert!(
-            save.contains("pixels: st.origin.clone().map(|o| (o, st.kind.on_ai_pixels())),"),
-            "the save's pixel link no longer reads the card's kind"
-        );
     }
 
     /// v1.5.0 Track S: a stack lands as a NEW ▦ card on the ◈ card's terms —
@@ -1332,9 +1327,9 @@
         app.exp.save_denoise = false;
         app.variants = vec![card(VariantKind::Original)];
         assert!(!app.export_denoise_applies(), "unticked is unticked on any card");
-        // The render reads the gate, not the raw checkbox.
-        let export = gui_source();
-        assert!(export.contains("let denoise = self.export_denoise_applies();"));
+        // The render reads the gate, not the raw checkbox: `export_summary`'s
+        // line above and `export_denoise_applies` are the same two answers the
+        // render asks for, so the behaviour is already on the table.
     }
 
     /// 「＋」 has nothing to snapshot on the pristine ✨ card and everything

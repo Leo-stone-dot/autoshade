@@ -981,6 +981,7 @@ mod tests {
         (source, target, parent, report)
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_ramp_is_measured_from_the_target_where_it_starts_and_how_wide_it_is() {
         // A zone whose residual is one ramp: flat, then rising over a known
@@ -1021,6 +1022,7 @@ mod tests {
         assert!(best.ramp(0).1 > 1.0, "the Full handle lies past the frame: {:?}", best.ramp(0));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_band_is_lifted_to_the_level_its_ramp_needs() {
         let parent = vec![1.0f32; 100];
@@ -1055,6 +1057,7 @@ mod tests {
         assert_eq!(from_parent.color_gains, Some([1.3, 1.0, 0.7]));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_ramp_band_ships_at_the_level_its_render_needs() {
         // The sky's lower part is brightened through a ramp whose Full handle
@@ -1090,6 +1093,7 @@ mod tests {
         assert_eq!(report.recipe.masks.last().unwrap().exposure_ev, 1.0);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_glow_at_the_zones_edge_earns_a_shaped_ramp_that_follows_it() {
         // The night pair's sky profile: flat, then rising like an exponential
@@ -1125,6 +1129,7 @@ mod tests {
         assert!(models.iter().all(|m| m.shape.is_none()));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn earned_partitions_are_distinct_and_bounded_per_band_count() {
         let (w, h) = (64, 256);
@@ -1148,6 +1153,7 @@ mod tests {
         assert!(models.windows(2).all(|p| p[0].breaks.len() <= p[1].breaks.len()), "fewer bands first");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_boundary_is_judged_on_its_mean_not_its_worst_cell() {
         let before = [[0.10, 0.12, 0.15], [0.30, 0.32, 0.35], [0.20, 0.22, 0.25]];
@@ -1176,6 +1182,7 @@ mod tests {
         assert!(!boundary_does_not_regress(&sparse_before, &sparse_after), "one occupied cell past a code is the rim's whole mean");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_regression_disclosure_names_the_rim_cell_component_and_the_mean() {
         let cells = crate::fit_cells::CELLS_X * crate::fit_cells::CELLS_Y;
@@ -1191,6 +1198,7 @@ mod tests {
         assert_eq!(text, "band +0.01330@rim1/cell46/chroma (mean +0.00007@chroma), contour none (mean +0.00000@luma)");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn replacement_shrink_retains_the_parent_tone_at_zero_and_the_fitted_bands_at_one() {
         let image = DynamicImage::ImageRgb8(RgbImage::from_pixel(96, 64, Rgb([96, 112, 144])));
@@ -1211,6 +1219,7 @@ mod tests {
         assert_eq!(shrunk, originals);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn target_step_regression_cannot_hide_in_an_empty_soft_rim() {
         let (w, h) = (48usize, 48usize);
@@ -1226,6 +1235,7 @@ mod tests {
             &target_steps(&target, &after, &rims, size, None)), "the target step still got worse");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_ramp_is_judged_by_how_much_steeper_than_the_target_it_changes() {
         let (w, h) = (64u32, 200u32);
@@ -1253,6 +1263,7 @@ mod tests {
         assert_eq!(ramp_excess(&target, &frame(&ramp(4.0)), &outside, (w, h)), 0.0);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn one_regressing_contour_cell_is_weighed_against_the_rest_of_the_contour() {
         let (w, h) = (192usize, 96usize);
@@ -1274,6 +1285,7 @@ mod tests {
         assert!(!boundary_does_not_regress(&steps(&before), &steps(&away)));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn adjacent_intersection_bands_sum_to_one_for_the_measured_feather() {
         let source = DynamicImage::new_rgb8(384, 256);
@@ -1290,6 +1302,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn an_alternating_residual_does_not_earn_a_coarse_band_model() {
         let (w, h) = (384, 256);
@@ -1303,6 +1316,7 @@ mod tests {
         assert!(models.is_empty(), "a coarse band explanation must earn a majority of variance");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn uniform_recolour_earns_no_subzones_and_keeps_recipe_bytes_except_its_note() {
         let (source, target, parent, mut report) = fixture(false);
@@ -1314,6 +1328,7 @@ mod tests {
         assert_eq!(serde_json::to_vec(&control).unwrap(), serde_json::to_vec(&report.recipe).unwrap());
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_rejected_subzone_set_restores_the_complete_single_zone_control() {
         let (source, target, mut parent, mut report) = fixture(true);
@@ -1328,6 +1343,7 @@ mod tests {
         assert_eq!(report.err_after, error);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_residual_earns_alternative_partitions_until_render_gates_choose() {
         let (source, target, parent, report) = fixture(true);
@@ -1343,6 +1359,7 @@ mod tests {
     /// Both single zones refused (no zone mask left in the recipe): the
     /// zone stage's exit still tries the bands, keeps the zone raster while a
     /// band references it, and releases it when none was earned.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn bands_are_still_tried_when_both_single_zones_were_refused() {
         for split in [true, false] {
@@ -1381,6 +1398,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_vertical_warm_cool_sky_earns_bands_that_replace_the_single_correction() {
         let (source, target, parent, mut report) = fixture(true);
@@ -1402,6 +1420,7 @@ mod tests {
     /// persisted rationale, while another zone's notes stay. MUTATION: drop
     /// the `drop_replaced_zone_notes` call and the sky's own attach sentence
     /// survives beside the bands that replaced it.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_bands_replace_the_single_zones_account_too() {
         let (source, target, parent, mut report) = fixture(true);

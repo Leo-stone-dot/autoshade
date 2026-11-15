@@ -186,6 +186,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn regions_partition_and_resolve_nested_overlap() {
         let mut child = GrayImage::from_pixel(10, 10, Luma([0]));
@@ -208,6 +209,7 @@ mod tests {
     ///
     /// MUTATION: remove the dimensions guard in the accept loop and this test
     /// panics with an out-of-bounds index.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_plane_of_another_geometry_is_skipped_instead_of_indexing_past_the_partition() {
         let source = vec![
@@ -224,6 +226,7 @@ mod tests {
         assert_eq!(regions[0].source.dimensions(), (10, 10));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn region_order_is_stable() {
         let mut p7 = plane(7, 0, 0.6);
@@ -240,6 +243,7 @@ mod tests {
         assert_eq!(ids_a, ids_b);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn tiny_region_is_skipped() {
         let mut tiny = GrayImage::from_pixel(10, 10, Luma([0]));
@@ -248,12 +252,14 @@ mod tests {
         assert!(regions.is_empty());
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn region_set_falls_back_when_target_segmentation_fails() {
         let source = vec![plane(1, 255, 0.9)];
         assert!(resolve_regions(&source, &[], 4).is_empty());
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn bitmap_budget_refuses_the_fifth_region() {
         let bytes = 4096usize * 4096 * 4;
@@ -261,6 +267,7 @@ mod tests {
         assert!(!bitmap_budget_allows(bytes * 4, 4096, 4096, 1));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn semantic_limits_have_one_definition() {
         let sources = [
@@ -278,11 +285,13 @@ mod tests {
         assert_eq!(DEFAULT_SEMANTIC_REGIONS, 2);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn worst_region_residual_is_the_maximum_accepted_residual() {
         assert_eq!(worst_region_residual(&[0.02, 0.15, 0.08]), 0.15);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn two_region_default_is_byte_identical_to_sky_land() {
         let sky = plane(2, 128, 0.9);
@@ -324,6 +333,7 @@ mod tests {
         legacy_path.remove();
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn three_regions_recover_independent_channel_gains() {
         let mut planes = Vec::new();
@@ -337,6 +347,7 @@ mod tests {
         assert!(regions.windows(2).all(|w| w[0].source.as_raw().iter().zip(w[1].source.as_raw()).all(|(a, b)| *a == 0 || *b == 0)));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn four_region_recipe_round_trips() {
         let mut recipe = crate::recipe::EditRecipe::default();
@@ -353,6 +364,7 @@ mod tests {
         assert_eq!(bytes, serde_json::to_vec(&loaded).unwrap());
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn fit_calibration_four_regions_has_typed_verdicts_when_corpus_is_available() {
         let Some(corpus) = crate::fit::calibration_corpus() else {

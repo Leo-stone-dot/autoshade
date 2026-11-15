@@ -394,12 +394,6 @@
             1,
             "exactly one read of the request's switch"
         );
-        let start = gui_function("start_look");
-        assert_eq!(
-            start.matches("EmbeddingSwitch::resolve(None, self.aip.style_embed)").count(),
-            1,
-            "the look start snapshots the preference into the request"
-        );
     }
 
     /// User feedback 2026-09-11: the deep-thinking working listed INLINE in

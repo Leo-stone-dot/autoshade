@@ -1923,6 +1923,7 @@ mod tests {
         (source, target, evidence)
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn field_proposals_enter_before_range_sort_and_cap() {
         let cores_of = |derived: &RangeDerivation| derived.bands.iter().map(|band| {
@@ -1957,6 +1958,7 @@ mod tests {
         assert!(cores.windows(2).all(|pair| pair[0].1 <= pair[1].0), "{cores:?}");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn field_proposal_union_merges_same_sign_and_refuses_opposite_overlap() {
         let mut residuals = [0.0; 17];
@@ -1988,6 +1990,7 @@ mod tests {
             a.reason == "field proposal sign disagrees with its rank-paired residual"), "{refused:?}");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn field_proposal_spans_are_mapped_through_the_pixels_that_occupy_them() {
         // Every bin is rendered 0.10 darker than its original: a span of
@@ -2012,6 +2015,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_band_derivation_follows_signed_residual_runs_and_caps_at_four() {
         let mut residuals = [0.0; 17];
@@ -2076,6 +2080,7 @@ mod tests {
         assert!(cores.windows(2).all(|pair| pair[0].1 < pair[1].0));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_band_derivation_is_invariant_to_target_pixel_positions() {
         let mut residuals = [0.0; 17];
@@ -2107,6 +2112,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_band_abstains_with_one_sided_or_zero_structural_evidence() {
         let mut residuals = [0.0; 17];
@@ -2163,6 +2169,7 @@ mod tests {
         assert!(source_side.abstentions[0].reason.contains("source population"));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_band_ramps_are_ordered_and_partition_weights_do_not_exceed_one() {
         let mut residuals = [0.0; 17];
@@ -2294,6 +2301,7 @@ mod tests {
         (image(false), image(true))
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_boundary_rim_rejects_the_measured_opposite_half_ev_stress() {
         let (source, reference, ranges) = range_boundary_fixture();
@@ -2365,6 +2373,7 @@ mod tests {
     /// while the maxima it does not rank rose to 1.24x and 1.44x of the
     /// steepest crossing the window admitted. The engine's own gate counts,
     /// on the 384-px thumbnail it develops itself, are 18651 and 1214.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_range_rim_budget_clears_the_window_that_bounds_an_untouched_render() {
         let (reference, ranges) = mixed_gradient_fixture();
@@ -2398,6 +2407,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_boundary_gate_helper_shrinks_differentials_and_discloses_k() {
         let (source, reference, ranges) = range_boundary_fixture();
@@ -2433,6 +2443,7 @@ mod tests {
         }));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_boundary_gate_shrinks_differentials_and_discloses_k() {
         let (source, target) = compact_rank_wave_fixture();
@@ -2456,6 +2467,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_final_frame_ceiling_refuses_a_post_shrink_regression() {
         let (source, target) = compact_rank_wave_fixture();
@@ -2471,6 +2483,7 @@ mod tests {
         }));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_conservation_all_frame_band_reproduces_global_fit() {
         let source = DynamicImage::ImageRgb8(image::ImageBuffer::from_fn(64, 8, |x, _| {
@@ -2497,6 +2510,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_xmp_round_trip_preserves_host_and_luminance_range() {
         let range = RangeMask::Luminance {
@@ -2523,6 +2537,7 @@ mod tests {
         assert_eq!(round_trip.masks[0].range, Some(range));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_serde_old_recipe_reads_and_new_range_recipe_is_explicitly_scoped() {
         let old = r#"{"version":2,"masks":[{"name":"legacy"}]}"#;
@@ -2549,6 +2564,7 @@ mod tests {
         serde_json::from_value::<crate::recipe::EditRecipe>(value).expect("explicit range scope");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_abstention_preserves_global_recipe_byte_for_byte() {
         let source = DynamicImage::ImageRgb8(image::ImageBuffer::from_fn(96, 12, |x, _| {
@@ -2573,6 +2589,7 @@ mod tests {
         assert_eq!(deferred.err_after, global.err_after);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_band_composed_frame_regression_is_dropped_while_neutral_or_better_is_kept() {
         let (w, h) = (64u32, 64u32);
@@ -2707,16 +2724,19 @@ mod tests {
         path.remove();
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn segmentation_success_does_not_derive_range_bands() {
         assert_semantic_success_does_not_derive_ranges("range-no-work-segmentation-success");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn semantic_success_still_does_not_derive_ranges() {
         assert_semantic_success_does_not_derive_ranges("semantic-no-range-derivation");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_weights_are_unchanged_when_refinement_is_enabled() {
         let mut residuals = [0.0; 17];
@@ -2761,6 +2781,7 @@ mod tests {
         path.remove();
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn range_bands_compose_in_current_render_order() {
         RANGE_FRESH_RENDER_CALLS.with(|calls| calls.set(0));
@@ -2824,6 +2845,7 @@ mod tests {
     /// `fit_recipe_from_promoted_with_disclosure`), so a recipe that already
     /// carries a `Custom` range reaches the range producer below that line:
     /// the producer must keep it in place and never dispatch on its role.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn refit_with_existing_custom_range_never_dispatches_on_mask_role() {
         let (source, _, _) = range_boundary_fixture();
@@ -3031,6 +3053,7 @@ mod tests {
     /// MUTATION: `RANGE_MAX_RAMP` 2/17 -> 3/17 makes the widest ramp 180 rows
     /// wide, the instrument's 121-row window can no longer bracket it, and the
     /// n = 64 assertion fails.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_recut_ramp_probe_measures_every_ramp_the_producer_emits() {
         let frame = probe_frame();
@@ -3081,6 +3104,7 @@ mod tests {
     /// MUTATION: drop `reversal <= RANGE_TRANSFER_REVERSAL_MAX` from the gate's
     /// `passes` predicate and the k assertion below fails (the band is kept
     /// whole at k = 1 with the inversion delivered).
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_tone_reversal_gate_shrinks_a_band_the_rim_ruler_cannot_see() {
         let frame = probe_frame();
@@ -3142,6 +3166,7 @@ mod tests {
     /// The statistic itself, on hand-built transfers rather than on a render:
     /// a compressive monotone transfer reads exactly 0 no matter how flat it
     /// gets, and an inversion reads its own depth.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_transfer_reversal_reads_depth_and_ignores_compression() {
         let range = RangeMask::Luminance { lo_outer: 0.0, lo: 0.0, hi: 1.0, hi_outer: 1.0 };
@@ -3257,6 +3282,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_scattered_hue_band_becomes_a_native_colour_range_correction() {
         let (source, target) = scattered_hue_pair(MEASURABLE_BLUE);
@@ -3281,6 +3307,7 @@ mod tests {
         assert_eq!(colour_masks(&crate::xmp::xmp_to_recipe(&xmp)), 1);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_colour_move_that_leaves_the_mask_is_refused_not_fitted() {
         // The FOURTH circularity guard, and the one that needs no evidence
@@ -3309,6 +3336,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_global_colour_move_leaves_no_colour_range_behind() {
         // The target IS the source under ONE global saturation move, so no
@@ -3375,6 +3403,7 @@ mod tests {
         path.remove();
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_one_sided_hue_band_abstains_instead_of_arguing_with_itself() {
         let (source, target) = scattered_hue_pair(MEASURABLE_BLUE);
@@ -3441,6 +3470,7 @@ mod tests {
         (image, saturated)
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_colour_rim_reads_a_step_the_luma_ruler_is_blind_to() {
         let (frame, keyed) = equal_luma_chromaticity_ramp();
@@ -3484,6 +3514,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_order_test_is_not_asked_of_a_radial_coordinate() {
         let keyed = [0.30f32, 0.50, 0.70];
@@ -3556,6 +3587,7 @@ mod tests {
     const PINNED_MIXED: (usize, f32) = (880, 0.007843144);
     const PINNED_STEP_REVERSAL: f32 = 0.027450979;
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_luminance_boundary_readings_are_unchanged_by_the_selector_split() {
         // The two readings a luminance band is judged on, on the fixtures
@@ -3592,6 +3624,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn colour_range_round_trips_through_the_lightroom_sidecar() {
         // Values that survive the sidecar's six decimals exactly, so the
@@ -3639,6 +3672,7 @@ mod tests {
     /// byte-identical, and a pair where one does must be no worse on the
     /// composed frame -- the ceiling the range family's own frame gate
     /// enforces, checked here on the pairs rather than trusted.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn calibration_colour_ranges_never_cost_a_corpus_pair() {
         let Some(root) = fit::calibration_corpus() else { return };

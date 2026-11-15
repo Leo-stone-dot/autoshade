@@ -36,6 +36,13 @@ required-features = ["gui"]
 # view mode, export options) across launches — table stakes for a real app.
 gui = ["dep:eframe", "dep:egui", "dep:rfd", "dep:ab_glyph", "eframe/persistence"]
 
+# The slow raster/engine tier: `fit`, `fit_zoned` and `segment` tests render
+# real 2048-px frames or run the segmentation models (~7 min together). They are
+# the integration tier, not the unit battery, so the default `cargo test --lib`
+# ignores them; run `cargo test --lib --features slow-tests` for the full pass.
+slow-tests = []
+
+
 # Tests compile optimised. The library battery is image arithmetic on real
 # 2048-px frames, and unoptimised it spent 4014 s (2026-09-11, 16 threads; the
 # three zoned-orchestration tests alone 172.5 s); at opt-level 2 the same

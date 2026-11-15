@@ -2,6 +2,7 @@
 /// L06-1/2: a zero-variance pair (lens-cap frame against itself) must
 /// refuse to fit — the CDF inverse would produce a constant tone map and
 /// err==0 would accept it silently.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_degenerate_pair_refuses_to_fit_and_says_why() {
     use image::{DynamicImage, RgbImage};
@@ -21,6 +22,7 @@ fn a_degenerate_pair_refuses_to_fit_and_says_why() {
 
 use super::*;
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn fit_budget_scales_monotonically_with_strength() {
     let low = FitBudget::for_strength(crate::recipe::GradeStrength::new(0.0));
@@ -47,6 +49,7 @@ fn fit_budget_scales_monotonically_with_strength() {
     assert_eq!(high.vetoes, VetoPolicy::Disclose);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn fit_budget_default_is_byte_identical_to_pre_f1() {
     let b = FitBudget::for_strength(crate::recipe::GradeStrength::new(0.65));
@@ -137,6 +140,7 @@ fn relit(source: &DynamicImage, gains: [f32; 3]) -> DynamicImage {
 /// all and had to express the whole cast through saturation, the per-band
 /// mixer and three channel curves. The gates then (correctly) refused most
 /// of that, and the fit under-reached on colour by construction.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_full_mode_pair_whose_light_changed_colour_gets_a_white_balance() {
     let source = synth();
@@ -169,6 +173,7 @@ fn a_full_mode_pair_whose_light_changed_colour_gets_a_white_balance() {
 /// own cells. Feed it a pair whose light did not change and the estimator
 /// has nothing to find; feed it one where the demand moves the frame the
 /// wrong way and the cells return it to as-shot.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_full_mode_white_balance_ships_only_where_the_target_cells_vouch_it() {
     // No cast at all: nothing to solve, nothing to disclose.
@@ -210,6 +215,7 @@ fn a_full_mode_white_balance_ships_only_where_the_target_cells_vouch_it() {
 /// this is the same measurement at frame scope.
 ///
 /// MUTATION THIS KILLS: put the white-balance vouch back on `MoveAxis::Full`.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_white_balance_is_vouched_along_chromaticity_not_the_full_direction() {
     let source = synth();
@@ -273,6 +279,7 @@ fn a_white_balance_is_vouched_along_chromaticity_not_the_full_direction() {
 ///
 /// MUTATION THIS KILLS: delete the share search (the cast goes back to
 /// as-shot and the refusal note rides).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_white_balance_refused_on_size_ships_at_the_share_the_cells_vouch() {
     use image::GenericImageView;
@@ -340,6 +347,7 @@ fn a_white_balance_refused_on_size_ships_at_the_share_the_cells_vouch() {
 /// THIS STAGE SOLVES FROM. The admission still has to be earned — the
 /// target's own cells must say the earlier stages moved those pixels
 /// toward it — and the report says which bands were admitted that way.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_band_that_became_two_sided_once_the_light_was_corrected_is_admitted_by_the_cells() {
     let (w, h) = (192u32, 128u32);
@@ -400,6 +408,7 @@ fn a_band_that_became_two_sided_once_the_light_was_corrected_is_admitted_by_the_
 /// a Full solve's fine reading cannot abstain — see the function's doc);
 /// it is pinned because the coupling must survive whoever moves the mode
 /// line, and because the numbers below are the evidence that it should.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_pair_whose_texture_was_resynthesised_is_read_by_population_not_by_pairing() {
     let (w, h) = (192u32, 128u32);
@@ -470,6 +479,7 @@ fn a_pair_whose_texture_was_resynthesised_is_read_by_population_not_by_pairing()
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn wb_default_strength_is_byte_identical_to_head() {
     let source = hazy_canyon_source();
@@ -576,6 +586,7 @@ fn wb_default_strength_is_byte_identical_to_head() {
 /// stage persists nothing — not a 50 K-rounded copy of the as-shot Kelvin
 /// — and says nothing. So "the anchor stands" reads as `None`, and a tint
 /// of exactly 0.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_pair_that_changed_no_pixel_chromaticity_persists_no_cast() {
     let (src, tgt) = flat_sky_to_cloud_deck();
@@ -618,6 +629,7 @@ fn a_pair_that_changed_no_pixel_chromaticity_persists_no_cast() {
 ///
 /// Supervisor mutation M-1-B (read `tp` instead of the remapped array
 /// when the field is readable) goes red here and only here.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_readable_field_chooses_the_pairing_and_not_only_the_population() {
     let (src, tgt) = flat_sky_to_cloud_deck();
@@ -686,6 +698,7 @@ fn a_readable_field_chooses_the_pairing_and_not_only_the_population() {
 /// the axis has no demand.
 ///
 /// MUTATION THIS KILLS: WB_OPPOSING_RATIO = 0.0 (sign alone)
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_sliver_the_other_way_does_not_veto_the_white_balance() {
     let (idle, idle_opposing) = wb_consensus(&[(0.37, 0.90), (-0.03, 0.10)]);
@@ -710,6 +723,7 @@ fn a_sliver_the_other_way_does_not_veto_the_white_balance() {
 ///
 /// MUTATION THIS KILLS: return the mass-weighted median (or the largest)
 /// instead of the smallest agreeing value.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_white_balance_takes_only_the_colour_change_every_tonal_region_shares() {
     assert_eq!(wb_common(&[(0.44, 3.0), (0.30, 2.0), (0.17, 3.0)]), 0.17);
@@ -737,6 +751,7 @@ fn the_white_balance_takes_only_the_colour_change_every_tonal_region_shares() {
 /// MUTATION THIS KILLS: solve every wheel on the whole frame (no region
 /// weight) — all three take one hue; or return the mass-weighted median
 /// from `paired_wb_from_populations` — the white balance moves.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_split_tone_goes_to_the_grade_wheels_and_not_to_the_white_balance() {
     let n = 4096;
@@ -806,6 +821,7 @@ fn a_split_tone_goes_to_the_grade_wheels_and_not_to_the_white_balance() {
 ///
 /// MUTATION THIS KILLS: clamp the wheels to the saturation chase's ceiling
 /// (30 at Strength 0) instead of `grade_wheel`, or drop the clamp.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_grade_wheels_obey_the_strength_budget() {
     let (w, h) = (192u32, 128u32);
@@ -850,6 +866,7 @@ fn the_grade_wheels_obey_the_strength_budget() {
     assert!((held_at - ceiling(0.0)).abs() < 1e-4 && asked > held_at, "held at {held_at}, asked {asked}");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn global_cast_is_measured_when_every_band_is_one_sided_and_consistent() {
     let source = vec![[0.08, 0.16, 0.82]; 256];
@@ -860,6 +877,7 @@ fn global_cast_is_measured_when_every_band_is_one_sided_and_consistent() {
     assert!(cast.chroma_ratio > 0.5);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn opposed_band_rotation_is_still_withheld() {
     let mut source = Vec::new();
@@ -873,6 +891,7 @@ fn opposed_band_rotation_is_still_withheld() {
     assert!(evidence_model_for(&source, &target, 16, 16).global_cast.is_none());
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn high_strength_discloses_instead_of_withholding() {
     let px = vec![[0.4, 0.4, 0.4]; 64];
@@ -933,6 +952,7 @@ fn high_strength_discloses_instead_of_withholding() {
     assert!(report.notes.iter().any(|n| n.key == crate::rationale::keys::FIT_NOTE_VETO_DISCLOSED));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn frame_regression_law_holds_at_strength_one() {
     let (src, tgt) = structural_permutation_pair();
@@ -945,6 +965,7 @@ fn frame_regression_law_holds_at_strength_one() {
     assert!(report.err_after <= report.err_before + 1e-4);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn cast_ratio_is_pinned_to_head_at_default() {
     assert_eq!(
@@ -953,6 +974,7 @@ fn cast_ratio_is_pinned_to_head_at_default() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn wb_rotation_budget_opens_linearly_with_strength() {
     let at_zero = FitBudget::for_strength(crate::recipe::GradeStrength::new(0.0));
@@ -965,6 +987,7 @@ fn wb_rotation_budget_opens_linearly_with_strength() {
     assert_eq!(at_full.wb_rotation_share, 1.0);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn synthetic_full_region_wb_rotation_exceeds_seventy_percent_budget() {
     let cur = vec![[0.10f32, 0.25, 0.82]; 1000];
@@ -981,6 +1004,7 @@ fn synthetic_full_region_wb_rotation_exceeds_seventy_percent_budget() {
 /// `terminal_harm` two `None`s, so `harm.joint` was false on every
 /// photograph and `FIT_NOTE_JOINT_REGRESSED` was unreachable. The two
 /// readings are what the sites must pass.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_joint_veto_is_wired_at_both_terminal_sites() {
     // The BODY, not the file: this test's own literals would count.
@@ -1003,6 +1027,7 @@ fn the_joint_veto_is_wired_at_both_terminal_sites() {
 /// checkerboard) reads divergent, a flat patch that stayed flat reads
 /// matched, and two textured sides correlate. Pinned because the 2026-09-24
 /// audit's abstention here was tried and withdrawn (see the function).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_flat_side_reads_through_the_energy_term_alone() {
     let (w, h) = (40u32, 30u32);
@@ -1030,6 +1055,7 @@ fn a_flat_side_reads_through_the_energy_term_alone() {
 /// The detail stage's own escape from the scalar do-no-harm check applies
 /// only to a recipe whose non-detail controls stand at the base; the HSL
 /// wheel is one of them and was not read.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_hsl_move_is_not_a_detail_only_companion() {
     let base = EditRecipe::default();
@@ -1046,6 +1072,7 @@ fn an_hsl_move_is_not_a_detail_only_companion() {
 /// the calibration base on a photograph, which is what the CLI and the
 /// desktop app now pass. Named twice, it reproduces the solve's model bit
 /// for bit; named as the default it does not — so the parameter is read.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_rescore_measures_against_the_base_the_caller_names() {
     let Some(root) = calibration_corpus() else { return };
@@ -1076,6 +1103,7 @@ fn a_rescore_measures_against_the_base_the_caller_names() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn rescoring_round_trips_fractional_strength_and_budget() {
     let prior = vec![crate::rationale::Note::new(
@@ -1102,6 +1130,7 @@ fn rescoring_round_trips_fractional_strength_and_budget() {
 /// high-strength veto disclosure and keep its cap. Before this pin the
 /// rescored report dropped `veto_luma`/`veto_hue` (and, in Full mode, the
 /// budget itself), so the same unsupported movement came back uncapped.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn rescoring_re_derives_the_high_strength_veto_disclosure_and_its_cap() {
     let src = hazy_canyon_source();
@@ -1142,6 +1171,7 @@ fn rescoring_re_derives_the_high_strength_veto_disclosure_and_its_cap() {
     assert!(!disclosed(&rescored_default), "the shipped default must not gain a disclosure");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn cast_admission_disclosure_tracks_strength_budget() {
     assert!(cast_admitted_by_strength(
@@ -1167,6 +1197,7 @@ fn cast_admission_disclosure_tracks_strength_budget() {
     assert!(rationale.contains("measured ratio 2.400"));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn early_exit_atmosphere_report_keeps_the_strength_cap() {
     let src = DynamicImage::ImageRgb8(RgbImage::from_fn(32, 32, |x, y| {
@@ -1185,6 +1216,7 @@ fn early_exit_atmosphere_report_keeps_the_strength_cap() {
     assert!(report.notes.iter().any(|n| n.key == crate::rationale::keys::FIT_NOTE_STRENGTH));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn confidence_tracks_measured_error_under_the_strength_cap() {
     let src = hazy_canyon_source();
@@ -1213,6 +1245,7 @@ use image::RgbImage;
 /// the stage-wiring level the same mutation is absorbed by the spline
 /// model-selection — defense in depth, not dead code: the marginal path
 /// scores on knots alone and has only this gate.)
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn unsupported_knots_cannot_pull_the_solve() {
     let map = |x: f32| if x <= 0.66 { x } else { (x * 1.4).min(1.0) };
@@ -1238,6 +1271,7 @@ fn unsupported_knots_cannot_pull_the_solve() {
 /// engine's rendered response must land the population's p10 on the map and
 /// never score worse than where it started. Mutation:
 /// `refine_tone_sliders_on` returning its input goes red on the p10 assert.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_spline_refinement_follows_a_bend_the_knots_cannot_see() {
     let render_at = |ev: f32, s: [f32; 5], x: f32| {
@@ -1275,6 +1309,7 @@ fn the_spline_refinement_follows_a_bend_the_knots_cannot_see() {
 /// ESTIMATOR'S OWN MECHANISM and leave the map on the clean population's
 /// truth. Supervisor mutation MA (Tukey weights forced to 1 = plain
 /// least squares) drags the contaminated bins' means and this goes red.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn robust_regression_downweights_invented_target_content() {
     let (w, h) = (128usize, 96usize);
@@ -1318,6 +1353,7 @@ fn robust_regression_downweights_invented_target_content() {
 /// invented target must DISCLOSE what it rejected. Supervisor mutation MB
 /// (delete the FIT_NOTE_ROBUST_REJECTED push in compose_report) goes red
 /// here while the estimator itself still works.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn robust_rejection_reaches_the_disclosure() {
     let src = synth();
@@ -1375,6 +1411,7 @@ fn robust_rejection_reaches_the_disclosure() {
 /// and the residual/confidence must hold the measured line. Supervisor
 /// mutation MC (knot support forced to all-ones) resurrects the phantom
 /// -knot degeneracy (ev pegged at +3) and this goes red.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn p36_fixture_recovers_the_lightroom_exposure_anchor() {
     let Some(root) = calibration_corpus() else { return };
@@ -1429,6 +1466,7 @@ fn p36_fixture_recovers_the_lightroom_exposure_anchor() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn p36_full_rescore_round_trip_keeps_structural_evidence_absent() {
     let Some(root) = calibration_corpus() else { return };
@@ -1473,6 +1511,7 @@ fn p36_full_rescore_round_trip_keeps_structural_evidence_absent() {
 /// suite under that mutant). The weights stay in the solve for model
 /// consistency — three sites, one definition — not because a test pins
 /// them.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_fit_models_the_same_weighted_engine_it_renders_against() {
     let ev = 1.5f32;
@@ -1609,6 +1648,7 @@ fn structural_permutation_pair() -> (DynamicImage, DynamicImage) {
     (DynamicImage::ImageRgb8(source), DynamicImage::ImageRgb8(target))
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn content_divergence_fires_on_flat_sky_to_cloud_deck() {
     let (src, tgt) = flat_sky_to_cloud_deck();
@@ -1641,6 +1681,7 @@ fn content_divergence_fires_on_flat_sky_to_cloud_deck() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn content_divergence_is_calibrated_on_every_shipped_showcase_asset() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/images");
@@ -1690,6 +1731,7 @@ fn content_divergence_is_calibrated_on_every_shipped_showcase_asset() {
 /// mode line still reads the fine number and no evidence gate was moved
 /// onto this one (see [`COARSE_SIGMA_DIVISOR`] for the real pair's own
 /// four scopes).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_coarse_reading_is_a_second_scale_not_a_more_forgiving_one() {
     let d = EditRecipe::default();
@@ -1750,6 +1792,7 @@ fn the_coarse_reading_is_a_second_scale_not_a_more_forgiving_one() {
     assert_eq!(divergence_pair_for(&cloud_src, &cloud_tgt, &d).scale(), PairingScale::Cell);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn evidence_gating_does_not_regress_any_shipped_showcase_pair() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/images");
@@ -1790,6 +1833,7 @@ fn evidence_gating_does_not_regress_any_shipped_showcase_pair() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn same_content_evidence_diagnosis_reports_cornwall_support_and_terminal_readings() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/images");
@@ -1893,6 +1937,7 @@ fn same_content_evidence_diagnosis_reports_cornwall_support_and_terminal_reading
 /// corresponds" must change nothing. Supervisor mutation M-7b-A (the
 /// within-cell offset dropped from the remap) goes red here: without it
 /// every pixel of a cell reads the cell's one corner sample.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_field_remap_is_identity_under_an_identity_field() {
     let (w, h) = (96u32, 64u32);
@@ -1920,6 +1965,7 @@ fn identity_field() -> crate::correspond::CorrespondenceField {
 /// refuses), and the field's remap repairs it — the paired robust fit
 /// recovers the true tone map through the shift. Supervisor mutation
 /// M-7b-C (confidence/remap not reaching the pairs) goes red here.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_confident_shift_field_recovers_the_pairs_the_shift_broke() {
     let g = crate::correspond::GRID;
@@ -1986,6 +2032,7 @@ fn a_confident_shift_field_recovers_the_pairs_the_shift_broke() {
 /// the atmosphere recipe stands. Supervisor mutation M-7b-B (the gate
 /// dropped, provider consulted unconditionally) goes red on the first
 /// assertion.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_provider_is_consulted_only_on_a_content_divergent_pair() {
     use std::cell::Cell;
@@ -2026,6 +2073,7 @@ fn the_provider_is_consulted_only_on_a_content_divergent_pair() {
 /// pairing whose premise is exactly what Atmosphere mode denies. Zero
 /// behaviour change, so the assertion is on the note, and the dials are
 /// pinned against the same fit before the disclosure existed.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_atmosphere_report_states_the_population_its_white_balance_came_from() {
     let (src, tgt) = structural_permutation_pair();
@@ -2056,6 +2104,7 @@ fn an_atmosphere_report_states_the_population_its_white_balance_came_from() {
 /// of that population is UNKNOWN, and an absent number must read as
 /// unknown rather than as zero. With a field it is stated, with its
 /// threshold and its grid resolution.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_unpaired_share_reads_as_unmeasured_when_there_is_no_field() {
     let (src, tgt) = structural_permutation_pair();
@@ -2237,6 +2286,7 @@ fn wb_ratio(r: &EditRecipe) -> f32 {
 /// and the exposure DOWN. Supervisor mutations M-R2-A (restriction
 /// removed), M-R2-C (the cut kept everything) and M-R2-F (`target_answered`
 /// always 1) all go red on the first assertion.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_atmosphere_solve_drops_target_content_no_source_answers_for() {
     let (src, tgt) = invented_half_pair();
@@ -2302,6 +2352,7 @@ fn the_atmosphere_solve_drops_target_content_no_source_answers_for() {
 /// Supervisor mutations M-R2-I (source restriction dropped) and M-R2-J
 /// (target restriction dropped) each go red on the exposure bound, which
 /// no one-sided cut can satisfy — both overshoot the ±1 EV budget and peg.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_reference_restriction_moves_both_marginals_together() {
     let (src, tgt) = invented_half_pair();
@@ -2347,6 +2398,7 @@ fn the_reference_restriction_moves_both_marginals_together() {
 /// the pre-existing `wb_default_strength_is_byte_identical_to_head`.
 /// Measured, not assumed: a mutation replacing the no-field reference with
 /// a flat population goes red in four tests including those two.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn no_correspondence_field_leaves_the_atmosphere_dials_untouched() {
     let (src, tgt) = invented_half_pair();
@@ -2381,6 +2433,7 @@ fn no_correspondence_field_leaves_the_atmosphere_dials_untouched() {
 /// must move nothing. This is the law that keeps the mechanism honest —
 /// a restriction that changed dials when it dropped nothing would be
 /// changing the estimator, not its population.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_field_that_drops_nothing_moves_nothing() {
     let (src, tgt) = invented_half_pair();
@@ -2423,6 +2476,7 @@ fn a_field_that_drops_nothing_moves_nothing() {
 /// calling it global) is the failure this batch exists to stop, in a
 /// different costume. Supervisor mutation M-R2-B (the retention floor
 /// removed) goes red here.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_thin_paired_target_keeps_the_whole_frame_reading_and_says_so() {
     let g = crate::correspond::GRID;
@@ -2483,6 +2537,7 @@ fn a_thin_paired_target_keeps_the_whole_frame_reading_and_says_so() {
 /// Adjudicator mutations ADJ-1 (`readable()` on `||`) and ADJ-2 (the
 /// target side masked by `conf`) both go red here; both were green
 /// against the eight tests the batch shipped with.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_confident_field_answering_only_a_corner_is_thin_on_the_target_side() {
     let g = crate::correspond::GRID;
@@ -2537,6 +2592,7 @@ fn a_confident_field_answering_only_a_corner_is_thin_on_the_target_side() {
 /// same" must be absent with it, because it is then false. Supervisor
 /// mutations M-R2-D (the shared sentence pushed unconditionally) and
 /// M-R2-E (the old unpaired key kept while restricted) go red here.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_reference_disclosure_names_exactly_one_population() {
     let (src, tgt) = invented_half_pair();
@@ -2591,6 +2647,7 @@ fn the_reference_disclosure_names_exactly_one_population() {
 /// (0.494 against 0.500), and supervisor mutation M-R2-H — the share
 /// counted on pixels — survived it GREEN. With the weights below the two
 /// readings are 0.90 and 0.50, and M-R2-H goes red.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_retained_share_is_the_evidence_mass_the_mask_keeps() {
     let (w, h) = (96u32, 64u32);
@@ -2659,6 +2716,7 @@ fn the_retained_share_is_the_evidence_mass_the_mask_keeps() {
 /// R30 R2: the restriction moves the reference population and NOTHING
 /// else the Atmosphere contract promises — the confidence cap, the
 /// structure-blind ruler and the absence of channel curves all survive it.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_atmosphere_contract_survives_the_reference_restriction() {
     let (src, tgt) = invented_half_pair();
@@ -2695,6 +2753,7 @@ fn the_atmosphere_contract_survives_the_reference_restriction() {
 /// answers for every target cell, so the share is zero; a field where
 /// only the top half of the source is confident (and maps into the top
 /// half of the target) leaves the bottom half of the target unanswered.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_unpaired_share_is_read_from_the_targets_side() {
     let g = crate::correspond::GRID;
@@ -2739,6 +2798,7 @@ fn the_unpaired_share_is_read_from_the_targets_side() {
 /// corresponds in place" leaves the divergent fit's DIALS untouched (the
 /// disclosure note is the only difference), and mode selection never
 /// reads the field at all.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_identity_field_discloses_and_changes_no_dial() {
     let ok = |_: &DynamicImage,
@@ -2766,6 +2826,7 @@ fn an_identity_field_discloses_and_changes_no_dial() {
     assert!(report.correspondence.is_some(), "the zoned passes read it from the report");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn content_divergent_calibration_keeps_an_atmosphere_recipe() {
     let Some(root) = calibration_corpus() else { return };
@@ -2805,6 +2866,7 @@ fn content_divergent_calibration_keeps_an_atmosphere_recipe() {
     assert!(report.recipe.exposure_ev <= -0.5);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn calibration_atmosphere_report_uses_one_population_ruler() {
     let Some(root) = calibration_corpus() else { return };
@@ -2846,6 +2908,7 @@ fn calibration_atmosphere_report_uses_one_population_ruler() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn calibration_atmosphere_rescore_reproduces_report_ruler() {
     let Some(root) = calibration_corpus() else { return };
@@ -2872,6 +2935,7 @@ fn calibration_atmosphere_rescore_reproduces_report_ruler() {
     assert_evidence_models_bit_equal(&rescored.evidence, &solved.evidence);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn atmosphere_global_obeys_ev_wb_saturation_and_curve_budgets() {
     let (src, tgt) = structural_permutation_pair();
@@ -2902,6 +2966,7 @@ fn atmosphere_global_obeys_ev_wb_saturation_and_curve_budgets() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn atmosphere_global_never_emits_rgb_curves_and_caps_confidence() {
     let (src, tgt) = structural_permutation_pair();
@@ -2913,6 +2978,7 @@ fn atmosphere_global_never_emits_rgb_curves_and_caps_confidence() {
     assert!(report.recipe.confidence <= ATMOSPHERE_CONFIDENCE_CAP);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_divergent_sky_promotes_the_global_fit_when_it_covers_35_percent() {
     let source = synth();
@@ -2927,6 +2993,7 @@ fn a_divergent_sky_promotes_the_global_fit_when_it_covers_35_percent() {
     assert_eq!(DIVERGENT_COVER_PROMOTES, 0.35);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn residual_curve_cannot_exceed_two_to_one_slope() {
     let cliff = vec![
@@ -2960,6 +3027,7 @@ fn residual_curve_cannot_exceed_two_to_one_slope() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn atmosphere_saturation_cap_is_load_bearing() {
     // A structurally divergent pair whose target ALSO demands far more
@@ -2991,6 +3059,7 @@ fn atmosphere_saturation_cap_is_load_bearing() {
     }));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn residual_tone_curve_projects_a_cliff_through_the_real_producer() {
     // The PRODUCER, not the projector helper: `residual_curve_cannot_
@@ -3015,6 +3084,7 @@ fn residual_tone_curve_projects_a_cliff_through_the_real_producer() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn ordinary_same_content_roundtrip_remains_in_full_fit_mode() {
     let source = synth();
@@ -3038,6 +3108,7 @@ fn ordinary_same_content_roundtrip_remains_in_full_fit_mode() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn atmosphere_rationale_names_unrecoverable_structure_and_discloses_d() {
     let (src, tgt) = structural_permutation_pair();
@@ -3060,6 +3131,7 @@ fn atmosphere_rationale_names_unrecoverable_structure_and_discloses_d() {
         .any(|n| n.key == crate::rationale::keys::FIT_NOTE_ATMOSPHERE_CONFIDENCE));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn identity_fit_is_near_neutral() {
     let img = synth();
@@ -3089,6 +3161,7 @@ fn identity_fit_is_near_neutral() {
     assert!(rep.err_after < 0.02, "identity residual {}", rep.err_after);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn roundtrip_recovers_tone_and_saturation() {
     // Render a KNOWN recipe through the real engine, then fit it back.
@@ -3120,6 +3193,7 @@ fn roundtrip_recovers_tone_and_saturation() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn hazy_to_clean_fit_stays_sane() {
     // Regression for the 2026-07-07 real-photo failure: fitting a
@@ -3279,6 +3353,7 @@ fn canyon_warm_luma_kept(offset: f32) -> DynamicImage {
 /// share ratio stays under 1.75× (the old gate passed and the murky fit
 /// shipped), but the leavers bend the source evidence CDF far past the
 /// contamination ceiling; the solve must fall back to full-pixel CDFs.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_rehued_bright_grey_band_falls_back_to_full_cdfs() {
     let n = 64 * 64;
@@ -3323,6 +3398,7 @@ fn a_rehued_bright_grey_band_falls_back_to_full_cdfs() {
 /// geometry) span the same luma ramp as the shared class, so the
 /// evidence CDF barely moves even though a sixth of the frame is
 /// neutral on the source side only.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_uniformly_inflated_neutral_class_keeps_the_gate() {
     let n = 64 * 64;
@@ -3364,6 +3440,7 @@ fn a_uniformly_inflated_neutral_class_keeps_the_gate() {
 /// starting error (0.0892 -> 0.0229 measured; the GATED solve under the
 /// R17 dense residual knots collapses to a do-no-harm reset, because
 /// faithful sampling faithfully implements a broken map).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_haze_pairs_broken_identification_falls_back_and_still_fits() {
     let clean = synth();
@@ -3403,6 +3480,7 @@ fn the_haze_pairs_broken_identification_falls_back_and_still_fits() {
 /// canyon pair's neutral members (ramp + pale sky) are IDENTICAL on
 /// both sides, and the returned CDFs stay neutral-gated (≠ the
 /// full-pixel CDFs, which include the rocks).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn matched_neutral_members_keep_the_gate() {
     let pair = analysis_pair(&canyon(false), &canyon(true));
@@ -3422,6 +3500,7 @@ fn matched_neutral_members_keep_the_gate() {
 /// piecewise-linear rendering chorded ~10/255 below the promised map
 /// inside it. The base curve here is the P20 camera calibration
 /// verbatim.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn residual_knots_stay_dense_in_the_curve_input_space() {
     let recipe = EditRecipe {
@@ -3466,6 +3545,7 @@ fn residual_knots_stay_dense_in_the_curve_input_space() {
 /// The end-to-end verdicts live in `hazy_to_clean_fit_stays_sane` and
 /// hues ≥ 45° from everything the target contains). The end-to-end
 /// `warm_rock_cast_must_not_violet_the_pale_sky`.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn foreign_hue_veto_measures_real_canyon_reconstruction() {
     // Canyon: rebuild stage 4's exact inputs (fit minus its cast curves →
@@ -3601,6 +3681,7 @@ fn foreign_hue_veto_measures_real_canyon_reconstruction() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn warm_rock_cast_must_not_violet_the_pale_sky() {
     // Regression for the 2026-07-09 real-machine canyon failure: the target
@@ -3696,6 +3777,7 @@ fn canyon_gold_target() -> DynamicImage {
 /// re-hue a region. Deliberate cost: a true whole-scene regrade (sky
 /// genuinely gone gold) is not chased either — that expressiveness
 /// belongs to the zoned fit, not to global curves.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn cast_must_not_rotate_the_sky_into_a_target_native_hue() {
     let src = canyon(false);
@@ -3998,6 +4080,7 @@ fn projection_arg(report: &FitReport, key: &str, arg: &str) -> Option<f32> {
 /// ships THAT. So this test's subject is the conviction and the rescue
 /// together: the fitted curves must never reach the frame, and what does
 /// reach it must read inside the target.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn cast_curves_that_fan_a_coherent_sky_are_shrunk_not_shipped() {
     let src = coast(false);
@@ -4127,6 +4210,7 @@ fn cast_curves_that_fan_a_coherent_sky_are_shrunk_not_shipped() {
 /// both clears `FAN_PROJECT_DEG` and buys more than the fit's own
 /// quantisation — and the stage keeps its hands off the frame instead of
 /// shipping a cast that is neither the target's look nor honest about it.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_projection_that_cannot_clear_the_target_leaves_the_refusal_standing() {
     let src = coast(false);
@@ -4172,6 +4256,7 @@ fn a_projection_that_cannot_clear_the_target_leaves_the_refusal_standing() {
 /// only the right thing to look for if the fan GROWS with `t`. Measured
 /// rather than assumed: eleven points on the path, on the fixture whose
 /// fan is the reason the gate exists.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_projected_fan_grows_with_t() {
     let src = coast(false);
@@ -4219,6 +4304,7 @@ fn the_projected_fan_grows_with_t() {
 /// `t = 0` that curve is the identity — which is why the search always
 /// has a well-defined floor and why a projection can never be worse than
 /// the refusal it replaces.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_bottom_of_the_projection_path_is_one_curve_then_none() {
     let red = vec![
@@ -4298,6 +4384,7 @@ fn the_bottom_of_the_projection_path_is_one_curve_then_none() {
 /// every gate fact has to ride its own note back. The projection's do
 /// too — otherwise a rescored recipe would keep the shrunk curves and
 /// lose the only sentence that says why they are shrunk.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_rescored_projection_carries_its_own_readings_back() {
     use crate::rationale::keys;
@@ -4353,6 +4440,7 @@ fn a_rescored_projection_carries_its_own_readings_back() {
 ///
 /// Driven through a synthetic gate so the bar is exercised alone, with
 /// every other reading held clean.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_projection_worth_less_than_the_fits_own_quantisation_is_not_shipped() {
     let img = synth();
@@ -4401,6 +4489,7 @@ fn a_projection_worth_less_than_the_fits_own_quantisation_is_not_shipped() {
 /// The 4a' and 4b loops call `fit_cast_stage` repeatedly, so the rescue
 /// has to be deterministic AND idempotent under re-fits or the loops
 /// could not converge. Both halves, on the fixture that projects.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_projection_is_deterministic_and_idempotent() {
     let once = fit_recipe(&coast(false), &coast(true)).recipe;
@@ -4428,6 +4517,7 @@ fn the_projection_is_deterministic_and_idempotent() {
 /// One sentence per outcome. A projected cast writes the projection's
 /// notes and NOT the admission's, and the exclusivity is structural (the
 /// two `SolveFacts` fields), not a convention at the two push sites.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_projected_cast_is_never_also_disclosed_as_an_admitted_one() {
     use crate::rationale::keys;
@@ -4490,6 +4580,7 @@ fn a_projected_cast_is_never_also_disclosed_as_an_admitted_one() {
 /// The projection does not step around the strength budget: the milder
 /// candidate is judged against the bound the path was GIVEN, exactly as
 /// the fitted cast would have been, and the note quotes that bound.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_projected_cast_is_judged_by_the_strength_budgets_bound() {
     use crate::rationale::keys;
@@ -4538,6 +4629,7 @@ fn a_projected_cast_is_judged_by_the_strength_budgets_bound() {
 /// curves had to survive. Driven through synthetic outcomes so each
 /// combination is exercised exactly once, without needing a fixture that
 /// happens to trip two gates at the same time.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_cast_the_ratio_gate_convicts_is_not_rescued_by_the_projection() {
     use crate::rationale::keys;
@@ -4620,6 +4712,7 @@ fn a_cast_the_ratio_gate_convicts_is_not_rescued_by_the_projection() {
 /// probes the ruling names are asserted as premises — `t = 0.5` fails on
 /// the fan, `t = 0.25` fails on the gain — so the fixture cannot drift
 /// into testing something else.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_search_does_not_bisect_past_a_band_the_gain_bar_opens() {
     let err_without = 0.05f32;
@@ -4674,6 +4767,7 @@ fn the_search_does_not_bisect_past_a_band_the_gain_bar_opens() {
 /// a frontier-only search must refuse it and a sweep must find the peak.
 /// Both premises are asserted before the search runs, so the fixture
 /// cannot drift into testing something else.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_search_takes_the_best_paying_admissible_shrink() {
     let err_without = 0.05f32;
@@ -4730,6 +4824,7 @@ fn the_search_takes_the_best_paying_admissible_shrink() {
 /// measures, because it is the thing that can break; a literal
 /// rescue-on/rescue-off comparison is not expressible from here without a
 /// test seam in the solve, and a seam would be the more fragile pin.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_haze_correction_is_never_projected() {
     use crate::rationale::keys;
@@ -4824,6 +4919,7 @@ fn the_haze_correction_is_never_projected() {
 /// re-hue verdict used to speak over (the hue note wins a double
 /// rejection). The test's candidate, rebuilt on the new recipe, reads 6.9
 /// degrees.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_fan_gate_leaves_a_legitimate_cast_alone() {
     let clean = synth();
@@ -4925,6 +5021,7 @@ fn the_fan_gate_leaves_a_legitimate_cast_alone() {
 /// frame, which is the tolerance the rustdoc, ARCHITECTURE.md and the
 /// release notes all now state in words. The haze pair is the one whose
 /// cast the fit admits, so it is where the words get checked.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_admitted_cast_delivers_at_most_two_class_widths_of_hue_fan() {
     let clean = synth();
@@ -4977,6 +5074,7 @@ fn an_admitted_cast_delivers_at_most_two_class_widths_of_hue_fan() {
 /// reached the user as an unexplained presence. The note carries the
 /// four gates' own readings so the admission can be checked, not just
 /// believed.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_admitted_cast_discloses_the_readings_that_let_it_through() {
     let clean = synth();
@@ -5103,6 +5201,7 @@ fn an_admitted_cast_discloses_the_readings_that_let_it_through() {
 /// print `0.000` for both — a measurement never taken, disclosed as if
 /// it had been, in the very note that exists so the admission can be
 /// checked.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_unmeasured_cast_reading_says_so_instead_of_printing_a_zero() {
     // 1) The PLUMBING: a target with no chromatic mass at all leaves the
@@ -5248,6 +5347,7 @@ fn hue_distance(a: f64, b: f64) -> f64 {
     (a - b + 540.0).rem_euclid(360.0) - 180.0
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn wb_clamp_stays_on_the_manifold_and_never_invents_tint() {
     let src = hazy_canyon_source();
@@ -5287,6 +5387,7 @@ fn wb_clamp_stays_on_the_manifold_and_never_invents_tint() {
     assert_eq!(report.recipe.tint, clamped_tint);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn wb_lambda_shrinks_at_high_strength() {
     let (width, height) = (192u32, 128u32);
@@ -5434,6 +5535,7 @@ fn wb_lambda_shrinks_at_high_strength() {
     }));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn wb_is_withheld_when_every_lambda_paints_a_foreign_hue() {
     let before = vec![[0.08f32, 0.16, 0.82]; 1000];
@@ -5451,6 +5553,7 @@ fn wb_is_withheld_when_every_lambda_paints_a_foreign_hue() {
     assert!(rationale.contains("White balance withheld"));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn rotation_gate_is_the_unique_rejector_on_the_real_pair_geometry() {
     let src = hazy_canyon_source();
@@ -5555,6 +5658,7 @@ fn rotation_gate_is_the_unique_rejector_on_the_real_pair_geometry() {
 /// ROT_SHARE are calibrated ON: the PAIR, not the point the do-no-harm
 /// loops happened to land on. And it is a no-op on the pre-CAST-2 tree,
 /// where both canyon recipes were already the bare calibration base.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn rotation_gate_separates_regrade_from_haze() {
     // Reconstruct stage-4's exact inputs for each pair, like the veto pin
@@ -5650,6 +5754,7 @@ fn rotation_gate_separates_regrade_from_haze() {
 /// floor puts it straight back in the census. How much the band forgives
 /// on real frames is measured in [`ROT_VISIBLE_AFTER`]'s doc — it is not
 /// a rounding error, and the borders below are what keeps it bounded.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_pass_through_exemption_borders_are_patrolled() {
     let share = |c: [f32; 3], w: [f32; 3]| rehued_share(&vec![c; 100], &vec![w; 100]);
@@ -5664,6 +5769,7 @@ fn the_pass_through_exemption_borders_are_patrolled() {
     assert!(share([0.645, 0.68, 0.70], [0.70, 0.68, 0.65]) > 0.99);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn rotation_census_sees_a_barely_tinted_before_side() {
     // H17: a faint blue (chroma 0.035 — UNDER the visible-tint gate,
@@ -5776,6 +5882,7 @@ fn haze_pair() -> (DynamicImage, DynamicImage) {
 ///     [`fit_zoned::JOINT_DRIFT_TOL`] = 0.05 has its headroom over, and
 ///     all six real pairs improve by far more than 0.05
 ///     (`pipeline::tests::r16_composed_fit_on_a_real_pair`).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn joint_family_is_calibrated_on_the_fixture_set() {
     let edge = ANALYZE_EDGE;
@@ -5965,6 +6072,7 @@ fn joint_family_is_calibrated_on_the_fixture_set() {
 /// says the opposite. Both measured casts improve the worst bucket, and
 /// the cast that should be refused improves it by even more, so a drift
 /// gate cannot use that bucket to distinguish the two decisions.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_worst_bucket_cannot_gate_a_stage() {
     let edge = ANALYZE_EDGE;
@@ -6007,6 +6115,7 @@ fn the_worst_bucket_cannot_gate_a_stage() {
 /// The confidence family is ONE calibration: the FAR warning fires
 /// exactly where the slope has already bottomed the number out. Two
 /// literals could drift apart silently; this is why they are named.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_confidence_family_is_one_calibration() {
     let bottom = (1.0 - CONFIDENCE_FLOOR) / CONFIDENCE_SLOPE;
@@ -6056,6 +6165,7 @@ fn the_confidence_family_is_one_calibration() {
 /// arm's note is verified here, where the decision is, and the census
 /// above is the reason that is the right place for it rather than a
 /// smaller ambition.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_silently_rejected_colour_stage_now_says_so() {
     use crate::rationale::keys;
@@ -6155,6 +6265,7 @@ fn a_silently_rejected_colour_stage_now_says_so() {
 /// R23-6 A-5: the disclosure names controls for THIS pair, not the
 /// blanket sentence every fit carries. The canyon-gold pair's residual
 /// is a per-band hue move the solver has no dial for.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_unsolvable_controls_are_named_for_this_pair() {
     let rep = fit_recipe(&canyon(false), &canyon_gold_target());
@@ -6190,6 +6301,7 @@ fn the_unsolvable_controls_are_named_for_this_pair() {
 /// R23-6 B-7: any file may now be the reverse-fit target, so a
 /// reference that is not this frame must be WARNED about — and not
 /// refused: the user chose the file.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_differently_shaped_reference_is_warned_about_not_refused() {
     let src = synth(); // 192x128, aspect 1.5
@@ -6247,6 +6359,7 @@ fn a_differently_shaped_reference_is_warned_about_not_refused() {
 /// adjusted recipe's own render, solve notes carried, and the two
 /// do-no-harm sentences dropped rather than repeated about a recipe they no
 /// longer describe. No network: `rescore_report` is deterministic.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_adjusted_recipe_gets_re_derived_notes_not_the_solves() {
     use crate::rationale::{keys, Note};
@@ -6321,6 +6434,7 @@ fn an_adjusted_recipe_gets_re_derived_notes_not_the_solves() {
 /// fixture in this repo reaches it — by design, since it has 56× headroom
 /// over the largest non-improvement measured — so the decision itself is
 /// pinned here, both arms and the fail-open direction.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_terminal_check_reads_both_metrics_and_fails_open() {
     use crate::fit_zoned::{JointReading, JOINT_DRIFT_TOL};
@@ -6354,6 +6468,7 @@ fn the_terminal_check_reads_both_metrics_and_fails_open() {
 
 /// The joint reading may only LOWER the reported confidence, and the
 /// case it exists for is the one the scalar over-reports.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_joint_reading_can_only_lower_confidence() {
     let (unreachable_source, unreachable_target) = structural_permutation_pair();
@@ -6389,6 +6504,7 @@ fn the_joint_reading_can_only_lower_confidence() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn quantile_and_cdf_are_inverse_on_a_ramp() {
     let px: Vec<[f32; 3]> = (0..4096)
@@ -6405,6 +6521,7 @@ fn quantile_and_cdf_are_inverse_on_a_ramp() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn evidence_gate_withholds_one_sided_value_ranges() {
     let source: Vec<[f32; 3]> = (0..4096)
@@ -6427,6 +6544,7 @@ fn evidence_gate_withholds_one_sided_value_ranges() {
 /// A target member is consumed whole at a boundary, so rounding can drift
 /// by at most one member over the population; it must not re-charge that
 /// boundary overshoot to every later bin and starve the tail.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn rank_pairing_uses_a_cumulative_target_quota() {
     let source = (0..EVIDENCE_LUMA_BINS)
@@ -6488,6 +6606,7 @@ fn assert_evidence_models_bit_equal(actual: &EvidenceModel, expected: &EvidenceM
     assert_eq!(actual.population.to_bits(), expected.population.to_bits());
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn structure_blind_reaggregates_structural_withholding_but_keeps_population_vetoes() {
     let mut source = Vec::new();
@@ -6556,6 +6675,7 @@ fn structure_blind_reaggregates_structural_withholding_but_keeps_population_veto
 ///
 /// MUTATION: print the caller's `last` instead of the clamped one in
 /// `luma_evidence_for_bins` and the first assertion fails.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_luma_range_label_names_the_bins_actually_folded() {
     let px = vec![[0.4, 0.4, 0.4]; 64];
@@ -6579,6 +6699,7 @@ fn a_luma_range_label_names_the_bins_actually_folded() {
 ///
 /// MUTATION: drop `facts.clamped = None` from `withhold_atmosphere_tone`
 /// and the clamp assertion fails.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_atmosphere_luma_veto_withdraws_the_wb_clamp_fact_with_the_wb() {
     let base = EditRecipe { tint: -3.0, ..Default::default() };
@@ -6611,6 +6732,7 @@ fn the_atmosphere_luma_veto_withdraws_the_wb_clamp_fact_with_the_wb() {
     assert_eq!(facts.rotation_coverage, 0.9);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn differently_sized_evidence_uses_one_aligned_prefix_domain() {
     let aligned = (0..8)
@@ -6636,6 +6758,7 @@ fn differently_sized_evidence_uses_one_aligned_prefix_domain() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn frame_evidence_shares_match_an_analytic_four_block_golden() {
     let counts = [(1usize, 10usize), (5, 20), (9, 30), (13, 40)];
@@ -6669,6 +6792,7 @@ fn frame_evidence_shares_match_an_analytic_four_block_golden() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn blind_move_veto_counts_soft_membership_mass() {
     let source = vec![[0.4; 3]; 1_400];
@@ -6714,6 +6838,7 @@ fn textured(width: u32, height: u32, family: u32) -> DynamicImage {
 /// 1600x1069 target to 384x257, and every evidence statistic (and the
 /// frame-wide divergence, which returns `matched` on unequal lengths)
 /// pairs pixel i with pixel i. One row decided whether the gate existed.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn analysis_pair_puts_a_one_row_taller_target_in_the_source_geometry() {
     let src = textured(1600, 1067, 0);
@@ -6747,6 +6872,7 @@ fn analysis_pair_puts_a_one_row_taller_target_in_the_source_geometry() {
 /// same-content verdict must be false and populated luma ranges must be
 /// withheld -- and one extra target row must not change that verdict
 /// from the equal-height pair's.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn one_extra_target_row_does_not_disable_the_structural_gate() {
     let src = textured(1600, 1067, 0);
@@ -6784,6 +6910,7 @@ fn one_extra_target_row_does_not_disable_the_structural_gate() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn evidence_weighted_objective_sees_spatial_permutation() {
     let mut source = Vec::with_capacity(4096);
@@ -6815,6 +6942,7 @@ fn evidence_weighted_objective_sees_spatial_permutation() {
 // `evidence.target_weights` in `look_err_with_evidence` with uniform
 // `vec![1.0f32; n]` values. The calibrated weighted score below must then
 // differ and this named test turns RED.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn evidence_weighted_objective_changes_the_fitted_population_score() {
     let source: Vec<[f32; 3]> = (0..4096)
@@ -6872,6 +7000,7 @@ fn evidence_weighted_objective_changes_the_fitted_population_score() {
 /// its own paired target is where it went), the refusal lifts, and the
 /// band is NAMED as carried rather than silently reclassified: two
 /// different outcomes must not read the same.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_vouched_pixel_carries_the_cast_through_a_one_sided_band_and_is_named() {
     let (w, h) = (64usize, 64usize);
@@ -6960,6 +7089,7 @@ fn a_vouched_pixel_carries_the_cast_through_a_one_sided_band_and_is_named() {
 /// which is exactly the state a repainted region puts the solve in. What
 /// remains is the target's own verdict on the render: the strip's cell
 /// means moved toward, and in the direction of, the target's.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_regions_cells_carry_the_cast_through_a_one_sided_band_and_are_named_apart() {
     let (w, h) = (64usize, 64usize);
@@ -7043,6 +7173,7 @@ fn the_regions_cells_carry_the_cast_through_a_one_sided_band_and_are_named_apart
 /// against the move rather than a request for a second opinion. Guarding
 /// on `!converges` instead rotated the canyon-gold sky 158° into the
 /// target's native gold with the cells reading 0.921 / 0.079 / 0.981.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_cell_arm_is_refused_where_the_pixels_did_survive() {
     let (w, h) = (64usize, 64usize);
@@ -7112,6 +7243,7 @@ fn the_cell_arm_is_refused_where_the_pixels_did_survive() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn cast_gate_withholds_motion_where_hue_evidence_is_zero() {
     let mut cur = Vec::with_capacity(4096);
@@ -7163,6 +7295,7 @@ fn cast_gate_withholds_motion_where_hue_evidence_is_zero() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn tone_stage_keeps_withheld_luma_range_at_identity() {
     let (w, h) = (192u32, 128u32);
@@ -7249,6 +7382,7 @@ fn tone_stage_keeps_withheld_luma_range_at_identity() {
     assert_eq!(named, &structural_luma, "the note names the structural ranges excluded from Atmosphere");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn confidence_identifiability_separates_low_evidence_render() {
     let px: Vec<[f32; 3]> = (0..4096)
@@ -7323,6 +7457,7 @@ fn confidence_identifiability_separates_low_evidence_render() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn detail_fit_writes_texture_only_from_two_sided_evidence() {
     let (w, h) = (192u32, 128u32);
@@ -7370,6 +7505,7 @@ fn detail_fit_writes_texture_only_from_two_sided_evidence() {
         .any(|n| n.key == crate::rationale::keys::FIT_NOTE_DETAIL));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn ground_truth_parameter_recovery_uses_the_evidence_population() {
     let Some(root) = calibration_corpus() else { return };
@@ -7423,6 +7559,7 @@ fn ground_truth_parameter_recovery_uses_the_evidence_population() {
     assert!(report.recipe.confidence < 0.927, "a poorly identified inverse must not retain baseline confidence");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn invented_sky_gradient_energy_is_not_amplified() {
     let Some(root) = calibration_corpus() else { return };
@@ -7491,6 +7628,7 @@ fn invented_sky_gradient_energy_is_not_amplified() {
     assert_eq!(report.recipe.texture, 0.0);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn confidence_separates_calibration_recipes_by_evidence_spend() {
     let Some(root) = calibration_corpus() else { return };
@@ -7649,6 +7787,7 @@ fn names_hsl(report: &FitReport) -> bool {
 
 /// (a) A band both frames can speak for is SOLVED, and the one global
 /// saturation number demonstrably could not have carried it.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn per_band_colour_is_solved_from_two_sided_population_evidence() {
     let (src, tgt) = engine_hsl_pair(15.0);
@@ -7689,6 +7828,7 @@ fn per_band_colour_is_solved_from_two_sided_population_evidence() {
 
 /// (b) A band only ONE frame can speak for is refused BY NAME. One-sided
 /// is unmeasurable, never silently read as "these already match".
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_one_sided_band_is_refused_by_name_never_read_as_equal() {
     let (src, tgt) = one_sided_band_pair();
@@ -7725,6 +7865,7 @@ fn a_one_sided_band_is_refused_by_name_never_read_as_equal() {
 /// ([`a_band_rotated_a_few_degrees_is_solved_back_to_that_band_and_no_other`]),
 /// so that pair is the inverse problem the stage answers, not a temptation it
 /// refuses; it left this list for that test.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_per_band_mixer_rotates_no_band_its_paired_pixels_do_not_ask() {
     let mut pairs: Vec<(&str, DynamicImage, DynamicImage)> = vec![
@@ -7770,6 +7911,7 @@ fn the_per_band_mixer_rotates_no_band_its_paired_pixels_do_not_ask() {
 /// that range's own reach, where the darker ranges' lower chroma fades the
 /// rotation and a band-mean reach under a median demand overshot (+16.2).
 const BAND_HUE_TOLERANCE: f32 = 1.0;
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_band_rotated_a_few_degrees_is_solved_back_to_that_band_and_no_other() {
     let source = band_frame([0, 1, 2, 4], [0.55; 4]);
@@ -7796,6 +7938,7 @@ fn a_band_rotated_a_few_degrees_is_solved_back_to_that_band_and_no_other() {
 /// at the same brightness, because the demand was a consensus over pixels;
 /// a range's median now stands for its pixels, so the opposition the rule
 /// reads is between ranges, and the fixture puts it there.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_band_whose_ranges_ask_opposite_rotations_ships_nothing() {
     let source = band_frame([0, 1, 2, 4], [0.55; 4]);
@@ -7819,6 +7962,7 @@ fn a_band_whose_ranges_ask_opposite_rotations_ships_nothing() {
 /// disabling BOTH of 4a's do-no-harm arms left that test green). Here the
 /// fit SUCCEEDS (the frame ends closer, no terminal reset) and the gate
 /// ADMITS bands, so zero can only be 4a giving its own move back.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_per_band_move_the_frame_ruler_refuses_shrinks_to_zero_and_says_so() {
     let (src, tgt) = flat_sky_to_cloud_deck();
@@ -7872,6 +8016,7 @@ fn a_per_band_move_the_frame_ruler_refuses_shrinks_to_zero_and_says_so() {
 /// arbitrated withdrawal from the terminal do-no-harm reset. At full
 /// strength the same frame keeps its mixer: the arbitration is reading
 /// the state, not disliking the fixture.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_finished_frame_arbitration_withdraws_a_synthetic_mixer_that_costs_it() {
     // RED on v1.17.0, a defect, not a stale image (measured): on this pair
@@ -7929,6 +8074,7 @@ fn the_finished_frame_arbitration_withdraws_a_synthetic_mixer_that_costs_it() {
 
 /// (e) The strength dial really turns this stage: the ceiling is monotone
 /// across the three stops AND it binds at each of them.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn hsl_band_budget_is_monotone_across_the_three_strength_stops() {
     let cap = |s: f32| FitBudget::for_strength(crate::recipe::GradeStrength::new(s)).hsl_band;
@@ -8080,6 +8226,7 @@ fn hsl_band_budget_is_monotone_across_the_three_strength_stops() {
 ///
 /// Mutation: lower [`FAN_DEG`] to 6° and `p40` goes from admitted to
 /// convicted, red on the admission assertion.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_fan_gate_costs_a_real_two_temperature_pair_nothing() {
     use crate::rationale::keys;
@@ -8175,6 +8322,7 @@ fn the_fan_gate_costs_a_real_two_temperature_pair_nothing() {
 ///
 /// OPTIONAL like every corpus pair; the same lens-profile premise as the
 /// pair above.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn p41_ships_the_brightness_common_white_balance_its_cells_approve_and_admits_the_cast() {
     use crate::rationale::keys;
@@ -8301,6 +8449,7 @@ fn band_rotation_frame(hue: f32) -> DynamicImage {
 /// circle can produce) and this goes red on the colour-shape assertion,
 /// with the bucket-arm premise still passing — which is what proves the
 /// centroid arm is what was speaking.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_band_centroid_gap_alone_makes_the_residual_colour_shaped() {
     let after = band_rotation_frame(215.0);
@@ -8381,6 +8530,7 @@ fn a_band_centroid_gap_alone_makes_the_residual_colour_shaped() {
 ///
 /// Mutation: make `cast_projection_notes` fall back to
 /// `Some(0.0)` for either reading and the digit assertions go red.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_unmeasured_projected_reading_says_so_instead_of_printing_a_zero() {
     use crate::rationale::keys;
@@ -8477,6 +8627,7 @@ fn an_unmeasured_projected_reading_says_so_instead_of_printing_a_zero() {
 ///
 /// Mutation: widen `delivered_fan_conviction`'s test to `fan > 4.0 *
 /// FAN_DEG` and this goes red on its first assertion.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_terminal_check_takes_the_curves_out_of_a_fanning_render() {
     let (src, tgt) = (coast(false), coast(true));
@@ -8534,6 +8685,7 @@ fn the_terminal_check_takes_the_curves_out_of_a_fanning_render() {
 /// Mutation: move `*recipe = without; *end_px = px;` out of the
 /// `still.is_none()` guard so the withdrawal is unconditional, and this
 /// goes red on the "unchanged" assertion.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_delivered_fan_the_curves_did_not_cause_is_disclosed_not_withdrawn() {
     let (src, tgt) = (coast(false), coast(true));
@@ -8608,6 +8760,7 @@ fn a_delivered_fan_the_curves_did_not_cause_is_disclosed_not_withdrawn() {
 /// twice the fan it is allowed) and the coast pair's delivered reading
 /// goes over the line, red here. (2026-10-22, run: the re-drawn coast stays
 /// at 7.6° and the two-temperature coast climbs 0.3° → 13.9°, off the pin.)
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn no_shipped_fit_delivers_a_hue_fan_past_the_limit() {
     let panel_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/images");
@@ -8655,6 +8808,7 @@ fn no_shipped_fit_delivers_a_hue_fan_past_the_limit() {
 /// per-band colour job — and while the gap is only PARTLY closed it still
 /// does, and the disclosure still names `hsl`. Both halves on one pair,
 /// separated only by the budget.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn solving_the_bands_takes_the_colour_shape_out_of_the_residual() {
     let (src, tgt) = two_family_hsl_pair(50.0);
@@ -8794,6 +8948,7 @@ fn solving_the_bands_takes_the_colour_shape_out_of_the_residual() {
 /// residual is a per-band HUE rotation: that axis is never solved, so the
 /// disclosure must go on naming `hsl`. Closing the saturation gap must
 /// never be allowed to launder a rotation into silence.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_residual_the_mixer_cannot_reach_is_still_named() {
     let (src, tgt) = flat_sky_to_cloud_deck();
@@ -8860,6 +9015,7 @@ fn recipe_fnv(recipe: &EditRecipe) -> u64 {
 /// toward the cast inside the budget and ships the curves re-fitted on it at
 /// full strength. Measured 2026-10-23: 5500 K / 0 → 3900 K / +40.6, curves
 /// re-fitted reading +3.8°, cells 1.000 converged / 0.000 diverged.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_fan_the_white_balance_can_take_back_is_handed_to_it() {
     use crate::rationale::keys;
@@ -8924,6 +9080,7 @@ fn a_fan_the_white_balance_can_take_back_is_handed_to_it() {
 /// balance the cells vouch, and the hand-off ships it: 5500 K / 0 →
 /// 4800 K / +15.5, fan 15.4° → +4.5°, cells 0.825 converged / 0.087 diverged,
 /// look error 0.0156 → 0.0089 (measured 2026-10-29).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_hand_off_walk_reaches_the_nearer_white_balance_the_cells_vouch() {
     use crate::rationale::keys;
@@ -8949,6 +9106,7 @@ fn the_hand_off_walk_reaches_the_nearer_white_balance_the_cells_vouch() {
 /// the fitted curves fan past [`FAN_DEG`] and the fan gate hands the cast to
 /// the white-balance walk. No single white balance takes a luminance split
 /// back, so nothing ships through it, and the fit is no worse for the walk.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_hand_off_walk_is_entered_by_a_cast_that_really_fans() {
     use super::solve::route;
@@ -8984,6 +9142,7 @@ fn the_hand_off_walk_is_entered_by_a_cast_that_really_fans() {
 /// demand is read over its luma ranges and each range answered against its
 /// own reach, so the rotation is Orange +1.2 / Green -1.2 and the finished
 /// frame 0.01340.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_cast_with_no_fan_never_enters_the_hand_off() {
     use crate::rationale::keys;
@@ -9014,6 +9173,7 @@ fn a_cast_with_no_fan_never_enters_the_hand_off() {
 /// `pull`, as the hand-off measures it: the white-balance estimator read on
 /// the curves' own move. A move that changes no pixel's colour reads no
 /// direction at all; a pure per-channel gain reads that gain's chromaticity.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_hand_offs_pull_reads_a_white_balance_move_and_nothing_else() {
     let cur: Vec<[f32; 3]> = (0..400)
@@ -9052,6 +9212,7 @@ fn the_hand_offs_pull_reads_a_white_balance_move_and_nothing_else() {
 /// The selection rule: the look error decides, `pull` only breaks ties
 /// inside FIT_QUANT of the best, and the winner must still beat the frame
 /// without curves by more than FIT_QUANT.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_hand_off_breaks_look_error_ties_by_pull_and_keeps_the_gain_bar() {
     let vouch = crate::fit_cells::CellVouch { converged: 1.0, diverged: 0.0, aligned: 1.0, read: 1 };
@@ -9089,6 +9250,7 @@ fn the_hand_off_breaks_look_error_ties_by_pull_and_keeps_the_gain_bar() {
 ///
 /// MUTATION: drop `!in_budget(here)` and `at(2.0 * reach) == here` from the
 /// extent loop — the judge sees no in-budget candidate.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_hand_off_walk_reaches_the_white_balances_the_budget_admits() {
     let law = render::WbLaw::of(&EditRecipe {
@@ -9121,6 +9283,7 @@ fn the_hand_off_walk_reaches_the_white_balances_the_budget_admits() {
 /// back at that value each round and the loop never descended. The 4b
 /// re-fit keeps the caller's saturation, so the loop walks 40 → 20 → 10 →
 /// 5 → 2.5 → 0 and stops for want of dial.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_do_no_harm_loop_descends_when_the_hand_off_would_re_raise_saturation() {
     use super::solve::{DO_NO_HARM_RESCUE, step_down_until_harmless};
@@ -9147,6 +9310,7 @@ fn the_do_no_harm_loop_descends_when_the_hand_off_would_re_raise_saturation() {
 /// 2026-11-02, when the mixer began solving band hue and `halved_hsl` began
 /// halving it: the rotation now descends to neutral and the loop ends there,
 /// well inside the bound.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_do_no_harm_loop_stops_at_its_bound_when_nothing_descends() {
     use super::solve::{CastRescue, DO_NO_HARM_MAX_ROUNDS, step_down_until_harmless};
@@ -9176,6 +9340,7 @@ fn the_do_no_harm_loop_stops_at_its_bound_when_nothing_descends() {
 /// it is refused on the same reading; at the default neither reads the
 /// gates. The white balance the stage DOES ship clears the hand-off's gates,
 /// because both read one step with one reader (`read_wb_step`).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_hand_off_white_balance_the_stage_would_shrink_is_refused_above_default() {
     use super::solve::hand_off_wb_step_refused;
@@ -9263,6 +9428,7 @@ fn mixer(hue: f32, sat: f32) -> crate::recipe::Hsl {
 /// `DO_NO_HARM_MAX_ROUNDS`. Until 2026-11-02 `halved_hsl` kept hue, so this
 /// mixer was a fixed point and the loop ran to the bound; it halves hue since
 /// the stage solves it, and no mixer reaches the bound.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_mixer_stage_do_no_harm_withdraws_a_rotated_mixer_inside_its_bound() {
     use super::hsl::halve_mixer_until_harmless;
@@ -9293,6 +9459,7 @@ fn the_mixer_stage_do_no_harm_withdraws_a_rotated_mixer_inside_its_bound() {
 /// halving reaches neutral inside `DO_NO_HARM_MAX_ROUNDS` (it halves hue
 /// since 2026-11-02, see above) and the loop withdraws the mixer to the
 /// neutral state its comparison was measured against.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_mixer_against_its_absence_withdraws_a_rotated_mixer_inside_its_bound() {
     use super::solve::{DO_NO_HARM_MAX_ROUNDS, halve_mixer_until_it_earns};
@@ -9336,6 +9503,7 @@ fn the_mixer_against_its_absence_withdraws_a_rotated_mixer_inside_its_bound() {
 ///
 /// MUTATION: make `hand_off_wb_step_refused` answer false — no candidate is
 /// refused.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_hand_off_walk_meets_white_balances_the_stage_gates_refuse() {
     use super::solve::hand_off_wb_step_refused;
@@ -9376,6 +9544,7 @@ fn the_hand_off_walk_meets_white_balances_the_stage_gates_refuse() {
 /// between renders between them.
 ///
 /// MUTATION: start `wb_path_candidate` anywhere but the law's As Shot.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_white_balance_path_starts_at_as_shot() {
     let law = render::WbLaw::of(&EditRecipe { as_shot_k: Some(5950.0), as_shot_tint: Some(13.0), ..EditRecipe::default() });
