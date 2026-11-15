@@ -111,16 +111,16 @@ match autoshade::store::with_develop_lock(
                 // baseline keeping them (the
                 // disk form) lit ● the instant a
                 // successful analyze landed.
-                self.saved_recipe = self.recipe.clone();
+                self.hist.saved_recipe = self.recipe.clone();
                 self.nav_stash.remove(&p);
-                self.pixels_on_disk = origin;
+                self.hist.pixels_on_disk = origin;
                 // The strip mirror advances WITH
                 // the commit (the Ctrl+S rule):
                 // all-or-nothing, so a failed
                 // commit leaves it untouched and
                 // the background-variant unsaved
                 // protection armed.
-                self.saved_strip = strip_rec;
+                self.hist.saved_strip = strip_rec;
                 self.forget_open_base();
                 if backed.is_some() {
                     self.refresh_versions();

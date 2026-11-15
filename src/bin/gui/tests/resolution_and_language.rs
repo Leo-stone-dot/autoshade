@@ -231,10 +231,14 @@
             keep_skin: None,
         };
         let mut app = AutoShadeApp {
+            hist: HistoryState {
+                committed: step(&current, "current"),
+                ..Default::default()
+            },
             preview_edge: 1280,
             // A REAL source: without it the ruler took its `unwrap_or`
-            // fallback and never the delivered-edge path this test covers.
-            source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+// fallback and never the delivered-edge path this test covers.
+source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             base_preview: Some(current.clone()),
             variants: vec![Variant {
                 id: String::new(),
@@ -245,10 +249,9 @@
                 origin: Some(PathBuf::from("out/_current.png")),
                 thumb: None,
             }],
-            committed: step(&current, "current"),
             ..Default::default()
         };
-        app.undo_stack.push(step(&superseded, "superseded"));
+        app.hist.undo_stack.push(step(&superseded, "superseded"));
         app.undo(&ctx);
         assert!(
             app.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &superseded)),
@@ -397,15 +400,15 @@
             origin: None,
             keep_skin: None,
         };
-        app.undo_stack.push(step());
-        app.redo_stack.push(step());
+        app.hist.undo_stack.push(step());
+        app.hist.redo_stack.push(step());
         app.tx
             .send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed")))))
             .unwrap();
         app.poll_workers(&ctx);
         assert!(app.src_path.is_none(), "premise: a FRESH open failed into the no-photo state");
         assert!(
-            app.undo_stack.is_empty() && app.redo_stack.is_empty(),
+            app.hist.undo_stack.is_empty() && app.hist.redo_stack.is_empty(),
             "the dead photo's history goes with it"
         );
         // …so an undo here cannot reinstate the recipe of a photo that is gone.

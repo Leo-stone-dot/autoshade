@@ -154,19 +154,16 @@ pub(crate) struct AutoShadeApp {
     // origin), so a baked pixel retouch (heal / clone / denoise) is
     // one undoable step instead of a point of no return. Arc clones share the
     // allocation — only a retouch introduces a new raster into history.
-    pub(crate) committed: UndoStep,        // current history head (last committed state)
-    pub(crate) undo_stack: Vec<UndoStep>,  // prior states, most recent last
-    pub(crate) redo_stack: Vec<UndoStep>,  // states undone away (cleared on a new edit)
+    /// The undo history and the ● baseline; see [`HistoryState`].
+    pub(crate) hist: HistoryState,
     // --- unsaved-edit protection ---
     // What recipe.json last held: the develop of the card that was active at
     // the last save. `active_baseline` joins it with saved_strip so every card
     // is compared to its own persisted state.
-    pub(crate) saved_recipe: EditRecipe,
     // Mirror of the open photo's pixels.json (the saved baked-master path, if
     // any) so the per-frame ● indicator can compare pixel identity WITHOUT a
     // disk read per frame. Updated at open, save, analyze-save and clear; it is
     // the pixel half of the last-saved active card's baseline.
-    pub(crate) pixels_on_disk: Option<PathBuf>,
     /// Mirror of the photo's persisted `variants.json` (resolved form), the
     /// baseline the background-variant dirty test compares the live strip
     /// against. `None` = nothing persisted (the trivial single-card case).
@@ -174,7 +171,6 @@ pub(crate) struct AutoShadeApp {
     /// variants against the ACTIVE canvas's `saved_recipe`/`pixels_on_disk`
     /// instead (the pre-v0.22 rule) made any two-origin strip permanently
     /// "unsaved" — the quit dialog then re-armed forever.
-    pub(crate) saved_strip: Option<autoshade::store::VariantsRecord>,
     pub(crate) nav_stash: HashMap<PathBuf, StashEntry>,
     /// Master decodes in flight, keyed (photo, origin): repeat clicks into a
     /// still-decoding cold card must coalesce, not stack a fresh full-res
@@ -827,8 +823,8 @@ impl AutoShadeApp {
             // unlock that would never come (no photo, no history). Only a
             // press that WOULD have acted earns a refusal; the rest stay the
             // silent no-ops the disabled buttons are.
-            let armed_undo = do_undo && self.src_path.is_some() && !self.undo_stack.is_empty();
-            let armed_redo = do_redo && self.src_path.is_some() && !self.redo_stack.is_empty();
+            let armed_undo = do_undo && self.src_path.is_some() && !self.hist.undo_stack.is_empty();
+            let armed_redo = do_redo && self.src_path.is_some() && !self.hist.redo_stack.is_empty();
             if self.busy {
                 if armed_undo || armed_redo {
                     let t = tr(
@@ -1192,14 +1188,14 @@ impl AutoShadeApp {
                     }
                 });
                 group(ui, &[tr(lang, "↶ Undo"), tr(lang, "↷ Redo")], 0, |ui| {
-                    if action(ui, ready && !self.undo_stack.is_empty(), tr(lang, "↶ Undo"))
+                    if action(ui, ready && !self.hist.undo_stack.is_empty(), tr(lang, "↶ Undo"))
                         .on_hover_text(tr(lang, "Ctrl+Z · undo the last edit"))
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
                         self.undo(&ctx);
                     }
-                    if action(ui, ready && !self.redo_stack.is_empty(), tr(lang, "↷ Redo"))
+                    if action(ui, ready && !self.hist.redo_stack.is_empty(), tr(lang, "↷ Redo"))
                         .on_hover_text(tr(lang, "Ctrl+Y · redo the undone edit"))
                         .clicked()
                     {
@@ -1767,9 +1763,7 @@ impl Default for AutoShadeApp {
             exp: ExportState::default(),
             // ./out — the CLI's and the batch renderer's own root; mirror
             // Prefs::default so a missing pref key means exactly this.
-            committed: UndoStep::default(),
-            undo_stack: Vec::new(),
-            redo_stack: Vec::new(),
+            hist: HistoryState::default(),
             zoned_fit: true,
             zoned_four_regions: false,
             // Paid opt-in (a vision call per fit) — mirror Prefs::default.
@@ -1798,9 +1792,6 @@ impl Default for AutoShadeApp {
             accent: AccentPref::Gold,
             gal: GalleryState::default(),
             base_cache: Vec::new(),
-            saved_recipe: EditRecipe::default(),
-            pixels_on_disk: None,
-            saved_strip: None,
             nav_stash: HashMap::new(),
             master_loads: std::collections::HashSet::new(),
             master_cache: Vec::new(),

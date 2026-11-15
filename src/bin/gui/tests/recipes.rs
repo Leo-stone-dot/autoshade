@@ -135,7 +135,7 @@ fn applying_a_recipe_to_the_canvas_is_an_unsaved_edit() {
     recipe_library::create(&name, &EditRecipe { exposure_ev: 0.9, contrast: 21.0, ..Default::default() }).unwrap();
 
     let mut app = app_with(&photo, EditRecipe::default());
-    app.saved_recipe = app.recipe.clone();
+    app.hist.saved_recipe = app.recipe.clone();
     app.apply_recipe_to_open(&name);
     assert!((app.recipe.exposure_ev - 0.9).abs() < 1e-6, "{}", app.recipe.exposure_ev);
     assert_eq!(app.recipe.contrast, 21.0);

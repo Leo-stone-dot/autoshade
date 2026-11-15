@@ -444,7 +444,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // ● unsaved lit and lets nav_stash protect the fit —
                     // the ordinary unsaved-edit path takes over.
                     if out.persisted {
-                        self.saved_recipe = out.recipe.clone();
+                        self.hist.saved_recipe = out.recipe.clone();
                         self.nav_stash.remove(
                             &self.src_path.clone().unwrap_or_default(),
                         );
@@ -454,7 +454,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // off it), cleared otherwise (a fit is
                         // source-based) — so the per-frame ● pixel
                         // comparison's disk mirror stays in step with it.
-                        self.pixels_on_disk = out.negative.clone();
+                        self.hist.pixels_on_disk = out.negative.clone();
                     }
                     self.refresh_versions();
                     // The landing's words are the logic layer's
@@ -537,7 +537,7 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             if let Some((p, r)) = self.pasted_open.take()
                 && self.src_path.as_ref() == Some(&p)
             {
-                self.saved_recipe = r;
+                self.hist.saved_recipe = r;
                 self.nav_stash.remove(&p);
             }
             // The counts and the sidecar disclosures are the logic layer's

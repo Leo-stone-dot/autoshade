@@ -98,7 +98,7 @@
         // instead (Codex batch 41).
         let (mut app, _scrub) = app_with_masked_photo("rename");
         app.recipe.masks[0].name = "sky".into();
-        app.saved_recipe = app.recipe.clone();
+        app.hist.saved_recipe = app.recipe.clone();
         let old = std::path::PathBuf::from("out/_rename_old.arw");
         app.src_path = Some(old.clone());
         app.mask_name_buf = Some((0, "sky".into(), "sky gradient".into()));
@@ -109,7 +109,7 @@
             "open_path itself must flush the pending rename"
         );
         assert!(
-            dirty_vs(&app.recipe, &app.saved_recipe),
+            dirty_vs(&app.recipe, &app.hist.saved_recipe),
             "the flushed rename must read as unsaved (the close guard's gate)"
         );
         let stash = app.nav_stash.get(&old).expect("a dirty canvas must be stashed");
@@ -140,9 +140,9 @@
         // clean photo the user merely visited, the quit dialog listed them
         // as unsaved, and Save-all wrote sidecars for zero user edits.
         let (mut app, _scrub) = app_with_masked_photo("chainstash");
-        app.saved_recipe = app.recipe.clone(); // this canvas is clean
+        app.hist.saved_recipe = app.recipe.clone(); // this canvas is clean
         app.variants[0].origin = None;
-        app.pixels_on_disk = None;
+        app.hist.pixels_on_disk = None;
         let clean = std::env::temp_dir().join(format!("autoshade-chain-{}/clean.ARW", std::process::id()));
         app.src_path = Some(clean.clone());
         // ANOTHER photo's stash holds a dirty background variant.
@@ -198,7 +198,7 @@
             origin: Some(PathBuf::from("out/_h4_gen.png")),
             thumb: None,
         });
-        app.saved_recipe = app.recipe.clone(); // active canvas clean
+        app.hist.saved_recipe = app.recipe.clone(); // active canvas clean
         // Unique stem, load-bearing for THIS path: the synthetic Opened
         // below lands on the fresh arm, whose read_saved_develop migrates
         // cwd ./out legacy sidecars by stem (see the keep-fact test). The
@@ -783,7 +783,7 @@
         );
         assert_eq!(app.recipe.saturation, 0.0);
         assert!(app.recipe.base_curve.is_empty(), "calibration stripped on AI pixels");
-        assert!(app.saved_recipe.is_noop(), "the ● baseline agrees");
+        assert!(app.hist.saved_recipe.is_noop(), "the ● baseline agrees");
         assert!(!app.unsaved_marker_dirty(), "a clean open: {}", app.status);
         assert!(
             !app.status.contains("(XMP)"),

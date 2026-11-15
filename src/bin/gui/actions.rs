@@ -707,7 +707,7 @@ impl AutoShadeApp {
 
     fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {
         let live = self.variants.get(live_position)?;
-        let rec = match &self.saved_strip {
+        let rec = match &self.hist.saved_strip {
             Some(rec) => rec,
             None => {
                 let trivial = self.variants.len() == 1
@@ -723,8 +723,8 @@ impl AutoShadeApp {
                     kind: VariantKind::Original,
                     id: Some(ORIGINAL_VARIANT_ID),
                     name: None,
-                    recipe: &self.saved_recipe,
-                    origin: self.pixels_on_disk.as_deref(),
+                    recipe: &self.hist.saved_recipe,
+                    origin: self.hist.pixels_on_disk.as_deref(),
                 });
             }
         };
@@ -743,8 +743,8 @@ impl AutoShadeApp {
                 kind,
                 id: rec.active_id.as_deref(),
                 name: rec.active_name.as_deref(),
-                recipe: &self.saved_recipe,
-                origin: self.pixels_on_disk.as_deref(),
+                recipe: &self.hist.saved_recipe,
+                origin: self.hist.pixels_on_disk.as_deref(),
             });
         }
 
@@ -833,7 +833,7 @@ impl AutoShadeApp {
         if self.variants.is_empty() {
             return 0;
         }
-        let Some(rec) = &self.saved_strip else {
+        let Some(rec) = &self.hist.saved_strip else {
             let active = self.active_variant();
             let trivial = self.variants.len() == 1
                 && self.active == 0
@@ -862,8 +862,8 @@ impl AutoShadeApp {
                 kind,
                 id: rec.active_id.as_deref(),
                 name: rec.active_name.as_deref(),
-                recipe: &self.saved_recipe,
-                origin: self.pixels_on_disk.as_deref(),
+                recipe: &self.hist.saved_recipe,
+                origin: self.hist.pixels_on_disk.as_deref(),
             });
         }
         persisted.extend(rec.others.iter().enumerate().filter_map(|(i, entry)| {
@@ -987,11 +987,11 @@ impl AutoShadeApp {
         match self.current_strip_record() {
             Some(rec) => {
                 autoshade::store::write_variants(path, &rec)?;
-                self.saved_strip = Some(rec);
+                self.hist.saved_strip = Some(rec);
             }
             None => {
                 autoshade::store::clear_variants(path)?;
-                self.saved_strip = None;
+                self.hist.saved_strip = None;
             }
         }
         Ok(())
@@ -2293,9 +2293,9 @@ impl AutoShadeApp {
     /// becomes the current head — with no photo open that is the empty step,
     /// which is exactly what stops the next settled frame pushing a phantom.
     pub(crate) fn reset_history(&mut self) {
-        self.committed = self.current_step();
-        self.undo_stack.clear();
-        self.redo_stack.clear();
+        self.hist.committed = self.current_step();
+        self.hist.undo_stack.clear();
+        self.hist.redo_stack.clear();
     }
 
     /// Commit the current state as one undo step RIGHT NOW (when it differs
@@ -2305,16 +2305,16 @@ impl AutoShadeApp {
     /// while keeping the freshly retouched pixels installed.
     pub(crate) fn commit_now(&mut self) {
         let cur = self.current_step();
-        if cur.recipe != self.committed.recipe || !cur.same_pixels(&self.committed) {
-            self.undo_stack.push(std::mem::replace(&mut self.committed, cur));
-            if self.undo_stack.len() > 100 {
-                self.undo_stack.remove(0); // cap history memory
+        if cur.recipe != self.hist.committed.recipe || !cur.same_pixels(&self.hist.committed) {
+            self.hist.undo_stack.push(std::mem::replace(&mut self.hist.committed, cur));
+            if self.hist.undo_stack.len() > 100 {
+                self.hist.undo_stack.remove(0); // cap history memory
             }
-            self.redo_stack.clear();
+            self.hist.redo_stack.clear();
         } else {
             // A flip of the skin switch that changed no value belongs to the
             // step on screen, so a later undo/redo hands it back as set.
-            self.committed.keep_skin = cur.keep_skin;
+            self.hist.committed.keep_skin = cur.keep_skin;
         }
     }
 
@@ -2474,9 +2474,9 @@ impl AutoShadeApp {
     /// and O(1)). A restored `base: None` reverts a retouched source variant
     /// to the shared source neutral.
     pub(crate) fn apply_step(&mut self, step: UndoStep, ctx: &egui::Context) {
-        let pixels_differ = !step.same_pixels(&self.committed);
+        let pixels_differ = !step.same_pixels(&self.hist.committed);
         let keep_skin = step.keep_skin;
-        self.committed = step.clone();
+        self.hist.committed = step.clone();
         self.recipe = step.recipe;
         // The history is a READER too: a step recorded while the canvas was
         // washed reinstalls the pre-era pair on undo/redo — and the actor
@@ -2516,7 +2516,7 @@ impl AutoShadeApp {
             && let Some(p) = self.src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()
         {
-            self.committed.recipe = self.recipe.clone();
+            self.hist.committed.recipe = self.recipe.clone();
             if let Some(v) = self.variants.get_mut(self.active) {
                 v.recipe = self.recipe.clone();
             }
@@ -2747,15 +2747,15 @@ impl AutoShadeApp {
     }
 
     pub(crate) fn undo(&mut self, ctx: &egui::Context) {
-        if let Some(prev) = self.undo_stack.pop() {
-            self.redo_stack.push(self.committed.clone());
+        if let Some(prev) = self.hist.undo_stack.pop() {
+            self.hist.redo_stack.push(self.hist.committed.clone());
             self.apply_step(prev, ctx);
         }
     }
 
     pub(crate) fn redo(&mut self, ctx: &egui::Context) {
-        if let Some(next) = self.redo_stack.pop() {
-            self.undo_stack.push(self.committed.clone());
+        if let Some(next) = self.hist.redo_stack.pop() {
+            self.hist.undo_stack.push(self.hist.committed.clone());
             self.apply_step(next, ctx);
         }
     }
@@ -3114,7 +3114,7 @@ impl AutoShadeApp {
                             // way-out re-check compares live-trivial against
                             // a stale record and bounces the close.
                             if self.src_path.as_deref() == Some(p.as_path()) {
-                                self.saved_strip = None;
+                                self.hist.saved_strip = None;
                             }
                             // Cleared, but not MARKED — same channel as the XMP
                             // half: quitting silently would let a projection
@@ -3215,14 +3215,14 @@ impl AutoShadeApp {
                             eprintln!("⚠ {}: {note}", autoshade::pipeline::stem(p));
                         }
                         if self.src_path.as_deref() == Some(p.as_path()) {
-                            self.saved_strip = strip.clone();
+                            self.hist.saved_strip = strip.clone();
                             // The FOURTH mirror of the single-save set
                             // (export.rs): pixels.json for the ACTIVE photo
                             // just committed, and without this the ● badge
                             // and the exit re-check compared against a stale
                             // master link — a just-saved retouch was
                             // re-reported as unsaved (L11-6).
-                            self.pixels_on_disk = pix.as_ref().map(|(o, _)| o.clone());
+                            self.hist.pixels_on_disk = pix.as_ref().map(|(o, _)| o.clone());
                         }
                     }
                     Err(e) => {
@@ -3315,7 +3315,7 @@ impl AutoShadeApp {
             match failed {
                 None => {
                     self.nav_stash.clear();
-                    self.saved_recipe = self.recipe.clone();
+                    self.hist.saved_recipe = self.recipe.clone();
                     self.confirm_quit = false;
                     // The close guard re-checks on the way out. Everything
                     // above just persisted, so the re-check passes — but if
@@ -3358,7 +3358,7 @@ impl AutoShadeApp {
             }
         } else if discard_quit {
             self.nav_stash.clear();
-            self.saved_recipe = self.recipe.clone();
+            self.hist.saved_recipe = self.recipe.clone();
             // The answer to the guard's question, recorded: these two lines
             // clean the ACTIVE canvas, but a background variant's edits have
             // nowhere to be saved, so nothing can make them "clean" — only
