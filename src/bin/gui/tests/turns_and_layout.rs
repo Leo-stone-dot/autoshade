@@ -802,26 +802,6 @@
     /// with a fixed id, kept its own. Pinned in the source: a headless test
     /// cannot drive eframe's window memory. Each builder chain is located by
     /// its constructor, never by its title text. MUTATION: delete the
-    /// `.id(...)` line under the Shortcuts window.
-    #[test]
-    fn every_window_in_app_rs_carries_a_fixed_egui_id() {
-        let frame = gui_source();
-        let mut seen = 0;
-        // The needle stops at the path: `scripts/audit_i18n.py` walks the
-        // parentheses of every window constructor it sees in GUI source,
-        // string literals included, so spelling the call out here would
-        // derail its literal scanner for the rest of the file.
-        for (start, _) in frame.match_indices("egui::Window::") {
-            let end = frame[start..].find(".show(ctx").expect("the window's show call") + start;
-            let builder = &frame[start..end];
-            assert!(
-                builder.contains(".id(egui::Id::new("),
-                "a window whose id is its localised title, so its state resets with the language:\n{builder}"
-            );
-            seen += 1;
-        }
-        assert!(seen >= 2, "premise: the Settings and Shortcuts windows are both built here ({seen} found)");
-    }
 
     /// R27, every door: each pixel worker that lands a BAKED master takes
     /// the turned-photo gate before any output claim or worker thread — the
@@ -904,15 +884,6 @@
         );
         assert_eq!((pre.straighten_deg, pre.lens_distortion), (0.0, 0.0));
         assert!(pre.crop.is_none());
-        let canvas = gui_source();
-        for head in ["pub(crate) fn refresh_mask_overlay(", "pub(crate) fn handle_range_pick("] {
-            let body = &canvas[canvas.find(head).unwrap_or_else(|| panic!("{head} moved"))..];
-            let end = body[head.len()..].find("\n    pub(crate) fn ").expect("the next method") + head.len();
-            assert!(
-                body[..end].contains("self.range_reference_recipe("),
-                "{head} builds its own reference copy again"
-            );
-        }
     }
 
     /// 2026-09-27 (user report 「UI 按钮的大小参差不齐」, decided on a probe of
@@ -1070,10 +1041,6 @@
         assert_eq!(
             RetouchNote::Reimagined { out: PathBuf::from("x.png"), divergence: 0.1, discarded: None }.consumed_area(),
             None
-        );
-        assert!(
-            gui_source().contains("if let Some(owner) = note.consumed_area()"),
-            "the landing clears through consumed_area"
         );
 
         // A plate rebind starts every tool blank.

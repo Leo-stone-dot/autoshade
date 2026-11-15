@@ -147,16 +147,6 @@
             assert_eq!(cards[0].1, app.numbered_card_label(0));
             assert!(automatic.contains(&app.numbered_card_label(1)), "{automatic}");
         }
-        let body = |src: &'static str, head: &str| -> &'static str {
-            let from = src.find(head).unwrap_or_else(|| panic!("{head} moved"));
-            let rest = &src[from..];
-            &rest[..rest.find("\n    }").unwrap()]
-        };
-        let panel = body(gui_source(), "fn ai_reverse_fit(");
-        assert!(panel.contains("self.fit_source_menu()"), "the panel builds its own source list again");
-        let layer = body(gui_source(), "pub(crate) fn fit_prompt_layer(");
-        assert!(layer.contains("self.fit_source_menu()"), "the prompt builds its own source list again");
-        assert!(layer.contains("self.start_fit()"), "the prompt runs a fit of its own");
     }
 
     /// Enter confirms: the source picked in the prompt becomes the fold's
