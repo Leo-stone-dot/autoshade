@@ -309,11 +309,14 @@
         let src = std::env::temp_dir().join(format!("autoshade-library-{}/DSC00042.ARW", std::process::id()));
         let asking = AutoShadeApp {
             src_path: Some(src.clone()),
-            exp_dest: ExportDest::Ask,
-            exp_format: ExportFormat::Jpeg,
-            // A remembered folder is present ON PURPOSE: "ask every time" must
-            // outrank it, or the setting silently becomes "last used".
-            last_export_dir: Some(std::env::temp_dir().join(format!("autoshade-deliver-{}/tripA", std::process::id()))),
+            exp: ExportState {
+                dest: ExportDest::Ask,
+                format: ExportFormat::Jpeg,
+                // A remembered folder is present ON PURPOSE: "ask every time"
+                // must outrank it, or the setting silently becomes "last used".
+                last_dir: Some(std::env::temp_dir().join(format!("autoshade-deliver-{}/tripA", std::process::id()))),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert_eq!(asking.export_route(), ExportRoute::Ask);
@@ -330,8 +333,11 @@
         // that never renders anything at all.
         let direct = AutoShadeApp {
             src_path: Some(src),
-            exp_dest: ExportDest::OutFolder,
-            exp_format: ExportFormat::Jpeg,
+            exp: ExportState {
+                dest: ExportDest::OutFolder,
+                format: ExportFormat::Jpeg,
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert_eq!(direct.export_route(), ExportRoute::Render(candidate));
@@ -377,7 +383,7 @@
         let refused = std::env::temp_dir().join(format!("autoshade-library-{}/2026-08", std::process::id()));
         let mut app = AutoShadeApp {
             busy: true,
-            last_export_dir: Some(kept.clone()),
+            exp: ExportState { last_dir: Some(kept.clone()), ..Default::default() },
             ..Default::default()
         };
         app.tx
@@ -395,7 +401,7 @@
             .unwrap();
         app.poll_workers(&ctx);
         assert_eq!(
-            app.last_export_dir.as_deref(),
+            app.exp.last_dir.as_deref(),
             Some(kept.as_path()),
             "a batch that delivered nothing must leave the memory alone"
         );
@@ -417,7 +423,7 @@
             .unwrap();
         ok_app.poll_workers(&ctx);
         assert_eq!(
-            ok_app.last_export_dir.as_deref(),
+            ok_app.exp.last_dir.as_deref(),
             Some(landed.as_path()),
             "the folder the files really landed in becomes ExportDest::LastUsed"
         );
@@ -446,7 +452,7 @@
 
         // First delivery: nothing in the way, so it lands with no confirmation.
         app.export_xmp_beside();
-        assert!(!app.xmp_beside_confirm, "an unobstructed hand-off needs no confirm");
+        assert!(!app.exp.xmp_beside_confirm, "an unobstructed hand-off needs no confirm");
         assert_eq!(std::fs::read(&beside).unwrap(), b"<x:xmpmeta>ours</x:xmpmeta>");
         assert!(
             app.status.contains(&abs_display(&beside)),
@@ -457,7 +463,7 @@
         // Lightroom's own file appears there. One click must ARM, not write.
         std::fs::write(&beside, b"<x:xmpmeta>LIGHTROOM</x:xmpmeta>").unwrap();
         app.export_xmp_beside();
-        assert!(app.xmp_beside_confirm, "the armed state is the confirmation");
+        assert!(app.exp.xmp_beside_confirm, "the armed state is the confirmation");
         assert_eq!(
             std::fs::read(&beside).unwrap(),
             b"<x:xmpmeta>LIGHTROOM</x:xmpmeta>",
@@ -470,7 +476,7 @@
 
         // Second click: armed ⇒ overwrite, then disarm.
         app.export_xmp_beside();
-        assert!(!app.xmp_beside_confirm, "the arm is spent");
+        assert!(!app.exp.xmp_beside_confirm, "the arm is spent");
         assert_eq!(std::fs::read(&beside).unwrap(), b"<x:xmpmeta>ours</x:xmpmeta>");
 
         // A non-RAW cannot: its neighbouring .xmp is another program's file.

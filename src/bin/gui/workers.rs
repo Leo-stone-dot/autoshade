@@ -105,7 +105,7 @@ impl AutoShadeApp {
                 Msg::Exported(Ok(outcome)) => {
                     // Normal's Save group words its own landing (`normal.rs`).
                     let plain = self.normal_delivery_words(lang, &outcome);
-                    self.batch_progress = None; // the bar belongs to ONE batch run
+                    self.exp.batch_progress = None; // the bar belongs to ONE batch run
                     match outcome {
                         ExportOutcome::Single { out, relooked, warn } => {
                             // ABSOLUTE (R22-7): the deliverable exists NOW, and
@@ -151,7 +151,7 @@ impl AutoShadeApp {
                             // lands nothing and must not be remembered. `ok > 0`
                             // is the proof that at least one file is there.
                             if ok > 0 {
-                                self.last_export_dir = Some(dest.clone());
+                                self.exp.last_dir = Some(dest.clone());
                             }
                             let words = logic::export_landing::batch_words(
                                 ok,
@@ -182,12 +182,12 @@ impl AutoShadeApp {
                     }
                 }
                 Msg::Exported(Err(e)) => {
-                    self.batch_progress = None;
+                    self.exp.batch_progress = None;
                     self.normal.delivering = false;
                     self.fail(tr(lang, "export failed"), e);
                 }
                 Msg::BatchProgress { done, total } => {
-                    self.batch_progress = Some((done, total));
+                    self.exp.batch_progress = Some((done, total));
                     // No destination here: the tick fires once per photo and the
                     // root was already named when the batch started (and is
                     // named again at the landing). Repeating it 500 times only

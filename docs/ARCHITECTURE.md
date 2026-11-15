@@ -7648,7 +7648,9 @@ file contains `rfd::`, a worker spawn, a develop-store write or a direct
 `start_*` call. The app struct is being split by feature state as
 well: `model::GalleryState` owns the gallery's scan, thumbnail cache, selection
 and test-seam rects, so `AutoShadeApp` keeps one `gal` field instead of
-thirteen and a gallery feature no longer edits the app struct.
+thirteen and a gallery feature no longer edits the app struct. `model::ExportState` does the same for the Export
+panel's dials, delivery target and save-denoise options (one `exp` field), and
+the app struct is down from 234 to 209 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

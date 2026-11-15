@@ -101,14 +101,14 @@ impl AutoShadeApp {
         app.style_src_dir = prefs.style_src_dir.clone().filter(|d| d.is_dir());
         app.style_raw_dir = prefs.style_raw_dir.clone().filter(|d| d.is_dir());
         app.direction_adherence = autoshade::recipe::DirectionAdherence::new(prefs.direction_adherence).get();
-        app.exp_format = ExportFormat::from_pref(prefs.exp_format, prefs.save_jpeg);
-        app.exp_dest = ExportDest::from_pref(prefs.exp_dest);
-        app.last_export_dir = prefs.last_export_dir.clone();
-        app.save_denoise = prefs.save_denoise;
-        app.save_denoise_strength = prefs.save_denoise_strength.clamp(0.0, 1.0);
-        app.denoise_strength = prefs.denoise_strength.clamp(0.0, 1.0);
-        app.baked_denoise_strength = prefs.baked_denoise_strength.clamp(0.0, 1.0);
-        app.baked_save_denoise_strength = prefs.baked_save_denoise_strength.clamp(0.0, 1.0);
+        app.exp.format = ExportFormat::from_pref(prefs.exp_format, prefs.save_jpeg);
+        app.exp.dest = ExportDest::from_pref(prefs.exp_dest);
+        app.exp.last_dir = prefs.last_export_dir.clone();
+        app.exp.save_denoise = prefs.save_denoise;
+        app.exp.save_denoise_strength = prefs.save_denoise_strength.clamp(0.0, 1.0);
+        app.exp.denoise_strength = prefs.denoise_strength.clamp(0.0, 1.0);
+        app.exp.baked_denoise_strength = prefs.baked_denoise_strength.clamp(0.0, 1.0);
+        app.exp.baked_save_denoise_strength = prefs.baked_save_denoise_strength.clamp(0.0, 1.0);
         app.zoned_fit = prefs.zoned_fit;
         app.zoned_four_regions = prefs.zoned_four_regions;
         app.fit_ai_judge = prefs.fit_ai_judge;
@@ -117,9 +117,9 @@ impl AutoShadeApp {
         app.ask_fit_after_generate = prefs.ask_fit_after_generate;
         app.adjust_quality = prefs.adjust_quality.min(2);
         app.view_mode = prefs.view_mode;
-        app.exp_long_edge = prefs.exp_long_edge;
-        app.exp_sharpen = prefs.exp_sharpen.clamp(0.0, 100.0);
-        app.exp_quality = prefs.exp_quality.clamp(1.0, 100.0);
+        app.exp.long_edge = prefs.exp_long_edge;
+        app.exp.sharpen = prefs.exp_sharpen.clamp(0.0, 100.0);
+        app.exp.quality = prefs.exp_quality.clamp(1.0, 100.0);
         app.show_clipping = prefs.show_clipping;
         // Restore the UI language (an older save without this key decoded to
         // `Lang::En` via `#[serde(default)]`, so this is always valid).
@@ -140,14 +140,14 @@ impl AutoShadeApp {
                 0 => {
                     // Era 1's historical RAW law. The final step below emits
                     // one note using the original saved values, not this hop.
-                    app.denoise_strength = 1.0;
-                    app.save_denoise_strength = 1.0;
+                    app.exp.denoise_strength = 1.0;
+                    app.exp.save_denoise_strength = 1.0;
                 }
                 1 => {
                     // The old file cannot tell which source used a shared
                     // dial. Preserve its choice for SCUNet, reset only RAW.
-                    app.baked_denoise_strength = prefs.denoise_strength.clamp(0.0, 1.0);
-                    app.baked_save_denoise_strength = prefs.save_denoise_strength.clamp(0.0, 1.0);
+                    app.exp.baked_denoise_strength = prefs.denoise_strength.clamp(0.0, 1.0);
+                    app.exp.baked_save_denoise_strength = prefs.save_denoise_strength.clamp(0.0, 1.0);
                     let default = autoshade::denoise::DEFAULT_STRENGTH_RAW;
                     if prefs.denoise_strength != default || prefs.save_denoise_strength != default {
                         app.startup_note = Some(trf(
@@ -160,15 +160,15 @@ impl AutoShadeApp {
                             ],
                         ));
                     }
-                    app.denoise_strength = default;
-                    app.save_denoise_strength = default;
+                    app.exp.denoise_strength = default;
+                    app.exp.save_denoise_strength = default;
                 }
                 _ => unreachable!("missing preference migration for era {era}"),
             }
         }
         // Only known color spaces — an out-of-range pref falls back to sRGB.
         if prefs.exp_space <= 2 {
-            app.exp_space = prefs.exp_space;
+            app.exp.space = prefs.exp_space;
         }
         // Only the known steps — a corrupt pref must not produce a 1-px
         // or 100-MP working preview.
@@ -193,10 +193,10 @@ impl AutoShadeApp {
 
     pub(crate) fn selected_denoise_strength(&self, on_export: bool) -> f32 {
         match (self.denoise_uses_raw(), on_export) {
-            (true, false) => self.denoise_strength,
-            (true, true) => self.save_denoise_strength,
-            (false, false) => self.baked_denoise_strength,
-            (false, true) => self.baked_save_denoise_strength,
+            (true, false) => self.exp.denoise_strength,
+            (true, true) => self.exp.save_denoise_strength,
+            (false, false) => self.exp.baked_denoise_strength,
+            (false, true) => self.exp.baked_save_denoise_strength,
         }
     }
 
@@ -465,7 +465,7 @@ impl AutoShadeApp {
         // carrying it across would let one click overwrite the NEXT photo's
         // Lightroom sidecar with no warning at all. Same reasoning as the
         // version list above.
-        self.xmp_beside_confirm = false;
+        self.exp.xmp_beside_confirm = false;
         self.status = trf(lang, "decoding {path} …", &[("path", &path.display().to_string())]);
         // Working-preview size is a user choice now (gap batch E): 1280 keeps
         // sliders fluid; 2560/4096 trade tick latency for real 1:1 detail when
@@ -3460,7 +3460,7 @@ impl AutoShadeApp {
         if self.start_render_with(out, export, None, false, how) {
             self.normal.delivering = true;
             if picked.is_some() {
-                self.last_export_dir = picked;
+                self.exp.last_dir = picked;
             }
         }
     }
@@ -3472,7 +3472,7 @@ impl AutoShadeApp {
             return pick;
         }
         let mut dlg = rfd::FileDialog::new().add_filter("jpg", &["jpg"]).set_file_name(name);
-        if let Some(d) = self.last_export_dir.clone().filter(|d| d.is_dir()) {
+        if let Some(d) = self.exp.last_dir.clone().filter(|d| d.is_dir()) {
             dlg = dlg.set_directory(d);
         }
         dlg.save_file()
