@@ -7708,7 +7708,9 @@ core state plus the scheduler and status line. The B pass splits `actions.rs` by
 strip's commands (load/switch/push/delete, fork/normalize, labels, row-action
 dispatch — 21 methods, 689 lines) now live in `variant_actions.rs`. The snapshot commands (`version_path`,
 `remap_mask_indices`, the list refresh, `version_is_from`, the name batch,
-save/load/delete — 8 methods, 476 lines) live in `version_actions.rs`.
+save/load/delete — 8 methods, 476 lines) live in `version_actions.rs`. The open path (`open_path` with its decode/
+re-develop hand-off and guards, the gallery row and the folder — 340 lines) lives
+in `open_actions.rs`.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

@@ -53,6 +53,7 @@ mod buttons;
 mod headings;
 mod theme;
 mod util;
+mod open_actions;
 mod variant_actions;
 mod version_actions;
 mod actions;
