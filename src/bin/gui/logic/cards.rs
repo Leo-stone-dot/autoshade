@@ -60,6 +60,23 @@ pub(crate) fn fit_negative(variants: &[Variant], active: usize, fit_from: Option
     fit_source_index(variants, active, fit_from).and_then(|i| variants[i].origin.clone())
 }
 
+/// Which card the reverse-fit's 「Automatic」 entry names: the negative rule.
+pub(crate) fn automatic_fit_card(variants: &[Variant], active: usize) -> Option<usize> {
+    negative_index(variants, active)
+}
+
+/// The cards the fit's 「From:」 menu offers, in strip order: every fit source.
+pub(crate) fn fit_source_cards(variants: &[Variant]) -> Vec<usize> {
+    (0..variants.len()).filter(|&i| is_fit_source(&variants[i])).collect()
+}
+
+/// A card's label with its place in the strip, so two cards of one kind stay
+/// apart (`name #2`). The caller supplies the label (a user name, else the
+/// translated kind label); the numbering is the strip's, not the view's.
+pub(crate) fn numbered_label(label: &str, index: usize) -> String {
+    format!("{label} #{}", index + 1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -76,6 +93,24 @@ mod tests {
         }
     }
 
+
+    #[test]
+    fn the_fit_menu_offers_the_sources_and_names_the_automatic_card() {
+        let strip = [
+            card(VariantKind::Original, "o", None),
+            card(VariantKind::Generated, "g", Some("g.png")),
+            card(VariantKind::Denoised, "d", Some("d.png")),
+        ];
+        assert_eq!(fit_source_cards(&strip), vec![0, 2], "Original + the remade master, strip order");
+        assert_eq!(automatic_fit_card(&strip, 1), Some(2), "automatic is the negative rule");
+        assert_eq!(automatic_fit_card(&[card(VariantKind::Fitted, "f", None)], 0), None);
+    }
+
+    #[test]
+    fn the_numbered_label_counts_from_one() {
+        assert_eq!(numbered_label("▣ Original", 0), "▣ Original #1");
+        assert_eq!(numbered_label("clean", 2), "clean #3");
+    }
     #[test]
     fn the_original_is_the_negative_when_no_remade_master_exists() {
         let strip = [card(VariantKind::Fitted, "f", None), card(VariantKind::Original, "o", None)];
