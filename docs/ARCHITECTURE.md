@@ -7545,15 +7545,16 @@ closed per domain (`Look`, `Lens`, `Gallery`), so a panel can only ask for its
 own verbs. `logic/` is headless — no widget code, no rendered text — so a
 domain is tested by calling it. The develop panel's scalar controls are a
 capability table too ([`logic/capability.rs`](../src/bin/gui/logic/capability.rs):
-`TONE`, `PRESENCE`, `value`/`set_value`): one row names the recipe field and the
-core catalogue spelling, while its slider BAND and its double-click RESET are
-both read from `advisor::catalogue::form_control` — the top-level
+`TONE`, `PRESENCE`, `TABLES`), and a ROW OWNS ITS OWN BEHAVIOUR: the recipe
+spelling, the label's text-resource id, the slider kind, and the read/write
+pair (or the companion encoding). The slider BAND and the double-click RESET
+are read from `advisor::catalogue::form_control` — the top-level
 `RECIPE_CONTROLS` rows (the table `EditRecipe::clamp` is pinned to) and the
 nested `color_grade` fields of `COLOR_GRADE_FIELDS` — and
 `panels/develop_forms.rs` turns a table into sliders in one loop (`render_rows`:
-plain, fine and companion rows) — the Tone, Presence, Effects, HDR, Crop,
-Detail, Transform, Lens, Calibration, the white balance's Tint row and the
-grading panel's Blending/Balance no longer spell a range or a reset by hand. The labels are text RESOURCES
+plain, fine and companion rows), so adding a control is one table row plus its
+core catalogue row — never a new enum variant or a new `match` in the
+renderer, command layer or label dispatch. The labels are text RESOURCES
 (Android/iOS model): one dotted key per string, its English and Chinese text in
 `resources/strings/{en,zh-Hans}.toml`, compiled by `scripts/gen_text.py` into
 the `K_…` constants (`autoshade::text`); `scripts/check_text.py` keeps the
@@ -7569,10 +7570,12 @@ Color rows and the grading wheels — live in
 row reports its change as a
 `logic::command::Command` — and the panel's SECTION list, the display order and
 the family set each ● reads, is a table too
-([`logic/sections.rs`](../src/bin/gui/logic/sections.rs): `SECTIONS`,
-`section_active`), where each row also registers whether it is a form or one
-of the custom widgets — `SetCapability` for a plain field, `SetCompanion`
-for the explicit-zero encoding — which the panel's `capability_rows` applies
+([`sections.rs`](../src/bin/gui/sections.rs): `SECTIONS`, `section_active`),
+where each row carries its OWN draw function, so the panel walks the table and
+calls `(section.draw)(self, ui, active)`: adding a section is a row plus a
+draw function in its module, never an enum variant and a central `match`.
+`SetCapability` carries the row's write (a plain field), `SetCompanion`
+the explicit-zero encoding — the panel's `capability_rows` applies both
 through `logic::command::apply`; the mask list's delete / eye / drag-reorder
 verbs are `Command::Mask` — plus `InsertMask` for the duplicate verb, whose
 raster detach and name the caller prepares — and the selection remap and the
