@@ -299,7 +299,7 @@
             })
             .collect();
         let photo = egui::ColorImage::new([w, h], px);
-        app.after_tex = Some(ctx.load_texture("shot-photo", photo, egui::TextureOptions::LINEAR));
+        app.plates.after_tex = Some(ctx.load_texture("shot-photo", photo, egui::TextureOptions::LINEAR));
         let ppp = 1.5;
         let mut tex = ShotTextures::default();
         let mut last = None;

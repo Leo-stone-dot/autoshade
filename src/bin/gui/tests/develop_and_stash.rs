@@ -18,7 +18,7 @@
         // used to be false from construction to the end).
         app.session.dirty = true;
         app.start_redevelop();
-        assert!(app.develop_inflight, "dispatch arms the in-flight flag");
+        assert!(app.scheduler.inflight, "dispatch arms the in-flight flag");
         assert!(!app.session.dirty, "dispatch consumes the pending edit");
         app.session.dirty = true;
         app.start_redevelop();
@@ -27,9 +27,9 @@
         // A matching frame is accepted and bumps the counter + sets the texture.
         let good = build_preview(base.clone(), app.doc.recipe.clone(), false, None, autoshade::render::SourceFrame::Baked(None));
         app.finish_redevelop(&ctx, Ok(good));
-        assert_eq!(app.develop_count, 1, "matching frame accepted");
-        assert!(app.after_tex.is_some(), "after texture set");
-        assert!(!app.develop_inflight, "inflight cleared on completion");
+        assert_eq!(app.scheduler.count, 1, "matching frame accepted");
+        assert!(app.plates.after_tex.is_some(), "after texture set");
+        assert!(!app.scheduler.inflight, "inflight cleared on completion");
 
         // Build a frame for the CURRENT recipe, then move the recipe on before
         // it "arrives": the stale frame must be discarded (counter unchanged)
@@ -40,7 +40,7 @@
         app.doc.recipe.masks[0].exposure_ev = 1.9; // user kept dragging
         app.session.dirty = false;
         app.finish_redevelop(&ctx, Ok(stale));
-        assert_eq!(app.develop_count, 1, "stale frame (recipe moved) discarded");
+        assert_eq!(app.scheduler.count, 1, "stale frame (recipe moved) discarded");
         assert!(app.session.dirty, "a discarded stale frame re-arms the pending edit");
 
     }
@@ -50,7 +50,7 @@
     /// first frame of another version lands on a fresh texture and starts a
     /// cross-fade from the old one, which the canvas clears once it is done.
     ///
-    /// MUTATION: drop the `self.after_shows == shows` guard (every frame
+    /// MUTATION: drop the `self.plates.after_shows == shows` guard (every frame
     /// fades) or the fade arm (no swap fades).
     #[test]
     fn a_swap_fades_in_and_a_rerender_does_not() {
@@ -64,26 +64,26 @@
         };
 
         app.finish_redevelop(&ctx, Ok(frame(&app)));
-        assert!(app.canvas_fade.is_some(), "the first frame fades in from the empty canvas");
-        let first = app.after_tex.as_ref().unwrap().id();
-        app.canvas_fade = None;
+        assert!(app.plates.canvas_fade.is_some(), "the first frame fades in from the empty canvas");
+        let first = app.plates.after_tex.as_ref().unwrap().id();
+        app.plates.canvas_fade = None;
 
         app.finish_redevelop(&ctx, Ok(frame(&app)));
-        assert!(app.canvas_fade.is_none(), "a re-render of the same version must not fade");
-        assert_eq!(app.after_tex.as_ref().unwrap().id(), first, "…and updates the texture in place");
+        assert!(app.plates.canvas_fade.is_none(), "a re-render of the same version must not fade");
+        assert_eq!(app.plates.after_tex.as_ref().unwrap().id(), first, "…and updates the texture in place");
 
         app.doc.active += 1; // the version the frame is for changed
         app.finish_redevelop(&ctx, Ok(frame(&app)));
-        let (old, _) = app.canvas_fade.as_ref().expect("a swap fades");
+        let (old, _) = app.plates.canvas_fade.as_ref().expect("a swap fades");
         assert_eq!(old.as_ref().map(|t| t.id()), Some(first), "the outgoing frame is the one faded out");
-        assert_ne!(app.after_tex.as_ref().unwrap().id(), first, "the new frame gets its own texture");
+        assert_ne!(app.plates.after_tex.as_ref().unwrap().id(), first, "the new frame gets its own texture");
 
         // Past the fade, the canvas drops the outgoing frame.
-        app.canvas_fade = Some((None, Instant::now() - Duration::from_secs(1)));
+        app.plates.canvas_fade = Some((None, Instant::now() - Duration::from_secs(1)));
         let _ = ctx.run(Default::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| app.after_view(ui, 400.0, 300.0, false));
         });
-        assert!(app.canvas_fade.is_none(), "a finished fade is cleared");
+        assert!(app.plates.canvas_fade.is_none(), "a finished fade is cleared");
     }
 
     #[test]

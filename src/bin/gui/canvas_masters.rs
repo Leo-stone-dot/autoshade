@@ -222,7 +222,7 @@ pub(crate) fn request_thumb(&mut self, idx: usize) {
 /// base pixels are Arc-shared and the recipe is small. While a frame is in
 /// flight, edits only set `dirty`; no parallel render storm is possible.
 pub(crate) fn start_redevelop(&mut self) {
-    if self.develop_inflight {
+    if self.scheduler.inflight {
         return;
     }
     // The canvas is only right over pixels that carry its recipe's base
@@ -250,7 +250,7 @@ pub(crate) fn start_redevelop(&mut self) {
     let recipe = self.doc.recipe.clone();
     let show_clipping = self.chrome.show_clipping;
     let film = self.film_short_edge();
-    self.develop_inflight = true;
+    self.scheduler.inflight = true;
     self.session.dirty = false;
     self.spawn_worker(
         move || Msg::Developed(Box::new(Ok(build_preview(base, recipe, show_clipping, film, source)))),
@@ -350,7 +350,7 @@ pub(crate) fn source_frame(&self) -> anyhow::Result<autoshade::render::SourceFra
 /// set by the newer edit and starts next. Texture handles are UPDATED in
 /// place, avoiding a manager allocate/free cycle on every slider tick.
 pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Result<PreviewDone>) {
-    self.develop_inflight = false;
+    self.scheduler.inflight = false;
     let frame = match done {
         Ok(frame) => frame,
         // Pure preview work has no ordinary error path; only a caught panic
@@ -380,7 +380,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         ctx.request_repaint();
         return;
     }
-    self.develop_count += 1;
+    self.scheduler.count += 1;
     self.chrome.histogram = Some(frame.histogram);
 
     // The ColorImage arrives worker-built (see PreviewDone.after) — the UI
@@ -390,15 +390,15 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     // drag must not flicker); the first frame of a different one lands on
     // a fresh texture and the old one fades out over it (MOTION_FADE_S).
     let shows = self.photo.src_path.clone().map(|p| (p, self.doc.active));
-    match &mut self.after_tex {
-        Some(tex) if self.after_shows == shows => tex.set(frame.after, egui::TextureOptions::LINEAR),
+    match &mut self.plates.after_tex {
+        Some(tex) if self.plates.after_shows == shows => tex.set(frame.after, egui::TextureOptions::LINEAR),
         old => {
             let fresh = ctx.load_texture("after", frame.after, egui::TextureOptions::LINEAR);
-            self.canvas_fade = Some((old.replace(fresh), Instant::now()));
+            self.plates.canvas_fade = Some((old.replace(fresh), Instant::now()));
             ctx.request_repaint();
         }
     }
-    self.after_shows = shows;
+    self.plates.after_shows = shows;
     // The clipping layer follows the CURRENT toggle, not the one baked at
     // dispatch: pressing J changes no recipe field, so an in-flight frame
     // is still accepted — its stale decision used to blank the layer under
