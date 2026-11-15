@@ -985,7 +985,7 @@ impl AutoShadeApp {
     /// The runner the workers call (a test's stand-in when one is set).
     pub(crate) fn ai_mask_runner(&self) -> AiMaskRunner {
         #[cfg(test)]
-        if let Some(stub) = self.ai_mask_stub {
+        if let Some(stub) = self.seams.ai_mask_stub {
             return stub;
         }
         resolve_ai_masks_locally

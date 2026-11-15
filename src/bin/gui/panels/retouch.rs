@@ -378,7 +378,7 @@ impl AutoShadeApp {
             // x from the Ui's USED region (cursor().max.x can be infinite in an
             // unbounded layout), y from the cursor the slider just advanced.
             let used = ui.min_rect();
-            self.brush_slider_rect = Some(egui::Rect::from_min_max(
+            self.seams.brush_slider_rect = Some(egui::Rect::from_min_max(
                 egui::pos2(used.left(), before.top()),
                 egui::pos2(used.right(), ui.cursor().top()),
             ));
@@ -552,7 +552,7 @@ impl AutoShadeApp {
                 );
                 #[cfg(test)]
                 {
-                    self.prompt_rects.push(_field.rect);
+                    self.seams.prompt_rects.push(_field.rect);
                 }
                 self.brush_row(ui, BrushOwner::Fill);
                 // R38: wrapped — quality and the full-res switch share a row

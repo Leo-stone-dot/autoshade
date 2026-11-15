@@ -566,7 +566,7 @@ rationale: "stale rationale".into(),
             },
         );
         assert_eq!(
-            app.edit_list_rows,
+            app.seams.edit_list_rows,
             vec!["variant:original", "variant:generated", "version:1", "version:2"],
             "cards above versions, in strip order then ascending"
         );
@@ -641,7 +641,7 @@ rationale: "stale rationale".into(),
                     },
                 );
             }
-            assert_eq!(app.edit_list_actions, want, "active={active}");
+            assert_eq!(app.seams.edit_list_actions, want, "active={active}");
             assert!(
                 (widths[0] - widths[2]).abs() < 0.5,
                 "active={active}: the controls panel must not grow ({widths:?})"
@@ -673,7 +673,7 @@ rationale: "stale rationale".into(),
                 });
             },
         );
-        assert_eq!(app.edit_list_actions, vec!["0:＋"]);
+        assert_eq!(app.seams.edit_list_actions, vec!["0:＋"]);
     }
 
     /// R24-3/R24-4, on the real panel: the strip's ACTIVE card carries the
@@ -720,7 +720,7 @@ rationale: "stale rationale".into(),
                     .show(ctx, |ui| app.variant_strip(ui));
             });
             let (rect, enabled) = app
-                .strip_apply
+                .seams.strip_apply
                 .unwrap_or_else(|| panic!("{kind:?}: the active card has no apply button"));
             assert!(rect.width() > 0.0, "{kind:?}: the apply button did not lay out");
             assert_eq!(
@@ -730,19 +730,19 @@ rationale: "stale rationale".into(),
             // The name affordance is there too, and a seeded buffer turns it
             // into the edit box (the version rows' shape, on the card's id).
             assert!(
-                app.strip_name_rect.is_some_and(|r| r.width() > 0.0),
+                app.seams.strip_name_rect.is_some_and(|r| r.width() > 0.0),
                 "{kind:?}: the active card offers no name affordance"
             );
             app.variant_name_buf =
                 Some((photo.clone(), "card-b".into(), String::new(), "dusk".into()));
-            app.strip_name_rect = None;
+            app.seams.strip_name_rect = None;
             let _ = ctx.run(input(), |ctx| {
                 egui::TopBottomPanel::bottom("variants")
                     .exact_height(AutoShadeApp::VARIANT_STRIP_H)
                     .show(ctx, |ui| app.variant_strip(ui));
             });
             assert!(
-                app.strip_name_rect.is_some_and(|r| r.width() > 0.0),
+                app.seams.strip_name_rect.is_some_and(|r| r.width() > 0.0),
                 "{kind:?}: the seeded rename box did not lay out"
             );
         }

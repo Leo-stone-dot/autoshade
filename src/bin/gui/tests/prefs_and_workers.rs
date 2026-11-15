@@ -477,7 +477,7 @@
                 (widths[0] - widths[2]).abs() < 0.5,
                 "{lang:?}: the side panel must not grow across frames: {widths:?}"
             );
-            let btn = app.reimagine_btn_rect.expect("the button records its rect (test seam)");
+            let btn = app.seams.reimagine_btn_rect.expect("the button records its rect (test seam)");
             let one_line = ctx.style().spacing.interact_size.y;
             assert!(
                 btn.height() <= one_line + 1.0,
@@ -504,7 +504,7 @@
         let ctx = egui::Context::default();
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
         let frame = |app: &mut AutoShadeApp| -> Option<bool> {
-            app.ai_gate_enabled = None; // this frame's evidence only
+            app.seams.ai_gate_enabled = None; // this frame's evidence only
             let _ = ctx.run(
                 egui::RawInput {
                     screen_rect: Some(egui::Rect::from_min_size(
@@ -519,7 +519,7 @@
                     });
                 },
             );
-            app.ai_gate_enabled
+            app.seams.ai_gate_enabled
         };
         // ① settled: live.
         let mut app = AutoShadeApp::default();
@@ -577,7 +577,7 @@
             // the panel), and this is what says so.
             let mut widths = Vec::new();
             for _ in 0..3 {
-                app.prompt_rects.clear(); // the LAST frame's evidence only
+                app.seams.prompt_rects.clear(); // the LAST frame's evidence only
                 let _ = ctx.run(input(), |ctx| {
                     // Both prompt-bearing folds are collapsed by default; egui's
                     // own test hook opens every collapsible (the same one the
@@ -599,12 +599,12 @@
                 "{lang:?}: the wide panel must not grow across frames: {widths:?}"
             );
             assert_eq!(
-                app.prompt_rects.len(),
+                app.seams.prompt_rects.len(),
                 5,
                 "{lang:?}: expected the Direction / AI adjust / Reimagine / Adjust / Fill prompts to lay out, got {:?}",
-                app.prompt_rects
+                app.seams.prompt_rects
             );
-            for (i, r) in app.prompt_rects.iter().enumerate() {
+            for (i, r) in app.seams.prompt_rects.iter().enumerate() {
                 assert!(
                     r.width() <= crate::theme::FIELD_W_MAX + 0.5,
                     "{lang:?}: prompt field {i} is {:.1} px wide on an 800 px panel — past the \
@@ -662,8 +662,8 @@
                     .exact_height(AutoShadeApp::VARIANT_STRIP_H)
                     .show(ctx, |ui| app.variant_strip(ui));
             });
-            let row = app.strip_row_rect.expect("the strip records its row (test seam)");
-            let card = app.strip_card_rect.expect("the strip records its card (test seam)");
+            let row = app.seams.strip_row_rect.expect("the strip records its row (test seam)");
+            let card = app.seams.strip_card_rect.expect("the strip records its card (test seam)");
             // Gaps bracket the whole CARD COLUMN (review finding 3: measuring
             // the top from the thumb keeps passing if something ever lands
             // above it), and a floor keeps "0 air on both sides" from
@@ -688,7 +688,7 @@
             // two geometries cohere (they diverged by ~29 px when the title
             // was a row child centered on egui's 26 px seed).
             let title =
-                app.strip_title_rect.expect("the strip records its painted title (test seam)");
+                app.seams.strip_title_rect.expect("the strip records its painted title (test seam)");
             let dy = title.center().y - card.center().y;
             assert!(
                 dy.abs() <= 1.0,
@@ -798,7 +798,7 @@
             };
             let mut widths = Vec::new();
             for frame in 0..3 {
-                app.brush_slider_rect = None; // this frame's evidence only
+                app.seams.brush_slider_rect = None; // this frame's evidence only
                 let _ = ctx.run(input(), |ctx| {
                     // Local Masks is a collapsed section by default; opening
                     // every collapsible is egui's own test hook for exactly
@@ -811,7 +811,7 @@
                         });
                     widths.push(r.response.rect.width());
                 });
-                let s = app.brush_slider_rect.unwrap_or_else(|| {
+                let s = app.seams.brush_slider_rect.unwrap_or_else(|| {
                     panic!(
                         "{lang:?} frame {frame}: no Brush size slider in the mask-brush \
                          session — the radius control is back in another panel"

@@ -95,8 +95,8 @@
         let ctx = egui::Context::default();
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
         let frame = |app: &mut AutoShadeApp| -> (Option<bool>, Option<bool>) {
-            app.ai_library_build_enabled = None; // this frame's evidence only
-            app.ai_library_read_enabled = None;
+            app.seams.ai_library_build_enabled = None; // this frame's evidence only
+            app.seams.ai_library_read_enabled = None;
             let _ = ctx.run(
                 egui::RawInput {
                     screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 900.0))),
@@ -111,7 +111,7 @@
                     });
                 },
             );
-            (app.ai_library_build_enabled, app.ai_library_read_enabled)
+            (app.seams.ai_library_build_enabled, app.seams.ai_library_read_enabled)
         };
         let mut app = AutoShadeApp::default();
         assert!(app.style_strength > 0.0, "premise: the app ships with Style above 0");
@@ -666,7 +666,7 @@
             let verb = tr(lang, "View full text…");
             let mut app = AutoShadeApp { lang, rationale: long.clone(), ..Default::default() };
             let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
-            let rect = app.analysis_box_rect.expect("the analysis box was drawn");
+            let rect = app.seams.analysis_box_rect.expect("the analysis box was drawn");
             assert!(
                 rect.height() <= crate::panels::ai::ANALYSIS_BOX_MAX_H + 0.5,
                 "{lang:?}: the analysis box grew to {:.0} px with its text",

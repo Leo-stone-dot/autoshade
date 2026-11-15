@@ -63,7 +63,7 @@
             for width in [320.0, 900.0] {
                 let mut app = app_with_fit_sources(lang);
                 ai_panel_at(&mut app, width);
-                let menu = app.fit_from_rect.expect("the From menu was drawn");
+                let menu = app.seams.fit_from_rect.expect("the From menu was drawn");
                 let extract = tr(lang, "Extract style");
                 let verb = crate::buttons::DRAWN
                     .with_borrow(|d| d.iter().find(|d| d.label == extract).map(|d| d.rect))
