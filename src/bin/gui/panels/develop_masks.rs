@@ -26,126 +26,8 @@ impl AutoShadeApp {
         .id_salt("sec_local")
         .default_open(false)
         , |ui| {
-            // R38: three equal cells — three free-width toggles in a
-            // non-wrapping row overran the default panel width in English.
-            ui.horizontal(|ui| {
-                let cell = columns(ui, 3);
-                let lin_armed = matches!(self.masks.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
-                if toggle_in(ui, cell, lin_armed, tr(lang, "＋ Linear")).on_hover_text(tr(lang, "Drag on the image: start = fully-applied side, end = unaffected side (Shift = horizontal/vertical)")).clicked() {
-                    self.disarm_tools();
-                    if !lin_armed {
-                        self.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
-                        self.status = tr(lang, "Drag on the image to draw a linear gradient (start fully applied → end unaffected; Shift = axis lock)").into();
-                    }
-                }
-                let rad_armed = matches!(self.masks.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
-                if toggle_in(ui, cell, rad_armed, tr(lang, "＋ Radial")).on_hover_text(tr(lang, "Drag on the image to draw an elliptical area")).clicked() {
-                    self.disarm_tools();
-                    if !rad_armed {
-                        self.masks.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
-                        self.status = tr(lang, "Drag on the image to draw a radial (elliptical) area").into();
-                    }
-                }
-                // LR's most-used local tool, finally: free-form brush →
-                // Bitmap mask (the raster carrier + bilinear sampler + cache
-                // all pre-existed; this wires the paint canvas into
-                // recipe.masks — see start_mask_brush / commit_mask_brush).
-                let brush_armed = matches!(self.masks.mask_brush, Some((None, _)));
-                if toggle_in(ui, cell, brush_armed, tr(lang, "🖌 Brush"))
-                    .on_hover_text(tr(lang, "Paint a free-form mask (drag the 「Brush size」 slider, or press [ / ]); 「Apply」 bakes it into a new mask"))
-                    .clicked()
-                {
-                    if brush_armed {
-                        self.disarm_tools();
-                    } else if self.base_preview.is_some() {
-                        self.apply_actions(vec![logic::Action::Develop(
-                            logic::develop::DevelopAction::MaskBrush(None),
-                        )]);
-                    }
-                }
-            });
-            // Brush-session controls (create OR raster-edit): erase toggle +
-            // the bake/cancel pair. Lives up here so it is visible whichever
-            // row armed the session.
-            if let Some((target, erase)) = self.masks.mask_brush {
-                ui.horizontal(|ui| {
-                    let cell = columns(ui, 3);
-                    if toggle_in(ui, cell, erase, tr(lang, "Erase"))
-                        .on_hover_text(tr(lang, "Strokes remove from the selection instead of adding"))
-                        .clicked()
-                    {
-                        self.masks.mask_brush = Some((target, !erase));
-                    }
-                    if primary_in(ui, cell, true, tr(lang, "✓ Apply")).clicked() {
-                        self.commit_mask_brush();
-                    }
-                    if action_in(ui, cell, true, tr(lang, "✕ Cancel")).clicked() {
-                        self.disarm_tools();
-                    }
-                });
-                // #9: the radius belongs AT THE TOOL. This is the same
-                // `self.masks.brush` the Retouch panel's slider drives (and the
-                // `[` / `]` keys) — one session block covers both arms, the
-                // 「＋ Brush」 above and 「🖌 Edit raster」 down in the mask row.
-                // Outside the row closure: that closure holds `&mut self`.
-                self.brush_size_slider(ui);
-            }
-            // --- AI segmentation → bitmap masks (gap batch A②) ---------------
-            ui.horizontal(|ui| {
-                // CAPABILITY, not just state: without the python sidecar on
-                // disk these two can only fail, so the button says so up front
-                // instead of spending the click on a "not found at …" toast.
-                let has_helper = segment_helper_available();
-                let can_seg = !self.busy && self.base_preview.is_some() && has_helper;
-                let cell = columns(ui, 2);
-                let missing = tr(lang,
-                    "This feature needs AutoShade's Python helper, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_SEGMENT_SCRIPT to the path of segment.py",
-                );
-                // 🤖 on BOTH (#4): one prefix marks every AI verb app-wide, and
-                // 「☁ AI select sky」 was the lone exception — a weather glyph
-                // where its twin one row over already wore the robot. The
-                // tooltip carries the AI-panel cross-reference, but only on the
-                // arm that CAN run: a missing-sidecar message must stay about
-                // the missing sidecar.
-                if action_in(ui, cell, can_seg, tr(lang, "🤖 Select subject"))
-                    // R29 B4: the model, its dependencies and its download size
-                    // all changed with the user's ruling of 2026-08-21, and the
-                    // FALLBACK is named because a machine without torchvision
-                    // gets a materially softer mask and would otherwise have no
-                    // way to know which model drew it.
-                    .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
-                        "BiRefNet salient-subject segmentation → bitmap mask (Python helper: pip install torchvision timm einops; first run auto-downloads a ~444MB model; without them it falls back to U²-Net / pip install rembg, whose edges are softer)",
-                    )) } else { missing.to_string() })
-                    .clicked()
-                {
-                    self.apply_actions(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::Segment { target: "subject", label: "Subject" },
-                    )]);
-                }
-                if action_in(ui, cell, can_seg, tr(lang, "🤖 Select sky"))
-                    .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
-                        "OneFormer-ADE20K sky segmentation → bitmap mask (Python helper: pip install transformers; first run auto-downloads a ~880MB model)",
-                    )) } else { missing.to_string() })
-                    .clicked()
-                {
-                    self.apply_actions(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::Segment { target: "sky", label: "Sky" },
-                    )]);
-                }
-            });
-            // Empty state: an open section with zero rows looked like a bug;
-            // one quiet line says where masks come from.
-            if n_masks == 0 {
-                ui.add_space(SPACE_XS);
-                ui.label(
-                    egui::RichText::new(tr(
-                        lang,
-                        "No masks yet — draw one with the tools above; AI Analyze adds its own too.",
-                    ))
-                    .weak()
-                    .small(),
-                );
-            }
+            self.dev_mask_create_row(ui);
+            self.dev_mask_ai_verbs(ui, n_masks);
             // Mask list: click to select (shows overlay + sliders), 🗑 deletes;
             // HOVERING a row previews that mask's coverage without selecting.
             // hover_mask lives ONE frame: update() takes it each frame and this
@@ -1104,4 +986,137 @@ impl AutoShadeApp {
             }
         });
         changed
-    }}
+    }
+
+    /// The three create tools, the brush-session controls and the AI
+    /// segmentation verbs: the panel's "start a mask" half, above the list.
+    fn dev_mask_create_row(&mut self, ui: &mut egui::Ui) {
+        let lang = self.lang;
+        // R38: three equal cells — three free-width toggles in a
+        // non-wrapping row overran the default panel width in English.
+        ui.horizontal(|ui| {
+            let cell = columns(ui, 3);
+            let lin_armed = matches!(self.masks.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
+            if toggle_in(ui, cell, lin_armed, tr(lang, "＋ Linear")).on_hover_text(tr(lang, "Drag on the image: start = fully-applied side, end = unaffected side (Shift = horizontal/vertical)")).clicked() {
+                self.disarm_tools();
+                if !lin_armed {
+                    self.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
+                    self.status = tr(lang, "Drag on the image to draw a linear gradient (start fully applied → end unaffected; Shift = axis lock)").into();
+                }
+            }
+            let rad_armed = matches!(self.masks.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
+            if toggle_in(ui, cell, rad_armed, tr(lang, "＋ Radial")).on_hover_text(tr(lang, "Drag on the image to draw an elliptical area")).clicked() {
+                self.disarm_tools();
+                if !rad_armed {
+                    self.masks.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
+                    self.status = tr(lang, "Drag on the image to draw a radial (elliptical) area").into();
+                }
+            }
+            // LR's most-used local tool, finally: free-form brush →
+            // Bitmap mask (the raster carrier + bilinear sampler + cache
+            // all pre-existed; this wires the paint canvas into
+            // recipe.masks — see start_mask_brush / commit_mask_brush).
+            let brush_armed = matches!(self.masks.mask_brush, Some((None, _)));
+            if toggle_in(ui, cell, brush_armed, tr(lang, "🖌 Brush"))
+                .on_hover_text(tr(lang, "Paint a free-form mask (drag the 「Brush size」 slider, or press [ / ]); 「Apply」 bakes it into a new mask"))
+                .clicked()
+            {
+                if brush_armed {
+                    self.disarm_tools();
+                } else if self.base_preview.is_some() {
+                    self.apply_actions(vec![logic::Action::Develop(
+                        logic::develop::DevelopAction::MaskBrush(None),
+                    )]);
+                }
+            }
+        });
+        // Brush-session controls (create OR raster-edit): erase toggle +
+        // the bake/cancel pair. Lives up here so it is visible whichever
+        // row armed the session.
+        if let Some((target, erase)) = self.masks.mask_brush {
+            ui.horizontal(|ui| {
+                let cell = columns(ui, 3);
+                if toggle_in(ui, cell, erase, tr(lang, "Erase"))
+                    .on_hover_text(tr(lang, "Strokes remove from the selection instead of adding"))
+                    .clicked()
+                {
+                    self.masks.mask_brush = Some((target, !erase));
+                }
+                if primary_in(ui, cell, true, tr(lang, "✓ Apply")).clicked() {
+                    self.commit_mask_brush();
+                }
+                if action_in(ui, cell, true, tr(lang, "✕ Cancel")).clicked() {
+                    self.disarm_tools();
+                }
+            });
+            // #9: the radius belongs AT THE TOOL. This is the same
+            // `self.masks.brush` the Retouch panel's slider drives (and the
+            // `[` / `]` keys) — one session block covers both arms, the
+            // 「＋ Brush」 above and 「🖌 Edit raster」 down in the mask row.
+            // Outside the row closure: that closure holds `&mut self`.
+            self.brush_size_slider(ui);
+        }
+    }
+
+    /// The AI segmentation pair and the empty-list line. `n_masks` is the count
+    /// the caller already read for the section title.
+    fn dev_mask_ai_verbs(&mut self, ui: &mut egui::Ui, n_masks: usize) {
+        let lang = self.lang;
+        // --- AI segmentation → bitmap masks (gap batch A②) ---------------
+        ui.horizontal(|ui| {
+            // CAPABILITY, not just state: without the python sidecar on
+            // disk these two can only fail, so the button says so up front
+            // instead of spending the click on a "not found at …" toast.
+            let has_helper = segment_helper_available();
+            let can_seg = !self.busy && self.base_preview.is_some() && has_helper;
+            let cell = columns(ui, 2);
+            let missing = tr(lang,
+                "This feature needs AutoShade's Python helper, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_SEGMENT_SCRIPT to the path of segment.py",
+            );
+            // 🤖 on BOTH (#4): one prefix marks every AI verb app-wide, and
+            // 「☁ AI select sky」 was the lone exception — a weather glyph
+            // where its twin one row over already wore the robot. The
+            // tooltip carries the AI-panel cross-reference, but only on the
+            // arm that CAN run: a missing-sidecar message must stay about
+            // the missing sidecar.
+            if action_in(ui, cell, can_seg, tr(lang, "🤖 Select subject"))
+                // R29 B4: the model, its dependencies and its download size
+                // all changed with the user's ruling of 2026-08-21, and the
+                // FALLBACK is named because a machine without torchvision
+                // gets a materially softer mask and would otherwise have no
+                // way to know which model drew it.
+                .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
+                    "BiRefNet salient-subject segmentation → bitmap mask (Python helper: pip install torchvision timm einops; first run auto-downloads a ~444MB model; without them it falls back to U²-Net / pip install rembg, whose edges are softer)",
+                )) } else { missing.to_string() })
+                .clicked()
+            {
+                self.apply_actions(vec![logic::Action::Develop(
+                    logic::develop::DevelopAction::Segment { target: "subject", label: "Subject" },
+                )]);
+            }
+            if action_in(ui, cell, can_seg, tr(lang, "🤖 Select sky"))
+                .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
+                    "OneFormer-ADE20K sky segmentation → bitmap mask (Python helper: pip install transformers; first run auto-downloads a ~880MB model)",
+                )) } else { missing.to_string() })
+                .clicked()
+            {
+                self.apply_actions(vec![logic::Action::Develop(
+                    logic::develop::DevelopAction::Segment { target: "sky", label: "Sky" },
+                )]);
+            }
+        });
+        // Empty state: an open section with zero rows looked like a bug;
+        // one quiet line says where masks come from.
+        if n_masks == 0 {
+            ui.add_space(SPACE_XS);
+            ui.label(
+                egui::RichText::new(tr(
+                    lang,
+                    "No masks yet — draw one with the tools above; AI Analyze adds its own too.",
+                ))
+                .weak()
+                .small(),
+            );
+        }
+    }
+}
