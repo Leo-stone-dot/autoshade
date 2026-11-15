@@ -103,7 +103,7 @@ DYNAMIC_SITES = [
     # `v.kind.label()`: R24-3/R24-4 name a card through a borrowed Variant —
     # the edit-state list rows and `variant_label` (which spells a card's own
     # name, falling back to this label). Same key set, same extraction.
-    (r"^(?:self\.variants\[self\.active\]\.|v\.)?kind\.label\(\)", "VariantKind::label"),
+    (r"^(?:self(?:\.doc)?\.variants\[self(?:\.doc)?\.active\]\.|v\.)?kind\.label\(\)", "VariantKind::label"),
     (r"^(?:self\.theme|t)\.label\(\)", "ThemePref::label"),
     (r"^a\.label\(\)", "AccentPref::label"),
     (r"^(?:self\.exp_format|f)\.label\(\)", "ExportFormat::label"),

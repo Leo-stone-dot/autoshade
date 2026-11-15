@@ -17,7 +17,12 @@
                 thumb: None,
             })
             .collect();
-        AutoShadeApp { lang, variants, active: 1, ..Default::default() }
+        AutoShadeApp { lang, doc: Document {
+     variants,
+     active: 1,
+     ..Default::default()
+ },
+ ..Default::default() }
     }
 
     /// Two frames of the AI panel in a side panel `width` px wide (the panel

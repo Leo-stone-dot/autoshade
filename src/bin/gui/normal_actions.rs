@@ -76,19 +76,19 @@ impl AutoShadeApp {
 
     /// The strip index of the card with `id` (an empty id matches nothing).
     fn card_index(&self, id: &str) -> Option<usize> {
-        (!id.is_empty()).then(|| self.variants.iter().position(|v| v.id == id)).flatten()
+        (!id.is_empty()).then(|| self.doc.variants.iter().position(|v| v.id == id)).flatten()
     }
 
     /// Put card `idx` under the canvas with the look on screen: the switch
     /// changes the grain, never the look the sliders made — nor the look's
     /// undo history.
     fn show_card_keeping_look(&mut self, idx: usize) {
-        let look = self.recipe.clone();
+        let look = self.doc.recipe.clone();
         let history = self.take_look_history();
         let ctx = self.services.egui_ctx.clone();
         self.switch_variant(idx, &ctx);
-        if self.active == idx {
-            self.recipe = look;
+        if self.doc.active == idx {
+            self.doc.recipe = look;
             self.session.dirty = true;
             self.carry_look_history(history);
         }
@@ -146,10 +146,10 @@ impl AutoShadeApp {
             let back = pair
                 .filter(|d| d.denoised.as_deref() == Some(active.as_str()))
                 .and_then(|d| self.card_index(&d.plain))
-                .or_else(|| self.variants.iter().position(|v| v.kind != VariantKind::Denoised));
+                .or_else(|| self.doc.variants.iter().position(|v| v.kind != VariantKind::Denoised));
             let Some(idx) = back else { return };
             // Remembered, so turning it on again shows this ◈ card.
-            self.normal.denoise_pair = Some(DenoisePair { photo, plain: self.variants[idx].id.clone(), denoised: Some(active) });
+            self.normal.denoise_pair = Some(DenoisePair { photo, plain: self.doc.variants[idx].id.clone(), denoised: Some(active) });
             self.show_card_keeping_look(idx);
             self.status = tr(lang, "AI denoise off").into();
         }
@@ -173,7 +173,7 @@ impl AutoShadeApp {
         if d.denoised.is_some() || self.photo.src_path.as_ref() != Some(&d.photo) {
             return;
         }
-        let Some(v) = self.variants.get(self.active).filter(|v| v.kind == VariantKind::Denoised && v.id != d.plain) else {
+        let Some(v) = self.doc.variants.get(self.doc.active).filter(|v| v.kind == VariantKind::Denoised && v.id != d.plain) else {
             return;
         };
         d.denoised = Some(v.id.clone());

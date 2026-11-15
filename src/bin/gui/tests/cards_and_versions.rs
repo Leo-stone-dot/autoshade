@@ -304,7 +304,7 @@ rationale: "stale rationale".into(),
             ..Default::default()
         };
         app.load_version(1);
-        assert!((app.recipe.exposure_ev - 0.75).abs() < 1e-3, "the version landed");
+        assert!((app.doc.recipe.exposure_ev - 0.75).abs() < 1e-3, "the version landed");
         assert_eq!(
             app.rationale, "v1 marker rationale",
             "the swap path resynced the rationale display"
@@ -331,11 +331,19 @@ rationale: "stale rationale".into(),
             thumb: None,
         };
         let mut app = AutoShadeApp {
-            variants: vec![
+            doc: Document {
+
+                variants: vec![
                 mk(VariantKind::Original, "card-a", Some("base")),
                 mk(VariantKind::Fitted, "card-b", Some("偏暖")),
             ],
-            active: 1,
+
+                active: 1,
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
 
@@ -374,10 +382,10 @@ rationale: "stale rationale".into(),
         // Hop 3 (live strip → stash) and hop 5 (stash → record), driven
         // through the stash-building path the way navigation does.
         let others: Vec<StashedVariant> = app
-            .variants
+            .doc.variants
             .iter()
             .enumerate()
-            .filter(|(i, _)| *i != app.active)
+            .filter(|(i, _)| *i != app.doc.active)
             .map(|(_, v)| StashedVariant {
                 kind: v.kind,
                 id: v.id.clone(),
@@ -388,14 +396,14 @@ rationale: "stale rationale".into(),
             })
             .collect();
         let st = crate::model::StashEntry {
-            recipe: app.recipe.clone(),
+            recipe: app.doc.recipe.clone(),
             base: None,
             origin: None,
-            kind: app.variants[app.active].kind,
-            id: app.variants[app.active].id.clone(),
-            name: app.variants[app.active].name.clone(),
+            kind: app.doc.variants[app.doc.active].kind,
+            id: app.doc.variants[app.doc.active].id.clone(),
+            name: app.doc.variants[app.doc.active].name.clone(),
             others,
-            active_pos: app.active,
+            active_pos: app.doc.active,
         };
         let stashed = crate::util::stash_strip_record(&st).expect("a stashed strip is recordable");
         assert_eq!(stashed.active_id.as_deref(), Some("card-b"));
@@ -425,8 +433,8 @@ rationale: "stale rationale".into(),
         // ONLY home its name and its minted id have, and dropping it would
         // discard both silently (the `strip_is_trivial` owner, shared with
         // the stash path).
-        app.variants.truncate(1);
-        app.active = 0;
+        app.doc.variants.truncate(1);
+        app.doc.active = 0;
         let rec = app
             .current_strip_record()
             .expect("a NAMED lone Original still needs its record");
@@ -435,8 +443,8 @@ rationale: "stale rationale".into(),
         // Strip the two things only the record can hold and it goes back to
         // being noise: recipe.json + pixels.json say everything, and the base
         // negative's fixed id is reconstructed by every reader.
-        app.variants[0].name = None;
-        app.variants[0].id = crate::model::ORIGINAL_VARIANT_ID.to_string();
+        app.doc.variants[0].name = None;
+        app.doc.variants[0].id = crate::model::ORIGINAL_VARIANT_ID.to_string();
         assert!(app.current_strip_record().is_none());
     }
 
@@ -469,38 +477,49 @@ rationale: "stale rationale".into(),
             thumb: None,
         };
         let mut app = AutoShadeApp {
-            variants: vec![negative, fitted],
-            active: 1,
-            recipe: EditRecipe { contrast: 44.0, exposure_ev: 0.5, ..Default::default() },
+            doc: Document {
+
+                variants: vec![negative, fitted],
+
+                active: 1,
+
+                recipe: EditRecipe { contrast: 44.0, exposure_ev: 0.5, ..Default::default() },
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         app.reset_history();
         app.apply_to_original(1, &ctx);
 
-        assert_eq!(app.active, 0, "the canvas lands on the card that was written");
-        assert_eq!(app.variants.len(), 2, "the source card is KEPT");
-        assert_eq!(app.variants[1].name.as_deref(), Some("dusk"), "…untouched");
-        assert_eq!(app.variants[0].recipe.contrast, 44.0, "the develop was copied");
-        assert_eq!(app.variants[0].recipe.exposure_ev, 0.5);
+        assert_eq!(app.doc.active, 0, "the canvas lands on the card that was written");
+        assert_eq!(app.doc.variants.len(), 2, "the source card is KEPT");
+        assert_eq!(app.doc.variants[1].name.as_deref(), Some("dusk"), "…untouched");
+        assert_eq!(app.doc.variants[0].recipe.contrast, 44.0, "the develop was copied");
+        assert_eq!(app.doc.variants[0].recipe.exposure_ev, 0.5);
         assert!(
-            app.variants[0].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &pixels)),
+            app.doc.variants[0].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &pixels)),
             "the negative's own pixels are not touched"
         );
         assert_eq!(
-            app.variants[0].origin.as_deref(),
+            app.doc.variants[0].origin.as_deref(),
             Some(master.as_path()),
             "…nor its raster origin: this copies PARAMETERS"
         );
-        assert_eq!(app.recipe.contrast, 44.0, "the canvas shows what was applied");
+        assert_eq!(app.doc.recipe.contrast, 44.0, "the canvas shows what was applied");
 
         // ONE Ctrl+Z, and the negative's own develop is back.
         app.undo(&ctx);
-        assert_eq!(app.recipe.contrast, 11.0, "one undo step, not zero and not two");
+        assert_eq!(app.doc.recipe.contrast, 11.0, "one undo step, not zero and not two");
 
         // A PIXEL-STATE source is refused with the reverse-fit remedy — its
         // look is in its raster, and the recipe over it is stripped bare.
         let mut app = AutoShadeApp {
-            variants: vec![
+            doc: Document {
+
+                variants: vec![
                 Variant {
                     kind: VariantKind::Original,
                     id: crate::model::ORIGINAL_VARIANT_ID.into(),
@@ -520,12 +539,18 @@ rationale: "stale rationale".into(),
                     thumb: None,
                 },
             ],
-            active: 1,
+
+                active: 1,
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         app.apply_to_original(1, &ctx);
-        assert_eq!(app.variants[0].recipe.contrast, 11.0, "the negative was not overwritten");
-        assert_eq!(app.active, 1, "and the canvas did not move");
+        assert_eq!(app.doc.variants[0].recipe.contrast, 11.0, "the negative was not overwritten");
+        assert_eq!(app.doc.active, 1, "and the canvas did not move");
         assert!(
             app.status.contains("Reverse-fit"),
             "the refusal carries the remedy: {}",
@@ -556,11 +581,19 @@ rationale: "stale rationale".into(),
                 versions: vec![1, 2],
                 ..Default::default()
             },
-            variants: vec![
+            doc: Document {
+
+                variants: vec![
                 mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID),
                 mk(VariantKind::Generated, "card-gen"),
             ],
-            active: 0,
+
+                active: 0,
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         let _ = ctx.run(
@@ -631,11 +664,19 @@ rationale: "stale rationale".into(),
                     versions: vec![1],
                     ..Default::default()
                 },
-                variants: vec![
+                doc: Document {
+
+                    variants: vec![
                     mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID),
                     mk(VariantKind::Generated, "card-gen"),
                 ],
-                active,
+
+                    active,
+
+                    ..Default::default()
+
+                },
+
                 ..Default::default()
             };
             let mut widths = Vec::new();
@@ -672,8 +713,16 @@ rationale: "stale rationale".into(),
         let ctx = egui::Context::default();
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
         let mut app = AutoShadeApp {
-            variants: vec![mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID)],
-            active: 0,
+            doc: Document {
+
+                variants: vec![mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID)],
+
+                active: 0,
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         let _ = ctx.run(
@@ -732,11 +781,23 @@ rationale: "stale rationale".into(),
 
                 },
 
-                variants: vec![
+                doc: Document {
+
+
+                    variants: vec![
                     mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID),
                     mk(kind, "card-b"),
                 ],
-                active: 1,
+
+
+                    active: 1,
+
+
+                    ..Default::default()
+
+
+                },
+
                 ..Default::default()
             };
             let _ = ctx.run(input(), |ctx| {
@@ -799,23 +860,35 @@ rationale: "stale rationale".into(),
 
             },
 
-            variants: vec![
+            doc: Document {
+
+
+                variants: vec![
                 mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID),
                 mk(VariantKind::Fitted, "card-fit"),
             ],
-            active: 1,
+
+
+                active: 1,
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         // Typed on the Fitted card…
         app.cards.variant_name_buf =
             Some((photo.clone(), "card-fit".into(), String::new(), "dusk".into()));
         // …while an async completion inserts a card ahead of it.
-        app.variants.insert(1, mk(VariantKind::Generated, "card-gen"));
-        app.active = 2;
+        app.doc.variants.insert(1, mk(VariantKind::Generated, "card-gen"));
+        app.doc.active = 2;
         app.commit_pending_names();
-        assert_eq!(app.variants[1].name, None, "the renumbered neighbour is untouched");
+        assert_eq!(app.doc.variants[1].name, None, "the renumbered neighbour is untouched");
         assert_eq!(
-            app.variants[2].name.as_deref(),
+            app.doc.variants[2].name.as_deref(),
             Some("dusk"),
             "the name follows the card's id, not its index"
         );
@@ -824,10 +897,10 @@ rationale: "stale rationale".into(),
         // record, so quitting has to warn.
         app.session.hist.saved_strip = app.current_strip_record();
         assert_eq!(app.open_dirty_variants(), 0, "premise: the mirror is current");
-        app.variants[2].name = Some("dawn".into());
+        app.doc.variants[2].name = Some("dawn".into());
         assert!(app.open_dirty_variants() >= 1, "renaming the ACTIVE card is unsaved work");
-        app.variants[2].name = Some("dusk".into());
-        app.variants[0].name = Some("negative".into());
+        app.doc.variants[2].name = Some("dusk".into());
+        app.doc.variants[0].name = Some("negative".into());
         assert!(app.open_dirty_variants() >= 1, "…and so is renaming a background card");
     }
 
@@ -944,7 +1017,17 @@ rationale: "stale rationale".into(),
 
             },
 
-            variants: vec![mk(crate::model::VariantKind::Generated)],
+            doc: Document {
+
+
+                variants: vec![mk(crate::model::VariantKind::Generated)],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.save_version();
@@ -960,7 +1043,7 @@ rationale: "stale rationale".into(),
         // The same canvas on a PARAMETRIC card saves, and records what it
         // was a picture of.
         app.chrome.toasts.clear();
-        app.variants = vec![crate::model::Variant {
+        app.doc.variants = vec![crate::model::Variant {
             id: "card-fit".into(),
             ..mk(crate::model::VariantKind::Fitted)
         }];

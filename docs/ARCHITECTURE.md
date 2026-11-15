@@ -7564,7 +7564,10 @@ session state that dies when another source opens and is never persisted.
 The open photo's decoded plates are `PhotoPixels`
 ([`photo.rs`](../src/bin/gui/photo.rs)): the source path, the base/source
 plates, the baked quarter turns and the film edge — read by every panel and
-owned by none of them. The Lens Blur pilot
+owned by none of them. The recipe being edited, its variant cards and the
+active index are the `Document`
+([`document.rs`](../src/bin/gui/document.rs)) — the state a save persists and
+the meaning of "the photo's develop" for every client. The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
 share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):

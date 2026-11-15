@@ -136,7 +136,7 @@
             concat!("crate::budget::heavy_permit", "("),
             "autoshade::store::",
             "rfd::",
-            "self.recipe.pixel_layers.push(",
+            "self.doc.recipe.pixel_layers.push(",
         ] {
             assert!(
                 !retouch.contains(needle),
@@ -284,10 +284,10 @@
             concat!("crate::budget::heavy_permit", "("),
             "autoshade::store::",
             "self.start_",
-            "self.recipe =",
-            "self.recipe.masks.push(",
-            "self.recipe.point_colors.push(",
-            "self.recipe.pixel_layers.push(",
+            "self.doc.recipe =",
+            "self.doc.recipe.masks.push(",
+            "self.doc.recipe.point_colors.push(",
+            "self.doc.recipe.pixel_layers.push(",
         ] {
             assert!(
                 !canvas.contains(needle),
@@ -305,8 +305,8 @@
                 "autoshade::store::",
                 "ToastKind",
                 "self.start_",
-                "self.recipe =",
-                "self.recipe.masks.push(",
+                "self.doc.recipe =",
+                "self.doc.recipe.masks.push(",
             ] {
                 assert!(
                     !src.contains(needle),

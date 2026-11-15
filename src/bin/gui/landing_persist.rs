@@ -111,7 +111,7 @@ match autoshade::store::with_develop_lock(
                 // baseline keeping them (the
                 // disk form) lit ● the instant a
                 // successful analyze landed.
-                self.session.hist.saved_recipe = self.recipe.clone();
+                self.session.hist.saved_recipe = self.doc.recipe.clone();
                 self.open.nav_stash.remove(&p);
                 self.session.hist.pixels_on_disk = origin;
                 // The strip mirror advances WITH

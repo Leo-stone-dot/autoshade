@@ -171,7 +171,7 @@ impl AutoShadeApp {
         }
         match &self.chrome.last_rgb {
             Some(rgb) => {
-                let clip = clipping_overlay_for(rgb, self.recipe.crop);
+                let clip = clipping_overlay_for(rgb, self.doc.recipe.crop);
                 if let Some(tex) = &mut self.chrome.clip_tex {
                     tex.set(clip, egui::TextureOptions::NEAREST);
                 } else {
@@ -201,7 +201,7 @@ impl AutoShadeApp {
     /// cache on every click under a non-zero Red/cyan or Blue/yellow, paying
     /// a full preview develop on the UI thread for a 5×5 read.
     pub(crate) fn range_reference_recipe(&self, i: usize) -> EditRecipe {
-        crate::logic::range::reference_recipe(&self.recipe, i)
+        crate::logic::range::reference_recipe(&self.doc.recipe, i)
     }
 
     /// (Re)build the translucent red coverage layer for the active mask. A
@@ -226,20 +226,20 @@ impl AutoShadeApp {
         // A hovered row previews its coverage; otherwise use the selection.
         let target = self
             .overlay.hover_mask
-            .filter(|&i| i < self.recipe.masks.len())
-            .or_else(|| self.masks.sel_mask.filter(|&i| i < self.recipe.masks.len()));
+            .filter(|&i| i < self.doc.recipe.masks.len())
+            .or_else(|| self.masks.sel_mask.filter(|&i| i < self.doc.recipe.masks.len()));
         let Some(i) = target else {
             self.overlay.mask_overlay_tex = None;
             self.overlay.overlay_key = None;
             return;
         };
-        let mask = self.recipe.masks[i].clone();
+        let mask = self.doc.recipe.masks[i].clone();
         // The PREFIX reference with its geometry stripped — ONE builder,
         // shared with the range eyedropper (`range_reference_recipe`, which
         // carries the reasoning). The geometry the coverage WARP still
         // depends on is keyed separately, in OverlayKey below.
         let pre = self.range_reference_recipe(i);
-        let lp = &self.recipe.lens_profile;
+        let lp = &self.doc.recipe.lens_profile;
         let key = OverlayKey {
             base: Arc::as_ptr(&base) as usize,
             target: i,
@@ -250,11 +250,11 @@ impl AutoShadeApp {
             amount: mask.amount,
             inverted: mask.inverted,
             reference_recipe: mask.range.is_some().then(|| pre.clone()),
-            straighten_deg: self.recipe.straighten_deg,
-            lens_distortion: self.recipe.lens_distortion,
+            straighten_deg: self.doc.recipe.straighten_deg,
+            lens_distortion: self.doc.recipe.lens_distortion,
             profile_dist_on: lp.distortion_on && !lp.distortion.is_empty(),
             profile_ca_on: lp.ca_on && !lp.ca_r.is_empty() && !lp.ca_b.is_empty(),
-            manual_ca: (self.recipe.ca_r, self.recipe.ca_b),
+            manual_ca: (self.doc.recipe.ca_r, self.doc.recipe.ca_b),
         };
         if self.overlay.overlay_key.as_ref() == Some(&key) && self.overlay.mask_overlay_tex.is_some() {
             return;
@@ -290,7 +290,7 @@ impl AutoShadeApp {
                 // mask on the canvas, at that scale, so the range must too.
                 let film = self.film_short_edge();
                 let raw_source = self.source_is_raw();
-                let composed = autoshade::render::geometry_profile(&self.recipe);
+                let composed = autoshade::render::geometry_profile(&self.doc.recipe);
                 let img = autoshade::render::develop_preview_framed(
                     &base,
                     &pre,
@@ -326,9 +326,9 @@ impl AutoShadeApp {
         // coverage the render does not apply, by the whole field.
         // On a corrected base (v1.17.0) the coverage is evaluated in that frame
         // and needs no warp, as the canvas's own pixels need none.
-        let cov_geom = autoshade::render::geometry_profile(&self.recipe);
+        let cov_geom = autoshade::render::geometry_profile(&self.doc.recipe);
         let cov_frame =
-            autoshade::render::MaskFrame::of_base(&cov_geom, self.recipe.lens_distortion, self.base_corrected());
+            autoshade::render::MaskFrame::of_base(&cov_geom, self.doc.recipe.lens_distortion, self.base_corrected());
         let mut cov = image::DynamicImage::ImageLuma8(autoshade::render::mask_coverage(
             &mask, cov_ref, cov_frame,
         ));
@@ -339,11 +339,11 @@ impl AutoShadeApp {
             cov = autoshade::render::apply_lens_geometry(
                 &cov,
                 &cov_geom,
-                self.recipe.lens_distortion,
+                self.doc.recipe.lens_distortion,
             );
         }
-        if self.recipe.straighten_deg != 0.0 {
-            cov = autoshade::render::rotate_straighten(&cov, self.recipe.straighten_deg);
+        if self.doc.recipe.straighten_deg != 0.0 {
+            cov = autoshade::render::rotate_straighten(&cov, self.doc.recipe.straighten_deg);
         }
         let g = cov.to_luma8();
         let (w, h) = (g.width() as usize, g.height() as usize);
@@ -377,13 +377,13 @@ impl AutoShadeApp {
             .unwrap_or((1.0, 1.0));
         (
             dims,
-            self.recipe.straighten_deg,
+            self.doc.recipe.straighten_deg,
             LensArg {
                 // COMPOSED (R25 B3): every interaction map downstream of this
                 // bundle must see the same profile the pixels went through,
                 // manual CA included.
-                profile: autoshade::render::geometry_profile(&self.recipe).into_owned(),
-                amount: self.recipe.lens_distortion,
+                profile: autoshade::render::geometry_profile(&self.doc.recipe).into_owned(),
+                amount: self.doc.recipe.lens_distortion,
             },
         )
     }
@@ -393,7 +393,7 @@ impl AutoShadeApp {
     /// frame) narrowed by zoom/pan. `pan` is stored in crop-window coords and
     /// re-clamped here so edge panning never accumulates out of range.
     pub(crate) fn view_uv(&mut self) -> egui::Rect {
-        let win = match (&self.recipe.crop, self.crop.mode) {
+        let win = match (&self.doc.recipe.crop, self.crop.mode) {
             (Some(c), false) => egui::Rect::from_min_max(
                 egui::pos2(c.left.min(c.right), c.top.min(c.bottom)),
                 egui::pos2(c.right.max(c.left), c.bottom.max(c.top)),
@@ -834,7 +834,7 @@ impl AutoShadeApp {
         // mutates (sel_target_geometry).
         if !self.crop.mode
             && self.masks.placing_mask.is_none()
-            && let Some(m) = self.masks.sel_mask.and_then(|i| self.recipe.masks.get(i))
+            && let Some(m) = self.masks.sel_mask.and_then(|i| self.doc.recipe.masks.get(i))
         {
             let target = match self.masks.sel_component {
                 Some(c) if c < m.components.len() => &m.components[c].geometry,
@@ -947,7 +947,7 @@ impl AutoShadeApp {
         if !self.base_corrected() {
             return Some(base);
         }
-        let geom = autoshade::render::geometry_profile(&self.recipe);
+        let geom = autoshade::render::geometry_profile(&self.doc.recipe);
         Some(match autoshade::render::corrected_to_sensor_frame(&base, &geom, 0.0) {
             Some((img, _)) => Arc::new(image::DynamicImage::ImageRgb8(img.to_rgb8())),
             None => base,
@@ -990,7 +990,7 @@ impl AutoShadeApp {
     /// read; a miss pays one preview-sized develop ≈ one slider tick.
     pub(crate) fn handle_range_pick(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
         let Some((nx, ny)) = self.clicked_orig_norm(ui, resp, xf) else { return };
-        let Some(mi) = self.tools.range_picking.filter(|&i| i < self.recipe.masks.len()) else {
+        let Some(mi) = self.tools.range_picking.filter(|&i| i < self.doc.recipe.masks.len()) else {
             self.tools.range_picking = None; // stale index (mask deleted mid-pick)
             return;
         };
@@ -1012,7 +1012,7 @@ impl AutoShadeApp {
                 // they share cache.
                 let film = self.film_short_edge();
                 let raw_source = self.source_is_raw();
-                let composed = autoshade::render::geometry_profile(&self.recipe);
+                let composed = autoshade::render::geometry_profile(&self.doc.recipe);
                 let img = autoshade::render::develop_preview_framed(
                     &base,
                     &pre,
@@ -1051,10 +1051,10 @@ impl AutoShadeApp {
         let Some((nx, ny)) = self.clicked_orig_norm(ui, resp, xf) else { return };
         let px = {
             let Some(base) = self.photo.base_preview.clone() else { return };
-            let reference = autoshade::render::point_color_sampling_recipe(&self.recipe);
+            let reference = autoshade::render::point_color_sampling_recipe(&self.doc.recipe);
             let film = self.film_short_edge();
             let raw_source = self.source_is_raw();
-            let composed = autoshade::render::geometry_profile(&self.recipe);
+            let composed = autoshade::render::geometry_profile(&self.doc.recipe);
             let img = autoshade::render::develop_preview_framed(
                 &base,
                 &reference,
@@ -1074,8 +1074,8 @@ impl AutoShadeApp {
     /// selected COMPONENT when one is selected (and still in bounds), else
     /// the selected mask's base geometry.
     pub(crate) fn sel_target_geometry(&self) -> Option<&MaskGeometry> {
-        let i = self.masks.sel_mask.filter(|&i| i < self.recipe.masks.len())?;
-        let m = &self.recipe.masks[i];
+        let i = self.masks.sel_mask.filter(|&i| i < self.doc.recipe.masks.len())?;
+        let m = &self.doc.recipe.masks[i];
         match self.masks.sel_component {
             Some(c) if c < m.components.len() => Some(&m.components[c].geometry),
             _ => Some(&m.mask),
@@ -1257,7 +1257,7 @@ impl AutoShadeApp {
         if std::mem::take(&mut self.crop.aspect_pending) {
             // The box is the logic layer's geometry (`logic::crop`); this view
             // keeps the pick, the handles and the overlay.
-            let current = self.recipe.crop.map(|c| [c.left, c.top, c.right, c.bottom]);
+            let current = self.doc.recipe.crop.map(|c| [c.left, c.top, c.right, c.bottom]);
             self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Preset {
                 current,
                 aspect_px: aspect,
@@ -1265,7 +1265,7 @@ impl AutoShadeApp {
             })]);
         }
         let cur = self
-            .recipe
+            .doc.recipe
             .crop
             .map(|c| [c.left, c.top, c.right, c.bottom])
             .unwrap_or([0.0, 0.0, 1.0, 1.0]);
@@ -1332,7 +1332,7 @@ impl AutoShadeApp {
             // pick follow a small residual instead of the user's gesture).
             let origin = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
             if let Some(h) = pick_handle(&cur, origin) {
-                self.crop.drag = Some((h, origin, cur, self.recipe.straighten_deg));
+                self.crop.drag = Some((h, origin, cur, self.doc.recipe.straighten_deg));
             }
         }
         if resp.dragged()
@@ -1373,7 +1373,7 @@ impl AutoShadeApp {
         // crosshair set, and cursor_icon is last-write-wins, so this
         // overrides it exactly when a handle would take the drag.
         let c = self
-            .recipe
+            .doc.recipe
             .crop
             .map(|c| [c.left, c.top, c.right, c.bottom])
             .unwrap_or([0.0, 0.0, 1.0, 1.0]);
@@ -1564,9 +1564,9 @@ impl AutoShadeApp {
                 PlaceTarget::Redraw(i) => logic::mask_place::Place::Redraw(i),
                 PlaceTarget::Component(i, mode) => logic::mask_place::Place::Component(i, mode),
             };
-            let n = (self.recipe.masks.len() + 1).to_string();
+            let n = (self.doc.recipe.masks.len() + 1).to_string();
             let name = trf(self.lang, "Manual {n}", &[("n", &n)]);
-            let committed = logic::mask_place::commit(&mut self.recipe, place, geom, name);
+            let committed = logic::mask_place::commit(&mut self.doc.recipe, place, geom, name);
             match committed.selection {
                 logic::mask_place::Selection::Keep => {}
                 logic::mask_place::Selection::Mask(i) => {
@@ -1600,16 +1600,16 @@ impl AutoShadeApp {
         // bool, "distortion + CA on → turn one off" still compared equal and
         // the overlay kept the OLD warp — strokes floated off their pixels.
         let profile_geom = (
-            self.recipe.lens_profile.distortion_on && !self.recipe.lens_profile.distortion.is_empty(),
-            self.recipe.lens_profile.ca_on
-                && !(self.recipe.lens_profile.ca_r.is_empty()
-                    && self.recipe.lens_profile.ca_b.is_empty()),
+            self.doc.recipe.lens_profile.distortion_on && !self.doc.recipe.lens_profile.distortion.is_empty(),
+            self.doc.recipe.lens_profile.ca_on
+                && !(self.doc.recipe.lens_profile.ca_r.is_empty()
+                    && self.doc.recipe.lens_profile.ca_b.is_empty()),
         );
         let xform_now = (
-            self.recipe.straighten_deg,
-            self.recipe.lens_distortion,
+            self.doc.recipe.straighten_deg,
+            self.doc.recipe.lens_distortion,
             profile_geom,
-            (self.recipe.ca_r, self.recipe.ca_b),
+            (self.doc.recipe.ca_r, self.doc.recipe.ca_b),
         );
         // The identity key, spelled ONCE (it grew a fourth member with the
         // manual CA pair in R25 B3, and it is compared in four places).
@@ -1672,7 +1672,7 @@ impl AutoShadeApp {
                     {
                         img = autoshade::render::apply_lens_geometry_rgba(
                             &img,
-                            &autoshade::render::geometry_profile(&self.recipe),
+                            &autoshade::render::geometry_profile(&self.doc.recipe),
                             xform_now.1,
                         );
                     }

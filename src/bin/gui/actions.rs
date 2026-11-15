@@ -352,11 +352,11 @@ impl AutoShadeApp {
     }
 
     fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {
-        let live = self.variants.get(live_position)?;
+        let live = self.doc.variants.get(live_position)?;
         let rec = match &self.session.hist.saved_strip {
             Some(rec) => rec,
             None => {
-                let trivial = self.variants.len() == 1
+                let trivial = self.doc.variants.len() == 1
                     && live_position == 0
                     && crate::model::strip_is_trivial(
                         live.kind,
@@ -408,7 +408,7 @@ impl AutoShadeApp {
     /// unsaved. With no strip record, only the trivial lone Original maps to
     /// `recipe.json` / `pixels.json`.
     pub(crate) fn active_baseline(&self) -> Option<ActiveBaseline<'_>> {
-        let saved = self.persisted_card_for(self.active)?;
+        let saved = self.persisted_card_for(self.doc.active)?;
         Some(ActiveBaseline { recipe: saved.recipe, origin: saved.origin })
     }
 
@@ -417,7 +417,7 @@ impl AutoShadeApp {
             return false;
         }
         self.active_baseline().is_none_or(|saved| {
-            dirty_vs(&self.recipe, saved.recipe)
+            dirty_vs(&self.doc.recipe, saved.recipe)
                 || !same_master_opt(
                     self.active_variant().and_then(|v| v.origin.as_deref()),
                     saved.origin,
@@ -490,7 +490,7 @@ impl AutoShadeApp {
             }));
             cards
         });
-        crate::logic::strip::open_dirty_count(&self.variants, self.active, saved.as_deref())
+        crate::logic::strip::open_dirty_count(&self.doc.variants, self.doc.active, saved.as_deref())
     }
 
     pub(crate) fn inactive_dirty_variants(&self) -> usize {
@@ -517,7 +517,7 @@ impl AutoShadeApp {
             ak,
             self.active_variant().map_or("", |v| v.id.as_str()),
             self.active_variant().and_then(|v| v.name.as_deref()),
-            self.variants.len().saturating_sub(1),
+            self.doc.variants.len().saturating_sub(1),
         ) {
             return None;
         }
@@ -525,12 +525,12 @@ impl AutoShadeApp {
             extra: Default::default(),
             v: 1,
             active_kind: ak.store_str().to_string(),
-            active_pos: self.active,
+            active_pos: self.doc.active,
             others: self
-                .variants
+                .doc.variants
                 .iter()
                 .enumerate()
-                .filter(|(i, _)| *i != self.active)
+                .filter(|(i, _)| *i != self.doc.active)
                 .map(|(_, v)| autoshade::store::VariantEntry {
                     extra: Default::default(),
                     kind: v.kind.store_str().to_string(),
@@ -572,7 +572,7 @@ impl AutoShadeApp {
 
     /// The active variant, if a photo is open.
     pub(crate) fn active_variant(&self) -> Option<&Variant> {
-        self.variants.get(self.active)
+        self.doc.variants.get(self.doc.active)
     }
 
     /// The on-disk PIXEL SOURCE the active variant renders / retouches /
@@ -639,7 +639,7 @@ impl AutoShadeApp {
         if self.crop.mode == on {
             return;
         }
-        if let Some(c) = &self.recipe.crop {
+        if let Some(c) = &self.doc.recipe.crop {
             let (l, t) = (c.left.min(c.right), c.top.min(c.bottom));
             let (w, h) =
                 ((c.right - c.left).abs().max(1e-6), (c.bottom - c.top).abs().max(1e-6));
@@ -755,7 +755,7 @@ impl AutoShadeApp {
     /// old name and the advanced baseline dropped the rename.
     pub(crate) fn commit_mask_name_buf(&mut self) {
         if let Some((j, orig, buf)) = self.masks.mask_name_buf.clone()
-            && let Some(prev) = self.recipe.masks.get_mut(j)
+            && let Some(prev) = self.doc.recipe.masks.get_mut(j)
             && prev.name == orig
             && buf != orig
         {
@@ -896,7 +896,7 @@ impl AutoShadeApp {
         self.commit_pending_names();
         let targets = self.gal.gallery.clone();
         self.normal.apply_all = Some(dest);
-        self.start_paste_to(self.recipe.clone(), self.photo.src_path.clone(), targets, false);
+        self.start_paste_to(self.doc.recipe.clone(), self.photo.src_path.clone(), targets, false);
         if !self.busy {
             self.normal.apply_all = None;
         }
@@ -923,10 +923,10 @@ impl AutoShadeApp {
             if i == 0 { return }
             i - 1
         } else {
-            if i + 1 >= self.recipe.masks.len() { return }
+            if i + 1 >= self.doc.recipe.masks.len() { return }
             i + 1
         };
-        self.recipe.masks.swap(i, j);
+        self.doc.recipe.masks.swap(i, j);
         self.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
         self.overlay.overlay_stale = true;
         self.session.dirty = true;
@@ -935,12 +935,12 @@ impl AutoShadeApp {
     /// Duplicate a mask: its tuned sliders come along, its rasters are DETACHED
     /// copies (the version-load rule), so the twins never share a mutable file.
     pub(crate) fn duplicate_mask(&mut self, lang: Lang, i: usize) {
-        if self.recipe.masks.len() >= 64 {
+        if self.doc.recipe.masks.len() >= 64 {
             let t = tr(lang, "mask limit reached (64) — delete one first");
             self.toast(ToastKind::Error, t.to_string());
             return;
         }
-        let Some(mut clone) = self.recipe.masks.get(i).cloned() else { return };
+        let Some(mut clone) = self.doc.recipe.masks.get(i).cloned() else { return };
         if let Some(p) = self.photo.src_path.as_deref() {
             let mut tmp = EditRecipe { masks: vec![clone], ..Default::default() };
             autoshade::store::detach_rasters(p, &mut tmp, "mask-dup");
@@ -949,7 +949,7 @@ impl AutoShadeApp {
         if !clone.name.is_empty() {
             clone.name = format!("{} 2", clone.name);
         }
-        self.recipe.masks.insert(i + 1, clone);
+        self.doc.recipe.masks.insert(i + 1, clone);
         self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
         self.masks.sel_mask = Some(i + 1);
         self.masks.sel_component = None;

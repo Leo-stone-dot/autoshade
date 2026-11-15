@@ -11,25 +11,25 @@
         let mut app = AutoShadeApp { tools: ToolsState { wb_picking: true, ..Default::default() }, busy: true, ..Default::default() };
         let depth = std::env::temp_dir().join(format!("autoshade-lens-{}/depth.png", std::process::id()));
         app.on_depth_estimated(Ok(depth.clone()));
-        let lb = app.recipe.lens_blur.clone().expect("the first estimate lands a blur");
+        let lb = app.doc.recipe.lens_blur.clone().expect("the first estimate lands a blur");
         assert_eq!(lb.depth_map, depth.display().to_string());
         assert!(app.tools.lens_focus_picking, "a first estimate arms the focus pick");
         assert!(!app.tools.wb_picking, "one canvas tool at a time");
         assert!(!app.busy && app.session.dirty);
 
         let chosen = autoshade::render::LensBlur { focus: [0.2, 0.8], amount: 70.0, range: 30.0, ..lb };
-        app.recipe.lens_blur = Some(chosen.clone());
+        app.doc.recipe.lens_blur = Some(chosen.clone());
         app.tools.lens_focus_picking = false;
         let depth2 = std::env::temp_dir().join(format!("autoshade-lens-{}/depth-2.png", std::process::id()));
         app.on_depth_estimated(Ok(depth2.clone()));
-        let again = app.recipe.lens_blur.clone().unwrap();
+        let again = app.doc.recipe.lens_blur.clone().unwrap();
         assert_eq!(again.depth_map, depth2.display().to_string());
         assert_eq!((again.focus, again.amount, again.range), (chosen.focus, chosen.amount, chosen.range));
         assert!(!app.tools.lens_focus_picking, "a re-estimate does not re-arm the pick");
 
-        let before = app.recipe.clone();
+        let before = app.doc.recipe.clone();
         app.on_depth_estimated(Err(anyhow::anyhow!("no GPU")));
-        assert_eq!(app.recipe, before, "a failed estimate changes nothing");
+        assert_eq!(app.doc.recipe, before, "a failed estimate changes nothing");
     }
 
     /// A depth map measures one photo's scene: pasting onto another photo
@@ -57,6 +57,6 @@
             ..Default::default()
         };
         assert!(app.can_rotate(), "premise: the photo is rotatable without a blur");
-        app.recipe.lens_blur = Some(blur);
+        app.doc.recipe.lens_blur = Some(blur);
         assert!(!app.can_rotate(), "a depth map estimated in this frame must block the turn");
     }

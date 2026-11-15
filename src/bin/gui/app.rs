@@ -14,6 +14,8 @@ pub(crate) struct RecipePreview {
 pub(crate) struct AutoShadeApp {
     /// The open photo and its decoded plates (see [`PhotoPixels`]).
     pub(crate) photo: PhotoPixels,
+    /// The open document — recipe, cards, active index (see [`Document`]).
+    pub(crate) doc: Document,
     pub(crate) before_tex: Option<egui::TextureHandle>,
     pub(crate) after_tex: Option<egui::TextureHandle>,
     /// The canvas cross-fade in flight: the frame being faded OUT (`None` =
@@ -24,7 +26,6 @@ pub(crate) struct AutoShadeApp {
     /// Which photo and version `after_tex` shows, so a landing frame can tell
     /// a slider re-render (no fade) from a swap (fade).
     pub(crate) after_shows: Option<(PathBuf, usize)>,
-    pub(crate) recipe: EditRecipe,
     // --- asynchronous develop scheduler (single in-flight, latest wins) ---
     pub(crate) develop_inflight: bool,
     pub(crate) develop_count: u64, // accepted frames; regression counter (latest-wins)
@@ -337,7 +338,6 @@ pub(crate) struct AutoShadeApp {
     // drives the sliders, histogram and canvas; switching is lossless (each
     // remembers its own base + recipe), so an AI develop no longer "reverts"
     // when you touch a slider — you're editing that variant's own base.
-    pub(crate) variants: Vec<Variant>,
     /// The user answered "Discard & quit". The close guard must then stop
     /// re-testing unsaved state: discarding by definition leaves the state
     /// dirty, so without this the guard cancelled the close and re-raised
@@ -345,7 +345,6 @@ pub(crate) struct AutoShadeApp {
     /// SAVE path needs no such flag since v0.22 — Save-all persists each
     /// photo's whole strip to variants.json, so the way-out re-check finds
     /// the state genuinely clean.)
-    pub(crate) active: usize,                         // index into `variants` (always valid once a photo is open)
     /// The card strip's dialog/one-shot state; see [`CardsState`].
     pub(crate) cards: CardsState,
     // --- export pipeline (gap batch F + D2) ---
@@ -617,7 +616,7 @@ impl AutoShadeApp {
                 self.set_crop_mode(false);
             }
             if crop_nudge != (0.0, 0.0)
-                && let Some(c) = self.recipe.crop
+                && let Some(c) = self.doc.recipe.crop
             {
                 // Keyboard twin of the move drag (D13): 0.5% of the frame per
                 // press (Shift ×10 via the multiplier above), clamped
@@ -635,8 +634,8 @@ impl AutoShadeApp {
                     right: nl + w,
                     bottom: nt + h,
                 });
-                if self.recipe.crop != next {
-                    self.recipe.crop = next;
+                if self.doc.recipe.crop != next {
+                    self.doc.recipe.crop = next;
                     self.session.dirty = true; // histogram/clipping follow the crop
                 }
             }
@@ -768,7 +767,7 @@ impl AutoShadeApp {
                 // never blurred still lands before anything else in the app
                 // acts.
                 self.commit_pending_names();
-                self.genai.copied = Some(self.recipe.clone());
+                self.genai.copied = Some(self.doc.recipe.clone());
                 self.genai.copied_from = self.photo.src_path.clone();
                 self.status = tr(
                     self.lang,
@@ -945,7 +944,7 @@ impl AutoShadeApp {
                         };
                         let start: autoshade::pipeline::CanvasStart = start;
                         start.stamp(&mut fresh);
-                        self.recipe = fresh;
+                        self.doc.recipe = fresh;
                         self.overlay.region = None;
                         self.session.dirty = true;
                         // The old AI rationale/verdict describe the recipe Reset
@@ -1479,7 +1478,7 @@ impl Default for AutoShadeApp {
             after_tex: None,
             canvas_fade: None,
             after_shows: None,
-            recipe: EditRecipe::default(),
+            doc: Document::default(),
             develop_inflight: false,
             develop_count: 0,
             status: "Open a photo, or open a folder to browse your library.".into(),
@@ -1531,8 +1530,6 @@ impl Default for AutoShadeApp {
             seams: TestSeams::default(),
             rlib: RecipeLibraryState::default(),
             tools: ToolsState::default(),
-            variants: Vec::new(),
-            active: 0,
             cards: CardsState::default(),
             normal: Default::default(),
             portrait: Default::default(),
@@ -1672,10 +1669,10 @@ impl AutoShadeApp {
             // recipe's curve is empty by construction, so this compare is
             // simply quiet there.
             && !self.active_on_ai_pixels()
-            && self.recipe.start_only() != self.open.before_start
+            && self.doc.recipe.start_only() != self.open.before_start
             && let Some(b) = self.photo.base_preview.clone()
         {
-            let start = self.recipe.start_only();
+            let start = self.doc.recipe.start_only();
             self.set_before(ctx, &b, &start);
         }
         // A held-still pointer still needs a repaint to receive the result.

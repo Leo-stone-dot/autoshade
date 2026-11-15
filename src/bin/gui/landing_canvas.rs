@@ -193,7 +193,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // frame — one mover for every path (R27).
                             self.photo.base_turns = 0;
                             if active_source {
-                                let start = self.recipe.start_only();
+                                let start = self.doc.recipe.start_only();
                                 self.set_before(ctx, &base, &start);
                                 self.rebind_paint_canvas(mw, mh);
                                 // The range-mask reference develop was computed
@@ -213,10 +213,10 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // resolution — so Ctrl+Z can't flip the canvas
                                 // back to the stale-res pixels.
                                 let old = self
-                                    .variants
-                                    .get(self.active)
+                                    .doc.variants
+                                    .get(self.doc.active)
                                     .and_then(|v| v.base.clone());
-                                if let Some(v) = self.variants.get_mut(self.active) {
+                                if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
                                     v.base = Some(bimg.clone());
                                 }
                                 // Bound, stated instead of implied: only
@@ -248,7 +248,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // restore path: an InPlace master is NEUTRAL
                                 // (needs the camera curve); a Generated
                                 // canvas recipe carries an empty curve.
-                                let start = self.recipe.start_only();
+                                let start = self.doc.recipe.start_only();
                                 self.set_before(ctx, bimg, &start);
                                 self.rebind_paint_canvas(bw, bh);
                                 self.overlay.overlay_ref = None;
@@ -640,10 +640,10 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             );
                             active_name = rec.active_name.clone();
                         }
-                        self.recipe = recipe.clone();
+                        self.doc.recipe = recipe.clone();
                         self.rationale = recipe.rationale.clone();
                         self.rationale_notes.clear(); // disk restore carries no typed notes
-                        self.variants = vec![Variant {
+                        self.doc.variants = vec![Variant {
                             // A PENDING master keeps its stashed kind: the
                             // Fitted-or-Original collapse renamed a still-
                             // decoding Generated card to 「▣ 原片」, and a
@@ -662,13 +662,13 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             origin: None,
                             thumb: None,
                         }];
-                        self.active = 0;
+                        self.doc.active = 0;
                         // Before = this photo's starting point under the
                         // canvas recipe's own base calibration: stamped
                         // fresh opens compare bright, legacy saves compare
                         // as originally tuned.
                         if let Some(b) = self.photo.base_preview.clone() {
-                            let start = self.recipe.start_only();
+                            let start = self.doc.recipe.start_only();
                             self.set_before(ctx, &b, &start);
                         }
                         // A fresh, fully-transparent paint mask sized to the
@@ -694,7 +694,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // (same rule as analyzing a baked variant) or
                             // curve + lens geometry would cook it twice.
                             let (bw, bh) = bimg.dimensions();
-                            if let Some(v) = self.variants.get_mut(0) {
+                            if let Some(v) = self.doc.variants.get_mut(0) {
                                 v.base = Some(bimg.clone());
                                 v.origin = Some(borigin);
                                 if generated {
@@ -710,11 +710,11 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 }
                             }
                             if generated {
-                                self.recipe.strip_baked_start();
-                                self.recipe.as_shot_k = None;
-                                self.recipe.as_shot_tint = None;
-                                if let Some(v) = self.variants.get_mut(0) {
-                                    v.recipe = self.recipe.clone();
+                                self.doc.recipe.strip_baked_start();
+                                self.doc.recipe.as_shot_k = None;
+                                self.doc.recipe.as_shot_tint = None;
+                                if let Some(v) = self.doc.variants.get_mut(0) {
+                                    v.recipe = self.doc.recipe.clone();
                                 }
                                 // The ● baseline lives in CANVAS
                                 // coordinates (same rule as the Analyze
@@ -733,7 +733,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // camera curve for an InPlace master, whose
                             // pixels are a NEUTRAL develop (an empty curve
                             // there compared 0.6–1.4 EV dark).
-                            let start = self.recipe.start_only();
+                            let start = self.doc.recipe.start_only();
                             self.set_before(ctx, &bimg, &start);
                             self.photo.base_preview = Some(bimg);
                             self.rebind_paint_canvas(bw, bh);
@@ -744,7 +744,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // one is somehow still in flight). Until it
                             // lands the canvas shows the source develop
                             // under spawn_master_load's disclosure.
-                            if let Some(v) = self.variants.get_mut(0) {
+                            if let Some(v) = self.doc.variants.get_mut(0) {
                                 v.origin = Some(o.clone());
                             }
                             if let Some(photo) = self.photo.src_path.clone() {
@@ -756,7 +756,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // the active canvas alone, silently dropping
                         // every other variant's unsaved work.
                         if from_stash && !stash_others.is_empty() {
-                            let active_v = self.variants.remove(0);
+                            let active_v = self.doc.variants.remove(0);
                             let mut strip: Vec<Variant> = stash_others
                                 .drain(..)
                                 .map(|sv| Variant {
@@ -773,8 +773,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 .collect();
                             let pos = stash_active_pos.min(strip.len());
                             strip.insert(pos, active_v);
-                            self.variants = strip;
-                            self.active = pos;
+                            self.doc.variants = strip;
+                            self.doc.active = pos;
                         } else if !from_stash
                             && let Some(rec) = &disk_strip
                             && !rec.others.is_empty()
@@ -790,13 +790,13 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // BEING the canvas. (dirty_vs neutralises
                             // version/base_curve, so healing the live
                             // strip never lights ● against the mirror.)
-                            let active_v = self.variants.remove(0);
+                            let active_v = self.doc.variants.remove(0);
                             let (mut strip, strip_dropped) =
                                 strip_from_record(rec, self.photo.src_path.as_deref());
                             let pos = rec.active_pos.min(strip.len());
                             strip.insert(pos, active_v);
-                            self.variants = strip;
-                            self.active = pos;
+                            self.doc.variants = strip;
+                            self.doc.active = pos;
                             // The strip's own W20 disclosure, beside the
                             // active card's above: a card past the caps
                             // is one click from being the canvas.
@@ -920,8 +920,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // disagree. (A preview-res re-decode failure — keep —
                         // leaves the still-open photo untouched.)
                         self.photo.src_path = None;
-                        self.variants.clear();
-                        self.active = 0;
+                        self.doc.variants.clear();
+                        self.doc.active = 0;
                         self.photo.base_preview = None;
                         self.photo.source_preview = None;
                         self.open.source_part = Default::default();
@@ -1030,7 +1030,7 @@ pub(crate) fn on_base_redeveloped(
     self.open.source_part = part;
     if self.active_variant().is_none_or(|v| v.base.is_none()) {
         self.photo.base_preview = Some(img.clone());
-        let start = self.recipe.start_only();
+        let start = self.doc.recipe.start_only();
         self.set_before(ctx, &img, &start);
         let (mw, mh) = img.dimensions();
         self.rebind_paint_canvas(mw, mh);

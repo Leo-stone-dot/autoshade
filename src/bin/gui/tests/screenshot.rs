@@ -247,7 +247,7 @@
             "stays believable, a cooler white balance on the sky band only, and a gentle S curve for depth. ",
         );
         app.rationale = std::iter::once(prose.to_string()).chain(notes.iter().map(render_one)).collect();
-        app.recipe.rationale = app.rationale.clone();
+        app.doc.recipe.rationale = app.rationale.clone();
         app.rationale_notes = notes;
         app.verdict = Some((autoshade::advisor::Decision::Accept, vec!["balanced".into(), "on target".into()]));
     }

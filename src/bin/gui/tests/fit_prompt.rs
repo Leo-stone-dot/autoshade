@@ -30,11 +30,23 @@
 
             },
 
-            variants: vec![
+            doc: Document {
+
+
+                variants: vec![
                 card(VariantKind::Original, ORIGINAL_VARIANT_ID, None),
                 card(VariantKind::Denoised, "dn", Some("out/_fit_prompt_test.denoise.png".into())),
             ],
-            active: 1,
+
+
+                active: 1,
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.reset_history();

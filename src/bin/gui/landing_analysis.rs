@@ -71,7 +71,7 @@ pub(crate) fn on_analyzed(
                         self.active_on_ai_pixels(),
                     );
                     let stamped = shaped.stamped;
-                    self.recipe = shaped.canvas;
+                    self.doc.recipe = shaped.canvas;
                     // The immutability rule, BEFORE the persist below
                     // reads the strip: an analysis landing on the
                     // pristine ✨ card is an edit, and lands on a new ✎

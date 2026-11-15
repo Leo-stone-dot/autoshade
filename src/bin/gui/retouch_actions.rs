@@ -86,7 +86,7 @@ pub(crate) fn start_fill(&mut self) {
         let full_res = self.genai.fill_fullres;
         // The card's live develop, captured at the click like every other
         // input the worker reads; the source kind decides the working size.
-        let recipe = self.recipe.clone();
+        let recipe = self.doc.recipe.clone();
         let edge = self.canvas_edge(); // show at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
@@ -175,7 +175,7 @@ pub(crate) fn start_adjust(&mut self) {
         self.busy = true;
         self.status = tr(lang, "adjusting generated image via gpt-image… (high quality can run minutes — progress in the status bar; ✕ Cancel to stop)").into();
         let quality = ["high", "medium", "low"][self.genai.adjust_quality.min(2)].to_string();
-        let recipe = self.recipe.clone();
+        let recipe = self.doc.recipe.clone();
         let edge = self.canvas_edge();
         let out_claim = out.clone();
         let out_panic = out.clone();
@@ -278,7 +278,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         // The master is baked over the canvas's own base (v1.17.0): its
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
-        let part = autoshade::render::BasePart::of(&self.recipe);
+        let part = autoshade::render::BasePart::of(&self.doc.recipe);
         let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
@@ -364,7 +364,7 @@ pub(crate) fn start_ai_denoise(&mut self) {
         // The master is baked over the canvas's own base (v1.17.0): its
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
-        let part = autoshade::render::BasePart::of(&self.recipe);
+        let part = autoshade::render::BasePart::of(&self.doc.recipe);
         let (epoch, _flag) = self.arm_cancel(); // sidecar compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
@@ -423,7 +423,7 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
         // The master is baked over the canvas's own base (v1.17.0): its
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
-        let part = autoshade::render::BasePart::of(&self.recipe);
+        let part = autoshade::render::BasePart::of(&self.doc.recipe);
         let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
@@ -506,7 +506,7 @@ pub(crate) fn start_clone(&mut self) {
         // The master is baked over the canvas's own base (v1.17.0): its
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
-        let part = autoshade::render::BasePart::of(&self.recipe);
+        let part = autoshade::render::BasePart::of(&self.doc.recipe);
         let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {

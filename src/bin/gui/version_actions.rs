@@ -85,7 +85,7 @@ impl AutoShadeApp {
         // advisory metadata — including the listed-numbers-only restriction
         // this used to spell for itself. The VARIANT half is deliberately
         // dropped here: it describes the LAST SAVED strip, while
-        // `self.variants` is the live one (pushes, deletes and renames that
+        // `self.doc.variants` is the live one (pushes, deletes and renames that
         // have not been saved yet), and an editor must never renumber its own
         // cards from a stale record. For every non-GUI surface that half IS
         // the list.
@@ -221,7 +221,7 @@ impl AutoShadeApp {
         // pair): a version whose recipe pointed at another version's frozen
         // raster (load v3 → save as v4) broke the moment v3 was deleted.
         let dev = autoshade::store::develop_dir(&src);
-        let mut snap = self.recipe.clone();
+        let mut snap = self.doc.recipe.clone();
         if let Err(e) = autoshade::store::snapshot_rasters(&mut snap, &dev, n) {
             let _ = std::fs::remove_file(&vpath); // release the claim
             let t = trf(lang, "Save version failed: {err}", &[("err", &e.to_string())]);
@@ -392,7 +392,7 @@ impl AutoShadeApp {
                 // still has geometry) and toasted rather than folded into the
                 // status line, so the raster caveat has room.
                 let reframe = autoshade::pipeline::migrate_recipe_coord_frame(&src, &mut r);
-                self.recipe = r;
+                self.doc.recipe = r;
                 // Read from disk: "Keep skin natural" is decided afresh for
                 // this card (`panels/portrait.rs`) — opening never changes a
                 // value.

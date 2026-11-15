@@ -17,7 +17,7 @@
     fn portrait_app(lang: Lang, found: bool) -> AutoShadeApp {
         let mut app = app_with_every_button(lang);
         if found {
-            app.recipe.masks.extend(found_masks());
+            app.doc.recipe.masks.extend(found_masks());
         }
         app
     }
@@ -153,7 +153,7 @@
             assert_eq!(app.portrait_face_gate(lang), Some(tr(lang, "Find the people and faces first (the first group).")));
             // A search that found the person and no face.
             app.portrait.found = Some((photo, 0));
-            app.recipe.masks.push(autoshade::face::background_adjustment("mask-subject.png".into()));
+            app.doc.recipe.masks.push(autoshade::face::background_adjustment("mask-subject.png".into()));
             let no_face = tr(lang, "No face found in this photo");
             assert_eq!(app.portrait_face_gate(lang), Some(no_face));
             let texts = portrait_panel_texts(&mut app);
@@ -164,13 +164,13 @@
             );
             assert_eq!(autoshade_subject(&app), Some("mask-subject.png".into()));
             // With a face, the gate opens.
-            app.recipe.masks.extend(found_masks());
+            app.doc.recipe.masks.extend(found_masks());
             assert_eq!(app.portrait_face_gate(lang), None);
         }
     }
 
     fn autoshade_subject(app: &AutoShadeApp) -> Option<String> {
-        autoshade::face::subject_raster(&app.recipe)
+        autoshade::face::subject_raster(&app.doc.recipe)
     }
 
     /// Keep the person sharp points the blur at the background mask's own
@@ -188,12 +188,12 @@
         // Keep the person sharp: the blur protects the background mask's own
         // raster — the subject matte — and off is no protection.
         assert!(app.set_keep_person_sharp(true));
-        assert_eq!(app.recipe.lens_blur.as_ref().unwrap().protect.as_deref(), Some("mask-subject.png"));
+        assert_eq!(app.doc.recipe.lens_blur.as_ref().unwrap().protect.as_deref(), Some("mask-subject.png"));
         assert!(app.set_keep_person_sharp(false));
-        assert_eq!(app.recipe.lens_blur.as_ref().unwrap().protect, None);
+        assert_eq!(app.doc.recipe.lens_blur.as_ref().unwrap().protect, None);
         let mut alone = portrait_app(Lang::En, false);
         assert!(!alone.set_keep_person_sharp(true), "nothing to protect with before the person is found");
-        assert_eq!(alone.recipe.lens_blur.as_ref().unwrap().protect, None);
+        assert_eq!(alone.doc.recipe.lens_blur.as_ref().unwrap().protect, None);
     }
 
     /// The find step's landing: the four masks with their roles; a second
@@ -205,7 +205,7 @@
         use crate::panels::portrait::PortraitLine;
         let mut app = portrait_app(Lang::En, false);
         let photo = app.photo.src_path.clone().unwrap();
-        let before = app.recipe.masks.len();
+        let before = app.doc.recipe.masks.len();
         let find = |tag: &str, n: usize| PortraitFind {
             photo: photo.clone(),
             subject: Ok(PathBuf::from(format!("mask-subject-{tag}.png"))),
@@ -219,18 +219,18 @@
         app.busy = true;
         app.on_portrait_found(Lang::En, find("a", 2));
         assert!(!app.busy);
-        let roles: Vec<autoshade::recipe::MaskRole> = app.recipe.masks[before..].iter().map(|m| m.role).collect();
+        let roles: Vec<autoshade::recipe::MaskRole> = app.doc.recipe.masks[before..].iter().map(|m| m.role).collect();
         assert_eq!(roles, [autoshade::recipe::MaskRole::Face, autoshade::recipe::MaskRole::Eyes, autoshade::recipe::MaskRole::Skin, autoshade::recipe::MaskRole::Background]);
-        let bg = &app.recipe.masks[before + 3];
+        let bg = &app.doc.recipe.masks[before + 3];
         assert!(bg.inverted, "the background is the person, inverted");
-        assert!(app.recipe.masks[before + 2].range.is_some(), "skin = the face narrowed by colour");
+        assert!(app.doc.recipe.masks[before + 2].range.is_some(), "skin = the face narrowed by colour");
         assert_eq!(app.status, "Found 2 faces");
         assert_eq!(app.portrait.found, Some((photo.clone(), 2)));
         // The user softens; a second search keeps that and moves the raster.
-        autoshade::face::set_soften(&mut app.recipe.masks[before + 2], 30.0);
+        autoshade::face::set_soften(&mut app.doc.recipe.masks[before + 2], 30.0);
         app.on_portrait_found(Lang::En, find("b", 1));
-        assert_eq!(app.recipe.masks.len(), before + 4, "refreshed, not stacked");
-        let skin = &app.recipe.masks[before + 2];
+        assert_eq!(app.doc.recipe.masks.len(), before + 4, "refreshed, not stacked");
+        let skin = &app.doc.recipe.masks[before + 2];
         assert_eq!(skin.texture, -30.0, "its sliders stay");
         assert_eq!(skin.mask, autoshade::recipe::MaskGeometry::Bitmap { path: "mask-face-b.png".into() });
         assert_eq!(app.status, "Found 1 face");
@@ -238,7 +238,7 @@
         let mut none = portrait_app(Lang::En, false);
         none.on_portrait_found(Lang::En, PortraitFind { faces: Ok(None), ..find("c", 0) });
         assert_eq!(none.status, "No face found in this photo");
-        assert_eq!(none.recipe.masks.iter().filter(|m| m.role != autoshade::recipe::MaskRole::Custom).count(), 1, "the background alone");
+        assert_eq!(none.doc.recipe.masks.iter().filter(|m| m.role != autoshade::recipe::MaskRole::Custom).count(), 1, "the background alone");
         assert_eq!(none.portrait_face_gate(Lang::En), Some("No face found in this photo"));
         // Both halves failed: nothing lands, the line says why.
         let mut failed = portrait_app(Lang::En, false);
@@ -247,12 +247,12 @@
             PortraitFind { photo: photo.clone(), subject: Err("no torch".into()), faces: Err("no mediapipe".into()) },
         );
         assert!(matches!(&failed.portrait.line, PortraitLine::Failed(t) if t.contains("no mediapipe")));
-        assert_eq!(failed.recipe.masks.len(), before);
+        assert_eq!(failed.doc.recipe.masks.len(), before);
         // Another photo is open now: the landing is dropped.
         let mut moved = portrait_app(Lang::En, false);
         moved.photo.src_path = Some(std::env::temp_dir().join(format!("autoshade-library-{}/_another.ARW", std::process::id())));
         moved.on_portrait_found(Lang::En, find("d", 1));
-        assert_eq!(moved.recipe.masks.len(), before);
+        assert_eq!(moved.doc.recipe.masks.len(), before);
     }
 
     /// Design §4 in the GUI: with "Keep skin natural" on, a write past the
@@ -271,7 +271,7 @@
         push_skin(&mut app);
         let ctx = egui::Context::default();
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
-        let skin = autoshade::face::skin_target(&mut app.recipe).unwrap().clone();
+        let skin = autoshade::face::skin_target(&mut app.doc.recipe).unwrap().clone();
         assert_eq!((skin.saturation, skin.sharpness, skin.texture), (15.0, 0.0, -60.0), "pulled back to the limits");
         // OFF (the user's flip): the same write stands.
         let mut free = portrait_app(Lang::En, true);
@@ -279,13 +279,13 @@
         free.set_keep_skin(false);
         push_skin(&mut free);
         free.guard_portrait_skin();
-        let skin = autoshade::face::skin_target(&mut free.recipe).unwrap();
+        let skin = autoshade::face::skin_target(&mut free.doc.recipe).unwrap();
         assert_eq!((skin.saturation, skin.sharpness, skin.texture), (60.0, 40.0, -90.0), "off clamps nothing");
     }
 
     /// Three skin values past the limits on the skin mask.
     fn push_skin(app: &mut AutoShadeApp) {
-        let skin = autoshade::face::skin_target(&mut app.recipe).unwrap();
+        let skin = autoshade::face::skin_target(&mut app.doc.recipe).unwrap();
         skin.saturation = 60.0;
         skin.sharpness = 40.0;
         skin.texture = -90.0;
@@ -316,7 +316,7 @@
         let mut past = portrait_app(Lang::En, true);
         push_skin(&mut past);
         let inside = EditRecipe { masks: found_masks(), ..Default::default() };
-        for (n, r) in [(1, &past.recipe), (2, &inside)] {
+        for (n, r) in [(1, &past.doc.recipe), (2, &inside)] {
             std::fs::write(autoshade::store::version_target(&src, n), serde_json::to_string(r).unwrap()).unwrap();
         }
         let mut app = portrait_app(Lang::En, true);
@@ -327,16 +327,16 @@
             let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         }
         let read = |app: &mut AutoShadeApp| {
-            let s = autoshade::face::skin_target(&mut app.recipe).unwrap();
+            let s = autoshade::face::skin_target(&mut app.doc.recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
         };
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "opening changed nothing");
         assert!(!app.keep_skin_on(), "the switch opens off for this card");
         // Per card: the other card has no say from this one.
-        let card = app.active;
-        app.active = 0;
+        let card = app.doc.active;
+        app.doc.active = 0;
         assert!(app.keep_skin_on(), "another card is not touched");
-        app.active = card;
+        app.doc.active = card;
         // Turning it on is the explicit act: three values come back, said so.
         app.session.dirty = false;
         app.set_keep_skin(true);
@@ -346,7 +346,7 @@
         assert!(app.keep_skin_on());
         // A fork keeps the switch of the card it came from.
         app.set_keep_skin(false);
-        let from = app.variants[app.active].id.clone();
+        let from = app.doc.variants[app.doc.active].id.clone();
         app.inherit_keep_skin(&from, "forked-card");
         assert_eq!(app.portrait.keep_skin.get(&(src.clone(), "forked-card".to_string())), Some(&false));
         // A version inside the limits reads with the switch on, and the
@@ -362,7 +362,7 @@
         push_skin(&mut app);
         app.decide_keep_skin_for_photo();
         assert!(!app.keep_skin_on(), "the open card past the limits: off");
-        app.active = 0;
+        app.doc.active = 0;
         assert!(app.keep_skin_on(), "a card inside them: on");
     }
 
@@ -402,8 +402,8 @@
         app.normal.runner = Some(portrait_look_runner);
         let mut skin = autoshade::face::skin_adjustment("mask-face.png".into(), [0.8, 0.6, 0.5], [0.4, 0.3]);
         skin.texture = -25.0;
-        app.recipe.masks.push(skin);
-        app.recipe.lens_blur = Some(autoshade::render::LensBlur { depth_map: "depth.png".into(), amount: 70.0, ..Default::default() });
+        app.doc.recipe.masks.push(skin);
+        app.doc.recipe.lens_blur = Some(autoshade::render::LensBlur { depth_map: "depth.png".into(), amount: 70.0, ..Default::default() });
         app.aip.grade_strength = 0.4;
         app.start_portrait_look();
         assert!(app.busy && app.tools.analyze_inflight);
@@ -415,13 +415,13 @@
         let ctx = egui::Context::default();
         land_analysis(&mut app, &ctx);
         assert!(!app.busy);
-        assert_eq!(app.recipe.exposure_ev, 0.2, "the look landed");
-        let roles: Vec<autoshade::recipe::MaskRole> = app.recipe.masks.iter().map(|m| m.role).collect();
+        assert_eq!(app.doc.recipe.exposure_ev, 0.2, "the look landed");
+        let roles: Vec<autoshade::recipe::MaskRole> = app.doc.recipe.masks.iter().map(|m| m.role).collect();
         assert_eq!(roles, [autoshade::recipe::MaskRole::Face, autoshade::recipe::MaskRole::Skin], "the look's face mask, and the photo's skin mask back");
-        let back = &app.recipe.masks[1];
+        let back = &app.doc.recipe.masks[1];
         assert_eq!((back.texture, back.mask.clone()), (0.0, autoshade::recipe::MaskGeometry::Bitmap { path: "mask-face.png".into() }));
         assert!(back.range.is_some(), "its colour range comes back with it");
-        assert_eq!(app.recipe.lens_blur.as_ref().map(|l| l.amount), Some(70.0), "the blur stays");
+        assert_eq!(app.doc.recipe.lens_blur.as_ref().map(|l| l.amount), Some(70.0), "the blur stays");
         assert_eq!(app.portrait.line, crate::panels::portrait::PortraitLine::Looked);
         // What was WRITTEN is what the panel promises — the masks back, the
         // blur kept, the skin held — on disk, not only on the next frame's
@@ -433,9 +433,9 @@
         assert_eq!(disk.lens_blur.as_ref().map(|l| l.amount), Some(70.0), "the blur was written too");
         let f = &disk.masks[0];
         assert_eq!((f.saturation, f.hue, f.temperature, f.clarity), (15.0, hue, -20.0, -40.0), "held before the write");
-        assert_eq!(app.session.hist.saved_recipe, app.recipe, "the saved look is the one on screen");
+        assert_eq!(app.session.hist.saved_recipe, app.doc.recipe, "the saved look is the one on screen");
         app.guard_portrait_skin();
-        let face = &app.recipe.masks[0];
+        let face = &app.doc.recipe.masks[0];
         assert_eq!(
             (face.saturation, face.hue, face.temperature, face.clarity),
             (15.0, hue, -20.0, -40.0),
@@ -463,7 +463,7 @@
         let (mut app, _src, scrub) = normal_photo(tag);
         app.lang = lang;
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgb8(6, 4));
-        app.variants = vec![crate::model::Variant {
+        app.doc.variants = vec![crate::model::Variant {
             id: crate::model::new_variant_id(),
             name: None,
             kind: crate::model::VariantKind::Original,
@@ -472,12 +472,12 @@
             origin: None,
             thumb: None,
         }];
-        app.active = 0;
+        app.doc.active = 0;
         app.photo.base_preview = Some(b0);
         if face {
-            app.recipe.masks.extend(found_masks());
+            app.doc.recipe.masks.extend(found_masks());
         } else {
-            app.recipe.masks.push(autoshade::face::background_adjustment("mask-subject.png".into()));
+            app.doc.recipe.masks.push(autoshade::face::background_adjustment("mask-subject.png".into()));
         }
         app.reset_history();
         app.portrait.heal_runner = Some(blemish_runner);
@@ -504,7 +504,7 @@
     fn remove_blemishes_is_greyed_without_a_face() {
         for lang in [Lang::En, Lang::Zh] {
             let (mut app, ctx, size, mut frame, rect, _scrub) = blemish_app(&format!("blemish-none-{lang:?}"), lang, false);
-            assert_eq!(autoshade::face::face_raster(&app.recipe), None);
+            assert_eq!(autoshade::face::face_raster(&app.doc.recipe), None);
             let rect = rect.expect("the button is drawn, greyed");
             click_at(&ctx, &mut app, size, &mut frame, rect.center());
             assert_eq!(app.portrait.heal_asked, None, "{lang:?}: a greyed button starts nothing");
@@ -525,7 +525,7 @@
     fn remove_blemishes_heals_held_to_the_face_and_the_landing_counts_the_spots() {
         for lang in [Lang::En, Lang::Zh] {
             let (mut app, ctx, size, mut frame, rect, _scrub) = blemish_app(&format!("blemish-face-{lang:?}"), lang, true);
-            let before = app.variants[0].base.clone().unwrap();
+            let before = app.doc.variants[0].base.clone().unwrap();
             click_at(&ctx, &mut app, size, &mut frame, rect.expect("the button is drawn").center());
             assert_eq!(app.portrait.heal_asked, Some((false, Some(PathBuf::from("mask-face.png")))), "{lang:?}: the AI heal, held to the face raster");
             assert_eq!(app.status, tr(lang, "Removing blemishes on the face… (~10-30s)"));
@@ -535,7 +535,7 @@
                 std::thread::sleep(std::time::Duration::from_millis(20));
                 app.poll_workers(&ctx);
             }
-            let saved = app.variants[0].origin.clone().expect("the heal baked into the card");
+            let saved = app.doc.variants[0].origin.clone().expect("the heal baked into the card");
             let _out = Scrub(vec![saved.clone()]);
             let want = trf(
                 lang,
@@ -571,8 +571,8 @@
         use crate::logic::portrait::{FoundFaces, PortraitFind};
         let mut app = portrait_app(Lang::En, true);
         let photo = app.photo.src_path.clone().unwrap();
-        autoshade::face::set_soften(autoshade::face::skin_target(&mut app.recipe).unwrap(), 30.0);
-        assert!(autoshade::face::face_raster(&app.recipe).is_some());
+        autoshade::face::set_soften(autoshade::face::skin_target(&mut app.doc.recipe).unwrap(), 30.0);
+        assert!(autoshade::face::face_raster(&app.doc.recipe).is_some());
         app.on_portrait_found(
             Lang::En,
             PortraitFind {
@@ -581,13 +581,13 @@
                 faces: Ok(None::<FoundFaces>),
             },
         );
-        let roles: Vec<autoshade::recipe::MaskRole> = app.recipe.masks.iter().map(|m| m.role).collect();
+        let roles: Vec<autoshade::recipe::MaskRole> = app.doc.recipe.masks.iter().map(|m| m.role).collect();
         for gone in [autoshade::recipe::MaskRole::Face, autoshade::recipe::MaskRole::Eyes, autoshade::recipe::MaskRole::Skin] {
             assert!(!roles.contains(&gone), "{gone:?} is gone: {roles:?}");
         }
         assert!(roles.contains(&autoshade::recipe::MaskRole::Background), "the person still lands");
         assert_eq!(app.portrait_face_gate(Lang::En), Some("No face found in this photo"));
-        assert_eq!(autoshade::face::face_raster(&app.recipe), None, "🤖 Remove blemishes has no face");
+        assert_eq!(autoshade::face::face_raster(&app.doc.recipe), None, "🤖 Remove blemishes has no face");
     }
 
     /// Ctrl+Z back to an edit made past the limits (before the switch was
@@ -600,7 +600,7 @@
     #[test]
     fn undo_to_an_edit_past_the_skin_limits_puts_it_back_and_keeps_redo() {
         let mut app = portrait_app(Lang::En, true);
-        app.active = 0;
+        app.doc.active = 0;
         let ctx = egui::Context::default();
         app.reset_history();
         app.set_keep_skin(false);
@@ -609,7 +609,7 @@
         app.set_keep_skin(true);
         app.commit_now();
         let read = |app: &mut AutoShadeApp| {
-            let s = autoshade::face::skin_target(&mut app.recipe).unwrap();
+            let s = autoshade::face::skin_target(&mut app.doc.recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
         };
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0), "turned on: held");
@@ -629,7 +629,7 @@
     #[test]
     fn redo_after_switching_the_skin_guard_on_turns_it_back_on() {
         let mut app = portrait_app(Lang::En, true);
-        app.active = 0;
+        app.doc.active = 0;
         let ctx = egui::Context::default();
         app.reset_history();
         app.set_keep_skin(false);
@@ -638,7 +638,7 @@
         app.set_keep_skin(true);
         app.commit_now();
         let read = |app: &mut AutoShadeApp| {
-            let s = autoshade::face::skin_target(&mut app.recipe).unwrap();
+            let s = autoshade::face::skin_target(&mut app.doc.recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
         };
         app.undo(&ctx);
@@ -665,12 +665,12 @@
     #[test]
     fn undo_and_redo_of_a_value_edit_keep_the_switch_the_user_set() {
         let mut app = portrait_app(Lang::En, true);
-        app.active = 0;
+        app.doc.active = 0;
         let ctx = egui::Context::default();
         app.reset_history();
         assert!(app.keep_skin_on());
         let edit = |app: &mut AutoShadeApp, v: f32| {
-            autoshade::face::skin_target(&mut app.recipe).unwrap().saturation = v;
+            autoshade::face::skin_target(&mut app.doc.recipe).unwrap().saturation = v;
         };
         edit(&mut app, 5.0);
         app.commit_now();
@@ -696,7 +696,7 @@
     #[test]
     fn a_new_edit_after_undoing_the_switch_on_drops_its_redo() {
         let mut app = portrait_app(Lang::En, true);
-        app.active = 0;
+        app.doc.active = 0;
         let ctx = egui::Context::default();
         app.reset_history();
         app.set_keep_skin(false);
@@ -705,7 +705,7 @@
         app.set_keep_skin(true);
         app.commit_now();
         app.undo(&ctx);
-        autoshade::face::skin_target(&mut app.recipe).unwrap().saturation = 70.0;
+        autoshade::face::skin_target(&mut app.doc.recipe).unwrap().saturation = 70.0;
         app.commit_now();
         assert!(app.session.hist.redo_stack.is_empty(), "the new edit drops the redo branch");
         assert!(!app.keep_skin_on(), "the switch stays off");
@@ -734,7 +734,7 @@
         scrub.push(dir);
         let _scrub = Scrub(scrub);
         let mut app = portrait_app(Lang::En, false);
-        app.active = 0;
+        app.doc.active = 0;
         app.photo.src_path = Some(open.clone());
         let skin = autoshade::recipe::LocalAdjustment {
             role: autoshade::recipe::MaskRole::Skin,

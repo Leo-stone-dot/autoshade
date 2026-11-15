@@ -199,7 +199,7 @@ impl AutoShadeApp {
     ///
     /// Returns `true` when the caller must stop.
     pub(crate) fn refuse_pixel_work_on_a_turned_photo(&mut self) -> bool {
-        if self.recipe.quarter_turns.is_multiple_of(4) {
+        if self.doc.recipe.quarter_turns.is_multiple_of(4) {
             return false;
         }
         self.status = tr(
@@ -425,15 +425,15 @@ impl AutoShadeApp {
     /// so an undone removal has its pixels to come back to.
     fn layer_rows(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        if self.recipe.pixel_layers.is_empty() {
+        if self.doc.recipe.pixel_layers.is_empty() {
             return;
         }
         sub_caption(ui, tr(lang, "Layers on this card"));
         let mut remove = None;
         let mut changed = false;
-        for i in 0..self.recipe.pixel_layers.len() {
+        for i in 0..self.doc.recipe.pixel_layers.len() {
             ui.horizontal(|ui| {
-                let layer = &mut self.recipe.pixel_layers[i];
+                let layer = &mut self.doc.recipe.pixel_layers[i];
                 if glyph_toggle(ui, layer.enabled, "👁")
                     .on_hover_text(tr(lang, "Show or hide this layer — a hidden layer is kept and saved with the card"))
                     .clicked()
@@ -454,14 +454,14 @@ impl AutoShadeApp {
                 ui,
                 lang,
                 tr(lang, "Layer opacity"),
-                &mut self.recipe.pixel_layers[i].opacity,
+                &mut self.doc.recipe.pixel_layers[i].opacity,
                 1.0,
                 1.0,
                 tr(lang, "How strongly this layer covers the develop under it; 100% is the fill as it was made."),
             );
         }
         if let Some(i) = remove {
-            self.recipe.pixel_layers.remove(i);
+            self.doc.recipe.pixel_layers.remove(i);
             changed = true;
         }
         if changed {
@@ -488,10 +488,10 @@ impl AutoShadeApp {
         //
         // Silent on the photographs that carry none, which is 150 of the
         // reference library's 175.
-        if !self.recipe.retouch.is_empty() {
-            let total = self.recipe.retouch.len();
+        if !self.doc.recipe.retouch.is_empty() {
+            let total = self.doc.recipe.retouch.len();
             let synth =
-                self.recipe.retouch.iter().filter(|a| a.origin.is_synthesised()).count();
+                self.doc.recipe.retouch.iter().filter(|a| a.origin.is_synthesised()).count();
             sub_caption(ui, tr(lang, "Imported removal"));
             ui.label(
                 egui::RichText::new(trf(

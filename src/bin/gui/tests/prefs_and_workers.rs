@@ -210,7 +210,7 @@
 
             ..Default::default()
         };
-        app.recipe.exposure_ev = 1.5;
+        app.doc.recipe.exposure_ev = 1.5;
         let ctx = egui::Context::default();
         let run_copy = |app: &mut AutoShadeApp, shift: bool| {
             let input = egui::RawInput {
@@ -579,7 +579,11 @@
             ),
         ];
         for (label, variants) in scenarios {
-            let mut app = AutoShadeApp { variants, ..Default::default() };
+            let mut app = AutoShadeApp { doc: Document {
+     variants,
+     ..Default::default()
+ },
+ ..Default::default() };
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let input = egui::RawInput {
