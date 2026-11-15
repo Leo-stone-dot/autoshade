@@ -275,7 +275,7 @@
 
         // The request half lives in the reflection layer, whose own tests drive
         // it; this guard pins the two rules the switch depends on.
-        let look = include_str!("../logic/look.rs");
+        let look = gui_source();
         for needle in [
             // An adjust (2026-10-21) is guided by its request alone, a box
             // region by the direction; otherwise the switch decides.
@@ -339,7 +339,7 @@
         assert!(autoshade::library::DescribeSwitch::resolve_with(None, on.aip.style_describe, unset).on());
         assert!(!autoshade::library::DescribeSwitch::resolve_with(None, off.aip.style_describe, unset).on());
 
-        let actions = concat!(include_str!("../actions.rs"), include_str!("../ai_start_actions.rs"));
+        let actions = gui_source();
         assert_eq!(
             actions.matches("DescribeSwitch::resolve(None, self.aip.style_describe)").count(),
             1,
@@ -350,7 +350,7 @@
             "the saved preference must be restored at start-up"
         );
         assert!(
-            include_str!("../app.rs").contains("style_describe: self.aip.style_describe,"),
+            gui_source().contains("style_describe: self.aip.style_describe,"),
             "…and written back when preferences are saved"
         );
     }
@@ -817,7 +817,7 @@
     /// `.id(...)` line under the Shortcuts window.
     #[test]
     fn every_window_in_app_rs_carries_a_fixed_egui_id() {
-        let frame = include_str!("../app.rs");
+        let frame = gui_source();
         let mut seen = 0;
         // The needle stops at the path: `scripts/audit_i18n.py` walks the
         // parentheses of every window constructor it sees in GUI source,
@@ -916,7 +916,7 @@
         );
         assert_eq!((pre.straighten_deg, pre.lens_distortion), (0.0, 0.0));
         assert!(pre.crop.is_none());
-        let canvas = include_str!("../canvas.rs");
+        let canvas = gui_source();
         for head in ["pub(crate) fn refresh_mask_overlay(", "pub(crate) fn handle_range_pick("] {
             let body = &canvas[canvas.find(head).unwrap_or_else(|| panic!("{head} moved"))..];
             let end = body[head.len()..].find("\n    pub(crate) fn ").expect("the next method") + head.len();
@@ -1084,7 +1084,7 @@
             None
         );
         assert!(
-            include_str!("../landing_worker.rs").contains("if let Some(owner) = note.consumed_area()"),
+            gui_source().contains("if let Some(owner) = note.consumed_area()"),
             "the landing clears through consumed_area"
         );
 

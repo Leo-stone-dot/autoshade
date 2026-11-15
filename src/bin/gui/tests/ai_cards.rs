@@ -48,7 +48,7 @@
         // The frame hook sits between the panels (where the sliders write
         // the recipe) and the develop dispatch — pinned in the source, since
         // a headless test cannot run eframe's update().
-        let frame = include_str!("../app.rs");
+        let frame = gui_source();
         let panels = frame.find("self.upd_strips_and_side_panels(ctx);").expect("the panels call");
         let hook = frame[panels..]
             .find("self.fork_edited_card();")
@@ -217,7 +217,7 @@
         // the card's picture for the model, asks the library for a LAYER and
         // lands as one. MUTATION: `layer: true` → false, or `Layer` →
         // `NewGenerated` / `InPlace`, and this names it.
-        let fill = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
+        let fill = gui_source();
         let body = &fill[fill.find("pub(crate) fn start_fill(").expect("start_fill moved")..];
         let body = &body[..body.find("pub(crate) fn start_heal(").expect("start_heal moved")];
         assert!(body.contains("autoshade::generative::retouch_onto("), "the fill no longer hands the library its own base");
@@ -304,7 +304,7 @@
                 release_empty_claim(&out);
             }
         }
-        let worker = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
+        let worker = gui_source();
         let start = worker.find("pub(crate) fn start_adjust(").unwrap();
         let body = &worker[start..worker[start..].find("pub(crate) fn start_heal(").unwrap() + start];
         assert!(body.contains("self.active_source_path()"), "the card supplies its own raster");
@@ -421,8 +421,8 @@
         let old: Prefs = serde_json::from_str(&older).unwrap();
         assert_eq!(old.adjust_quality, 0, "old prefs keep high as the default");
         assert!(!json.contains("adjust_prompt"), "prompt is transient like Reimagine's");
-        assert!(include_str!("../actions.rs").contains("app.genai.adjust_quality = prefs.adjust_quality.min(2)"));
-        assert!(include_str!("../app.rs").contains("adjust_quality: self.genai.adjust_quality"));
+        assert!(gui_source().contains("app.genai.adjust_quality = prefs.adjust_quality.min(2)"));
+        assert!(gui_source().contains("adjust_quality: self.genai.adjust_quality"));
     }
 
     /// Real pointer events cover both stamp branches. The counter measures
@@ -606,7 +606,7 @@
     /// the tail would show no vignette until export.
     #[test]
     fn the_canvas_preview_finishes_through_the_engines_own_tail() {
-        let src = include_str!("../util.rs");
+        let src = gui_source();
         let head = src.find("pub(crate) fn build_preview(").expect("build_preview moved");
         // The body to the call's close (v1.17.0 grew it by the lens rule).
         let body = &src[head..head + 2400];
@@ -656,16 +656,16 @@
             assert!(body.contains(edge), "{head} no longer reads the source's film edge");
             assert!(args.contains("film"), "{head} develops at raster scale: {args}");
         }
-        let canvas = include_str!("../canvas.rs");
+        let canvas = gui_source();
         let framed = "develop_preview_framed(";
         develops_at_film(canvas, "pub(crate) fn refresh_mask_overlay(", "self.film_short_edge()", framed);
         develops_at_film(canvas, "pub(crate) fn handle_range_pick(", "self.film_short_edge()", framed);
         develops_at_film(canvas, "pub(crate) fn handle_point_color_pick(", "self.film_short_edge()", framed);
-        let fill = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
+        let fill = gui_source();
         develops_at_film(fill, "fn developed_card_pixels(", "autoshade::decode::film_short_edge(path)", framed);
-        let masters = include_str!("../canvas_masters.rs");
+        let masters = gui_source();
         develops_at_film(masters, "pub(crate) fn start_redevelop(", "self.film_short_edge()", "build_preview(");
-        let util = include_str!("../util.rs");
+        let util = gui_source();
         develops_at_film(util, "pub(crate) fn build_preview(", "film_short_edge", "develop_preview_film(");
         let serve = include_str!("../../../serve.rs");
         develops_at_film(serve, "fn api_develop(", "decode::film_short_edge(&src)", "develop_preview_film(");
@@ -1005,7 +1005,7 @@
         // a NEW card, never in place, and always on the full frame — the
         // ≤2048 px working-copy tier is gone with the checkbox. MUTATION:
         // `NewDenoised` → `InPlace` in start_ai_denoise, and this names it.
-        let now = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
+        let now = gui_source();
         let body = &now[now.find("pub(crate) fn start_ai_denoise(").expect("start_ai_denoise moved")..];
         let body = &body[..body.find("pub(crate) fn start_clone(").expect("start_clone moved")];
         assert!(body.contains("RetouchKind::NewDenoised))"), "the denoise no longer lands as a new card");
@@ -1016,7 +1016,7 @@
         // The worker halves run behind a segmentation call, so they are
         // pinned on the source (the config.rs literal-pin pattern): the fit
         // reads the negative once at the click and the persist links it.
-        let fit = include_str!("../ai_start_actions.rs");
+        let fit = gui_source();
         assert!(fit.contains("let negative = self.fit_negative();"));
         assert!(
             fit.contains("(Some(p), Some(master)) => {")
@@ -1186,7 +1186,7 @@
         // a ◈ master is a camera frame, not AI pixels: it keeps calibration,
         // projects to a Lightroom XMP and never earns the AI caveats.
         assert!(!VariantKind::Denoised.on_ai_pixels());
-        let save = include_str!("../ai_start_actions.rs");
+        let save = gui_source();
         assert!(
             save.contains("pixels: st.origin.clone().map(|o| (o, st.kind.on_ai_pixels())),"),
             "the save's pixel link no longer reads the card's kind"
@@ -1276,7 +1276,7 @@
         // for a worker a unit test cannot run): the stack lands as a NEW card,
         // always at full resolution (`None` cap), and the frames the user
         // picked JOIN this card's frame rather than replacing it.
-        let now = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
+        let now = gui_source();
         let body = &now[now.find("pub(crate) fn start_stack(").expect("start_stack moved")..];
         let body = &body[..body.find("pub(crate) fn start_clone(").expect("start_clone moved")];
         assert!(body.contains("RetouchKind::NewStacked,"), "the stack no longer lands as a new card");
@@ -1325,7 +1325,7 @@
         app.variants = vec![card(VariantKind::Original)];
         assert!(!app.export_denoise_applies(), "unticked is unticked on any card");
         // The render reads the gate, not the raw checkbox.
-        let export = include_str!("../export.rs");
+        let export = gui_source();
         assert!(export.contains("let denoise = self.export_denoise_applies();"));
     }
 

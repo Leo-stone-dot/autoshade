@@ -7719,7 +7719,12 @@ quarter-turn rotate/sync) live in `history_actions.rs`. The Settings form and th
 cancel token, the fit-prompt and quit-confirm layers) live in
 `ai_start_actions.rs`. B is done: `actions.rs` went from 4664 to 995 lines and now
 holds only the app's construction/prefs restore, the open-baseline and dirty
-helpers, the save/export group and the status helpers.
+helpers, the save/export group and the status helpers. The C pass decouples the tests from file layout: the
+positive invariant scans read the whole GUI tree through a `gui_source()` helper
+(excluding the tests) instead of one named file, so splitting a module no longer
+turns them red; count-exact and absence assertions keep their narrow scope
+because widening them would make them false-positive (the export dial, the
+panel separators).
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

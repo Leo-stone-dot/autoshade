@@ -208,7 +208,7 @@
         // the number alone would leave the windows where they were — a slider
         // that moves no pixel, which this repo calls the worst kind of bug —
         // and no frame can drive a drag, so the choice is pinned in the source.
-        let develop = include_str!("../panels/develop.rs");
+        let develop = gui_source();
         let rows = &develop[develop.find("fn point_color_rows(").expect("point_color_rows moved")..];
         let rows = &rows[..rows.find("\n    /// ").unwrap_or(rows.len())];
         assert!(

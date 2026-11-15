@@ -670,7 +670,7 @@
                 );
             }
         }
-        let main = include_str!("../main.rs");
+        let main = gui_source();
         assert!(main.contains(".with_decorations(!window_chrome::CUSTOM_CHROME)"), "the frame and the drawn buttons must agree");
     }
 
