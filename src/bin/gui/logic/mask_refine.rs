@@ -166,3 +166,66 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod landing_tests {
+    use super::*;
+    use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
+
+    fn bitmap(path: &str) -> LocalAdjustment {
+        LocalAdjustment {
+            mask: MaskGeometry::Bitmap { path: path.into() },
+            ..Default::default()
+        }
+    }
+
+    fn outcome(index: usize, stored: &str) -> Outcome {
+        Outcome::Refined {
+            index,
+            stored_ref: stored.into(),
+            out: PathBuf::from("out/refined.png"),
+            out_display: "out/refined.png".into(),
+        }
+    }
+
+    #[test]
+    fn the_initiating_index_wins_while_it_still_carries_the_raster() {
+        let mut recipe = EditRecipe::default();
+        recipe.masks.push(bitmap("out/refined.png"));
+        recipe.masks.push(bitmap("out/other.png"));
+        let done = apply(&mut recipe, &outcome(0, "out/refined.png"));
+        assert_eq!(done.selection, Some(0));
+        assert!(matches!(&recipe.masks[0].mask, MaskGeometry::Bitmap { path } if path == "out/refined.png"));
+    }
+
+    #[test]
+    fn a_unique_survivor_is_adopted_after_the_list_moved() {
+        let mut recipe = EditRecipe::default();
+        recipe.masks.push(bitmap("out/unrelated.png"));
+        recipe.masks.push(bitmap("out/refined.png"));
+        let done = apply(&mut recipe, &outcome(9, "out/refined.png"));
+        assert_eq!(done.selection, Some(1), "the unique raster match is adopted");
+    }
+
+    #[test]
+    fn an_ambiguous_or_missing_match_refuses_and_applies_nothing() {
+        let mut recipe = EditRecipe::default();
+        recipe.masks.push(bitmap("out/refined.png"));
+        recipe.masks.push(bitmap("out/refined.png"));
+        let done = apply(&mut recipe, &outcome(9, "out/refined.png"));
+        assert_eq!(done.selection, None, "two survivors: never guess");
+        assert!(done.effects.iter().any(|e| matches!(e, Effect::ToastError(_))), "the refusal is said out loud");
+        let empty = apply(&mut EditRecipe::default(), &outcome(0, "out/refined.png"));
+        assert_eq!(empty.selection, None);
+    }
+
+    #[test]
+    fn an_over_budget_refine_keeps_the_mask_and_names_the_size() {
+        let mut recipe = EditRecipe::default();
+        recipe.masks.push(bitmap("out/refined.png"));
+        let done = apply(&mut recipe, &Outcome::OverBudget { w: 9000, h: 7000 });
+        assert_eq!(done.selection, None);
+        assert!(done.effects.iter().any(|e| matches!(e, Effect::ToastError(_))));
+        assert!(matches!(&recipe.masks[0].mask, MaskGeometry::Bitmap { path } if path == "out/refined.png"));
+    }
+}
