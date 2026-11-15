@@ -524,13 +524,13 @@ impl AutoShadeApp {
                 MaskKind::Linear => tr(lang, "Linear gradient — drag from the fully-applied side to the unaffected side (Shift = axis lock) · Esc to exit"),
                 MaskKind::Radial => tr(lang, "Radial gradient — drag to draw an elliptical area · Esc to exit"),
             }
-        } else if self.wb_picking {
+        } else if self.tools.wb_picking {
             tr(lang, "WB eyedropper — click a spot that should be neutral grey/white · Esc to exit")
-        } else if self.range_picking.is_some() {
+        } else if self.tools.range_picking.is_some() {
             tr(lang, "Color range — click the color to pick in the image · Esc to exit")
-        } else if self.point_color_picking {
+        } else if self.tools.point_color_picking {
             tr(lang, "Point Color eyedropper — click the colour to adjust · Esc to exit")
-        } else if self.clone_mode {
+        } else if self.tools.clone_mode {
             tr(lang, "Stamp — Alt+click to set the source · drag to brush the area to cover · Esc to exit")
         } else if self.masks.paint_mode {
             if self.masks.mask_brush.is_some() {
@@ -767,18 +767,18 @@ impl AutoShadeApp {
             self.handle_crop(ui, &resp, xf, tex_size);
         } else if self.masks.placing_mask.is_some() {
             self.handle_place_mask(ui, &resp, xf);
-        } else if self.wb_picking {
+        } else if self.tools.wb_picking {
             self.handle_wb_pick(ui, &resp, xf);
-        } else if self.range_picking.is_some() {
+        } else if self.tools.range_picking.is_some() {
             self.handle_range_pick(ui, &resp, xf);
-        } else if self.point_color_picking {
+        } else if self.tools.point_color_picking {
             self.handle_point_color_pick(ui, &resp, xf);
-        } else if self.lens_focus_picking {
+        } else if self.tools.lens_focus_picking {
             self.draw_lens_focus(ui, xf);
             if let Some(action) = self.handle_lens_focus_pick(ui, &resp, xf) {
                 self.apply_actions(vec![action]);
             }
-        } else if self.clone_mode {
+        } else if self.tools.clone_mode {
             self.handle_clone(ui, &resp, xf);
             self.ensure_mask_tex(ui.ctx());
             if let Some(t) = &self.overlay.mask_tex {
@@ -997,8 +997,8 @@ impl AutoShadeApp {
     /// read; a miss pays one preview-sized develop ≈ one slider tick.
     pub(crate) fn handle_range_pick(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
         let Some((nx, ny)) = self.clicked_orig_norm(ui, resp, xf) else { return };
-        let Some(mi) = self.range_picking.filter(|&i| i < self.recipe.masks.len()) else {
-            self.range_picking = None; // stale index (mask deleted mid-pick)
+        let Some(mi) = self.tools.range_picking.filter(|&i| i < self.recipe.masks.len()) else {
+            self.tools.range_picking = None; // stale index (mask deleted mid-pick)
             return;
         };
         let smp = {

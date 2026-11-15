@@ -399,7 +399,7 @@
         app.recipe.lens_blur = Some(autoshade::render::LensBlur { depth_map: "depth.png".into(), amount: 70.0, ..Default::default() });
         app.aip.grade_strength = 0.4;
         app.start_portrait_look();
-        assert!(app.busy && app.analyze_inflight);
+        assert!(app.busy && app.tools.analyze_inflight);
         let (req, guidance, library) = app.normal.last_request.clone().expect("the analysis was asked");
         assert_eq!(guidance.as_deref(), Some(autoshade::advisor::presets::PORTRAIT.direction));
         assert_eq!(req.guide, autoshade::pipeline::Guide::Direction);
@@ -541,7 +541,7 @@
             assert!(undone.base.as_ref().is_some_and(|b| std::sync::Arc::ptr_eq(b, &before)), "Ctrl+Z goes back to the pixels before");
             // Spots found, none on the face.
             app.busy = true;
-            let epoch = app.gen_epoch;
+            let epoch = app.tools.gen_epoch;
             app.on_retouched(&ctx, lang, epoch, Err(autoshade::retouch::NoSpotInsideLimit { found: 2 }.into()));
             assert!(!app.busy);
             assert_eq!(

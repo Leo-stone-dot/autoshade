@@ -233,7 +233,7 @@
     /// Poll the app's workers until the one-click's analysis has landed.
     fn land_analysis(app: &mut AutoShadeApp, ctx: &egui::Context) {
         let start = std::time::Instant::now();
-        while app.analyze_inflight {
+        while app.tools.analyze_inflight {
             assert!(start.elapsed() < std::time::Duration::from_secs(20), "the analysis never landed");
             std::thread::sleep(std::time::Duration::from_millis(20));
             app.poll_workers(ctx);
@@ -343,7 +343,7 @@
         app.apply_actions(vec![logic::Action::Look(logic::look::LookIntent::of(
             logic::look::LookKind::OneClick(crate::logic::look::OneClick::Preset("natural")),
         ))]);
-        assert!(app.busy && app.analyze_inflight);
+        assert!(app.busy && app.tools.analyze_inflight);
         land_analysis(&mut app, &ctx);
         assert!(!app.busy);
         assert!(app.recipe.exposure_ev > 0.0, "the dark frame was brightened: {}", app.recipe.exposure_ev);
@@ -606,7 +606,7 @@
         let master = std::path::PathBuf::from("out/_gui_normal_denoise.denoise.png");
         let note = RetouchNote::Denoised { out: master.clone(), on_mosaic: false };
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
-        app.tx.send(Msg::Retouched(app.gen_epoch, Box::new(done))).unwrap();
+        app.tx.send(Msg::Retouched(app.tools.gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.variants[app.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         assert_eq!(app.active_source_path().as_deref(), Some(master.as_path()), "…and is what a save renders");
@@ -939,7 +939,7 @@
         let master = std::path::PathBuf::from("out/_gui_normal_denoise_undo.denoise.png");
         let note = RetouchNote::Denoised { out: master.clone(), on_mosaic: false };
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
-        app.tx.send(Msg::Retouched(app.gen_epoch, Box::new(done))).unwrap();
+        app.tx.send(Msg::Retouched(app.tools.gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.variants[app.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         let denoised = app.variants[app.active].base.clone().unwrap();

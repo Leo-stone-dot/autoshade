@@ -265,7 +265,7 @@
         // A slider edit still mid-gesture when the worker returns.
         app.recipe.exposure_ev = 0.5;
 
-        let epoch = app.gen_epoch;
+        let epoch = app.tools.gen_epoch;
         app.on_retouched(
             &ctx,
             Lang::En,

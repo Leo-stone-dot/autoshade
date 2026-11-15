@@ -23,8 +23,8 @@ pub(crate) fn on_analyzed(
 ) {
                 // Cleared whatever the epoch: the wire is free either way,
                 // and this is what re-arms the Analyze button.
-                self.analyze_inflight = false;
-                if epoch != self.gen_epoch {
+                self.tools.analyze_inflight = false;
+                if epoch != self.tools.gen_epoch {
                     // A cancelled Analyze's late result: the user already
                     // moved on. The Ok arm below also PERSISTS (backup +
                     // recipe.json + XMP) — a stale install would not just
@@ -32,7 +32,7 @@ pub(crate) fn on_analyzed(
                     // develop. Discard entirely (Err is just as silent).
                     return; // was `continue` — the match was the loop's last statement
                 }
-                self.gen_cancel = None;
+                self.tools.gen_cancel = None;
                 match *boxed {
                 Ok((recipe, verdict, rationale_notes)) => {
                     // Sliders stay live while Analyze runs (10-30 s):

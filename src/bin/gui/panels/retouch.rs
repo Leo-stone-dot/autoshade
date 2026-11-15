@@ -144,7 +144,7 @@ impl AutoShadeApp {
             {
                 let (dims, deg, dist) = self.geom_ctx();
                 let (nx, ny) = xf.to_norm(q);
-                self.clone_src = Some(view_norm_to_orig(nx, ny, dims, deg, &dist));
+                self.tools.clone_src = Some(view_norm_to_orig(nx, ny, dims, deg, &dist));
                 self.status = tr(
                     self.lang,
                     "Clone source sampled — brush the area to cover, then 「⎘ Clone painted area」",
@@ -154,7 +154,7 @@ impl AutoShadeApp {
         } else {
             self.handle_paint(resp, xf);
         }
-        if let Some((sx, sy)) = self.clone_src {
+        if let Some((sx, sy)) = self.tools.clone_src {
             let (dims, deg, dist) = self.geom_ctx();
             let (vx, vy) = orig_norm_to_view(sx, sy, dims, deg, &dist);
             let q = xf.to_screen(vx, vy);
@@ -678,7 +678,7 @@ impl AutoShadeApp {
                 if armed {
                     self.brush_size_slider(ui);
                 }
-                if primary_row(ui, !self.busy && self.clone_mode, tr(lang, "⎘ Clone area"))
+                if primary_row(ui, !self.busy && self.tools.clone_mode, tr(lang, "⎘ Clone area"))
                     .on_hover_text(tr(lang, "Copy the sampled source over the brushed area verbatim (feathered edges, no tone matching) — local compute"))
                     .clicked()
                 {
@@ -687,7 +687,7 @@ impl AutoShadeApp {
                 // Enabled for BAKED sources too — clone_stamp honours
                 // the flag on both source types (retouch.rs), the same
                 // rule as Heal beside it (L15-7).
-                ui.checkbox(&mut self.clone_fullres, tr(lang, "Full-res clone"))
+                ui.checkbox(&mut self.tools.clone_fullres, tr(lang, "Full-res clone"))
                     .on_hover_text(tr(lang, "Clone at full resolution (slow; without it the retouched image is saved at 2048px)"));
                 explainer(ui, lang, tr(lang, "Photoshop-style clone stamp: Alt+click to sample a source (cross marker), brush the area to \
                          cover, and pixels are carried over as-is from the source (feathered edges, no tone matching). \

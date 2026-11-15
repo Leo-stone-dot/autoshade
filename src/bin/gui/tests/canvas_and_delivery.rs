@@ -80,7 +80,7 @@
 
         let ctx = egui::Context::default();
         // The cancel already bumped past this task's epoch 6.
-        let mut app = AutoShadeApp { gen_epoch: 7, ..Default::default() };
+        let mut app = AutoShadeApp { tools: ToolsState { gen_epoch: 7, ..Default::default() }, ..Default::default() };
         app.on_retouched(
             &ctx,
             Lang::En,

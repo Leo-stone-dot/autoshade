@@ -274,7 +274,7 @@ impl AutoShadeApp {
     pub(crate) fn brush_armed(&self, owner: BrushOwner) -> bool {
         self.masks.mask_brush.is_none()
             && self.masks.paint_owner == owner
-            && if owner == BrushOwner::Stamp { self.clone_mode } else { self.masks.paint_mode }
+            && if owner == BrushOwner::Stamp { self.tools.clone_mode } else { self.masks.paint_mode }
     }
 
     /// Arm `owner`'s brush: its area comes onto the canvas, every other
@@ -284,7 +284,7 @@ impl AutoShadeApp {
         self.select_brush_owner(owner);
         self.disarm_tools();
         if owner == BrushOwner::Stamp {
-            self.clone_mode = true;
+            self.tools.clone_mode = true;
         } else {
             self.masks.paint_mode = true;
         }
@@ -295,7 +295,7 @@ impl AutoShadeApp {
     /// bake stale weights), and `end_mask_brush` restores the owner's area.
     pub(crate) fn disarm_brush(&mut self) {
         self.masks.paint_mode = false;
-        self.clone_mode = false;
+        self.tools.clone_mode = false;
         self.masks.paint_last = None;
         self.end_mask_brush();
     }

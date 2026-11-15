@@ -93,7 +93,7 @@
     fn an_analyze_landing_on_the_pristine_ai_card_forks_before_it_saves() {
         let (mut app, _ctx, _dir, src, master, _ai_px, _scrub) =
             ai_card_fixture("analyze", EditRecipe::default());
-        let epoch = app.gen_epoch;
+        let epoch = app.tools.gen_epoch;
         app.on_analyzed(
             Lang::En,
             epoch,
@@ -173,7 +173,7 @@
         app.reset_history();
         let out = std::path::PathBuf::from("out/_fill_layer_test.fill.png");
         let land = |app: &mut AutoShadeApp| {
-            let epoch = app.gen_epoch;
+            let epoch = app.tools.gen_epoch;
             app.on_retouched(
                 &ctx,
                 Lang::En,
@@ -266,7 +266,7 @@
                     format!("adjust-{lang:?}-{region}.adjust-2.png"));
                 release_empty_claim(&second);
                 let source_recipe = app.variants[0].recipe.clone();
-                app.on_retouched(&ctx, lang, app.gen_epoch, Ok((
+                app.on_retouched(&ctx, lang, app.tools.gen_epoch, Ok((
                     image::DynamicImage::new_rgb8(4, 4),
                     RetouchNote::Adjusted { out: out.clone(), region, divergence: (!region).then_some(0.12) },
                     out.clone(), RetouchKind::NewGenerated,
@@ -292,7 +292,7 @@
                 app.variants[1].kind = VariantKind::Edited;
                 app.variants[1].recipe = developed.clone();
                 app.recipe = developed.clone();
-                app.on_retouched(&ctx, lang, app.gen_epoch, Ok((
+                app.on_retouched(&ctx, lang, app.tools.gen_epoch, Ok((
                     image::DynamicImage::new_rgb8(4, 4),
                     RetouchNote::Adjusted { out: second.clone(), region, divergence: (!region).then_some(0.0) },
                     second.clone(), RetouchKind::NewGenerated,
@@ -680,7 +680,7 @@
             ai_card_fixture("retouch", EditRecipe::default());
         let healed = dir.join("healed.png");
         std::fs::write(&healed, b"png").unwrap();
-        let epoch = app.gen_epoch;
+        let epoch = app.tools.gen_epoch;
         app.on_retouched(
             &ctx,
             Lang::En,
@@ -962,7 +962,7 @@
         assert_eq!(app.negative_origin(), None);
         assert_eq!(app.negative_path().as_deref(), Some(src.as_path()), "no master: the loaded file");
         let out = std::path::PathBuf::from("out/_negative_follow_test.denoise.png");
-        let epoch = app.gen_epoch;
+        let epoch = app.tools.gen_epoch;
         app.on_retouched(
             &ctx,
             Lang::En,
@@ -1224,7 +1224,7 @@
         };
         app.reset_history();
         let out = std::path::PathBuf::from("out/_stack_landing_test.stack.png");
-        let epoch = app.gen_epoch;
+        let epoch = app.tools.gen_epoch;
         app.on_retouched(
             &ctx,
             Lang::En,

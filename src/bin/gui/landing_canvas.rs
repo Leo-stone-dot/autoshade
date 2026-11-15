@@ -853,10 +853,10 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.overlay.overlay_ref = None; // the reference develop belongs to ONE base
                         self.overlay.overlay_stale = true;
                         self.curve_drag = None; // curve_channel is a UI pref, keep it
-                        self.wb_picking = false;
-                        self.range_picking = None;
-                        self.clone_mode = false;
-                        self.clone_src = None;
+                        self.tools.wb_picking = false;
+                        self.tools.range_picking = None;
+                        self.tools.clone_mode = false;
+                        self.tools.clone_src = None;
                         self.verdict = None;
                         // R23-6 B: the chosen reverse-fit reference names
                         // a rendition of THE PREVIOUS photo. Carried

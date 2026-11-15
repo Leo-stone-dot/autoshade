@@ -48,7 +48,7 @@ impl AutoShadeApp {
             ui.label(egui::RichText::new(hint).weak().small());
             return actions;
         };
-        let picking = self.lens_focus_picking;
+        let picking = self.tools.lens_focus_picking;
         ui.horizontal(|ui| {
             let mute = tr(lang, "Show/mute the lens blur without losing its settings");
             if glyph_toggle(ui, enabled, "👁").on_hover_text(mute).clicked() {

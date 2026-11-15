@@ -407,7 +407,7 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
         };
         // This fold's OWN dials, captured at the click like every other input
         // a worker reads.
-        let (kind, tripod) = (self.stack_kind, self.stack_tripod);
+        let (kind, tripod) = (self.tools.stack_kind, self.tools.stack_tripod);
         let mut inputs = vec![path.clone()];
         inputs.extend(extra);
         let frames = inputs.len();
@@ -485,7 +485,7 @@ pub(crate) fn start_clone(&mut self) {
             return;
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
-        let Some(src_pt) = self.clone_src else {
+        let Some(src_pt) = self.tools.clone_src else {
             self.status = tr(lang, "Alt+click to set the clone source first").into();
             return;
         };
@@ -499,7 +499,7 @@ pub(crate) fn start_clone(&mut self) {
         };
         self.busy = true;
         self.status = tr(lang, "Cloning… (local pixel compute)").into();
-        let full_res = self.clone_fullres;
+        let full_res = self.tools.clone_fullres;
         let edge = self.canvas_edge(); // bake at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)

@@ -179,7 +179,7 @@ impl AutoShadeApp {
             PortraitLine::Found { faces: 1, .. } => tr(lang, "Found 1 face").into(),
             PortraitLine::Found { faces, .. } => trf(lang, "Found {n} faces", &[("n", &faces.to_string())]),
             PortraitLine::Failed(why) => why.clone(),
-            PortraitLine::Looking if self.analyze_inflight => tr(lang, "Making the portrait look…").into(),
+            PortraitLine::Looking if self.tools.analyze_inflight => tr(lang, "Making the portrait look…").into(),
             PortraitLine::Looking => tr(lang, "Find the people first: the skin, eyes and background tools work on what is found.").into(),
             PortraitLine::Looked => tr(lang, "Done — Ctrl+Z goes back").into(),
         }
@@ -226,7 +226,7 @@ impl AutoShadeApp {
     fn portrait_people(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         Self::portrait_group(ui, tr(lang, "People and background"));
-        let ready = self.src_path.is_some() && self.base_preview.is_some() && !self.busy && !self.analyze_inflight;
+        let ready = self.src_path.is_some() && self.base_preview.is_some() && !self.busy && !self.tools.analyze_inflight;
         let mut find = false;
         let mut look = false;
         ui.horizontal(|ui| {
@@ -249,7 +249,7 @@ impl AutoShadeApp {
         );
         let line = self.portrait_line_text(lang);
         ui.horizontal_wrapped(|ui| {
-            if self.portrait.line == PortraitLine::Finding || (self.portrait.line == PortraitLine::Looking && self.analyze_inflight) {
+            if self.portrait.line == PortraitLine::Finding || (self.portrait.line == PortraitLine::Looking && self.tools.analyze_inflight) {
                 ui.spinner();
             }
             ui.label(egui::RichText::new(line).small());

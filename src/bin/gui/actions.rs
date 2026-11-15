@@ -308,8 +308,8 @@ impl AutoShadeApp {
     /// compute is abandon-only (its late result is discarded by epoch).
     pub(crate) fn arm_cancel(&mut self) -> (u64, Arc<std::sync::atomic::AtomicBool>) {
         let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        self.gen_cancel = Some(flag.clone());
-        (self.gen_epoch, flag)
+        self.tools.gen_cancel = Some(flag.clone());
+        (self.tools.gen_epoch, flag)
     }
 
     /// The status-bar ✕: stop the running retouch/generative task. The UI
@@ -317,10 +317,10 @@ impl AutoShadeApp {
     /// late result arrives under a stale epoch — discarded, never applied.
     pub(crate) fn cancel_generative(&mut self) {
         // The cancelled analysis' late result has no claim to win.
-        logic::look::cancel(&mut self.look);
-        if let Some(flag) = self.gen_cancel.take() {
+        logic::look::cancel(&mut self.tools.look);
+        if let Some(flag) = self.tools.gen_cancel.take() {
             flag.store(true, std::sync::atomic::Ordering::Relaxed);
-            self.gen_epoch = self.gen_epoch.wrapping_add(1);
+            self.tools.gen_epoch = self.tools.gen_epoch.wrapping_add(1);
             self.busy = false;
             // Honest about BOTH shapes. A generative worker polls the flag
             // between stream events and really does stop; `produce_recipe`
@@ -1178,7 +1178,7 @@ impl AutoShadeApp {
         // "Preparing preview…" placeholder takes over.
         self.after_tex = None;
         self.disarm_tools();
-        self.clone_src = None; // unlike a mere disarm, a variant switch drops the sample
+        self.tools.clone_src = None; // unlike a mere disarm, a variant switch drops the sample
         self.view.zoom = 1.0;
         self.view.zoom_target = 1.0; // instant — a swap must not glide from the old view
         // The `1` key reads LAST frame's cached 1:1 solve; stale across a
@@ -1811,7 +1811,7 @@ impl AutoShadeApp {
         if self.masks.sel_mask != sel_before || self.masks.sel_mask.is_none() {
             self.masks.sel_component = None;
         }
-        self.range_picking = self.range_picking.and_then(&f);
+        self.tools.range_picking = self.tools.range_picking.and_then(&f);
         self.masks.placing_mask = self.masks.placing_mask.take().and_then(|(k, t)| match t {
             PlaceTarget::NewMask => Some((k, PlaceTarget::NewMask)),
             // A vanished redraw target degrades to a NEW mask placement (the
@@ -2342,11 +2342,11 @@ impl AutoShadeApp {
     pub(crate) fn disarm_tools(&mut self) {
         self.set_crop_mode(false);
         self.masks.paint_mode = false;
-        self.clone_mode = false;
-        self.wb_picking = false;
-        self.range_picking = None;
-        self.point_color_picking = false;
-        self.lens_focus_picking = false;
+        self.tools.clone_mode = false;
+        self.tools.wb_picking = false;
+        self.tools.range_picking = None;
+        self.tools.point_color_picking = false;
+        self.tools.lens_focus_picking = false;
         self.masks.placing_mask = None;
         self.masks.place_start = None;
         self.crop.drag = None;
@@ -2401,7 +2401,7 @@ impl AutoShadeApp {
         }
         // The colour sampler drops unconditionally — its 💧 label lives on
         // the row that was just left (the first fix of this class).
-        self.range_picking = None;
+        self.tools.range_picking = None;
         if matches!(self.masks.mask_brush, Some((Some(j), _)) if Some(j) != keep) {
             return self.end_mask_brush();
         }
@@ -2412,10 +2412,10 @@ impl AutoShadeApp {
     pub(crate) fn tool_armed(&self) -> bool {
         self.crop.mode
             || self.masks.paint_mode
-            || self.clone_mode
-            || self.wb_picking
-            || self.range_picking.is_some()
-            || self.point_color_picking
+            || self.tools.clone_mode
+            || self.tools.wb_picking
+            || self.tools.range_picking.is_some()
+            || self.tools.point_color_picking
             || self.masks.placing_mask.is_some()
     }
 
@@ -4105,7 +4105,7 @@ impl AutoShadeApp {
         // ✕ frees the UI immediately, the call dies at its stall/progress
         // deadline, and the stale-epoch result is discarded on arrival.
         let (epoch, _flag) = self.arm_cancel();
-        self.analyze_inflight = true;
+        self.tools.analyze_inflight = true;
         self.spawn_worker(
             move || {
                 // Test seam: a headless test stands in for the paid chain.
