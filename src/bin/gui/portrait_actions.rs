@@ -286,7 +286,7 @@ pub(crate) fn after_portrait_depth(&mut self) {
         let Some(lb) = self.recipe.lens_blur.as_mut() else { return };
         if let Some(c) = centre {
             lb.focus = c;
-            self.lens_focus_picking = false;
+            self.tools.lens_focus_picking = false;
         }
         if lb.protect.is_none() {
             lb.protect = subject;

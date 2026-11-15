@@ -916,16 +916,16 @@ impl AutoShadeApp {
                         }
                         changed = true;
                     }
-                    let label = if self.wb_picking { tr(lang, "💧 Click in image…") } else { tr(lang, "💧 Eyedropper") };
+                    let label = if self.tools.wb_picking { tr(lang, "💧 Click in image…") } else { tr(lang, "💧 Eyedropper") };
                     if action_in(ui, cell, true, label)
                         .on_hover_text(tr(lang,
                             "Click a spot in the image that should be neutral grey/white to auto-solve Temp/Tint (same forward model as the engine). Click again to cancel.",
                         ))
                         .clicked()
                     {
-                        let on = !self.wb_picking;
+                        let on = !self.tools.wb_picking;
                         self.disarm_tools();
-                        self.wb_picking = on;
+                        self.tools.wb_picking = on;
                         if on {
                             self.status = tr(lang, "WB eyedropper: click a spot that should be neutral grey/white").into();
                         }
@@ -1167,7 +1167,7 @@ impl AutoShadeApp {
                 // One cell of the grid beside the caption (2026-09-27).
                 let cell = columns(ui, 2);
                 ui.label(egui::RichText::new(tr(lang, "Point Color")).weak().small());
-                let label = if self.point_color_picking {
+                let label = if self.tools.point_color_picking {
                     tr(lang, "💧 Click in image…")
                 } else {
                     tr(lang, "💧 Pick a color")
@@ -1187,9 +1187,9 @@ impl AutoShadeApp {
                     ))
                     .clicked()
                 {
-                    let on = !self.point_color_picking;
+                    let on = !self.tools.point_color_picking;
                     self.disarm_tools();
-                    self.point_color_picking = on;
+                    self.tools.point_color_picking = on;
                     if on {
                         self.status =
                             tr(lang, "Point Color eyedropper: click the colour to adjust").into();
@@ -1550,10 +1550,10 @@ impl AutoShadeApp {
                 explainer(ui, lang, tr(lang, "Merge several frames of one scene into a new ▦ negative. This card's frame is the reference — its framing and its exposure are the ones the result keeps — and the frames you pick join it."));
                 ui.add_space(SPACE_SM);
                 egui::ComboBox::from_id_salt("stack_kind")
-                    .selected_text(tr(lang, self.stack_kind.label()))
+                    .selected_text(tr(lang, self.tools.stack_kind.label()))
                     .show_ui(ui, |ui| {
                         for k in autoshade::stack::merge::StackKind::ALL {
-                            ui.selectable_value(&mut self.stack_kind, k, tr(lang, k.label()));
+                            ui.selectable_value(&mut self.tools.stack_kind, k, tr(lang, k.label()));
                         }
                     })
                     .response
@@ -1561,7 +1561,7 @@ impl AutoShadeApp {
                         lang,
                         "HDR merge: an exposure bracket into one frame holding the whole range, with the recovered stops handed to the SDR rendition section. Exposure fusion: the same bracket blended where each frame looks best, with no HDR in between — a finished picture rather than data. Focus stack: a focus sweep into one frame sharp throughout. Noise stack: repeated frames of a still scene averaged, so the signal adds and the noise does not, and anything that moved through one frame is dropped.",
                     ));
-                ui.checkbox(&mut self.stack_tripod, tr(lang, "Shot on a tripod (skip alignment)"))
+                ui.checkbox(&mut self.tools.stack_tripod, tr(lang, "Shot on a tripod (skip alignment)"))
                     .on_hover_text(tr(
                         lang,
                         "Alignment is the expensive half of a stack, and on frames that really are registered there is nothing for it to find — measured on a five-frame noise stack, the grain fell 2.03x with it skipped and 1.97x with it running. Leave it off for handheld frames.",
@@ -2925,8 +2925,8 @@ impl AutoShadeApp {
                         // Leaving Color: the armed sampler goes too, or the
                         // canvas keeps advertising (and dispatching) a colour
                         // pick for a range that no longer exists.
-                        if cur == 2 && self.range_picking == Some(i) {
-                            self.range_picking = None;
+                        if cur == 2 && self.tools.range_picking == Some(i) {
+                            self.tools.range_picking = None;
                         }
                         self.recipe.masks[i].range = match sel {
                             // Full range = neutral start; narrow from there.
@@ -2938,12 +2938,12 @@ impl AutoShadeApp {
                             // Jump straight into sampling — a colour range without
                             // a picked colour selects nothing useful.
                             self.disarm_tools();
-                            self.range_picking = Some(i);
+                            self.tools.range_picking = Some(i);
                             self.status = tr(lang, "Color range: click the color to pick in the image").into();
                         }
                         changed = true;
                     }
-                    let picking_this = self.range_picking == Some(i);
+                    let picking_this = self.tools.range_picking == Some(i);
                     let mut want_pick = false;
                     match &mut self.recipe.masks[i].range {
                         Some(RangeMask::Luminance { lo_outer, lo, hi, hi_outer }) => {
@@ -3002,7 +3002,7 @@ impl AutoShadeApp {
                     if want_pick {
                         self.disarm_tools();
                         if !picking_this {
-                            self.range_picking = Some(i);
+                            self.tools.range_picking = Some(i);
                             self.status = tr(lang, "Color range: click the color to pick in the image").into();
                         }
                     }

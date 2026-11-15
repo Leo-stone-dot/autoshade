@@ -34,7 +34,7 @@
 
     /// A finished worker landing through the one door every retouch takes.
     fn land(app: &mut AutoShadeApp, ctx: &egui::Context, note: RetouchNote, out: &str, kind: RetouchKind) {
-        app.on_retouched(ctx, app.lang, app.gen_epoch, Ok((
+        app.on_retouched(ctx, app.lang, app.tools.gen_epoch, Ok((
             image::DynamicImage::new_rgb8(4, 4),
             note,
             PathBuf::from(out),

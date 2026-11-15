@@ -340,32 +340,23 @@ pub(crate) struct AutoShadeApp {
     /// The selected library recipe developed on the open photo (the window's
     /// preview pane); rebuilt when the selection, the photo or the file changes.
     // --- WB eyedropper ---
-    pub(crate) wb_picking: bool,                      // next image click samples a neutral point
+    /// The canvas tools and AI/generation flight flags; see [`ToolsState`].
+    pub(crate) tools: ToolsState,
     // --- colour-range sample (Range Mask) ---
-    pub(crate) range_picking: Option<usize>,          // next image click keys masks[i]'s Color range
     // --- Point Color eyedropper (v1.5.0) ---
-    pub(crate) point_color_picking: bool,             // next image click adds a Point Color swatch
     // --- AI lens blur (2026-10-13) ---
-    pub(crate) lens_focus_picking: bool,              // next image click sets the lens blur's focus point
     // --- clone stamp ---
-    pub(crate) clone_mode: bool,                      // brush paints the clone target; Alt+click = source
-    pub(crate) clone_src: Option<(f32, f32)>,         // picked source point, original-frame normalized
-    pub(crate) clone_fullres: bool,                   // clone on the full-res develop (RAW only)
     // --- stacking (v1.5.0 Track S) ---
     // The Stack fold's own two dials. Deliberately NOT in `Prefs`: which merge
     // a set of frames wants is a property of that shoot, not a taste — a
     // bracket and a focus sweep are different jobs, and remembering last
     // week's answer would run the wrong one on the first click.
-    pub(crate) stack_kind: autoshade::stack::merge::StackKind,
-    pub(crate) stack_tripod: bool,                    // frames already registered — skip alignment
     // --- cancellable retouch/generative workers ---
     // Cancel bumps `gen_epoch`; a worker's Retouched message carries the epoch
     // it was started under and is discarded on mismatch (the canvas is never
     // mutated by an abandoned task). `gen_cancel` is Some while such a worker
     // is in flight — it arms the status-bar ✕ and, for streaming generative
     // calls, is polled between events to stop the download itself.
-    pub(crate) gen_epoch: u64,
-    pub(crate) gen_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
     /// An `Analyze` worker is still on the wire, cancelled or not.
     ///
     /// Cancelling an analyze is ABANDON-only — `produce_recipe` takes no
@@ -375,10 +366,8 @@ pub(crate) struct AutoShadeApp {
     /// high-detail vision request that ran to its stall deadline and was
     /// BILLED, N deep. The flag is cleared when the worker's message lands,
     /// whatever its epoch.
-    pub(crate) analyze_inflight: bool,
     /// The one AI look in flight, with the epoch/keep facts the landing needs
     /// (`logic::look`).
-    pub(crate) look: crate::logic::look::LookState,
     // --- variants (版本/变体): parallel renditions of the open photo ---
     // Original + any AI-generated / reverse-fitted versions. The active one
     // drives the sliders, histogram and canvas; switching is lossless (each
@@ -528,7 +517,7 @@ impl AutoShadeApp {
             let mut brush_delta: f32 = 0.0;
             // [ / ] belong to the active brush tool; when none is armed the
             // keys stay unconsumed (free for egui / future bindings).
-            let brush_tool = self.masks.paint_mode || self.clone_mode;
+            let brush_tool = self.masks.paint_mode || self.tools.clone_mode;
             let crop_tool = self.crop.mode;
             // ↑/↓ walk the library ONLY while the pointer is off the controls
             // panel: over it, the same keys nudge a hovered slider — and this
@@ -694,17 +683,17 @@ impl AutoShadeApp {
             // LR tool keys: each mirrors its own button exactly
             // (disarm-then-arm; a second press exits the tool).
             if do_wb && self.src_path.is_some() {
-                let on = !self.wb_picking;
+                let on = !self.tools.wb_picking;
                 self.disarm_tools();
-                self.wb_picking = on;
+                self.tools.wb_picking = on;
                 if on {
                     self.status = tr(self.lang, "WB eyedropper: click a spot that should be neutral grey/white").into();
                 }
             }
             if do_heal && self.src_path.is_some() {
-                let on = !self.clone_mode;
+                let on = !self.tools.clone_mode;
                 self.disarm_tools();
-                self.clone_mode = on;
+                self.tools.clone_mode = on;
             }
             if do_brush && self.src_path.is_some() {
                 self.toggle_brush_key();
@@ -1148,7 +1137,7 @@ impl AutoShadeApp {
                     // compute, and AI analyze — the last two are ABANDON-only,
                     // which the hover text says rather than promising a
                     // checkpoint they do not have.
-                    if self.gen_cancel.is_some()
+                    if self.tools.gen_cancel.is_some()
                         && action(ui, true, tr(self.lang, "✕ Cancel"))
                             .on_hover_text(tr(
                                 self.lang,
@@ -1596,19 +1585,7 @@ impl Default for AutoShadeApp {
             copied_from: None,
             paste_geometry: false,
             rlib: RecipeLibraryState::default(),
-            wb_picking: false,
-            range_picking: None,
-            point_color_picking: false,
-            lens_focus_picking: false,
-            clone_mode: false,
-            clone_src: None,
-            clone_fullres: false,
-            stack_kind: autoshade::stack::merge::StackKind::Hdr,
-            stack_tripod: false,
-            gen_epoch: 0,
-            gen_cancel: None,
-            analyze_inflight: false,
-            look: Default::default(),
+            tools: ToolsState::default(),
             variants: Vec::new(),
             active: 0,
             cards: CardsState::default(),

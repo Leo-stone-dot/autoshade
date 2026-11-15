@@ -81,7 +81,7 @@ impl AutoShadeApp {
                     // current epoch may touch this result. A looked-for verb
                     // also puts back what its fresh look replaced, BEFORE the
                     // shared landing writes.
-                    let claim = logic::look::claim(&mut self.look, epoch, self.gen_epoch, &boxed);
+                    let claim = logic::look::claim(&mut self.tools.look, epoch, self.tools.gen_epoch, &boxed);
                     if let Some(claim) = &claim
                         && let Ok((recipe, _, _)) = &mut *boxed
                     {
@@ -239,7 +239,7 @@ impl AutoShadeApp {
                     // gated: after Cancel + an immediate re-run, the abandoned
                     // worker's heartbeats must not overwrite the new task's
                     // status line.
-                    if self.busy && self.gen_cancel.is_some() && epoch == self.gen_epoch {
+                    if self.busy && self.tools.gen_cancel.is_some() && epoch == self.tools.gen_epoch {
                         self.status = m;
                     }
                 }

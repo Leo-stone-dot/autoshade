@@ -686,7 +686,7 @@
         for lang in [Lang::En, Lang::Zh] {
             let mut app = AutoShadeApp { lang, ..Default::default() };
             app.src_path = Some(PathBuf::from("clone-turn-guard.png"));
-            app.clone_src = None; // the gate answers before this is even asked for
+            app.tools.clone_src = None; // the gate answers before this is even asked for
             let refusal = tr(
                 lang,
                 "this photo is turned, and pixel repairs still work on the un-turned frame — turn it back to 0 first",
@@ -1052,7 +1052,7 @@
 
         // The Stamp arms through clone_mode and takes the paint flag down.
         app.arm_brush(BrushOwner::Stamp);
-        assert!(app.clone_mode && !app.masks.paint_mode && app.brush_armed(BrushOwner::Stamp));
+        assert!(app.tools.clone_mode && !app.masks.paint_mode && app.brush_armed(BrushOwner::Stamp));
         paint(&mut app);
         assert!(app.area_painted(BrushOwner::Stamp) && app.area_painted(BrushOwner::Heal));
 

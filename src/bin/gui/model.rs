@@ -483,6 +483,45 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The canvas tools and the AI/generation flight flags: the four eyedroppers,
+/// the clone brush, the stack merge dials, the generation epoch/cancel token,
+/// whether an analyze is in flight, and the Look protocol's state.
+pub(crate) struct ToolsState {
+    pub(crate) wb_picking: bool,
+    pub(crate) range_picking: Option<usize>,
+    pub(crate) point_color_picking: bool,
+    pub(crate) lens_focus_picking: bool,
+    pub(crate) clone_mode: bool,
+    pub(crate) clone_src: Option<(f32, f32)>,
+    pub(crate) clone_fullres: bool,
+    pub(crate) stack_kind: autoshade::stack::merge::StackKind,
+    pub(crate) stack_tripod: bool,
+    pub(crate) gen_epoch: u64,
+    pub(crate) gen_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
+    pub(crate) analyze_inflight: bool,
+    pub(crate) look: crate::logic::look::LookState,
+}
+
+impl Default for ToolsState {
+    fn default() -> Self {
+        Self {
+            wb_picking: false,
+            range_picking: None,
+            point_color_picking: false,
+            lens_focus_picking: false,
+            clone_mode: false,
+            clone_src: None,
+            clone_fullres: false,
+            stack_kind: autoshade::stack::merge::StackKind::Hdr,
+            stack_tripod: false,
+            gen_epoch: 0,
+            gen_cancel: None,
+            analyze_inflight: false,
+            look: Default::default(),
+        }
+    }
+}
+
 /// The window shell: the Settings form, the theme/accent actually installed,
 /// which windows are open, the panel/defocus switches, the quit confirmation,
 /// the first-frame theme sync and the Python-environment probe. The UI language

@@ -223,7 +223,7 @@ pub(crate) fn render_retouch_note(lang: Lang, n: &RetouchNote) -> String {
 }
 
 pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u64, done: RetouchDone) {
-                if epoch != self.gen_epoch {
+                if epoch != self.tools.gen_epoch {
                     // A cancelled task's late result: the user already
                     // moved on — never let it mutate the canvas. And the
                     // cancel toast PROMISES "the late result is
@@ -237,7 +237,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                     }
                     return; // was `continue` — the match was the loop's last statement
                 }
-                self.gen_cancel = None;
+                self.tools.gen_cancel = None;
                 match done {
                 Ok((img, note, saved, kind)) => {
                     let msg = Self::render_retouch_note(lang, &note);

@@ -155,7 +155,7 @@ impl AutoShadeApp {
         }
         match &self.normal.line {
             // A cancelled one-click leaves no worker behind to say so.
-            NormalLine::Working if self.analyze_inflight => tr(lang, "Making the look…").into(),
+            NormalLine::Working if self.tools.analyze_inflight => tr(lang, "Making the look…").into(),
             NormalLine::Idle | NormalLine::Working => tr(lang, "Pick a look, or match your own reference photos.").into(),
             NormalLine::Done => tr(lang, "Done — Ctrl+Z goes back").into(),
             NormalLine::BuiltIn => tr(lang, "No AI key set — built-in look used").into(),
@@ -183,7 +183,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, "One-click look"), false, |_| {});
-        let ready = self.src_path.is_some() && !self.busy && !self.analyze_inflight && !self.normal.building;
+        let ready = self.src_path.is_some() && !self.busy && !self.tools.analyze_inflight && !self.normal.building;
         let names: [&str; 6] = [
             tr(lang, "Natural"),
             tr(lang, "Bright & clean"),
@@ -231,7 +231,7 @@ impl AutoShadeApp {
         );
         let line = self.normal_line_text(lang);
         ui.horizontal_wrapped(|ui| {
-            if self.normal.building || (self.normal.line == NormalLine::Working && self.analyze_inflight) {
+            if self.normal.building || (self.normal.line == NormalLine::Working && self.tools.analyze_inflight) {
                 ui.spinner();
             }
             ui.label(egui::RichText::new(line).small());

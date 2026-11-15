@@ -238,15 +238,15 @@
             app.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
         };
         assert!(!app.tool_armed(), "premise: a fresh app has no tool armed");
-        app.point_color_picking = true;
+        app.tools.point_color_picking = true;
         assert!(app.tool_armed(), "an armed eyedropper is an armed canvas tool");
         app.disarm_tools();
-        assert!(!app.point_color_picking, "Esc's disarm puts it down with the rest");
+        assert!(!app.tools.point_color_picking, "Esc's disarm puts it down with the rest");
 
-        app.point_color_picking = true;
+        app.tools.point_color_picking = true;
         pick(&mut app, [0.5, 0.5, 0.5]);
         assert!(app.recipe.point_colors.is_empty(), "a grey spot is no swatch: {}", app.status);
-        assert!(app.point_color_picking, "…and the tool stays armed for the retry");
+        assert!(app.tools.point_color_picking, "…and the tool stays armed for the retry");
         assert!(!app.dirty, "…and nothing was edited");
 
         pick(&mut app, [0.8, 0.3, 0.2]);
@@ -258,14 +258,14 @@
                 "the swatch is keyed to the colour clicked: {chip:?}"
             );
         }
-        assert!(!app.point_color_picking, "a landed swatch disarms the tool");
+        assert!(!app.tools.point_color_picking, "a landed swatch disarms the tool");
         assert!(app.dirty, "…and asks for a redevelop");
 
         app.recipe.point_colors = vec![app.recipe.point_colors[0].clone(); MAX_POINT_COLORS];
-        app.point_color_picking = true;
+        app.tools.point_color_picking = true;
         pick(&mut app, [0.2, 0.3, 0.8]);
         assert_eq!(app.recipe.point_colors.len(), MAX_POINT_COLORS, "a full list takes no more");
-        assert!(!app.point_color_picking, "…and the refusal disarms");
+        assert!(!app.tools.point_color_picking, "…and the refusal disarms");
         assert!(
             app.status.contains(&MAX_POINT_COLORS.to_string()),
             "…naming the limit: {}",

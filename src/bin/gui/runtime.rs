@@ -24,7 +24,7 @@ impl AutoShadeApp {
                         photo.as_deref(),
                         dir,
                         self.busy,
-                        self.analyze_inflight,
+                        self.tools.analyze_inflight,
                         self.normal.building,
                     );
                     self.run_effects(started);
@@ -184,12 +184,12 @@ impl AutoShadeApp {
                 }
                 Effect::StartLook(intent) => self.start_look(intent),
                 Effect::ReferenceBuild { photo, dir } => self.start_reference_build(photo, dir),
-                Effect::ArmFocusPick(on) => self.lens_focus_picking = on,
+                Effect::ArmFocusPick(on) => self.tools.lens_focus_picking = on,
                 Effect::SetRegion(region) => self.overlay.region = region,
                 Effect::DisarmPicker(picker) => match picker {
-                    logic::pick::Picker::WhiteBalance => self.wb_picking = false,
-                    logic::pick::Picker::Range => self.range_picking = None,
-                    logic::pick::Picker::PointColor => self.point_color_picking = false,
+                    logic::pick::Picker::WhiteBalance => self.tools.wb_picking = false,
+                    logic::pick::Picker::Range => self.tools.range_picking = None,
+                    logic::pick::Picker::PointColor => self.tools.point_color_picking = false,
                 },
                 Effect::DisarmTools => self.disarm_tools(),
                 Effect::MarkDirty => self.dirty = true,
@@ -253,7 +253,7 @@ impl AutoShadeApp {
             &res,
             for_photo.as_deref(),
             self.src_path.as_deref(),
-            self.analyze_inflight,
+            self.tools.analyze_inflight,
         );
         self.run_effects(effects);
     }
@@ -276,12 +276,12 @@ impl AutoShadeApp {
             intent,
             photo.as_deref(),
             self.busy,
-            self.analyze_inflight,
-            self.gen_epoch,
+            self.tools.analyze_inflight,
+            self.tools.gen_epoch,
         ) else {
             return;
         };
-        self.look.pending = Some(started.pending);
+        self.tools.look.pending = Some(started.pending);
         self.run_effects(started.effects);
         self.spawn_analysis(started.job);
     }
@@ -289,7 +289,7 @@ impl AutoShadeApp {
     /// Run one planned analysis. The job's epoch is the one `plan` read from
     /// the app when the verb was pressed; the worker arms the cancel for it.
     fn spawn_analysis(&mut self, job: AnalysisJob) {
-        debug_assert_eq!(job.epoch, self.gen_epoch, "a planned job starts under the current epoch");
+        debug_assert_eq!(job.epoch, self.tools.gen_epoch, "a planned job starts under the current epoch");
         self.busy = true;
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
     }

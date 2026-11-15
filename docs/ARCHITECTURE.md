@@ -7696,7 +7696,10 @@ the app as the per-frame read nearly every action needs. The app struct is at
 (Settings form, installed theme/accent, open windows, panel/defocus switches,
 quit confirmation, first-frame theme sync, Python probe), one `ui` field; the UI
 language stays on the app because every `tr()` call reads it. The app struct is
-at 70 fields.
+at 70 fields. `model::ToolsState` owns the canvas tools and
+flight flags (four eyedroppers, clone brush, stack dials, generation epoch/cancel
+token, analyze-inflight, the Look protocol state), one `tools` field; the app
+struct is at 58 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
