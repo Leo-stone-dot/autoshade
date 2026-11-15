@@ -34,6 +34,7 @@ pub(crate) mod prefs;
 pub(crate) mod portrait;
 pub(crate) mod recipes;
 pub(crate) mod settings;
+pub(crate) mod slider;
 pub(crate) mod strip;
 pub(crate) mod style;
 pub(crate) mod xmp_disclosure;

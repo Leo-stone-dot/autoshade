@@ -331,12 +331,7 @@ impl AutoShadeApp {
             });
             if up != down {
                 let step = nudge * if shift { 10.0 } else { 1.0 };
-                // Round to the class's shown decimals — direct assignment
-                // bypasses egui's set_value rounding, and an inherited
-                // 13.485 must nudge to 14, not to a hidden 14.485.
-                let f = 10f32.powi(decimals as i32);
-                let next = ((*value + if up { step } else { -step }) * f).round() / f;
-                let next = next.clamp(min, max);
+                let next = crate::logic::slider::nudged(*value, up, step, decimals, min, max);
                 if next != *value {
                     *value = next;
                     changed = true;
@@ -1042,11 +1037,10 @@ impl AutoShadeApp {
         let mut moved = false;
         let labels = [tr(lang, "Shadow split"), tr(lang, "Midtone split"), tr(lang, "Highlight split")];
         for (i, label) in labels.into_iter().enumerate() {
-            let lo = if i == 0 { gap } else { splits[i - 1] + gap };
-            let hi = if i == 2 { 100.0 - gap } else { splits[i + 1] - gap };
             // The reset lands inside the room the neighbours leave: a reset
             // must not cross them either (`slider_impl` resets unclamped).
-            let reset = PARAMETRIC_SPLITS[i].clamp(lo, hi);
+            let (lo, hi, reset) =
+                crate::logic::slider::split_bounds(i, splits, gap, PARAMETRIC_SPLITS);
             // Whole numbers whatever the room: the sidecar writes integers,
             // and a narrow range would otherwise pick the fractional feel.
             moved |= Self::slider_impl(ui, lang, label, &mut splits[i], lo, hi, reset, SliderFeel::Int, "");
