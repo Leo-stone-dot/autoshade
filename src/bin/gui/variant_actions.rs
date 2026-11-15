@@ -423,76 +423,49 @@ pub(crate) fn variant_label(&self, idx: usize) -> String {
 /// that, so every caller must say something honest instead of assuming
 /// card 0 is the negative.
 pub(crate) fn original_index(&self) -> Option<usize> {
-    self.variants.iter().position(|v| v.kind == VariantKind::Original)
+    crate::logic::cards::original_index(&self.variants)
 }
 
-/// The baked master the photo's NEGATIVE carries, if any. Every consumer
-/// that reaches for THE NEGATIVE'S pixels rather than the active card's —
-/// the reimagine input, the reverse-fit's source frame, the ◭ card a fit
-/// lands as and the pixel link it persists — reads this beside `src_path`
-/// (2026-09-13). Each of them used to spell the negative as the file on
-/// disk, so after an AI denoise the fit was solved on, rendered from and
-/// exported from the un-denoised sensor frame while the card beside it
-/// showed the clean one (the user's own store: ▣ `origin = …denoise.png`,
-/// ◭ `origin = None`, no `pixels.json`).
-///
-/// Since 2026-09-15 an AI denoise lands as its own ◈ card instead of
-/// redefining the ▣ card, so the negative is, in order: the remade card
-/// the user stands on, the first remade card in the strip (one exists
-/// because the user wants to work from it), else the ▣ card's own in-place
-/// master (a heal / clone baked into the source).
-///
-/// "Remade" is ◈ AND ▦ since v1.5.0 ([`VariantKind::is_remade_negative`]):
-/// a stack's merged master is a new negative of the same scene on exactly
-/// the denoise master's terms, and a reverse-fit solved after it should
-/// read the stacked frame rather than the single frame it was made from.
-pub(crate) fn negative_origin(&self) -> Option<PathBuf> {
-    self.negative_index().and_then(|i| self.variants[i].origin.clone())
-}
 
 /// The card [`Self::negative_origin`] reads — its rule, spelled once so
 /// the reverse-fit fold can NAME the automatic choice (2026-09-30).
 pub(crate) fn negative_index(&self) -> Option<usize> {
-    let remade = |v: &Variant| v.kind.is_remade_negative() && v.origin.is_some();
-    if self.active_variant().is_some_and(remade) {
-        return Some(self.active);
-    }
-    self.variants.iter().position(remade).or_else(|| self.original_index())
+    crate::logic::cards::negative_index(&self.variants, self.active)
 }
 
 /// The negative's pixels on disk: its master when it carries one, else
 /// the loaded file — the input a whole-frame reimagine develops from.
 pub(crate) fn negative_path(&self) -> Option<PathBuf> {
-    self.negative_origin().or_else(|| self.src_path.clone())
+    crate::logic::cards::negative_path(&self.variants, self.active, self.src_path.as_deref())
 }
 
 /// Can card `v` be the reverse-fit's source? The negative in any of its
 /// forms: the ▣ card (its in-place master, else the loaded file's own
 /// frame) or a remade ◈ / ▦ master.
 pub(crate) fn is_fit_source(v: &Variant) -> bool {
-    v.kind == VariantKind::Original || (v.kind.is_remade_negative() && v.origin.is_some())
+    crate::logic::cards::is_fit_source(v)
 }
 
-/// The card the reverse-fit solves FROM: the user's pick in the fit fold
-/// (`fit_from`) while that card still stands and is a source, else the
-/// automatic rule ([`Self::negative_index`]). Until 2026-09-30 only the
-/// rule existed and the fold never said which card it chose: with a ◈
-/// card in the strip, a fit started on a ✨ card silently solved from the
-/// first denoised master.
-pub(crate) fn fit_source_index(&self) -> Option<usize> {
-    self.fit.fit_from
-        .as_deref()
-        .and_then(|id| {
-            self.variants.iter().position(|v| !v.id.is_empty() && v.id == id && Self::is_fit_source(v))
-        })
-        .or_else(|| self.negative_index())
-}
 
 /// [`Self::fit_source_index`]'s master on disk (`None` = the loaded
 /// file's own frame): what the solve's source frame, the ◭ card's origin
 /// and the persisted pixel link all read.
+/// Test-only view of [`crate::logic::cards::negative_origin`] for the card
+/// assertions: the app's own code asks for the pixels through
+/// [`Self::negative_path`] / [`Self::fit_negative`].
+#[cfg(test)]
+pub(crate) fn negative_origin(&self) -> Option<PathBuf> {
+    crate::logic::cards::negative_origin(&self.variants, self.active)
+}
+
+/// Test-only view of [`crate::logic::cards::fit_source_index`].
+#[cfg(test)]
+pub(crate) fn fit_source_index(&self) -> Option<usize> {
+    crate::logic::cards::fit_source_index(&self.variants, self.active, self.fit.fit_from.as_deref())
+}
+
 pub(crate) fn fit_negative(&self) -> Option<PathBuf> {
-    self.fit_source_index().and_then(|i| self.variants[i].origin.clone())
+    crate::logic::cards::fit_negative(&self.variants, self.active, self.fit.fit_from.as_deref())
 }
 
 /// How card `idx` reads in the reverse-fit's rows: its name and its place
