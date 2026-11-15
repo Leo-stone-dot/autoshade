@@ -149,7 +149,7 @@
     fn without_a_face_the_skin_and_eyes_groups_are_greyed_and_say_why() {
         for lang in [Lang::En, Lang::Zh] {
             let mut app = portrait_app(lang, false);
-            let photo = app.src_path.clone().unwrap();
+            let photo = app.photo.src_path.clone().unwrap();
             assert_eq!(app.portrait_face_gate(lang), Some(tr(lang, "Find the people and faces first (the first group).")));
             // A search that found the person and no face.
             app.portrait.found = Some((photo, 0));
@@ -204,7 +204,7 @@
         use crate::logic::portrait::{FoundFaces, PortraitFind};
         use crate::panels::portrait::PortraitLine;
         let mut app = portrait_app(Lang::En, false);
-        let photo = app.src_path.clone().unwrap();
+        let photo = app.photo.src_path.clone().unwrap();
         let before = app.recipe.masks.len();
         let find = |tag: &str, n: usize| PortraitFind {
             photo: photo.clone(),
@@ -250,7 +250,7 @@
         assert_eq!(failed.recipe.masks.len(), before);
         // Another photo is open now: the landing is dropped.
         let mut moved = portrait_app(Lang::En, false);
-        moved.src_path = Some(std::env::temp_dir().join(format!("autoshade-library-{}/_another.ARW", std::process::id())));
+        moved.photo.src_path = Some(std::env::temp_dir().join(format!("autoshade-library-{}/_another.ARW", std::process::id())));
         moved.on_portrait_found(Lang::En, find("d", 1));
         assert_eq!(moved.recipe.masks.len(), before);
     }
@@ -320,7 +320,7 @@
             std::fs::write(autoshade::store::version_target(&src, n), serde_json::to_string(r).unwrap()).unwrap();
         }
         let mut app = portrait_app(Lang::En, true);
-        app.src_path = Some(src.clone());
+        app.photo.src_path = Some(src.clone());
         app.load_version(1);
         let ctx = egui::Context::default();
         for _ in 0..2 {
@@ -473,7 +473,7 @@
             thumb: None,
         }];
         app.active = 0;
-        app.base_preview = Some(b0);
+        app.photo.base_preview = Some(b0);
         if face {
             app.recipe.masks.extend(found_masks());
         } else {
@@ -570,7 +570,7 @@
     fn a_search_that_finds_no_face_takes_the_old_face_masks_away() {
         use crate::logic::portrait::{FoundFaces, PortraitFind};
         let mut app = portrait_app(Lang::En, true);
-        let photo = app.src_path.clone().unwrap();
+        let photo = app.photo.src_path.clone().unwrap();
         autoshade::face::set_soften(autoshade::face::skin_target(&mut app.recipe).unwrap(), 30.0);
         assert!(autoshade::face::face_raster(&app.recipe).is_some());
         app.on_portrait_found(
@@ -735,7 +735,7 @@
         let _scrub = Scrub(scrub);
         let mut app = portrait_app(Lang::En, false);
         app.active = 0;
-        app.src_path = Some(open.clone());
+        app.photo.src_path = Some(open.clone());
         let skin = autoshade::recipe::LocalAdjustment {
             role: autoshade::recipe::MaskRole::Skin,
             saturation: 60.0,

@@ -79,7 +79,7 @@ impl AutoShadeApp {
     pub(crate) fn refresh_versions(&mut self) {
         self.cards.versions.clear();
         self.cards.version_meta.clear();
-        let Some(src) = self.src_path.as_deref() else { return };
+        let Some(src) = self.photo.src_path.as_deref() else { return };
         // ONE store query for the photo's whole edit-state list (R24-4
         // `store::list_edits`), which joins the version family with its
         // advisory metadata — including the listed-numbers-only restriction
@@ -151,7 +151,7 @@ impl AutoShadeApp {
                 // screen, and a SECOND rename in the same row has to compare
                 // against what we just wrote, not the original.
                 self.cards.version_name_buf = Some((photo.clone(), n, buf.clone(), buf));
-                if self.src_path.as_deref() == Some(photo.as_path()) {
+                if self.photo.src_path.as_deref() == Some(photo.as_path()) {
                     self.cards.version_meta
                         .entry(n)
                         .or_insert_with(|| autoshade::store::VersionMetaEntry {
@@ -192,7 +192,7 @@ impl AutoShadeApp {
             self.toast(ToastKind::Error, t);
             return;
         }
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         // Attribution for the record below, read before the lock closure
         // borrows `self`: which card this snapshot is a picture OF (R24-2).
         let from_kind = self.active_variant().map(|v| v.kind.store_str().to_string());
@@ -278,7 +278,7 @@ impl AutoShadeApp {
     /// Load version `n` as the working recipe (one undo step, like AI Analyze).
     pub(crate) fn load_version(&mut self, n: u32) {
         let lang = self.lang;
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         let p = Self::version_path(&src, n);
         // ONE NoWait lock across the whole snapshot read: the version file,
         // the mask re-anchor probes and the raster detach copies are separate

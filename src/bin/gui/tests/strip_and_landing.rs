@@ -152,7 +152,14 @@
     #[test]
     fn a_plate_replacement_ends_the_mask_brush_session() {
         let mut app = AutoShadeApp {
-            base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgba8(8, 8))),
+            photo: PhotoPixels {
+
+                base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgba8(8, 8))),
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         app.start_mask_brush(None);
@@ -259,7 +266,7 @@
             thumb: None,
         }];
         app.active = 0;
-        app.base_preview = Some(b0.clone());
+        app.photo.base_preview = Some(b0.clone());
         app.reset_history(); // committed = (neutral recipe, b0)
 
         // A slider edit still mid-gesture when the worker returns.
@@ -373,7 +380,7 @@
         // into the develop dir keyed to this fake path — a generic stem
         // ("b") could relocate a real user's legacy sidecars into an
         // unreachable key.
-        app.src_path =
+        app.photo.src_path =
             Some(std::env::temp_dir().join(format!("autoshade-keepfact-{}/__autoshade_keepfact__.ARW", std::process::id())));
         app.cards.keep_recipe = true;
         app.open.open_same_path = false; // stale request, cross-photo fact
@@ -456,7 +463,7 @@
         );
         let pre_era =
             EditRecipe { version: 1, base_curve: washy.clone(), ..Default::default() };
-        app.src_path = Some(p);
+        app.photo.src_path = Some(p);
         app.variants = vec![Variant {
             id: String::new(),
             name: None,
@@ -529,9 +536,16 @@
                 open_in_flight: true,
                 ..Default::default()
             },
-            src_path: Some(std::env::temp_dir().join(
+            photo: PhotoPixels {
+
+                src_path: Some(std::env::temp_dir().join(
                 "autoshade-edgeflight/__autoshade_edgeflight__.ARW",
             )),
+
+                ..Default::default()
+
+            },
+
             variants: vec![Variant {
                 id: String::new(),
                 name: None,
@@ -552,7 +566,7 @@ status: "decoding … ".to_string(),
         app.services.tx.send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed"))))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.genai.preview_edge, 1280, "a failed keep-flight puts the switch back");
-        assert!(app.src_path.is_some(), "…and leaves the still-open photo alone");
+        assert!(app.photo.src_path.is_some(), "…and leaves the still-open photo alone");
 
         // (2) It landed, but the canvas renders an UNSAVED retouch — no
         // pixels.json, so the worker brought no master and base_preview
@@ -568,8 +582,8 @@ status: "decoding … ".to_string(),
         let _scrub = Scrub(vec![master.clone()]);
         std::fs::write(&master, b"png").unwrap();
         let mut app = armed(Some(old_raster.clone()), Some(master.clone()));
-        app.base_preview = Some(old_raster.clone());
-        app.source_preview = Some(old_source.clone()); // the OLD-edge decode
+        app.photo.base_preview = Some(old_raster.clone());
+        app.photo.source_preview = Some(old_source.clone()); // the OLD-edge decode
         app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 fresh(),
@@ -584,11 +598,11 @@ status: "decoding … ".to_string(),
         app.poll_workers(&ctx);
         assert_eq!(app.genai.preview_edge, 1280, "a switch the canvas cannot take is not recorded");
         assert!(
-            app.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &old_raster)),
+            app.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &old_raster)),
             "…the retouched canvas is untouched"
         );
         assert!(
-            app.source_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &old_source)),
+            app.photo.source_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &old_source)),
             "…and the OLD-edge source survives instead of being replaced by the new one, \
              so a later undo-to-source cannot disagree the other way"
         );
@@ -611,7 +625,7 @@ status: "decoding … ".to_string(),
         let abs = std::path::absolute(&rel).unwrap();
         assert_ne!(rel, abs, "premise: the two spellings are not equal as paths");
         let mut app = armed(Some(old_raster.clone()), Some(rel));
-        app.base_preview = Some(old_raster.clone());
+        app.photo.base_preview = Some(old_raster.clone());
         let master = fresh();
         app.services.tx
             .send(Msg::Opened(Box::new(Ok((
@@ -627,7 +641,7 @@ status: "decoding … ".to_string(),
         app.poll_workers(&ctx);
         assert_eq!(app.genai.preview_edge, 4096, "a canvas that CAN be re-pointed keeps the switch");
         assert!(
-            app.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &master)),
+            app.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &master)),
             "…and renders the master re-decoded at the new edge"
         );
         assert!(
@@ -675,7 +689,14 @@ status: "decoding … ".to_string(),
             }),
                 ..Default::default()
             }, ..Default::default() },
-            src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/__variant-baseline__.ARW", std::process::id()))),
+            photo: PhotoPixels {
+
+                src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/__variant-baseline__.ARW", std::process::id()))),
+
+                ..Default::default()
+
+            },
+
             recipe: original_recipe.clone(),
             variants: vec![
                 Variant {
@@ -723,7 +744,7 @@ status: "decoding … ".to_string(),
             "viewing another card does not move the persisted selection"
         );
 
-        let old = app.src_path.clone().unwrap();
+        let old = app.photo.src_path.clone().unwrap();
         app.open_path(std::env::temp_dir().join(format!("autoshade-library-{}/__variant-baseline-next__.ARW", std::process::id())));
         assert!(
             !app.open.nav_stash.contains_key(&old),
@@ -864,7 +885,14 @@ status: "decoding … ".to_string(),
                 pixels_on_disk: Some(std::path::absolute(&master).unwrap()),
                 ..Default::default()
             }, ..Default::default() },
-            src_path: Some(src.to_path_buf()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.to_path_buf()),
+
+                ..Default::default()
+
+            },
+
             // The RELATIVE spelling, exactly as the retouch handler records it.
 variants: vec![mk(master.clone()), mk(master.clone())],
             ..Default::default()
@@ -917,7 +945,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         // round-trip through the stash write verbatim.
         let (mut app, _scrub) = app_with_masked_photo("stashkind");
         let src = std::env::temp_dir().join(format!("autoshade-library-{}/__autoshade_stashkind__.ARW", std::process::id()));
-        app.src_path = Some(src.clone());
+        app.photo.src_path = Some(src.clone());
         app.variants.push(Variant {
             id: String::new(),
             name: None,
@@ -960,7 +988,14 @@ variants: vec![mk(master.clone()), mk(master.clone())],
                 pixels_on_disk: None,
                 ..Default::default()
             }, ..Default::default() },
-            src_path: Some(src.to_path_buf()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.to_path_buf()),
+
+                ..Default::default()
+
+            },
+
             variants: vec![
                 Variant {
                     id: String::new(),

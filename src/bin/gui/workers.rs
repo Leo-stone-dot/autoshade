@@ -113,7 +113,7 @@ impl AutoShadeApp {
                             // single most-reported "where did my file go".
                             let p = abs_display(&out);
                             if relooked
-                                && let Some(photo) = self.src_path.clone()
+                                && let Some(photo) = self.photo.src_path.clone()
                                 && autoshade::pipeline::repair_pre_era_base_curve(
                                     &photo,
                                     &mut self.recipe,

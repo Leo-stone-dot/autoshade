@@ -31,7 +31,7 @@ impl AutoShadeApp {
     /// canvas is developed from a source decoded AT it, so those two agree by
     /// construction.
     pub(crate) fn canvas_edge(&self) -> u32 {
-        self.base_preview
+        self.photo.base_preview
             .as_ref()
             .map(|b| b.width().max(b.height()))
             .unwrap_or(self.genai.preview_edge)
@@ -63,7 +63,7 @@ impl AutoShadeApp {
         // sub-preference master stale ("not the preview preference" while the
         // preference was exactly that). It takes both.
         let delivered = self
-            .source_preview
+            .photo.source_preview
             .as_ref()
             .map(|s| s.width().max(s.height()))
             .unwrap_or(self.genai.preview_edge)
@@ -218,7 +218,7 @@ impl AutoShadeApp {
         }
         // A handle, not a borrow of `self`: the range reference below asks
         // `self.film_short_edge()`, which caches into `self`.
-        let Some(base) = self.base_preview.clone() else {
+        let Some(base) = self.photo.base_preview.clone() else {
             self.overlay.mask_overlay_tex = None;
             self.overlay.overlay_key = None;
             return;
@@ -368,7 +368,7 @@ impl AutoShadeApp {
     /// geometry (in-camera profile + manual distortion amount).
     pub(crate) fn geom_ctx(&self) -> ((f32, f32), f32, LensArg) {
         let dims = self
-            .base_preview
+            .photo.base_preview
             .as_ref()
             .map(|b| {
                 let (w, h) = b.dimensions();
@@ -590,7 +590,7 @@ impl AutoShadeApp {
                         .on_hover_text(tr(lang, "Working preview resolution: 1280 is smoothest on the sliders; 2560/4096 for 1:1 focus/noise checks (slower on every adjustment)"));
                 });
                 if self.genai.preview_edge != before
-                    && let Some(p) = self.src_path.clone()
+                    && let Some(p) = self.photo.src_path.clone()
                 {
                     if self.busy {
                         // An already-open popup outlives the disabled combo
@@ -943,7 +943,7 @@ impl AutoShadeApp {
     /// corrected base mapped back through the engine's own inverse
     /// (`render::corrected_to_sensor_frame`), otherwise the base itself.
     pub(crate) fn original_frame_base(&self) -> Option<Arc<image::DynamicImage>> {
-        let base = self.base_preview.clone()?;
+        let base = self.photo.base_preview.clone()?;
         if !self.base_corrected() {
             return Some(base);
         }
@@ -973,7 +973,7 @@ impl AutoShadeApp {
         let Some(orig) = self.clicked_orig_norm(ui, resp, xf) else { return };
         let (nx, ny) = self.orig_to_base_norm(orig);
         let px = {
-            let Some(base) = &self.base_preview else { return };
+            let Some(base) = &self.photo.base_preview else { return };
             let Some(px) = sample_5x5_mean(base, nx, ny) else { return };
             px
         };
@@ -995,7 +995,7 @@ impl AutoShadeApp {
             return;
         };
         let smp = {
-            let Some(base) = self.base_preview.clone() else { return };
+            let Some(base) = self.photo.base_preview.clone() else { return };
             // The PREFIX reference (masks before this one — the engine
             // evaluates a range on the pixel as it stands when THIS mask
             // runs), built by the coverage overlay's OWN builder
@@ -1050,7 +1050,7 @@ impl AutoShadeApp {
     pub(crate) fn handle_point_color_pick(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
         let Some((nx, ny)) = self.clicked_orig_norm(ui, resp, xf) else { return };
         let px = {
-            let Some(base) = self.base_preview.clone() else { return };
+            let Some(base) = self.photo.base_preview.clone() else { return };
             let reference = autoshade::render::point_color_sampling_recipe(&self.recipe);
             let film = self.film_short_edge();
             let raw_source = self.source_is_raw();

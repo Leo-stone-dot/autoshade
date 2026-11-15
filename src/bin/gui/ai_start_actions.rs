@@ -50,7 +50,7 @@ impl AutoShadeApp {
     pub(crate) fn offer_fit_prompt(&mut self, ctx: &egui::Context, divergence: f32) {
         if self.busy
             || !self.fit.ask_fit_after_generate
-            || self.source_preview.is_none()
+            || self.photo.source_preview.is_none()
         {
             return;
         }
@@ -234,7 +234,7 @@ impl AutoShadeApp {
         // `pending`, and the empty-pending branch below then CLOSED the app,
         // losing a sole live unsaved canvas (background work still lands
         // under the dialog — the scrim below blocks only pointer input).
-        if !self.open.open_in_flight && let Some(p) = self.src_path.clone() {
+        if !self.open.open_in_flight && let Some(p) = self.photo.src_path.clone() {
             let origin = self.active_variant().and_then(|v| v.origin.clone());
             // The live canvas outranks its own stash entry WHOLESALE: displace
             // it even when the canvas is clean (the user reverted) — the loop
@@ -390,7 +390,7 @@ impl AutoShadeApp {
                             // open photo's mirror must follow, or the guard's
                             // way-out re-check compares live-trivial against
                             // a stale record and bounces the close.
-                            if self.src_path.as_deref() == Some(p.as_path()) {
+                            if self.photo.src_path.as_deref() == Some(p.as_path()) {
                                 self.session.hist.saved_strip = None;
                             }
                             // Cleared, but not MARKED — same channel as the XMP
@@ -491,7 +491,7 @@ impl AutoShadeApp {
                         if let Some(note) = relook_note.as_deref() {
                             eprintln!("⚠ {}: {note}", autoshade::pipeline::stem(p));
                         }
-                        if self.src_path.as_deref() == Some(p.as_path()) {
+                        if self.photo.src_path.as_deref() == Some(p.as_path()) {
                             self.session.hist.saved_strip = strip.clone();
                             // The FOURTH mirror of the single-save set
                             // (export.rs): pixels.json for the ACTIVE photo
@@ -827,14 +827,14 @@ impl AutoShadeApp {
     /// active variant's base IS the generated raster, and fitting a rendition
     /// onto itself would recover ~neutral. Fit must map the negative → the look.
     pub(crate) fn start_fit(&mut self) {
-        let (Some(base), Some(tgt)) = (self.source_preview.clone(), self.fit_target())
+        let (Some(base), Some(tgt)) = (self.photo.source_preview.clone(), self.fit_target())
         else {
             return;
         };
         if self.busy {
             return;
         }
-        let src_path = self.src_path.clone();
+        let src_path = self.photo.src_path.clone();
         // The source the fold names (`fit_source_index`: the user's pick, else
         // the automatic negative): the source frame below, the ◭ card's origin
         // and the persisted pixel link all read this ONE capture, so the three

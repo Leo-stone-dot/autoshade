@@ -369,7 +369,7 @@ impl AutoShadeApp {
             // A button that looks live and does nothing, for up to the
             // 600 s stall budget, with the status line saying the app
             // is free, is worse than one that says why it is greyed.
-            let ready = self.src_path.is_some() && !self.busy && !self.tools.analyze_inflight;
+            let ready = self.photo.src_path.is_some() && !self.busy && !self.tools.analyze_inflight;
             let waiting = self.tools.analyze_inflight && !self.busy;
             let why = |ui: egui::Response| {
                 if waiting {
@@ -521,7 +521,7 @@ impl AutoShadeApp {
                 {
                     self.seams.prompt_rects.push(_field.rect);
                 }
-                let ready = self.src_path.is_some() && !self.busy && !self.tools.analyze_inflight;
+                let ready = self.photo.src_path.is_some() && !self.busy && !self.tools.analyze_inflight;
                 let asked = ready && !self.genai.adjust_edit_prompt.trim().is_empty();
                 let resp = primary_row(ui, asked, tr(lang, "🤖 AI adjust"))
                     .on_hover_text(tr(lang,
@@ -993,7 +993,7 @@ impl AutoShadeApp {
             // exists to catch.
             .open(fold_open_in_tests())
             , |ui| {
-            let can_fit = self.fit_target().is_some() && self.source_preview.is_some();
+            let can_fit = self.fit_target().is_some() && self.photo.source_preview.is_some();
             if !can_fit {
                 // An ✎ card is not a fit target (`fit_target`): the fit reads
                 // pixels, and the card's edits are sliders the user already

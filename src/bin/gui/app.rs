@@ -12,29 +12,8 @@ pub(crate) struct RecipePreview {
 }
 
 pub(crate) struct AutoShadeApp {
-    pub(crate) src_path: Option<PathBuf>,
-    // The ACTIVE variant's base pixels — shared with the preview worker by Arc,
-    // so dispatching a 4096px develop is O(1), not a 50+ MB UI-thread deep copy.
-    pub(crate) base_preview: Option<Arc<image::DynamicImage>>,
-    // The pristine source neutral (RAW develop / loaded image), decoded once
-    // per open. Source-based variants share this same allocation.
-    pub(crate) source_preview: Option<Arc<image::DynamicImage>>,
-    /// How many clockwise quarter turns are currently BAKED INTO the plates
-    /// above (R27). The canvas has no rotation stage of its own — every
-    /// screen↔frame mapping in `canvas.rs` (`view_norm_to_orig`, the crop
-    /// handles, the paint canvas, the mask overlay) is defined against the
-    /// plate, so a turn is applied to the PIXELS, exactly as the engine
-    /// applies orientation before every other stage. This field is the one
-    /// place that records which frame those pixels are in;
-    /// `sync_base_turns` reconciles it against `recipe.quarter_turns` once per
-    /// frame, so an undo, a variant switch or a version load needs no rotation
-    /// code of its own.
-    pub(crate) base_turns: u8,
-    /// The active pixel source's full-resolution SHORT EDGE, cached against
-    /// the path and its modification time it was read from
-    /// (`film_short_edge`, v1.5.0) — the film the Detail panel's radii are
-    /// stated in.
-    pub(crate) film_edge: Option<(PathBuf, Option<std::time::SystemTime>, Option<u32>)>,
+    /// The open photo and its decoded plates (see [`PhotoPixels`]).
+    pub(crate) photo: PhotoPixels,
     pub(crate) before_tex: Option<egui::TextureHandle>,
     pub(crate) after_tex: Option<egui::TextureHandle>,
     /// The canvas cross-fade in flight: the frame being faded OUT (`None` =
@@ -475,10 +454,10 @@ impl AutoShadeApp {
                     logic::gallery::GalleryAction::OpenPhotoFile,
                 )]);
             }
-            if do_export && self.src_path.is_some() && !self.busy {
+            if do_export && self.photo.src_path.is_some() && !self.busy {
                 self.start_export();
             }
-            if do_xmp && self.src_path.is_some() && !self.busy {
+            if do_xmp && self.photo.src_path.is_some() && !self.busy {
                 // The pending-rename flush lives at save_xmp's head now (it
                 // fires while a TextEdit holds focus either way) — the Save
                 // develop BUTTON takes the same entry point (U10).
@@ -610,8 +589,8 @@ impl AutoShadeApp {
             // unlock that would never come (no photo, no history). Only a
             // press that WOULD have acted earns a refusal; the rest stay the
             // silent no-ops the disabled buttons are.
-            let armed_undo = do_undo && self.src_path.is_some() && !self.session.hist.undo_stack.is_empty();
-            let armed_redo = do_redo && self.src_path.is_some() && !self.session.hist.redo_stack.is_empty();
+            let armed_undo = do_undo && self.photo.src_path.is_some() && !self.session.hist.undo_stack.is_empty();
+            let armed_redo = do_redo && self.photo.src_path.is_some() && !self.session.hist.redo_stack.is_empty();
             if self.busy {
                 if armed_undo || armed_redo {
                     let t = tr(
@@ -626,7 +605,7 @@ impl AutoShadeApp {
             }
             // R mirrors the crop button exactly (incl. the one-tool-at-a-time
             // disarms); no photo → nothing to crop.
-            if do_crop && self.src_path.is_some() {
+            if do_crop && self.photo.src_path.is_some() {
                 let on = !self.crop.mode;
                 self.disarm_tools();
                 self.set_crop_mode(on);
@@ -666,7 +645,7 @@ impl AutoShadeApp {
             }
             // LR tool keys: each mirrors its own button exactly
             // (disarm-then-arm; a second press exits the tool).
-            if do_wb && self.src_path.is_some() {
+            if do_wb && self.photo.src_path.is_some() {
                 let on = !self.tools.wb_picking;
                 self.disarm_tools();
                 self.tools.wb_picking = on;
@@ -674,15 +653,15 @@ impl AutoShadeApp {
                     self.status = tr(self.lang, "WB eyedropper: click a spot that should be neutral grey/white").into();
                 }
             }
-            if do_heal && self.src_path.is_some() {
+            if do_heal && self.photo.src_path.is_some() {
                 let on = !self.tools.clone_mode;
                 self.disarm_tools();
                 self.tools.clone_mode = on;
             }
-            if do_brush && self.src_path.is_some() {
+            if do_brush && self.photo.src_path.is_some() {
                 self.toggle_brush_key();
             }
-            if do_linear && self.src_path.is_some() {
+            if do_linear && self.photo.src_path.is_some() {
                 let armed = matches!(self.masks.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
                 self.disarm_tools();
                 if !armed {
@@ -690,7 +669,7 @@ impl AutoShadeApp {
                     self.status = tr(self.lang, "Drag on the image to draw a linear gradient (start fully applied → end unaffected; Shift = axis lock)").into();
                 }
             }
-            if do_radial && self.src_path.is_some() {
+            if do_radial && self.photo.src_path.is_some() {
                 let armed = matches!(self.masks.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
                 self.disarm_tools();
                 if !armed {
@@ -767,7 +746,7 @@ impl AutoShadeApp {
             // All three set the TARGET only: the glide in update() carries
             // `zoom` there, and +/− compound on the target so a key roll
             // accumulates instead of fighting the animation.
-            if self.src_path.is_some() {
+            if self.photo.src_path.is_some() {
                 if do_fit {
                     self.view.zoom_target = 1.0;
                     self.view.pan = egui::vec2(0.5, 0.5);
@@ -783,14 +762,14 @@ impl AutoShadeApp {
             // Ctrl+C mirrors ⎘ Copy recipe (same guards + the pending-rename
             // flush); Ctrl+V mirrors ⇩ Paste to selected — and like the
             // disabled buttons, a press that would not act stays silent.
-            if do_copy && self.src_path.is_some() && !self.busy {
+            if do_copy && self.photo.src_path.is_some() && !self.busy {
                 // Every name box at once (the 10+1 boundary rule): a name
                 // typed into a mask row, a version row or a variant card and
                 // never blurred still lands before anything else in the app
                 // acts.
                 self.commit_pending_names();
                 self.genai.copied = Some(self.recipe.clone());
-                self.genai.copied_from = self.src_path.clone();
+                self.genai.copied_from = self.photo.src_path.clone();
                 self.status = tr(
                     self.lang,
                     "Recipe copied — Ctrl/⌘+click to pick several, then “Paste to selected”",
@@ -870,7 +849,7 @@ impl AutoShadeApp {
         }
 
         // Window title mirrors the open photo (send only on change).
-        let title = match &self.src_path {
+        let title = match &self.photo.src_path {
             Some(p) => format!(
                 "{} — AutoShade",
                 p.file_name().and_then(|s| s.to_str()).unwrap_or("photo")
@@ -907,7 +886,7 @@ impl AutoShadeApp {
             // the Direction prompt it consumes (user feedback: a trigger
             // stranded in the toolbar, far from its input, reads as
             // unrelated — every prompt entry now carries its own button).
-            let ready = self.src_path.is_some() && !self.busy;
+            let ready = self.photo.src_path.is_some() && !self.busy;
             // R38: the row wraps only BETWEEN its groups — each group is one
             // measured allocation (`buttons::group`, sized from its labels),
             // so a narrow window moves a whole group to the next line instead
@@ -1196,7 +1175,7 @@ impl AutoShadeApp {
             egui::Frame::NONE
                 .inner_margin(egui::Margin { right: gutter.round() as i8, ..Default::default() })
                 .show(ui, |ui| {
-                    if self.src_path.is_some() {
+                    if self.photo.src_path.is_some() {
                         // The one sidebar, top to bottom: the Portraits panel
                         // (people, skin, eyes, background, `panels/portrait.rs`),
                         // then Normal's four groups (`panels/normal.rs` — the
@@ -1252,7 +1231,7 @@ impl AutoShadeApp {
         // Variant strip — sits directly above the status bar (registered after
         // it so it stacks on top), only when a photo is open. The selector for
         // 原片 / AI 生成 / 反推 renditions.
-        if self.src_path.is_some() {
+        if self.photo.src_path.is_some() {
             egui::TopBottomPanel::bottom("variants")
                 // At the old 96 the cards' slack all pooled below the labels
                 // — height and its derivation live on VARIANT_STRIP_H.
@@ -1300,7 +1279,7 @@ impl AutoShadeApp {
             .fill(self.ui.theme.colors().canvas_bed);
         egui::CentralPanel::default().frame(bed).show(ctx, |ui| {
             // Empty state: a real landing surface instead of a blank canvas.
-            if self.src_path.is_none() {
+            if self.photo.src_path.is_none() {
                 ui.vertical_centered(|ui| {
                     ui.add_space(ui.available_height() * 0.32);
                     ui.heading("AutoShade");
@@ -1495,11 +1474,7 @@ impl AutoShadeApp {
 impl Default for AutoShadeApp {
     fn default() -> Self {
         Self {
-            src_path: None,
-            base_preview: None,
-            source_preview: None,
-            base_turns: 0,
-            film_edge: None,
+            photo: PhotoPixels::default(),
             before_tex: None,
             after_tex: None,
             canvas_fade: None,
@@ -1690,7 +1665,7 @@ impl AutoShadeApp {
         // Reset re-stamping a legacy photo, a paste, or a restore would
         // otherwise leave the compare against a stale starting point. One
         // cheap LUT-only develop, and only when the curve actually changed.
-        if self.src_path.is_some()
+        if self.photo.src_path.is_some()
             // NOT base-present: an InPlace master legitimately renders Before
             // under the canvas curve, and gating on v.base froze its Before
             // against Reset / undo / paste forever. A Generated canvas
@@ -1698,7 +1673,7 @@ impl AutoShadeApp {
             // simply quiet there.
             && !self.active_on_ai_pixels()
             && self.recipe.start_only() != self.open.before_start
-            && let Some(b) = self.base_preview.clone()
+            && let Some(b) = self.photo.base_preview.clone()
         {
             let start = self.recipe.start_only();
             self.set_before(ctx, &b, &start);

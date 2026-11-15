@@ -97,7 +97,14 @@
                 pan: egui::vec2(0.7, 0.7),
                 ..Default::default()
             },
-            src_path: Some(PathBuf::from("x.png")),
+            photo: PhotoPixels {
+
+                src_path: Some(PathBuf::from("x.png")),
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
 
@@ -121,7 +128,7 @@
         run_key(&mut app, egui::Key::Plus);
         assert_eq!(app.view.zoom_target, 12.0, "zoom keys respect the 12x ceiling");
         // No photo → the keys are inert (same gate as the canvas buttons).
-        app.src_path = None;
+        app.photo.src_path = None;
         app.view.zoom_target = 3.0;
         run_key(&mut app, egui::Key::Num0);
         assert_eq!(app.view.zoom_target, 3.0, "no photo: zoom keys must not act");
@@ -193,7 +200,14 @@
     #[test]
     fn recipe_copy_rides_the_shift_chord_not_the_bare_copy_event() {
         let mut app = AutoShadeApp {
-            src_path: Some(PathBuf::from("x.png")),
+            photo: PhotoPixels {
+
+                src_path: Some(PathBuf::from("x.png")),
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         app.recipe.exposure_ev = 1.5;
@@ -744,7 +758,7 @@
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let mut app = AutoShadeApp { lang, ..Default::default() };
             // A plate is what start_mask_brush sizes its buffers against.
-            app.base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
+            app.photo.base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
             app.start_mask_brush(None);
             assert!(app.masks.mask_brush.is_some(), "{lang:?}: the brush session armed");
             let input = || egui::RawInput {
@@ -801,7 +815,14 @@
         // Phase 1: arming sweeps the other canvas tools and stays armed; the
         // Stamp arms through clone_mode and takes the other brush down.
         let mut app = AutoShadeApp {
-            base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(32, 48))),
+            photo: PhotoPixels {
+
+                base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(32, 48))),
+
+                ..Default::default()
+
+            },
+
             crop: CropState { mode: true, ..Default::default() },
             tools: ToolsState { clone_mode: true, ..Default::default() },
             ..Default::default()

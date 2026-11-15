@@ -249,7 +249,11 @@
         let src = dir.join(format!("_gui_normal_{tag}.jpg"));
         let dev = autoshade::store::develop_dir(&src);
         let _ = std::fs::remove_dir_all(&dev);
-        let mut app = AutoShadeApp { src_path: Some(src.clone()), ..Default::default() };
+        let mut app = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(src.clone()),
+     ..Default::default()
+ },
+ ..Default::default() };
         app.normal.runner = Some(heuristic_runner);
         (app, src, Scrub(vec![dir, dev]))
     }
@@ -351,7 +355,7 @@
         assert_eq!(app.status, "No AI key set — built-in look used");
         assert_eq!(app.normal.key_present, Some(false));
         let (photo, kept) = app.normal.result.clone().expect("the one-click result is remembered");
-        assert_eq!(Some(photo), app.src_path);
+        assert_eq!(Some(photo), app.photo.src_path);
         assert_eq!(kept.exposure_ev, app.recipe.exposure_ev);
         // Undoable, like every analysis landing.
         app.commit_now();
@@ -416,7 +420,7 @@
             thumb: None,
         }];
         app.active = 0;
-        app.base_preview = Some(b0);
+        app.photo.base_preview = Some(b0);
         app.reset_history();
         app.recipe.exposure_ev = 0.4;
         assert!(app.unsaved_marker_dirty(), "the edit is unsaved before Ctrl+S");
@@ -489,7 +493,11 @@
         let words = ["配方", "显影", "反推", "变体", "蒙版", "API", "recipe", "develop", "reverse-fit", "variant", "mask", "sidecar"];
         for lang in [Lang::En, Lang::Zh] {
             let plain = tr(lang, "It takes a moment; the preview then shows the result, and that is what gets saved.").to_string();
-            let mut app = AutoShadeApp { lang, src_path: Some(PathBuf::from("phone.jpg")), ..Default::default() };
+            let mut app = AutoShadeApp { lang, photo: PhotoPixels {
+     src_path: Some(PathBuf::from("phone.jpg")),
+     ..Default::default()
+ },
+ ..Default::default() };
             assert_eq!(app.noise_lines(lang, false), vec![tr(lang, "This download does not include the noise tool.").to_string()]);
             app.normal.denoise_ready = Some(true);
             assert_eq!(app.noise_lines(lang, true), vec![plain.clone()], "{lang:?}: the model is there");
@@ -500,7 +508,7 @@
                 assert_eq!(lines[0], plain);
                 assert!(lines[1].contains("72 MB"), "{lang:?}: {lines:?}");
             }
-            app.src_path = Some(PathBuf::from("camera.arw"));
+            app.photo.src_path = Some(PathBuf::from("camera.arw"));
             assert_eq!(app.noise_lines(lang, true), vec![plain.clone()], "{lang:?}: a RAW downloads nothing new");
             let (moment, preview) = match lang {
                 Lang::En => ("takes a moment", "preview"),
@@ -508,7 +516,7 @@
             };
             assert!(plain.contains(moment) && plain.contains(preview), "{lang:?}: {plain}");
             let mut said = app.noise_lines(lang, true);
-            app.src_path = Some(PathBuf::from("phone.jpg"));
+            app.photo.src_path = Some(PathBuf::from("phone.jpg"));
             said.extend(app.noise_lines(lang, true));
             said.extend(
                 [
@@ -561,7 +569,7 @@
             thumb: None,
         }];
         app.active = 0;
-        app.base_preview = Some(b0);
+        app.photo.base_preview = Some(b0);
         app.reset_history();
         // The Retouch door's own gate answers: a turned photo is refused
         // before any worker, with that door's words.
@@ -860,7 +868,7 @@
         app.normal.building = true;
         app.normal.build_photo = Some(src.clone());
         app.busy = true;
-        app.src_path = Some(src.with_file_name("_gui_normal_buildbusy_other.jpg"));
+        app.photo.src_path = Some(src.with_file_name("_gui_normal_buildbusy_other.jpg"));
         app.on_one_click_built(Lang::En, Ok(3));
         assert!(!app.busy && !app.normal.building);
         assert!(app.normal.last_request.is_none(), "no look for a photo the folder was not picked for");
@@ -868,7 +876,7 @@
         assert_eq!(app.status, said);
         assert_eq!(app.normal.line, crate::panels::normal::NormalLine::Failed(said.to_string()));
         // Back on its own photo, the build hands over to the look.
-        app.src_path = Some(src.clone());
+        app.photo.src_path = Some(src.clone());
         app.normal.building = true;
         app.normal.build_photo = Some(src.clone());
         app.busy = true;
@@ -902,7 +910,7 @@
             thumb: None,
         }];
         app.active = 0;
-        app.base_preview = Some(b0.clone());
+        app.photo.base_preview = Some(b0.clone());
         app.reset_history();
         // A look, then the switch on: its ◈ card lands.
         app.recipe.exposure_ev = 0.5;

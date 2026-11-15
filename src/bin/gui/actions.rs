@@ -326,7 +326,7 @@ impl AutoShadeApp {
     /// pixels.json) — the source mtime doesn't move then, so the mtime guard
     /// alone would happily serve a hit with stale baked pixels.
     pub(crate) fn forget_open_base(&mut self) {
-        if let Some(p) = self.src_path.clone() {
+        if let Some(p) = self.photo.src_path.clone() {
             crate::logic::lru::retain(&mut self.open.base_cache, |(q, _, _, _)| q != &p);
         }
     }
@@ -413,7 +413,7 @@ impl AutoShadeApp {
     }
 
     fn active_canvas_dirty(&self) -> bool {
-        if self.src_path.is_none() || self.active_variant().is_none() {
+        if self.photo.src_path.is_none() || self.active_variant().is_none() {
             return false;
         }
         self.active_baseline().is_none_or(|saved| {
@@ -586,8 +586,8 @@ impl AutoShadeApp {
     /// the untouched negative underneath a generated / retouched rendition.
     pub(crate) fn active_source_path(&self) -> Option<PathBuf> {
         match self.active_variant() {
-            Some(v) => v.origin.clone().or_else(|| self.src_path.clone()),
-            None => self.src_path.clone(),
+            Some(v) => v.origin.clone().or_else(|| self.photo.src_path.clone()),
+            None => self.photo.src_path.clone(),
         }
     }
 
@@ -885,7 +885,7 @@ impl AutoShadeApp {
     /// jpgs' folder is settled FIRST: a folder dialog cancelled after the
     /// paste would have left every photo's look changed and nothing saved.
     pub(crate) fn start_apply_to_folder(&mut self) {
-        if self.busy || self.gal.gallery.is_empty() || self.src_path.is_none() {
+        if self.busy || self.gal.gallery.is_empty() || self.photo.src_path.is_none() {
             return;
         }
         let Some(dest) = self.apply_all_dest() else {
@@ -896,7 +896,7 @@ impl AutoShadeApp {
         self.commit_pending_names();
         let targets = self.gal.gallery.clone();
         self.normal.apply_all = Some(dest);
-        self.start_paste_to(self.recipe.clone(), self.src_path.clone(), targets, false);
+        self.start_paste_to(self.recipe.clone(), self.photo.src_path.clone(), targets, false);
         if !self.busy {
             self.normal.apply_all = None;
         }
@@ -941,7 +941,7 @@ impl AutoShadeApp {
             return;
         }
         let Some(mut clone) = self.recipe.masks.get(i).cloned() else { return };
-        if let Some(p) = self.src_path.as_deref() {
+        if let Some(p) = self.photo.src_path.as_deref() {
             let mut tmp = EditRecipe { masks: vec![clone], ..Default::default() };
             autoshade::store::detach_rasters(p, &mut tmp, "mask-dup");
             clone = tmp.masks.remove(0);

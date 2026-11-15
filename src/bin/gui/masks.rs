@@ -27,7 +27,7 @@ impl AutoShadeApp {
         // The ORIGINAL frame the recipe stores the mask in (v1.17.0: a
         // corrected base is mapped back first).
         let Some(base) = self.original_frame_base() else { return };
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         self.busy = true;
         self.status = trf(
             lang,
@@ -95,7 +95,7 @@ impl AutoShadeApp {
     /// regenerate the enclosing disk of a long thin stroke would rewrite a
     /// circle of content the photographer never touched.
     pub(crate) fn paint_imported_removals(&mut self) -> usize {
-        let Some(base) = self.base_preview.as_ref() else { return 0 };
+        let Some(base) = self.photo.base_preview.as_ref() else { return 0 };
         let (mw, mh) = base.dimensions();
         if mw == 0 || mh == 0 {
             return 0;
@@ -358,7 +358,7 @@ impl AutoShadeApp {
     /// resolution, so the session bakes exactly what it shows.
     pub(crate) fn start_mask_brush(&mut self, target: Option<usize>) {
         self.disarm_tools();
-        let Some(base) = self.base_preview.as_ref() else { return };
+        let Some(base) = self.photo.base_preview.as_ref() else { return };
         let (mw, mh) = base.dimensions();
         // The session takes the canvas; the owner's area waits in the store.
         self.stash_owner_area();
@@ -421,7 +421,7 @@ impl AutoShadeApp {
     pub(crate) fn commit_mask_brush(&mut self) {
         let Some((target, _)) = self.masks.mask_brush else { return };
         let Some(gray) = self.masks.mask_brush_gray.clone() else { return };
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         let lang = self.lang;
         if target.is_none() {
             if gray.pixels().all(|p| p[0] == 0) {
@@ -505,7 +505,7 @@ impl AutoShadeApp {
         op: impl FnOnce(&image::GrayImage) -> image::GrayImage,
         tag: &str,
     ) {
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         let Some(path) = self
             .recipe
             .masks
@@ -581,7 +581,7 @@ impl AutoShadeApp {
         if self.busy || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         let Some(guide_src) = self.active_source_path() else { return };
         let Some(path) = self
             .recipe

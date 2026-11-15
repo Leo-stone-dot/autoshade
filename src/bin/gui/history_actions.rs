@@ -135,7 +135,7 @@ impl AutoShadeApp {
         // resurrect every scenario above, and the test drives it directly.
         if (!self.open.open_in_flight || (self.open.open_same_path && self.cards.keep_recipe))
             && self.variants.get(self.active).is_none_or(|v| v.kind.is_source_based())
-            && let Some(p) = self.src_path.clone()
+            && let Some(p) = self.photo.src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()
         {
             self.session.hist.committed.recipe = self.recipe.clone();
@@ -180,7 +180,7 @@ impl AutoShadeApp {
     /// the old raster. History is deliberately NOT touched here.
     pub(crate) fn refresh_active_pixels(&mut self, ctx: &egui::Context) {
         let Some(v) = self.variants.get(self.active) else { return };
-        let base = v.base.clone().or_else(|| self.source_preview.clone());
+        let base = v.base.clone().or_else(|| self.photo.source_preview.clone());
         if let Some(base) = base {
             let (mw, mh) = base.dimensions();
             // Same rule as load_active: the canvas recipe's own curve serves
@@ -188,7 +188,7 @@ impl AutoShadeApp {
             // construction; an InPlace master is neutral and needs it).
             let start = self.recipe.start_only();
             self.set_before(ctx, &base, &start);
-            self.base_preview = Some(base);
+            self.photo.base_preview = Some(base);
             self.rebind_paint_canvas(mw, mh);
         }
         self.overlay.overlay_ref = None;
@@ -244,8 +244,8 @@ impl AutoShadeApp {
     /// gestures bind screen coordinates to plate pixels mid-drag, and the
     /// plate is about to move under them.
     pub(crate) fn can_rotate(&self) -> bool {
-        self.src_path.is_some()
-            && self.base_preview.is_some()
+        self.photo.src_path.is_some()
+            && self.photo.base_preview.is_some()
             && !self.busy
             && !self.open.open_in_flight
             && !self.masks.paint_mode
@@ -273,7 +273,7 @@ impl AutoShadeApp {
         if !self.can_rotate() {
             return;
         }
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         let lang = self.lang;
         // The step BEFORE the turn, so one Ctrl+Z puts it back (7.7).
         self.commit_now();
@@ -322,7 +322,7 @@ impl AutoShadeApp {
     /// none of them needs to know.
     pub(crate) fn sync_base_turns(&mut self, ctx: &egui::Context) {
         let want = self.recipe.quarter_turns % 4;
-        let delta = (want + 4 - self.base_turns % 4) % 4;
+        let delta = (want + 4 - self.photo.base_turns % 4) % 4;
         if delta == 0 {
             return;
         }
@@ -334,15 +334,15 @@ impl AutoShadeApp {
         // whose frame nothing tracks: turning the previews under it would
         // put the canvas and the cards in two frames.
         if self.variants.iter().any(|v| v.base.is_some() || v.origin.is_some()) {
-            self.base_turns = want;
+            self.photo.base_turns = want;
             return;
         }
         let turn = |p: &Arc<image::DynamicImage>| {
             Arc::new(autoshade::render::turn_image((**p).clone(), delta))
         };
-        self.source_preview = self.source_preview.as_ref().map(&turn);
-        self.base_preview = self.base_preview.as_ref().map(&turn);
-        self.base_turns = want;
+        self.photo.source_preview = self.photo.source_preview.as_ref().map(&turn);
+        self.photo.base_preview = self.photo.base_preview.as_ref().map(&turn);
+        self.photo.base_turns = want;
         // Everything derived from the plate's frame. The Before texture is
         // rebuilt here rather than invalidated: `set_before` is the only
         // writer, and leaving a stale one on screen for a frame is the
@@ -353,7 +353,7 @@ impl AutoShadeApp {
         // brush stroke — and the fill/heal mask exported from it — at the
         // wrong coordinates. A live brush session dies with the old frame,
         // disclosed, exactly as at every other replacement door.
-        if let Some(b) = self.base_preview.clone() {
+        if let Some(b) = self.photo.base_preview.clone() {
             let start = self.recipe.start_only();
             self.set_before(ctx, &b, &start);
             let (mw, mh) = b.dimensions();

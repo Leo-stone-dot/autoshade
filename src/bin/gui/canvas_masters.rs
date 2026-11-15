@@ -127,7 +127,7 @@ pub(crate) fn install_master(
     origin: &PathBuf,
     arc: Arc<image::DynamicImage>,
 ) {
-    if self.src_path.as_ref() != Some(photo) {
+    if self.photo.src_path.as_ref() != Some(photo) {
         return;
     }
     let mut hit_active = false;
@@ -231,7 +231,7 @@ pub(crate) fn start_redevelop(&mut self) {
         self.session.dirty = false;
         return;
     }
-    let Some(base) = self.base_preview.clone() else {
+    let Some(base) = self.photo.base_preview.clone() else {
         self.session.dirty = false;
         return;
     };
@@ -282,7 +282,7 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
     if self.open.source_part_inflight.as_ref() == Some(&want) {
         return false;
     }
-    let Some(path) = self.src_path.clone() else { return true };
+    let Some(path) = self.photo.src_path.clone() else { return true };
     let edge = self.genai.preview_edge.clamp(640, 8192);
     self.open.source_part_inflight = Some(want.clone());
     let (p, part) = (path.clone(), want.clone());
@@ -314,14 +314,14 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
 pub(crate) fn film_short_edge(&mut self) -> Option<u32> {
     let path = self.active_source_path()?;
     let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
-    if let Some((cached, when, edge)) = &self.film_edge
+    if let Some((cached, when, edge)) = &self.photo.film_edge
         && *cached == path
         && *when == modified
     {
         return *edge;
     }
     let edge = autoshade::decode::film_short_edge(&path);
-    self.film_edge = Some((path, modified, edge));
+    self.photo.film_edge = Some((path, modified, edge));
     edge
 }
 
@@ -366,7 +366,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         }
     };
     let current = self
-        .base_preview
+        .photo.base_preview
         .as_ref()
         .is_some_and(|base| Arc::ptr_eq(base, &frame.base))
         && self.recipe == frame.recipe;
@@ -389,7 +389,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     // A frame of the SAME photo and version re-renders in place (a slider
     // drag must not flicker); the first frame of a different one lands on
     // a fresh texture and the old one fades out over it (MOTION_FADE_S).
-    let shows = self.src_path.clone().map(|p| (p, self.active));
+    let shows = self.photo.src_path.clone().map(|p| (p, self.active));
     match &mut self.after_tex {
         Some(tex) if self.after_shows == shows => tex.set(frame.after, egui::TextureOptions::LINEAR),
         old => {

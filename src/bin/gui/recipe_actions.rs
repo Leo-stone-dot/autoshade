@@ -23,7 +23,7 @@ impl AutoShadeApp {
 
     /// The name a blank field saves under: the open photo's stem.
     fn recipe_default_name(&self) -> String {
-        match self.src_path.as_deref() {
+        match self.photo.src_path.as_deref() {
             Some(p) => autoshade::pipeline::stem(p).to_string(),
             None => tr(self.lang, "Recipe").to_string(),
         }
@@ -76,7 +76,7 @@ impl AutoShadeApp {
 
     /// Save the open photo's develop into the library under a name.
     pub(crate) fn save_current_recipe(&mut self) {
-        let Some(src) = self.src_path.clone() else {
+        let Some(src) = self.photo.src_path.clone() else {
             return;
         };
         if self.busy {
@@ -132,7 +132,7 @@ impl AutoShadeApp {
         if self.busy {
             return;
         }
-        let Some(src) = self.src_path.clone() else {
+        let Some(src) = self.photo.src_path.clone() else {
             return;
         };
         self.commit_pending_names();
@@ -213,7 +213,7 @@ impl AutoShadeApp {
 
     /// Replace a library entry's content with the open photo's current look.
     pub(crate) fn update_recipe_from_open(&mut self, name: &str) {
-        if self.busy || self.src_path.is_none() {
+        if self.busy || self.photo.src_path.is_none() {
             return;
         }
         self.commit_pending_names();

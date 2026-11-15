@@ -55,7 +55,7 @@ impl AutoShadeApp {
             });
         });
         ui.horizontal(|ui| {
-            let ready = self.src_path.is_some() && !self.busy;
+            let ready = self.photo.src_path.is_some() && !self.busy;
             let button_w = 92.0;
             let field_w = (ui.available_width() - button_w - ui.spacing().item_spacing.x).max(180.0);
             let resp = ui.add_sized(
@@ -264,7 +264,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         let entry = autoshade::recipe_library::read(name);
         let colors = self.ui.theme.colors();
-        let photo_stem = self.src_path.as_deref().map(|p| autoshade::pipeline::stem(p).to_string());
+        let photo_stem = self.photo.src_path.as_deref().map(|p| autoshade::pipeline::stem(p).to_string());
         ui.horizontal_top(|ui| {
             const PREVIEW_W: f32 = 200.0;
             const PREVIEW_H: f32 = 140.0;
@@ -342,7 +342,7 @@ impl AutoShadeApp {
             });
         });
         let ok = entry.is_ok();
-        let has_photo = self.src_path.is_some();
+        let has_photo = self.photo.src_path.is_some();
         let busy = self.busy;
         ui.add_space(SPACE_XS);
         let running = tr(lang, "A task is running — wait for it to finish");
@@ -408,8 +408,8 @@ impl AutoShadeApp {
         ctx: &egui::Context,
         name: &str,
     ) -> Option<(egui::TextureId, egui::Vec2)> {
-        let src = self.src_path.clone()?;
-        let base = self.base_preview.clone()?;
+        let src = self.photo.src_path.clone()?;
+        let base = self.photo.base_preview.clone()?;
         let entry = autoshade::recipe_library::read(name).ok()?;
         let stamp = std::fs::metadata(autoshade::recipe_library::entry_path(name))
             .and_then(|m| m.modified())

@@ -53,7 +53,7 @@ pub(crate) fn start_fill(&mut self) {
         // The photo names the artifact (as a reimagine's is named); the
         // card's OWN pixel source (a ✨/✎ card → its raster, ▣/◭ → the
         // negative) is what its recipe develops in the worker below.
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         let Some(path) = self.active_source_path() else { return };
         if self.busy || self.refuse_pixel_work_on_a_turned_photo() {
             return;
@@ -159,7 +159,7 @@ pub(crate) fn start_fill(&mut self) {
     }
 
 pub(crate) fn start_adjust(&mut self) {
-        let Some(src) = self.src_path.clone() else { return };
+        let Some(src) = self.photo.src_path.clone() else { return };
         let Some(path) = self.active_source_path() else { return };
         if !self.can_adjust() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
@@ -552,7 +552,7 @@ pub(crate) fn start_reimagine(&mut self) {
         // key on the photo: each call gets a UNIQUE ./out PNG so two
         // Generated variants never alias the same origin (which would
         // cross-wire their export / reverse-fit).
-        let Some(path) = self.src_path.clone() else { return };
+        let Some(path) = self.photo.src_path.clone() else { return };
         let Some(negative) = self.negative_path() else { return };
         // R27 gate (`refuse_pixel_work_on_a_turned_photo`): the ✨ card's
         // raster would land in the EXIF frame, and a baked card cannot be turned.
@@ -644,14 +644,14 @@ pub(crate) fn start_reimagine(&mut self) {
     }
 
 pub(crate) fn start_style_prompt(&mut self) {
-        let (Some(base), Some(tgt)) = (self.source_preview.clone(), self.fit_target())
+        let (Some(base), Some(tgt)) = (self.photo.source_preview.clone(), self.fit_target())
         else {
             return;
         };
         if self.busy {
             return;
         }
-        let src_path = self.src_path.clone();
+        let src_path = self.photo.src_path.clone();
         // No lang capture: the worker returns FACTS; the landing localises
         // them with the language live at landing time (L12#4).
         self.busy = true;

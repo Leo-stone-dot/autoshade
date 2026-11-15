@@ -980,7 +980,7 @@ impl AutoShadeApp {
         if self.busy || self.open.open_in_flight || unresolved_develop_masks(&self.recipe) == 0 {
             return;
         }
-        let (Some(photo), Some(pixels)) = (self.src_path.clone(), self.active_source_path()) else { return };
+        let (Some(photo), Some(pixels)) = (self.photo.src_path.clone(), self.active_source_path()) else { return };
         let card = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
         let mut recipe = self.recipe.clone();
         let run = self.ai_mask_runner();
@@ -1020,7 +1020,7 @@ impl AutoShadeApp {
     ) {
         self.busy = false;
         let here = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
-        if self.src_path.as_ref() != Some(&photo) || here != card {
+        if self.photo.src_path.as_ref() != Some(&photo) || here != card {
             return;
         }
         let fill = |r: &mut EditRecipe| {

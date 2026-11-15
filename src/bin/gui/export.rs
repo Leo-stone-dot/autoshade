@@ -417,7 +417,7 @@ impl AutoShadeApp {
         // guarding only that would leave the ORIGINAL photo unprotected
         // exactly when a generated variant is active.
         let mut anchors = vec![path.clone()];
-        if let Some(orig) = self.src_path.clone()
+        if let Some(orig) = self.photo.src_path.clone()
             && orig != path
         {
             anchors.push(orig);
@@ -476,7 +476,7 @@ impl AutoShadeApp {
             trf(lang, "rendering full-resolution → {path} …", &[("path", &shown)])
         };
         let recipe = self.recipe.clone();
-        let src_photo = self.src_path.clone();
+        let src_photo = self.photo.src_path.clone();
         let ai_masks = self.ai_mask_runner();
         self.spawn_worker(
             move || {
@@ -675,7 +675,7 @@ impl AutoShadeApp {
                 )
             })
             .collect();
-        if let Some(p) = self.src_path.clone() {
+        if let Some(p) = self.photo.src_path.clone() {
             let pix = self
                 .active_variant()
                 .and_then(|v| v.origin.clone())
@@ -963,7 +963,7 @@ impl AutoShadeApp {
     /// click (the store's own NotFound message says exactly that) than a button
     /// that is greyed out for a reason nothing explains.
     pub(crate) fn can_export_xmp_beside(&self) -> bool {
-        self.src_path.as_deref().is_some_and(autoshade::decode::is_raw)
+        self.photo.src_path.as_deref().is_some_and(autoshade::decode::is_raw)
     }
 
     /// SF8-A: hand the stored Lightroom sidecar over to Lightroom — copy this
@@ -978,7 +978,7 @@ impl AutoShadeApp {
     /// answered by a file that appeared in between.
     pub(crate) fn export_xmp_beside(&mut self) {
         let lang = self.lang;
-        let Some(path) = self.src_path.clone() else { return };
+        let Some(path) = self.photo.src_path.clone() else { return };
         let overwrite = self.exp.xmp_beside_confirm;
         match autoshade::store::export_xmp_beside(&path, overwrite) {
             Ok(to) => {
@@ -1056,7 +1056,7 @@ impl AutoShadeApp {
         // stale projection that refusal left standing.)
         self.fork_edited_card();
         let lang = self.lang;
-        let Some(path) = self.src_path.clone() else { return };
+        let Some(path) = self.photo.src_path.clone() else { return };
         // Reset-then-save means "clear my edits": writing a neutral pair would
         // only pin a misleading ● badge with no in-app way to remove it —
         // delete the working sidecars instead (version snapshots are kept).
@@ -1533,7 +1533,7 @@ impl AutoShadeApp {
         // leaving `saved_recipe` behind kept a false "● unsaved" lit for
         // edits that were already on disk.
         self.open.pasted_open = None;
-        if let Some(open) = self.src_path.clone()
+        if let Some(open) = self.photo.src_path.clone()
             && targets.iter().any(|t| t == &open)
         {
             // Same base_curve rule the worker applies to every target below,

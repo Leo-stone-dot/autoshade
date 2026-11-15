@@ -7560,7 +7560,11 @@ wake are a `Services` struct
 not photo state, so replacing the executor or the loop touches neither the
 document nor the panels. The undo/redo history and the dirty flag are an
 `EditorSession` ([`session.rs`](../src/bin/gui/session.rs)): per-photo
-session state that dies when another source opens and is never persisted. The Lens Blur pilot
+session state that dies when another source opens and is never persisted.
+The open photo's decoded plates are `PhotoPixels`
+([`photo.rs`](../src/bin/gui/photo.rs)): the source path, the base/source
+plates, the baked quarter turns and the film edge — read by every panel and
+owned by none of them. The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
 share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):

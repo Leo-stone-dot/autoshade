@@ -38,7 +38,7 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
         Ok((label, path, backend)) => {
             // The mask choice, the words and the fallback disclosure are
             // the logic layer's (`logic/segmented.rs`).
-            let photo_stem = self.src_path.clone().map(|p| autoshade::pipeline::stem(&p).to_owned());
+            let photo_stem = self.photo.src_path.clone().map(|p| autoshade::pipeline::stem(&p).to_owned());
             let landed =
                 logic::segmented::apply(&mut self.recipe, &label, &path, &backend, photo_stem.as_deref());
             self.masks.sel_mask = Some(landed.selection);
@@ -148,7 +148,7 @@ pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo
                 // Install by identity, not index: only while the SAME
                 // photo is open, and only into strip entries that still
                 // reference this exact master and still await pixels.
-                if self.src_path.as_ref() == Some(&photo) {
+                if self.photo.src_path.as_ref() == Some(&photo) {
                     match img {
                         Ok(im) => {
                             let arc = Arc::new(im);
@@ -376,7 +376,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // reference develop no longer matches it.
                             self.overlay.overlay_ref = None;
                             self.overlay.overlay_stale = true;
-                            self.base_preview = Some(img);
+                            self.photo.base_preview = Some(img);
                             // Keep the paint canvas sized to the new base (the
                             // retouch result can differ in dimensions — e.g. a
                             // non-square reimagine origin) — and end a brush
@@ -446,7 +446,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     if out.persisted {
                         self.session.hist.saved_recipe = out.recipe.clone();
                         self.open.nav_stash.remove(
-                            &self.src_path.clone().unwrap_or_default(),
+                            &self.photo.src_path.clone().unwrap_or_default(),
                         );
                         // The pixel link the worker committed beside the
                         // recipe — the negative's in-place master when
@@ -535,7 +535,7 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             // nothing: edits made while the worker ran leave
             // recipe != saved_recipe, correctly re-lighting ●.
             if let Some((p, r)) = self.open.pasted_open.take()
-                && self.src_path.as_ref() == Some(&p)
+                && self.photo.src_path.as_ref() == Some(&p)
             {
                 self.session.hist.saved_recipe = r;
                 self.open.nav_stash.remove(&p);

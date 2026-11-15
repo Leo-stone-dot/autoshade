@@ -703,18 +703,18 @@
         let mut app = AutoShadeApp::default();
         app.restore_prefs(Prefs { prefs_era: 1, denoise_strength: 0.45,
             save_denoise_strength: 0.6, ..Prefs::default() });
-        app.src_path = Some(PathBuf::from("master.tif"));
+        app.photo.src_path = Some(PathBuf::from("master.tif"));
         let mut storage = PrefsMemory::default();
         eframe::App::save(&mut app, &mut storage);
         let prefs: Prefs = eframe::get_value(&storage, eframe::APP_KEY).unwrap();
         assert_eq!(prefs.prefs_era, 2);
         let mut reopened = AutoShadeApp::default();
         reopened.restore_prefs(prefs);
-        reopened.src_path = Some(PathBuf::from("master.tif"));
+        reopened.photo.src_path = Some(PathBuf::from("master.tif"));
         assert_eq!(reopened.selected_denoise_strength(false), 0.45);
         assert_eq!(reopened.selected_denoise_strength(true), 0.6);
         assert!(!reopened.status.contains("reset to"));
-        reopened.src_path = Some(PathBuf::from("frame.ARW"));
+        reopened.photo.src_path = Some(PathBuf::from("frame.ARW"));
         assert_eq!(reopened.selected_denoise_strength(false), autoshade::denoise::DEFAULT_STRENGTH_RAW);
     }
 

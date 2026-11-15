@@ -261,7 +261,7 @@ impl AutoShadeApp {
             {
                 if brush_armed {
                     self.disarm_tools();
-                } else if self.base_preview.is_some() {
+                } else if self.photo.base_preview.is_some() {
                     self.apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::MaskBrush(None),
                     )]);
@@ -306,7 +306,7 @@ impl AutoShadeApp {
             // disk these two can only fail, so the button says so up front
             // instead of spending the click on a "not found at …" toast.
             let has_helper = segment_helper_available();
-            let can_seg = !self.busy && self.base_preview.is_some() && has_helper;
+            let can_seg = !self.busy && self.photo.base_preview.is_some() && has_helper;
             let cell = columns(ui, 2);
             let missing = tr(lang,
                 "This feature needs AutoShade's Python helper, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_SEGMENT_SCRIPT to the path of segment.py",

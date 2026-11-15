@@ -404,7 +404,7 @@
             let mut app = app_with_every_button(lang);
             // Pixels the preview pane develops (a warm-rock / blue-sky frame,
             // the same stand-in the canvas shots use).
-            app.base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
+            app.photo.base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
                 image::RgbImage::from_fn(96, 64, |x, y| {
                     if y < 28 {
                         image::Rgb([70 + (x / 2) as u8, 110, 190])
