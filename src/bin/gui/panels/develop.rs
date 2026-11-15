@@ -1413,25 +1413,16 @@ impl AutoShadeApp {
                     // holds none — and reset to it (`companion_slider`,
                     // `sharpening_slider`).
                     let raw_source = self.source_is_raw();
-                    let r = &mut self.recipe;
-                    changed |= Self::sharpening_slider(ui, lang, tr(lang, "Sharpening"), r, raw_source);
-                    // Lightroom's radius band, 0.5..3.0. `Fine` (0.1 snap, one
-                    // shown decimal), NOT the width rule's `Frac`: the sidecar
-                    // key is written to ONE decimal (`+1.0`), so a 0.01 track
-                    // would show a number the file cannot carry and the value
-                    // would change under the user on the next read.
-                    changed |= Self::companion_slider(ui, lang, tr(lang, "Sharpen radius"), r, "sharpen_radius", 0.5, 3.0, SliderFeel::Fine);
-                    changed |= Self::companion_slider(ui, lang, tr(lang, "Sharpen detail"), r, "sharpen_detail", 0.0, 100.0, SliderFeel::Int);
-                    changed |= Self::slider(ui, lang, tr(lang, "Sharpen masking"), &mut r.sharpen_mask, 0.0, 100.0, 0.0);
+                    changed |= Self::sharpening_slider(ui, lang, tr(lang, "Sharpening"), &mut self.recipe, raw_source);
+                    // The rows below the amount are one capability table each;
+                    // their bands, feels and companion defaults live in
+                    // `logic::capability` (the radius is a Fine companion: the
+                    // sidecar writes one decimal, so the track shows one).
+                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::SHARPEN);
                     ui.add_space(SPACE_SM);
-                    changed |=
-                        Self::slider(ui, lang, tr(lang, "Noise Reduction"), &mut r.noise_reduction, 0.0, 100.0, 0.0);
-                    changed |= Self::companion_slider(ui, lang, tr(lang, "Noise detail"), r, "nr_detail", 0.0, 100.0, SliderFeel::Int);
-                    changed |= Self::slider(ui, lang, tr(lang, "Noise contrast"), &mut r.nr_contrast, 0.0, 100.0, 0.0);
+                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::NOISE_LUMA);
                     ui.add_space(SPACE_SM);
-                    changed |= Self::slider(ui, lang, tr(lang, "Colour noise reduction"), &mut r.color_nr, 0.0, 100.0, 0.0);
-                    changed |= Self::companion_slider(ui, lang, tr(lang, "Colour noise detail"), r, "color_nr_detail", 0.0, 100.0, SliderFeel::Int);
-                    changed |= Self::companion_slider(ui, lang, tr(lang, "Colour noise smoothness"), r, "color_nr_smooth", 0.0, 100.0, SliderFeel::Int);
+                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::NOISE_COLOR);
                 }
                 let denoise_raw = self.denoise_uses_raw();
                 // AI denoise as an ACTIVE op: run now, see it on canvas —
@@ -1835,16 +1826,9 @@ impl AutoShadeApp {
                     ui.label(egui::RichText::new(tr(lang, upright_note)).weak().small());
                 }
                 ui.add_space(SPACE_SM);
-                changed |= Self::slider(ui, lang, tr(lang, "Vertical"), &mut self.recipe.perspective_vertical, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Horizontal"), &mut self.recipe.perspective_horizontal, -100.0, 100.0, 0.0);
-                // DEGREES, unlike every other slider here, and Lightroom's own
-                // band is ±10 — so the label says so rather than letting a
-                // −100..100 habit read the number wrong.
-                changed |= Self::slider(ui, lang, tr(lang, "Rotate (°)"), &mut self.recipe.perspective_rotate, -10.0, 10.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Transform scale"), &mut self.recipe.perspective_scale, 50.0, 150.0, 100.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Aspect"), &mut self.recipe.perspective_aspect, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "X offset"), &mut self.recipe.perspective_x, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Y offset"), &mut self.recipe.perspective_y, -100.0, 100.0, 0.0);
+                // One capability table: bands and resets (Rotate ±10, scale
+                // 50..150 resetting to 100) come from `logic::capability`.
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::TRANSFORM);
                 if ui
                     .checkbox(&mut self.recipe.crop_constrain_to_warp, tr(lang, "Constrain crop"))
                     .on_hover_text(tr(lang, "Shrink the crop until it lies inside the warped frame instead of showing the empty corners"))

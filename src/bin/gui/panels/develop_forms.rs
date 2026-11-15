@@ -39,6 +39,22 @@ fn label(lang: Lang, id: CapabilityId) -> &'static str {
         CapabilityId::SdrWhites => tr(lang, "Whites"),
         CapabilityId::SdrClarity => tr(lang, "Clarity"),
         CapabilityId::Straighten => tr(lang, "Straighten (°)"),
+        CapabilityId::SharpenRadius => tr(lang, "Sharpen radius"),
+        CapabilityId::SharpenDetail => tr(lang, "Sharpen detail"),
+        CapabilityId::SharpenMasking => tr(lang, "Sharpen masking"),
+        CapabilityId::NoiseReduction => tr(lang, "Noise Reduction"),
+        CapabilityId::NoiseDetail => tr(lang, "Noise detail"),
+        CapabilityId::NoiseContrast => tr(lang, "Noise contrast"),
+        CapabilityId::ColorNoiseReduction => tr(lang, "Colour noise reduction"),
+        CapabilityId::ColorNoiseDetail => tr(lang, "Colour noise detail"),
+        CapabilityId::ColorNoiseSmooth => tr(lang, "Colour noise smoothness"),
+        CapabilityId::PerspectiveVertical => tr(lang, "Vertical"),
+        CapabilityId::PerspectiveHorizontal => tr(lang, "Horizontal"),
+        CapabilityId::PerspectiveRotate => tr(lang, "Rotate (°)"),
+        CapabilityId::PerspectiveScale => tr(lang, "Transform scale"),
+        CapabilityId::PerspectiveAspect => tr(lang, "Aspect"),
+        CapabilityId::PerspectiveX => tr(lang, "X offset"),
+        CapabilityId::PerspectiveY => tr(lang, "Y offset"),
     }
 }
 
@@ -56,7 +72,7 @@ pub(crate) fn render_rows(
         let Some((min, max)) = cap.range() else { continue };
         let text = label(lang, cap.id);
         let row_changed = match cap.kind {
-            SliderKind::Companion => AutoShadeApp::companion_slider(
+            SliderKind::CompanionInt | SliderKind::CompanionFine => AutoShadeApp::companion_slider(
                 ui,
                 lang,
                 text,
@@ -64,7 +80,7 @@ pub(crate) fn render_rows(
                 cap.control,
                 min,
                 max,
-                SliderFeel::Int,
+                if cap.kind == SliderKind::CompanionFine { SliderFeel::Fine } else { SliderFeel::Int },
             ),
             SliderKind::Plain | SliderKind::Fine => {
                 let mut current = capability::value(recipe, cap.id);
