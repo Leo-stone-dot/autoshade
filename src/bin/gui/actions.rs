@@ -220,11 +220,11 @@ impl AutoShadeApp {
     /// The `||` chain is ordered by cost: `inactive_dirty_variants` walks the
     /// strip deep-comparing recipes, so it is asked last.
     pub(crate) fn quit_state(&self) -> crate::quit::QuitState {
-        crate::quit::QuitState::from_app(self.busy, self.discard_requested, || {
+        crate::quit::QuitState::from_app(self.busy, self.open.discard_requested, || {
             self.masks.mask_name_buf.is_some()
                 || self.version_name_buf.is_some()
                 || self.variant_name_buf.is_some()
-                || !self.nav_stash.is_empty()
+                || !self.open.nav_stash.is_empty()
                 || self.quit_guard_open_dirty()
                 || self.inactive_dirty_variants() > 0
         })
@@ -379,8 +379,8 @@ impl AutoShadeApp {
         // photo; cleared in BOTH Msg::Opened arms. `open_same_path` is the
         // FACT the repair gates key on — keep_recipe is only a request, and
         // a stale request must never classify a flight.
-        self.open_in_flight = true;
-        self.open_same_path = self.src_path.as_ref() == Some(&path);
+        self.open.open_in_flight = true;
+        self.open.open_same_path = self.src_path.as_ref() == Some(&path);
         // Leaving a photo with unsaved edits: stash the canvas for this
         // session so navigation can never silently destroy work (arrow keys /
         // thumbnail clicks used to drop the whole develop). Ctrl+S still owns
@@ -419,7 +419,7 @@ impl AutoShadeApp {
                     })
                     .collect();
                 let active_pos = self.active.min(others.len());
-                self.nav_stash.insert(
+                self.open.nav_stash.insert(
                     old,
                     StashEntry {
                         recipe: self.recipe.clone(),
@@ -445,7 +445,7 @@ impl AutoShadeApp {
         // Every open starts resolved-until-proven-otherwise; the Opened
         // handler's Unreadable arm re-arms it for THIS photo when the read
         // fails.
-        self.open_unresolved = false;
+        self.open.open_unresolved = false;
         self.src_path = Some(path.clone());
         // The version list describes the photo `src_path` NAMES, so it dies
         // with the old value of that field — not later, when the decode lands.
@@ -651,12 +651,12 @@ impl AutoShadeApp {
     pub(crate) fn cached_base(&mut self, path: &std::path::Path, edge: u32) -> Option<OpenedBase> {
         let mtime = file_stamp(path);
         let pixels = pixel_identity(path);
-        let pos = self.base_cache.iter().position(|((p, e, t, px), _)| {
+        let pos = self.open.base_cache.iter().position(|((p, e, t, px), _)| {
             p == path && *e == edge && *t == mtime && *px == pixels
         })?;
-        let entry = self.base_cache.remove(pos);
+        let entry = self.open.base_cache.remove(pos);
         let hit = entry.1.clone();
-        self.base_cache.push(entry);
+        self.open.base_cache.push(entry);
         Some(hit)
     }
 
@@ -670,10 +670,10 @@ impl AutoShadeApp {
     /// missed twin.
     pub(crate) fn remember_base(&mut self, path: &std::path::Path, opened: &OpenedBase) {
         let (edge, mtime, pixels) = opened.5.clone();
-        self.base_cache.retain(|((p, e, _, _), _)| !(p == path && *e == edge));
-        self.base_cache.push(((path.to_path_buf(), edge, mtime, pixels), opened.clone()));
-        if self.base_cache.len() > BASE_CACHE_CAP {
-            self.base_cache.remove(0); // least-recent first
+        self.open.base_cache.retain(|((p, e, _, _), _)| !(p == path && *e == edge));
+        self.open.base_cache.push(((path.to_path_buf(), edge, mtime, pixels), opened.clone()));
+        if self.open.base_cache.len() > BASE_CACHE_CAP {
+            self.open.base_cache.remove(0); // least-recent first
         }
     }
 
@@ -683,7 +683,7 @@ impl AutoShadeApp {
     /// alone would happily serve a hit with stale baked pixels.
     pub(crate) fn forget_open_base(&mut self) {
         if let Some(p) = self.src_path.clone() {
-            self.base_cache.retain(|((q, _, _, _), _)| q != &p);
+            self.open.base_cache.retain(|((q, _, _, _), _)| q != &p);
         }
     }
 
@@ -928,7 +928,7 @@ impl AutoShadeApp {
         // deliberately stays conservative (every stashed background variant,
         // not only those differing from their photo's on-disk record: that
         // comparison would cost a disk read per stash entry per check).
-        let stashed: usize = self.nav_stash.values().map(|st| st.others.len()).sum();
+        let stashed: usize = self.open.nav_stash.values().map(|st| st.others.len()).sum();
         self.open_dirty_variants() + stashed
     }
 
@@ -1108,7 +1108,7 @@ impl AutoShadeApp {
             // apply_step gate beside it (whose own callers became
             // busy-gated later), and says so instead of claiming a live
             // scenario.
-            && (!self.open_in_flight || (self.open_same_path && self.keep_recipe))
+            && (!self.open.open_in_flight || (self.open.open_same_path && self.keep_recipe))
             && let Some(p) = self.src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()
         {
@@ -2511,7 +2511,7 @@ impl AutoShadeApp {
         // this fn's only callers — so no live caller reaches here mid-flight
         // any more. The gate stays because ungating the keyboard would
         // resurrect every scenario above, and the test drives it directly.
-        if (!self.open_in_flight || (self.open_same_path && self.keep_recipe))
+        if (!self.open.open_in_flight || (self.open.open_same_path && self.keep_recipe))
             && self.variants.get(self.active).is_none_or(|v| v.kind.is_source_based())
             && let Some(p) = self.src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()
@@ -2625,7 +2625,7 @@ impl AutoShadeApp {
         self.src_path.is_some()
             && self.base_preview.is_some()
             && !self.busy
-            && !self.open_in_flight
+            && !self.open.open_in_flight
             && !self.masks.paint_mode
             && self.overlay.region.is_none()
             && self.variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
@@ -2938,7 +2938,7 @@ impl AutoShadeApp {
         // `pixels.json` flag — `VariantKind::on_ai_pixels`, the axis the
         // flag records: a ✨ card and its ✎ cards sit on the same raster.)
         let mut pending: Vec<PendingSave> = self
-            .nav_stash
+            .open.nav_stash
             .iter()
             .map(|(p, st)| PendingSave {
                 photo: p.clone(),
@@ -2957,7 +2957,7 @@ impl AutoShadeApp {
         // `pending`, and the empty-pending branch below then CLOSED the app,
         // losing a sole live unsaved canvas (background work still lands
         // under the dialog — the scrim below blocks only pointer input).
-        if !self.open_in_flight && let Some(p) = self.src_path.clone() {
+        if !self.open.open_in_flight && let Some(p) = self.src_path.clone() {
             let origin = self.active_variant().and_then(|v| v.origin.clone());
             // The live canvas outranks its own stash entry WHOLESALE: displace
             // it even when the canvas is clean (the user reverted) — the loop
@@ -3314,7 +3314,7 @@ impl AutoShadeApp {
             }
             match failed {
                 None => {
-                    self.nav_stash.clear();
+                    self.open.nav_stash.clear();
                     self.hist.saved_recipe = self.recipe.clone();
                     self.confirm_quit = false;
                     // The close guard re-checks on the way out. Everything
@@ -3357,13 +3357,13 @@ impl AutoShadeApp {
                 }
             }
         } else if discard_quit {
-            self.nav_stash.clear();
+            self.open.nav_stash.clear();
             self.hist.saved_recipe = self.recipe.clone();
             // The answer to the guard's question, recorded: these two lines
             // clean the ACTIVE canvas, but a background variant's edits have
             // nowhere to be saved, so nothing can make them "clean" — only
             // the user's decision can end the question.
-            self.discard_requested = true;
+            self.open.discard_requested = true;
             self.confirm_quit = false;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         } else if cancel || !open {

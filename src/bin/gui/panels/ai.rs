@@ -73,7 +73,7 @@ impl AutoShadeApp {
     /// gate) — only the open transition freezes it.
     pub(crate) fn ai_panel(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang; // Copy — never borrows self, safe inside egui closures.
-        let editable = !self.open_in_flight;
+        let editable = !self.open.open_in_flight;
         // The gate wraps BOTH areas, headers included — exactly how
         // develop_panel wraps its sections, so the three read the same mid-open
         // (greyed) instead of one panel looking live beside a dead one.

@@ -370,7 +370,7 @@ impl AutoShadeApp {
         // the panel live; only the open transition freezes it.
         // The AI area carries its OWN copy of this gate (panels/ai.rs) — it
         // used to ride inside this closure as `dev_ai`.
-        let editable = !self.open_in_flight;
+        let editable = !self.open.open_in_flight;
         ui.add_enabled_ui(editable, |ui| {
         // Lightroom-style grouping: a wall of 16 sliders scans terribly; four
         // titled sections (tone open, the rest by activity) scan at a glance.
@@ -1653,7 +1653,7 @@ impl AutoShadeApp {
                 // exact per-shot data read from the RAW itself — no lens
                 // database. Toggling a component ON whose data a legacy
                 // restore dropped re-fills it from this photo's metadata.
-                let photo = self.photo_lens.clone();
+                let photo = self.open.photo_lens.clone();
                 let lp = &mut self.recipe.lens_profile;
                 let has_v = !lp.vignette.is_empty() || !photo.vignette.is_empty();
                 let has_d = !lp.distortion.is_empty() || !photo.distortion.is_empty();

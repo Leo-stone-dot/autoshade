@@ -37,6 +37,12 @@
         assert!(autoshade::store::has_pixel_source(src), "premise: a record survives");
         let ctx = egui::Context::default();
         let mut app = AutoShadeApp {
+            open: OpenState {
+                edge_before_flight: Some(1280),
+                open_same_path: true,
+                open_in_flight: true,
+                ..Default::default()
+            },
             src_path: Some(src.to_path_buf()),
             variants: vec![Variant {
                 id: String::new(),
@@ -48,10 +54,7 @@
                 thumb: None,
             }],
             preview_edge: 4096,
-            edge_before_flight: Some(1280),
             keep_recipe: true,
-            open_same_path: true,
-            open_in_flight: true,
             ..Default::default()
         };
         app.tx
@@ -82,6 +85,12 @@
         let present = dev.join("present-master.png");
         std::fs::write(&present, b"png").unwrap();
         let mut app = AutoShadeApp {
+            open: OpenState {
+                edge_before_flight: Some(1280),
+                open_same_path: true,
+                open_in_flight: true,
+                ..Default::default()
+            },
             src_path: Some(src.to_path_buf()),
             variants: vec![Variant {
                 id: String::new(),
@@ -93,10 +102,7 @@
                 thumb: None,
             }],
             preview_edge: 4096,
-            edge_before_flight: Some(1280),
             keep_recipe: true,
-            open_same_path: true,
-            open_in_flight: true,
             ..Default::default()
         };
         app.tx
@@ -471,7 +477,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         }
         assert!(app.cached_base(p, 2560).is_none(), "least-recent evicted at cap");
         assert!(app.cached_base(&others[1], 1280).is_some(), "newer entries survive");
-        assert!(app.base_cache.len() <= BASE_CACHE_CAP, "cap holds");
+        assert!(app.open.base_cache.len() <= BASE_CACHE_CAP, "cap holds");
     }
 
     /// L02: the cold-variant master LRU — hits by (origin, edge), misses on a
@@ -492,7 +498,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         );
         // Re-remembering the same (path, edge) replaces rather than stacks.
         app.remember_master(p, 1280, file_stamp(p), master.clone());
-        assert_eq!(app.master_cache.len(), 1, "same key replaces its entry");
+        assert_eq!(app.open.master_cache.len(), 1, "same key replaces its entry");
         let others: Vec<std::path::PathBuf> = (0..MASTER_CACHE_CAP)
             .map(|i| std::env::temp_dir().join(format!("autoshade-nonexistent-{}/m{i}.tif", std::process::id())))
             .collect();
@@ -501,7 +507,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         }
         assert!(app.cached_master(p, 1280).is_none(), "least-recent evicted at cap");
         assert!(app.cached_master(&others[1], 1280).is_some(), "newer entries survive");
-        assert!(app.master_cache.len() <= MASTER_CACHE_CAP, "cap holds");
+        assert!(app.open.master_cache.len() <= MASTER_CACHE_CAP, "cap holds");
     }
 
     #[test]

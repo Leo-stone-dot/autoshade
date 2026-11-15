@@ -112,7 +112,7 @@
             dirty_vs(&app.recipe, &app.hist.saved_recipe),
             "the flushed rename must read as unsaved (the close guard's gate)"
         );
-        let stash = app.nav_stash.get(&old).expect("a dirty canvas must be stashed");
+        let stash = app.open.nav_stash.get(&old).expect("a dirty canvas must be stashed");
         assert_eq!(
             stash.recipe.masks[0].name, "sky gradient",
             "the stash carries the TYPED name, not the pre-focus one"
@@ -146,7 +146,7 @@
         let clean = std::env::temp_dir().join(format!("autoshade-chain-{}/clean.ARW", std::process::id()));
         app.src_path = Some(clean.clone());
         // ANOTHER photo's stash holds a dirty background variant.
-        app.nav_stash.insert(
+        app.open.nav_stash.insert(
             std::env::temp_dir().join(format!("autoshade-chain-{}/other.ARW", std::process::id())),
             StashEntry {
                 id: String::new(),
@@ -173,7 +173,7 @@
         );
         app.open_path(std::env::temp_dir().join(format!("autoshade-chain-{}/next.ARW", std::process::id())));
         assert!(
-            !app.nav_stash.contains_key(&clean),
+            !app.open.nav_stash.contains_key(&clean),
             "a clean photo must not be stashed for another photo's background work"
         );
 
@@ -210,7 +210,7 @@
         // Navigate away — the stash snapshot is written synchronously.
         app.open_path(std::env::temp_dir().join(format!("autoshade-h4-{}/__autoshade_h4_b__.ARW", std::process::id())));
         {
-            let st = app.nav_stash.get(&old).expect("background work must stash the strip");
+            let st = app.open.nav_stash.get(&old).expect("background work must stash the strip");
             assert_eq!(st.others.len(), 1);
             assert!(matches!(st.others[0].kind, VariantKind::Edited));
         }

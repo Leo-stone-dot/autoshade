@@ -353,7 +353,7 @@
         // The KEEP arm honours the request only when open_path's recorded
         // FACT agrees the flight was same-path: honouring a stale request
         // grafted the outgoing photo's whole strip onto the incoming one.
-        // Deleting `&& self.open_same_path` at the KEEP arm turns phase 1
+        // Deleting `&& self.open.open_same_path` at the KEEP arm turns phase 1
         // into a graft and fails its assert.
         let mut app = AutoShadeApp::default();
         let ctx = egui::Context::default();
@@ -376,7 +376,7 @@
         app.src_path =
             Some(std::env::temp_dir().join(format!("autoshade-keepfact-{}/__autoshade_keepfact__.ARW", std::process::id())));
         app.keep_recipe = true;
-        app.open_same_path = false; // stale request, cross-photo fact
+        app.open.open_same_path = false; // stale request, cross-photo fact
         let base = Arc::new(image::DynamicImage::new_rgb8(8, 6));
         app.tx
             .send(Msg::Opened(Box::new(Ok((
@@ -394,7 +394,7 @@
         // ...and an HONOURED request (fact agrees) preserves the strip.
         app.variants = vec![mk(), mk()];
         app.keep_recipe = true;
-        app.open_same_path = true;
+        app.open.open_same_path = true;
         app.tx
             .send(Msg::Opened(Box::new(Ok((
                 base,
@@ -410,12 +410,12 @@
         assert_eq!(app.variants.len(), 2, "keep arm: the strip survives a same-path re-decode");
         // ...and the REQUEST half is load-bearing too: fact without request
         // (a same-path FRESH reopen) reloads fresh. Reducing the KEEP arm to
-        // `let keep = self.open_same_path;` turns this into a graft — the
+        // `let keep = self.open.open_same_path;` turns this into a graft — the
         // reload never happens and the one-shot request goes sticky — and
         // fails the assert.
         app.variants = vec![mk(), mk()];
         app.keep_recipe = false;
-        app.open_same_path = true;
+        app.open.open_same_path = true;
         app.tx
             .send(Msg::Opened(Box::new(Ok((
                 Arc::new(image::DynamicImage::new_rgb8(8, 6)),
@@ -470,8 +470,8 @@
         app.hist.committed = UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None };
         app.hist.undo_stack.push(UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None });
         // Same-path FRESH reopen in flight: fact without request — refused.
-        app.open_in_flight = true;
-        app.open_same_path = true;
+        app.open.open_in_flight = true;
+        app.open.open_same_path = true;
         app.keep_recipe = false;
         app.undo(&ctx);
         assert_eq!(app.recipe.version, 1, "fresh-reopen flight: the install is NOT repaired");
@@ -495,9 +495,9 @@
         // reinstalls it — this time with the request but a CROSS-PHOTO fact,
         // where src_path already points at the incoming photo and repairing
         // would estimate the wrong RAW onto this canvas. Deleting
-        // `&& self.open_same_path` from the apply_step gate repairs it and
+        // `&& self.open.open_same_path` from the apply_step gate repairs it and
         // fails these asserts.
-        app.open_same_path = false;
+        app.open.open_same_path = false;
         app.undo(&ctx);
         assert_eq!(app.recipe.version, 1, "cross-photo flight: the install is NOT repaired");
         assert_eq!(app.recipe.base_curve, washy, "…and the washed curve is untouched");
@@ -513,6 +513,13 @@
         // old-edge canvas). Three outcomes, three asserts.
         let ctx = egui::Context::default();
         let armed = |base: Option<Arc<image::DynamicImage>>, origin: Option<PathBuf>| AutoShadeApp {
+            open: OpenState {
+                // the combo already switched...
+                edge_before_flight: Some(1280),
+                open_same_path: true,
+                open_in_flight: true,
+                ..Default::default()
+            },
             src_path: Some(std::env::temp_dir().join(
                 "autoshade-edgeflight/__autoshade_edgeflight__.ARW",
             )),
@@ -525,13 +532,11 @@
                 origin,
                 thumb: None,
             }],
-            preview_edge: 4096,             // the combo already switched...
-            edge_before_flight: Some(1280), // ...and armed the flight
-            keep_recipe: true,
-            open_same_path: true,
-            open_in_flight: true,
+            preview_edge: 4096,
+            // ...and armed the flight
+keep_recipe: true,
             // What open_path leaves on the bar for the whole flight.
-            status: "decoding … ".to_string(),
+status: "decoding … ".to_string(),
             ..Default::default()
         };
         let fresh = || Arc::new(image::DynamicImage::new_rgb8(8, 6));
@@ -715,7 +720,7 @@
         let old = app.src_path.clone().unwrap();
         app.open_path(std::env::temp_dir().join(format!("autoshade-library-{}/__variant-baseline-next__.ARW", std::process::id())));
         assert!(
-            !app.nav_stash.contains_key(&old),
+            !app.open.nav_stash.contains_key(&old),
             "the production navigation call site must not stash a clean card switch"
         );
     }
@@ -934,7 +939,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         app.hist.saved_strip = None;
         app.open_path(std::env::temp_dir().join(format!("autoshade-library-{}/__autoshade_masterid_next__.ARW", std::process::id())));
         assert!(
-            !app.nav_stash.contains_key(src),
+            !app.open.nav_stash.contains_key(src),
             "a saved retouch must not stash as unsaved just because the store spells its master absolutely"
         );
     }
@@ -960,7 +965,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         app.active = 1;
         app.recipe = EditRecipe { contrast: 21.0, ..Default::default() };
         app.open_path(std::env::temp_dir().join(format!("autoshade-library-{}/__autoshade_stashkind_next__.ARW", std::process::id())));
-        let st = app.nav_stash.get(&src).expect("a dirty strip stashes on nav-away");
+        let st = app.open.nav_stash.get(&src).expect("a dirty strip stashes on nav-away");
         assert_eq!(
             st.kind,
             VariantKind::Fitted,

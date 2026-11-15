@@ -807,7 +807,7 @@
             image::RgbImage::from_pixel(32, 24, image::Rgb([120, 90, 60])).save(p).unwrap();
         }
         // The other photo was edited, much brighter, and left unsaved.
-        app.nav_stash.insert(
+        app.open.nav_stash.insert(
             other.clone(),
             StashEntry {
                 recipe: EditRecipe { exposure_ev: 2.0, ..Default::default() },
@@ -830,7 +830,7 @@
         app.start_apply_to_folder();
         land_all(&mut app, &ctx);
         assert!(app.status.contains('2'), "both photos saved: {}", app.status);
-        assert!(!app.nav_stash.contains_key(&other), "the paste replaced the unsaved work, so reopening reads the paste");
+        assert!(!app.open.nav_stash.contains_key(&other), "the paste replaced the unsaved work, so reopening reads the paste");
         let disk: EditRecipe =
             serde_json::from_str(&std::fs::read_to_string(autoshade::store::recipe_target(&other)).unwrap()).unwrap();
         assert_eq!(disk.exposure_ev, -1.0, "the look is on disk");

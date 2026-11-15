@@ -7671,7 +7671,10 @@ the app struct is at 161 fields. The window tests' layout/behaviour probes
 enters the production shape; the app struct is at 140 fields and 2092 lines. `model::AiState` owns the AI section's
 non-persisted state (library summary and build flight, the free-text direction,
 the Color Mixer and grade tab indices), one `ai` field; the app struct is at 134
-fields.
+fields. `model::OpenState` owns the open-path facts
+(navigation stash, master cache and loads, source part and its re-develop
+flight, lens/as-shot, Before baseline, open window flags, discard request), one
+`open` field; the app struct is at 119 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

@@ -169,7 +169,7 @@ impl AutoShadeApp {
         if self.normal.key_present.is_none() {
             self.normal.key_present = Some(autoshade::config::Config::load().openai_api_key.is_some());
         }
-        let editable = !self.open_in_flight;
+        let editable = !self.open.open_in_flight;
         ui.add_enabled_ui(editable, |ui| {
             self.normal_one_click(ui);
             self.normal_fine_tune(ui);

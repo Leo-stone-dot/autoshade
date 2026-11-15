@@ -836,7 +836,7 @@
         let ctx = egui::Context::default();
         let land = |app: &mut AutoShadeApp| {
             let start = std::time::Instant::now();
-            while app.busy || app.open_in_flight {
+            while app.busy || app.open.open_in_flight {
                 assert!(start.elapsed() < std::time::Duration::from_secs(60), "never landed: {}", app.status);
                 std::thread::sleep(std::time::Duration::from_millis(20));
                 app.poll_workers(&ctx);
@@ -905,7 +905,7 @@
         let ctx = egui::Context::default();
         let land = |app: &mut AutoShadeApp| {
             let start = std::time::Instant::now();
-            while app.busy || app.open_in_flight {
+            while app.busy || app.open.open_in_flight {
                 assert!(start.elapsed() < std::time::Duration::from_secs(60), "never landed: {}", app.status);
                 std::thread::sleep(std::time::Duration::from_millis(20));
                 app.poll_workers(&ctx);

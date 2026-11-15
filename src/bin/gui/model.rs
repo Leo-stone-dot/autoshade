@@ -483,6 +483,53 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The open/photo-source state: the navigation stash, the master cache and its
+/// loads, the source part and its re-develop flight, the photo's lens/as-shot
+/// facts, the Before baseline, the open window's flags and the discard request.
+/// Extracted from `AutoShadeApp` so open-path work does not add fields to the
+/// app struct.
+pub(crate) struct OpenState {
+    pub(crate) nav_stash: HashMap<PathBuf, StashEntry>,
+    pub(crate) master_loads: std::collections::HashSet<(PathBuf, PathBuf)>,
+    pub(crate) master_cache: Vec<((PathBuf, u32, FileStamp), Arc<image::DynamicImage>)>,
+    pub(crate) open_unresolved: bool,
+    pub(crate) pasted_open: Option<(PathBuf, EditRecipe)>,
+    pub(crate) photo_start: autoshade::pipeline::CanvasStart,
+    pub(crate) source_part: autoshade::render::BasePart,
+    pub(crate) source_part_inflight: Option<autoshade::render::BasePart>,
+    pub(crate) photo_lens: autoshade::recipe::LensProfile,
+    pub(crate) photo_as_shot: Option<(f32, f32)>,
+    pub(crate) before_start: EditRecipe,
+    pub(crate) base_cache: Vec<(BaseCacheKey, OpenedBase)>,
+    pub(crate) open_in_flight: bool,
+    pub(crate) open_same_path: bool,
+    pub(crate) edge_before_flight: Option<u32>,
+    pub(crate) discard_requested: bool,
+}
+
+impl Default for OpenState {
+    fn default() -> Self {
+        Self {
+            nav_stash: HashMap::new(),
+            master_loads: std::collections::HashSet::new(),
+            master_cache: Vec::new(),
+            open_unresolved: false,
+            pasted_open: None,
+            photo_start: Default::default(),
+            source_part: Default::default(),
+            source_part_inflight: None,
+            photo_lens: Default::default(),
+            photo_as_shot: None,
+            before_start: EditRecipe::default(),
+            base_cache: Vec::new(),
+            open_in_flight: false,
+            open_same_path: false,
+            edge_before_flight: None,
+            discard_requested: false,
+        }
+    }
+}
+
 /// The AI section's non-persisted state: the reference library's summary and
 /// build flight, the free-text direction, and the Color Mixer / grade tab
 /// indices the panel remembers. Extracted from `AutoShadeApp` so AI-panel work
