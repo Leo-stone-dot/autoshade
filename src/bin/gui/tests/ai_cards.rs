@@ -45,17 +45,6 @@
         assert!(app.unsaved_marker_dirty(), "a new card is unsaved work");
         assert!(app.chrome.toasts.iter().any(|t| t.text.contains("✎")), "said by toast");
 
-        // The frame hook sits between the panels (where the sliders write
-        // the recipe) and the develop dispatch — pinned in the source, since
-        // a headless test cannot run eframe's update().
-        let frame = gui_source();
-        let panels = frame.find("self.upd_strips_and_side_panels(ctx);").expect("the panels call");
-        let hook = frame[panels..]
-            .find("self.fork_edited_card();")
-            .map(|i| i + panels)
-            .expect("the frame hook after the panels");
-        let dispatch = frame.find("if self.dirty && !self.develop_inflight {").expect("the dispatch");
-        assert!(hook < dispatch, "the hook runs before the develop is dispatched");
     }
 
     /// A version loaded onto the pristine ✨ card is an edit like any other.
@@ -212,22 +201,6 @@
         assert!(app.variants[0].recipe.pixel_layers.is_empty(), "the ✨ card stays as generated");
         assert_eq!(app.recipe.pixel_layers.len(), 1, "the layer is the ✎ card's");
 
-        // The verb's own choices are pinned in the source (the house pattern
-        // for a worker whose model call cannot run offline): the fill develops
-        // the card's picture for the model, asks the library for a LAYER and
-        // lands as one. MUTATION: `layer: true` → false, or `Layer` →
-        // `NewGenerated` / `InPlace`, and this names it.
-        let fill = gui_source();
-        let body = &fill[fill.find("pub(crate) fn start_fill(").expect("start_fill moved")..];
-        let body = &body[..body.find("pub(crate) fn start_heal(").expect("start_heal moved")];
-        assert!(body.contains("autoshade::generative::retouch_onto("), "the fill no longer hands the library its own base");
-        assert!(
-            body.contains("developed_card_pixels(&path, &recipe, full_res)"),
-            "the fill no longer develops the card's picture for the model"
-        );
-        assert!(body.contains("layer: true,"), "the fill no longer asks for a layer");
-        assert!(body.contains("RetouchKind::Layer))"), "the fill no longer lands as a layer");
-        assert!(!body.contains("RetouchKind::InPlace"), "the fill went back to an in-place landing");
     }
 
     /// Both worker arms land through the same new-card path; the source
@@ -303,21 +276,7 @@
                 assert!(app.variants[2].recipe.is_noop());
                 release_empty_claim(&out);
             }
-        }
-        let worker = gui_source();
-        let start = worker.find("pub(crate) fn start_adjust(").unwrap();
-        let body = &worker[start..worker[start..].find("pub(crate) fn start_heal(").unwrap() + start];
-        assert!(body.contains("self.active_source_path()"), "the card supplies its own raster");
-        assert!(body.contains("self.recipe.clone()"), "the live recipe is captured at the click");
-        assert!(body.contains("developed_card_pixels(&path, &recipe, false)"));
-        let split = body.find("if let Some(mask_png) = mask_png").unwrap();
-        let arms = &body[split..];
-        let whole = arms.find("} else {").unwrap();
-        assert!(arms[..whole].contains("autoshade::generative::retouch_onto("), "strokes take the fill path");
-        assert!(arms[whole..].contains("autoshade::generative::adjust_onto("), "no strokes take the whole-image path");
-        assert!(body.contains("RetouchKind::NewGenerated))"));
-        assert!(!body.contains("RetouchKind::InPlace"));
-        let _ = std::fs::remove_dir_all(&dir);
+        }        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn draw_adjust_panel(app: &mut AutoShadeApp) -> Vec<String> {
@@ -598,85 +557,6 @@
         let expected = CENSUS.into_iter().map(|(site, n)| (site.to_string(), n)).collect();
         assert_eq!(found, expected, "paint-buffer mutation sites changed: wire the notification door and update the census");
         assert_eq!(found.values().sum::<usize>(), 10, "six replacements, three mutable borrows, one dirty setter");
-    }
-
-    /// v1.5.0: the canvas preview reaches its frame through the ENGINE's tail
-    /// (`render::frame_and_finish` — lens geometry → straighten → crop → the
-    /// post-crop vignette and grain), with `CropPolicy::Keep` so the frame
-    /// stays whole for slider feedback while the finishing pass is positioned
-    /// on the crop rectangle. Pinned in the source, the house pattern for a
-    /// choice made inside a worker no offline test drives (the web preview's
-    /// half of this pin lives in `render::finish`'s tests).
-    ///
-    /// MUTATION: `CropPolicy::Cut` here, or the old geometry-only chain back,
-    /// and this names it — a canvas that cropped would show a different
-    /// photograph from the one the sliders are moving, and one that skipped
-    /// the tail would show no vignette until export.
-    #[test]
-    fn the_canvas_preview_finishes_through_the_engines_own_tail() {
-        let src = gui_source();
-        let head = src.find("pub(crate) fn build_preview(").expect("build_preview moved");
-        // The body to the call's close (v1.17.0 grew it by the lens rule).
-        let body = &src[head..head + 2400];
-        assert!(
-            body.contains("autoshade::render::frame_and_finish("),
-            "the canvas preview no longer runs the engine's tail"
-        );
-        assert!(
-            body.contains("autoshade::render::CropPolicy::Keep"),
-            "the canvas must keep the whole frame and only POSITION the finish"
-        );
-        assert!(
-            !body.contains("autoshade::render::apply_lens_geometry("),
-            "a second copy of the geometry chain is exactly what the tail replaced"
-        );
-    }
-
-    /// v1.5.0: every surface that SHOWS a photo's develop, or must see the
-    /// canvas's own pixels, develops at the source's film edge
-    /// (`render::FilmScale`): the canvas preview, the web preview, both
-    /// Range-mask reference builds (a range is judged on the pixel as the
-    /// canvas's Detail passes left it), the Point Color eyedropper's sample (a
-    /// swatch is keyed to the pixel the engine will test) and the fill's
-    /// picture of the card (the look the model is asked to keep). The
-    /// analysis surfaces keep their
-    /// raster as the film, which is why this is a named list and not a blanket
-    /// rule. Pinned in the source, the house pattern for a choice made inside a
-    /// UI-thread method, a worker or a request handler no offline test drives.
-    ///
-    /// MUTATION: the edge replaced by `None` in any of the six develops (the
-    /// Detail passes then run at raster scale there, visibly stronger than the
-    /// export), and this names the function.
-    #[test]
-    fn the_surfaces_that_show_canvas_pixels_develop_at_its_film_edge() {
-        fn develops_at_film(src: &str, head: &str, edge: &str, develop: &str) {
-            let body = &src[src.find(head).unwrap_or_else(|| panic!("{head} moved"))..];
-            // The body ends at the next item, a method or a free function.
-            let rest = &body[head.len()..];
-            let next = ["\n    pub(crate) fn ", "\npub(crate) fn ", "\npub fn ", "\nfn "];
-            let end = next.iter().filter_map(|m| rest.find(m)).min().map_or(body.len(), |i| i + head.len());
-            let body = &body[..end];
-            let call = &body[body.find(develop).unwrap_or_else(|| panic!("{head}: no {develop}"))..];
-            // The ARGUMENTS, never the callee: `develop_preview_film(` spells
-            // the word itself, so a whole-call match stayed green with `None`
-            // in the film slot (the v1.5.0 falsification, M13).
-            let args = &call[develop.len()..call.find(';').unwrap_or(call.len())];
-            assert!(body.contains(edge), "{head} no longer reads the source's film edge");
-            assert!(args.contains("film"), "{head} develops at raster scale: {args}");
-        }
-        let canvas = gui_source();
-        let framed = "develop_preview_framed(";
-        develops_at_film(canvas, "pub(crate) fn refresh_mask_overlay(", "self.film_short_edge()", framed);
-        develops_at_film(canvas, "pub(crate) fn handle_range_pick(", "self.film_short_edge()", framed);
-        develops_at_film(canvas, "pub(crate) fn handle_point_color_pick(", "self.film_short_edge()", framed);
-        let fill = gui_source();
-        develops_at_film(fill, "fn developed_card_pixels(", "autoshade::decode::film_short_edge(path)", framed);
-        let masters = gui_source();
-        develops_at_film(masters, "pub(crate) fn start_redevelop(", "self.film_short_edge()", "build_preview(");
-        let util = gui_source();
-        develops_at_film(util, "pub(crate) fn build_preview(", "film_short_edge", "develop_preview_film(");
-        let serve = include_str!("../../../serve.rs");
-        develops_at_film(serve, "fn api_develop(", "decode::film_short_edge(&src)", "develop_preview_film(");
     }
 
     /// The immutability rule for PIXELS: an in-place retouch (heal / clone /
@@ -1008,38 +888,6 @@
         );
         assert!(app.status.contains("new ◈ card"), "{}", app.status);
         assert!(app.status.contains("sensor mosaic"), "{}", app.status);
-        // The verb's own choices are pinned in the source (the house pattern
-        // for a worker whose sidecar cannot run offline): the denoise lands as
-        // a NEW card, never in place, and always on the full frame — the
-        // ≤2048 px working-copy tier is gone with the checkbox. MUTATION:
-        // `NewDenoised` → `InPlace` in start_ai_denoise, and this names it.
-        let now = gui_source();
-        let body = &now[now.find("pub(crate) fn start_ai_denoise(").expect("start_ai_denoise moved")..];
-        let body = &body[..body.find("pub(crate) fn start_clone(").expect("start_clone moved")];
-        assert!(body.contains("RetouchKind::NewDenoised))"), "the denoise no longer lands as a new card");
-        assert!(!body.contains("RetouchKind::InPlace"), "the denoise went back to an in-place landing");
-        assert!(body.contains("denoise_active(&opts, &path, &part, &out)"), "the denoise no longer runs the full frame");
-        assert!(!body.contains("2048"), "the ≤2048 px working-copy tier came back");
-        assert!(!body.contains("denoise_fullres"), "the retired Full-res checkbox came back");
-        // The worker halves run behind a segmentation call, so they are
-        // pinned on the source (the config.rs literal-pin pattern): the fit
-        // reads the negative once at the click and the persist links it.
-        let fit = gui_source();
-        assert!(fit.contains("let negative = self.fit_negative();"));
-        assert!(
-            fit.contains("(Some(p), Some(master)) => {")
-                && fit.contains("fit_source_baked(master, pixels)"),
-            "the solve's source frame is the master when the negative carries one"
-        );
-        assert!(
-            fit.contains("pixels: match negative.as_deref() {"),
-            "the persisted pixel link follows the same capture"
-        );
-        assert!(now.contains("let Some(negative) = self.negative_path() else { return };"));
-        assert!(
-            now.contains("&cfg, &negative, &prompt, \"high\""),
-            "the reimagine develops the negative, master included"
-        );
     }
 
     /// The negative master prefers the ◈ card: while one exists, reverse-fit
@@ -1275,22 +1123,6 @@
         for want in ["3 frames", "HDR merge", "new ▦ card", "4.2 px", "1.25%", "3.75 EV"] {
             assert!(app.status.contains(want), "{want} missing from: {}", app.status);
         }
-        // The verb's own choices are pinned in the source (the house pattern
-        // for a worker a unit test cannot run): the stack lands as a NEW card,
-        // always at full resolution (`None` cap), and the frames the user
-        // picked JOIN this card's frame rather than replacing it.
-        let now = gui_source();
-        let body = &now[now.find("pub(crate) fn start_stack(").expect("start_stack moved")..];
-        let body = &body[..body.find("pub(crate) fn start_clone(").expect("start_clone moved")];
-        assert!(body.contains("RetouchKind::NewStacked,"), "the stack no longer lands as a new card");
-        assert!(
-            body.contains("let mut inputs = vec![path.clone()];"),
-            "this card's frame is no longer the stack's reference"
-        );
-        assert!(
-            body.contains("stack_files(&inputs, &part, &opts, None, &out)"),
-            "the stack no longer runs on the full frame"
-        );
     }
 
     /// 「🤖 AI Denoise on export」 sits out on a ◈ card — its master is already
@@ -1368,4 +1200,119 @@
         app.apply_to_original(2, &ctx);
         assert!(app.status.contains("AI-generated pixels"), "{}", app.status);
         assert_eq!(app.variants[0].recipe.contrast, 4.0, "the ▣ card is untouched");
+    }
+
+    /// The choices that live inside a worker or inside eframe's `update()`
+    /// cannot be driven headlessly, so they are read off the source — ONE
+    /// census for all of them, so a worker fact failing does not turn a
+    /// behaviour test red.
+    ///
+    /// MUTATION coverage: fill `layer: true` / `RetouchKind::Layer`; adjust
+    /// `RetouchKind::NewGenerated` and its two arms; the denoise's
+    /// `NewDenoised` and full frame; stack `NewStacked` and its inputs; the
+    /// fit's negative/pixel capture and the reimagine argument; the preview's
+    /// engine tail; the film edge on six develops; the frame hook before the
+    /// develop dispatch.
+    #[test]
+    fn the_worker_and_frame_choices_are_pinned_in_one_census() {
+        fn develops_at_film(src: &str, head: &str, edge: &str, develop: &str) {
+            let body = &src[src.find(head).unwrap_or_else(|| panic!("{head} moved"))..];
+            let rest = &body[head.len()..];
+            let next = ["\n    pub(crate) fn ", "\npub(crate) fn ", "\npub fn ", "\nfn "];
+            let end = next.iter().filter_map(|m| rest.find(m)).min().map_or(body.len(), |i| i + head.len());
+            let body = &body[..end];
+            let call = &body[body.find(develop).unwrap_or_else(|| panic!("{head}: no {develop}"))..];
+            let args = &call[develop.len()..call.find(';').unwrap_or(call.len())];
+            assert!(body.contains(edge), "{head} no longer reads the source's film edge");
+            assert!(args.contains("film"), "{head} develops at raster scale: {args}");
+        }
+        let src = gui_source();
+
+        // The frame hook sits between the panels (where the sliders write the
+        // recipe) and the develop dispatch.
+        let panels = src.find("self.upd_strips_and_side_panels(ctx);").expect("the panels call");
+        let hook = src[panels..]
+            .find("self.fork_edited_card();")
+            .map(|i| i + panels)
+            .expect("the frame hook after the panels");
+        let dispatch = src.find("if self.dirty && !self.develop_inflight {").expect("the dispatch");
+        assert!(hook < dispatch, "the hook runs before the develop is dispatched");
+
+        // The fill develops the card's picture for the model, asks the
+        // library for a LAYER and lands as one.
+        let fill = &src[src.find("pub(crate) fn start_fill(").expect("start_fill moved")..];
+        let fill = &fill[..fill.find("pub(crate) fn start_heal(").expect("start_heal moved")];
+        assert!(fill.contains("autoshade::generative::retouch_onto("), "the fill no longer hands the library its own base");
+        assert!(
+            fill.contains("developed_card_pixels(&path, &recipe, full_res)"),
+            "the fill no longer develops the card's picture for the model"
+        );
+        assert!(fill.contains("layer: true,"), "the fill no longer asks for a layer");
+        assert!(fill.contains("RetouchKind::Layer))"), "the fill no longer lands as a layer");
+        assert!(!fill.contains("RetouchKind::InPlace"), "the fill went back to an in-place landing");
+
+        // The adjust captures the card's raster and recipe at the click, runs
+        // the fill path for strokes and the whole-image path otherwise.
+        let start = src.find("pub(crate) fn start_adjust(").expect("start_adjust moved");
+        let adjust = &src[start..src[start..].find("pub(crate) fn start_heal(").unwrap() + start];
+        assert!(adjust.contains("self.active_source_path()"), "the card supplies its own raster");
+        assert!(adjust.contains("self.recipe.clone()"), "the live recipe is captured at the click");
+        assert!(adjust.contains("developed_card_pixels(&path, &recipe, false)"));
+        let split = adjust.find("if let Some(mask_png) = mask_png").unwrap();
+        let arms = &adjust[split..];
+        let whole = arms.find("} else {").unwrap();
+        assert!(arms[..whole].contains("autoshade::generative::retouch_onto("), "strokes take the fill path");
+        assert!(arms[whole..].contains("autoshade::generative::adjust_onto("), "no strokes take the whole-image path");
+        assert!(adjust.contains("RetouchKind::NewGenerated))"));
+        assert!(!adjust.contains("RetouchKind::InPlace"));
+
+        // The denoise lands as a NEW card on the full frame; the ≤2048 px
+        // working-copy tier and the Full-res checkbox are gone.
+        let denoise = &src[src.find("pub(crate) fn start_ai_denoise(").expect("start_ai_denoise moved")..];
+        let denoise = &denoise[..denoise.find("pub(crate) fn start_clone(").expect("start_clone moved")];
+        assert!(denoise.contains("RetouchKind::NewDenoised))"), "the denoise no longer lands as a new card");
+        assert!(!denoise.contains("RetouchKind::InPlace"), "the denoise went back to an in-place landing");
+        assert!(denoise.contains("denoise_active(&opts, &path, &part, &out)"), "the denoise no longer runs the full frame");
+        assert!(!denoise.contains("2048"), "the ≤2048 px working-copy tier came back");
+        assert!(!denoise.contains("denoise_fullres"), "the retired Full-res checkbox came back");
+
+        // The fit reads the negative once at the click and the persist links
+        // it; the reimagine develops the negative, master included.
+        assert!(src.contains("let negative = self.fit_negative();"));
+        assert!(
+            src.contains("(Some(p), Some(master)) => {") && src.contains("fit_source_baked(master, pixels)"),
+            "the solve's source frame is the master when the negative carries one"
+        );
+        assert!(
+            src.contains("pixels: match negative.as_deref() {"),
+            "the persisted pixel link follows the same capture"
+        );
+        assert!(src.contains("let Some(negative) = self.negative_path() else { return };"));
+        assert!(src.contains("&cfg, &negative, &prompt, \"high\""), "the reimagine develops the negative, master included");
+
+        // The stack lands as a NEW card, the card's frame is the reference
+        // and the stack runs on the full frame.
+        let stack = &src[src.find("pub(crate) fn start_stack(").expect("start_stack moved")..];
+        let stack = &stack[..stack.find("pub(crate) fn start_clone(").expect("start_clone moved")];
+        assert!(stack.contains("RetouchKind::NewStacked,"), "the stack no longer lands as a new card");
+        assert!(stack.contains("let mut inputs = vec![path.clone()];"), "this card's frame is no longer the stack's reference");
+        assert!(stack.contains("stack_files(&inputs, &part, &opts, None, &out)"), "the stack no longer runs on the full frame");
+
+        // The canvas preview runs the engine's tail and keeps the whole frame.
+        let preview = &src[src.find("pub(crate) fn build_preview(").expect("build_preview moved")..];
+        let preview = &preview[..preview.len().min(2400)];
+        assert!(preview.contains("autoshade::render::frame_and_finish("), "the canvas preview no longer runs the engine's tail");
+        assert!(preview.contains("autoshade::render::CropPolicy::Keep"), "the canvas must keep the whole frame and only POSITION the finish");
+        assert!(!preview.contains("autoshade::render::apply_lens_geometry("), "a second copy of the geometry chain is exactly what the tail replaced");
+
+        // Every surface that shows a develop reads the source's film edge.
+        let framed = "develop_preview_framed(";
+        develops_at_film(src, "pub(crate) fn refresh_mask_overlay(", "self.film_short_edge()", framed);
+        develops_at_film(src, "pub(crate) fn handle_range_pick(", "self.film_short_edge()", framed);
+        develops_at_film(src, "pub(crate) fn handle_point_color_pick(", "self.film_short_edge()", framed);
+        develops_at_film(src, "fn developed_card_pixels(", "autoshade::decode::film_short_edge(path)", framed);
+        develops_at_film(src, "pub(crate) fn start_redevelop(", "self.film_short_edge()", "build_preview(");
+        develops_at_film(src, "pub(crate) fn build_preview(", "film_short_edge", "develop_preview_film(");
+        let serve = include_str!("../../../serve.rs");
+        develops_at_film(serve, "fn api_develop(", "decode::film_short_edge(&src)", "develop_preview_film(");
     }
