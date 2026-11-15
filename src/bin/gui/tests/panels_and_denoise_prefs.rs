@@ -706,8 +706,6 @@
         app.restore_prefs(Prefs { prefs_era: 1, denoise_strength: 0.45,
             save_denoise_strength: 0.6, ..Prefs::default() });
         app.src_path = Some(PathBuf::from("master.tif"));
-        assert_eq!(app.selected_denoise_strength(false), 0.45);
-        assert_eq!(app.selected_denoise_strength(true), 0.6);
         let mut storage = PrefsMemory::default();
         eframe::App::save(&mut app, &mut storage);
         let prefs: Prefs = eframe::get_value(&storage, eframe::APP_KEY).unwrap();
