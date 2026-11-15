@@ -190,7 +190,7 @@ impl AutoShadeApp {
         if self.recipe.masks.iter().any(|m| matches!(m.role, MaskRole::Face | MaskRole::Skin)) {
             return None;
         }
-        let searched = self.portrait.found.as_ref().is_some_and(|(p, n)| self.src_path.as_ref() == Some(p) && *n == 0);
+        let searched = self.portrait.found.as_ref().is_some_and(|(p, n)| self.photo.src_path.as_ref() == Some(p) && *n == 0);
         Some(if searched { tr(lang, "No face found in this photo") } else { tr(lang, "Find the people and faces first (the first group).") })
     }
 
@@ -226,7 +226,7 @@ impl AutoShadeApp {
     fn portrait_people(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         Self::portrait_group(ui, tr(lang, "People and background"));
-        let ready = self.src_path.is_some() && self.base_preview.is_some() && !self.busy && !self.tools.analyze_inflight;
+        let ready = self.photo.src_path.is_some() && self.photo.base_preview.is_some() && !self.busy && !self.tools.analyze_inflight;
         let mut find = false;
         let mut look = false;
         ui.horizontal(|ui| {
@@ -298,7 +298,7 @@ impl AutoShadeApp {
                 logic::portrait::PortraitAction::SetKeepSkin(on),
             )]);
         }
-        let can_heal = face_raster(&self.recipe).is_some() && !self.busy && self.src_path.is_some();
+        let can_heal = face_raster(&self.recipe).is_some() && !self.busy && self.photo.src_path.is_some();
         if action_row(ui, can_heal, tr(lang, "🤖 Remove blemishes"))
             .on_hover_text(tr(
                 lang,
@@ -348,7 +348,7 @@ impl AutoShadeApp {
         let mut changed = false;
         let subject = subject_raster(&self.recipe);
         if self.recipe.lens_blur.is_none() {
-            let can = !self.busy && self.base_preview.is_some() && self.src_path.is_some() && depth_helper_available();
+            let can = !self.busy && self.photo.base_preview.is_some() && self.photo.src_path.is_some() && depth_helper_available();
             if action_row(ui, can, tr(lang, "🤖 Prepare the background blur"))
                 .on_hover_text(tr(lang, "Measures how far away every part of the photo is, on this computer (the first run downloads a 1.3 GB model); then the blur sliders appear."))
                 .clicked()

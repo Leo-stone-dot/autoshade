@@ -19,7 +19,7 @@ impl AutoShadeApp {
             match action {
                 Action::Look(intent) => self.start_look(intent),
                 Action::References(dir) => {
-                    let photo = self.src_path.clone();
+                    let photo = self.photo.src_path.clone();
                     let started = logic::look::references_start(
                         photo.as_deref(),
                         dir,
@@ -32,7 +32,7 @@ impl AutoShadeApp {
                 Action::Lens(action) => {
                     let start = match action {
                         logic::lens_blur::LensAction::EstimateDepth => {
-                            self.src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
+                            self.photo.src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
                         }
                         _ => None,
                     };
@@ -72,7 +72,7 @@ impl AutoShadeApp {
                     logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
                     logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
                     logic::develop::DevelopAction::DeleteVersion(n) => {
-                        if let Some(src) = self.src_path.clone() {
+                        if let Some(src) = self.photo.src_path.clone() {
                             self.delete_version_clicked(self.lang, src, n);
                         }
                     }
@@ -252,7 +252,7 @@ impl AutoShadeApp {
         let effects = logic::look::references_built(
             &res,
             for_photo.as_deref(),
-            self.src_path.as_deref(),
+            self.photo.src_path.as_deref(),
             self.tools.analyze_inflight,
         );
         self.run_effects(effects);
@@ -270,7 +270,7 @@ impl AutoShadeApp {
             adherence: autoshade::recipe::DirectionAdherence::new(self.aip.direction_adherence),
             embed: autoshade::library::EmbeddingSwitch::resolve(None, self.aip.style_embed),
         };
-        let photo = self.src_path.clone();
+        let photo = self.photo.src_path.clone();
         let Some(started) = logic::look::plan(
             &prefs,
             intent,
@@ -318,7 +318,7 @@ impl AutoShadeApp {
                 // The clipboard must carry the name the user sees in the box.
                 self.commit_pending_names();
                 self.genai.copied = Some(self.recipe.clone());
-                self.genai.copied_from = self.src_path.clone();
+                self.genai.copied_from = self.photo.src_path.clone();
                 self.status = crate::i18n::tr(
                     self.lang,
                     "Recipe copied — Ctrl/⌘+click to pick several, then “Paste to selected”",

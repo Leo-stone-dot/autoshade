@@ -649,7 +649,7 @@ impl AutoShadeApp {
                                 let editing = active
                                     && self.cards.variant_name_buf.as_ref().is_some_and(|(p, id, ..)| {
                                         *id == card_id
-                                            && Some(p.as_path()) == self.src_path.as_deref()
+                                            && Some(p.as_path()) == self.photo.src_path.as_deref()
                                     });
                                 if editing {
                                     let resp = {
@@ -1146,7 +1146,7 @@ impl AutoShadeApp {
                     // renders in the user's language, so the button says so up
                     // front instead of spending the click to find out.
                     let has_helper = denoise_helper_available();
-                    let ready = self.src_path.is_some() && !self.busy && has_helper;
+                    let ready = self.photo.src_path.is_some() && !self.busy && has_helper;
                     let missing = tr(lang,
                         "This feature needs AutoShade's Python helpers, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_DENOISE_SCRIPT and AUTOSHADE_DENOISE_RAW_SCRIPT to the paths of denoise.py and denoise_raw.py",
                     );
@@ -1219,7 +1219,7 @@ impl AutoShadeApp {
                     ));
                 ui.add_space(SPACE_SM);
                 ui.horizontal(|ui| {
-                    let ready = self.src_path.is_some() && !self.busy;
+                    let ready = self.photo.src_path.is_some() && !self.busy;
                     if action_row(ui, ready, tr(lang, "▦ Stack with other frames…"))
                         .on_hover_text(tr(
                             lang,
@@ -1352,7 +1352,7 @@ impl AutoShadeApp {
                         changed = true;
                     }
                     ui.add_space(SPACE_MD);
-                } else if self.src_path.as_deref().is_some_and(autoshade::decode::is_raw) {
+                } else if self.photo.src_path.as_deref().is_some_and(autoshade::decode::is_raw) {
                     ui.label(
                         egui::RichText::new(tr(lang, "No in-camera lens correction data in this file"))
                             .weak()
@@ -1877,7 +1877,7 @@ impl AutoShadeApp {
                 // The list is cloned so the rows may borrow `self` mutably
                 // (the rename buffer) — it is a handful of u32.
                 let versions = self.cards.versions.clone();
-                let photo = self.src_path.clone();
+                let photo = self.photo.src_path.clone();
                 for n in versions {
                     let meta = self.cards.version_meta.get(&n).cloned();
                     if self.cards.versions_current_only
@@ -2010,7 +2010,7 @@ impl AutoShadeApp {
                     )]);
                 }
                 if let Some(n) = delete
-                    && let Some(src) = self.src_path.clone()
+                    && let Some(src) = self.photo.src_path.clone()
                 {
                     // A rename buffer aimed at the row being deleted dies
                     // WITH it (R24-2): committing it afterwards would write a

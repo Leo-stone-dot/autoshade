@@ -19,9 +19,9 @@
             ..Default::default()
         };
         assert_eq!(app.canvas_edge(), 4096, "no canvas yet: the preference is all there is");
-        app.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853)));
+        app.photo.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853)));
         assert_eq!(app.canvas_edge(), 1280, "a baked canvas bakes at its OWN resolution");
-        app.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(853, 1280)));
+        app.photo.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(853, 1280)));
         assert_eq!(app.canvas_edge(), 1280, "…measured on the long edge, portrait included");
     }
 
@@ -57,7 +57,14 @@
                 open_in_flight: true,
                 ..Default::default()
             },
-            src_path: Some(src.to_path_buf()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.to_path_buf()),
+
+                ..Default::default()
+
+            },
+
             variants: vec![Variant {
                 id: String::new(),
                 name: None,
@@ -111,7 +118,14 @@
                 open_in_flight: true,
                 ..Default::default()
             },
-            src_path: Some(src.to_path_buf()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.to_path_buf()),
+
+                ..Default::default()
+
+            },
+
             variants: vec![Variant {
                 id: String::new(),
                 name: None,
@@ -169,7 +183,14 @@
                 preview_edge: 1280,
                 ..Default::default()
             },
-            source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+            photo: PhotoPixels {
+
+                source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+
+                ..Default::default()
+
+            },
+
             variants: vec![src(None), src(None)],
             ..Default::default()
         };
@@ -186,7 +207,14 @@
                 preview_edge: 1280,
                 ..Default::default()
             },
-            source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+            photo: PhotoPixels {
+
+                source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+
+                ..Default::default()
+
+            },
+
             variants: vec![
                 src(None),
                 src(Some(Arc::new(image::DynamicImage::new_rgb8(640, 480)))),
@@ -207,7 +235,14 @@
                 preview_edge: 1280,
                 ..Default::default()
             },
-            source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+            photo: PhotoPixels {
+
+                source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+
+                ..Default::default()
+
+            },
+
             variants: vec![
                 src(None),
                 src(Some(Arc::new(image::DynamicImage::new_rgb8(800, 600)))),
@@ -230,7 +265,14 @@
                 preview_edge: 1280,
                 ..Default::default()
             },
-            source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+            photo: PhotoPixels {
+
+                source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
+
+                ..Default::default()
+
+            },
+
             variants: vec![
                 src(None),
                 src(Some(Arc::new(image::DynamicImage::new_rgb8(1280, 960)))),
@@ -275,10 +317,18 @@
                 committed: step(&current, "current"),
                 ..Default::default()
             }, ..Default::default() },
-            // A REAL source: without it the ruler took its `unwrap_or`
+            photo: PhotoPixels {
+
+                // A REAL source: without it the ruler took its `unwrap_or`
 // fallback and never the delivered-edge path this test covers.
 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
-            base_preview: Some(current.clone()),
+
+                base_preview: Some(current.clone()),
+
+                ..Default::default()
+
+            },
+
             variants: vec![Variant {
                 id: String::new(),
                 name: None,
@@ -293,7 +343,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         app.session.hist.undo_stack.push(step(&superseded, "superseded"));
         app.undo(&ctx);
         assert!(
-            app.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &superseded)),
+            app.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &superseded)),
             "premise: the superseded raster is back on the canvas"
         );
         assert!(
@@ -305,7 +355,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // disclosure left standing is false in both halves.
         app.redo(&ctx);
         assert!(
-            app.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &current)),
+            app.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &current)),
             "premise: the matching-edge raster is back"
         );
         // EXACT, not `!contains("640px")`: a negative substring cannot tell
@@ -339,7 +389,14 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 preview_edge: 1280,
                 ..Default::default()
             },
-            source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
+            photo: PhotoPixels {
+
+                source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
+
+                ..Default::default()
+
+            },
+
             variants: vec![baked(640, 480, "keep"), baked(1280, 853, "drop")],
             active: 1,
             ..Default::default()
@@ -368,7 +425,14 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 preview_edge: 1280,
                 ..Default::default()
             },
-            source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
+            photo: PhotoPixels {
+
+                source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
+
+                ..Default::default()
+
+            },
+
             variants: vec![
                 Variant {
                     id: String::new(),
@@ -403,7 +467,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // lost: open_path stashed it before the flight.)
         let mut app = AutoShadeApp::default();
         let ctx = egui::Context::default();
-        app.src_path = Some(std::env::temp_dir().join(format!("autoshade-deadopen-{}/__autoshade_deadopen__.ARW", std::process::id())));
+        app.photo.src_path = Some(std::env::temp_dir().join(format!("autoshade-deadopen-{}/__autoshade_deadopen__.ARW", std::process::id())));
         app.variants = vec![Variant {
             id: String::new(),
             name: None,
@@ -425,7 +489,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             .send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed")))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert!(app.src_path.is_none(), "premise: a FRESH open failed into the no-photo state");
+        assert!(app.photo.src_path.is_none(), "premise: a FRESH open failed into the no-photo state");
         assert!(
             app.session.hist.undo_stack.is_empty() && app.session.hist.redo_stack.is_empty(),
             "the dead photo's history goes with it"

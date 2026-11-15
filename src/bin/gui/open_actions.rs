@@ -48,7 +48,7 @@ impl AutoShadeApp {
         // FACT the repair gates key on — keep_recipe is only a request, and
         // a stale request must never classify a flight.
         self.open.open_in_flight = true;
-        self.open.open_same_path = self.src_path.as_ref() == Some(&path);
+        self.open.open_same_path = self.photo.src_path.as_ref() == Some(&path);
         // Leaving a photo with unsaved edits: stash the canvas for this
         // session so navigation can never silently destroy work (arrow keys /
         // thumbnail clicks used to drop the whole develop). Ctrl+S still owns
@@ -62,7 +62,7 @@ impl AutoShadeApp {
         // disk — without the entry, a dirty canvas was silently replaced by
         // the disk state. The stash entry is consumed by that same restore,
         // so a same-path reopen becomes "reload, preserving unsaved work".
-        if let Some(old) = self.src_path.clone() {
+        if let Some(old) = self.photo.src_path.clone() {
             let origin = self.active_variant().and_then(|v| v.origin.clone());
             // Background variants count too (H4): their unsaved work has no
             // sidecar to survive in, and the strip used to collapse to the
@@ -114,13 +114,13 @@ impl AutoShadeApp {
         // handler's Unreadable arm re-arms it for THIS photo when the read
         // fails.
         self.open.open_unresolved = false;
-        self.src_path = Some(path.clone());
+        self.photo.src_path = Some(path.clone());
         // The version list describes the photo `src_path` NAMES, so it dies
         // with the old value of that field — not later, when the decode lands.
         // `refresh_versions` only runs from the completed `Msg::Opened`, and a
         // RAW decode is seconds; for that whole window the Versions panel
         // showed photo A's v1/v2/v3 with live buttons while every action
-        // resolved `self.src_path`, which already pointed at photo B. Clicking
+        // resolved `self.photo.src_path`, which already pointed at photo B. Clicking
         // 🗑 on the stale list called `store::delete_version(B, n)` and
         // PERMANENTLY removed a snapshot of B — recipe and frozen mask
         // rasters, no backup, no undo — then refreshed the list from B so the

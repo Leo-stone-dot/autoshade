@@ -620,8 +620,16 @@
                 sel_mask: Some(0),
                 ..Default::default()
             },
-            source_preview: Some(base.clone()),
-            base_preview: Some(base),
+            photo: PhotoPixels {
+
+                source_preview: Some(base.clone()),
+
+                base_preview: Some(base),
+
+                ..Default::default()
+
+            },
+
             variants: vec![Variant {
                 id: String::new(),
                 name: None,

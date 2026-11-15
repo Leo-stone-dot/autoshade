@@ -19,42 +19,42 @@
         let ctx = egui::Context::default();
         // A deliberately non-square plate, so a turn is visible in the dims.
         let plate = std::sync::Arc::new(image::DynamicImage::new_rgb8(8, 6));
-        app.base_preview = Some(plate.clone());
-        app.source_preview = Some(plate);
-        app.base_turns = 0;
+        app.photo.base_preview = Some(plate.clone());
+        app.photo.source_preview = Some(plate);
+        app.photo.base_turns = 0;
         let src = std::env::temp_dir().join(format!("autoshade-rotate-plate-{}.arw", std::process::id()));
         std::fs::write(&src, b"raw").unwrap();
-        app.src_path = Some(src);
+        app.photo.src_path = Some(src);
 
         assert!(app.can_rotate(), "a parametric photo with a plate is rotatable");
         app.rotate_photo(1, &ctx);
         assert_eq!(app.recipe.quarter_turns, 1);
-        assert_eq!(app.base_turns, 1);
+        assert_eq!(app.photo.base_turns, 1);
         assert_eq!(
-            app.base_preview.as_ref().unwrap().dimensions(),
+            app.photo.base_preview.as_ref().unwrap().dimensions(),
             (6, 8),
             "one clockwise quarter turn transposes the plate"
         );
-        assert_eq!(app.source_preview.as_ref().unwrap().dimensions(), (6, 8));
+        assert_eq!(app.photo.source_preview.as_ref().unwrap().dimensions(), (6, 8));
 
         // A second turn moves by the DELTA, not by the running total.
         app.rotate_photo(1, &ctx);
         assert_eq!(app.recipe.quarter_turns, 2);
-        assert_eq!(app.base_preview.as_ref().unwrap().dimensions(), (8, 6));
+        assert_eq!(app.photo.base_preview.as_ref().unwrap().dimensions(), (8, 6));
 
         // An UNDO changes only the recipe; the per-frame reconciler is what
         // brings the plate back — one mover for both directions.
         app.undo(&ctx);
         assert_eq!(app.recipe.quarter_turns, 1, "one Ctrl+Z per turn (7.7)");
         app.sync_base_turns(&ctx);
-        assert_eq!(app.base_preview.as_ref().unwrap().dimensions(), (6, 8));
-        assert_eq!(app.base_turns, 1);
+        assert_eq!(app.photo.base_preview.as_ref().unwrap().dimensions(), (6, 8));
+        assert_eq!(app.photo.base_turns, 1);
 
         // Idempotent: the common per-frame call is a u8 compare that moves
         // nothing (a reconciler that turned on every frame would spin the
         // canvas).
         app.sync_base_turns(&ctx);
-        assert_eq!(app.base_preview.as_ref().unwrap().dimensions(), (6, 8));
+        assert_eq!(app.photo.base_preview.as_ref().unwrap().dimensions(), (6, 8));
 
         // BAKED PIXELS close the door, whole strip (a limitation by design):
         // a master raster is a file in the frame it was baked in, and this
@@ -450,7 +450,14 @@
                 ..Default::default()
             },
             lang,
-            src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/_buttons.ARW", std::process::id()))),
+            photo: PhotoPixels {
+
+                src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/_buttons.ARW", std::process::id()))),
+
+                ..Default::default()
+
+            },
+
             variants: vec![mk(VariantKind::Original), mk(VariantKind::Generated)],
             active: 1,
             fit: FitState {
@@ -459,7 +466,7 @@
             },
             ..Default::default()
         };
-        app.base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
+        app.photo.base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
         app.recipe.masks.push(LocalAdjustment {
             mask: MaskGeometry::Bitmap { path: "mask-buttons.png".into() },
             components: vec![MaskComponent::default()],
@@ -660,7 +667,7 @@
     fn a_clone_on_a_turned_photo_is_refused_before_it_asks_for_a_source_point() {
         for lang in [Lang::En, Lang::Zh] {
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.src_path = Some(PathBuf::from("clone-turn-guard.png"));
+            app.photo.src_path = Some(PathBuf::from("clone-turn-guard.png"));
             app.tools.clone_src = None; // the gate answers before this is even asked for
             let refusal = tr(
                 lang,
@@ -694,7 +701,7 @@
     fn a_mask_refine_on_a_turned_photo_is_refused_before_it_spawns() {
         for lang in [Lang::En, Lang::Zh] {
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.src_path = Some(PathBuf::from("refine-turn-guard.png"));
+            app.photo.src_path = Some(PathBuf::from("refine-turn-guard.png"));
             let refusal = tr(
                 lang,
                 "this photo is turned, and pixel repairs still work on the un-turned frame — turn it back to 0 first",
@@ -804,7 +811,7 @@
         let src = std::env::temp_dir().join(format!("autoshade-turned-doors-{}.arw", std::process::id()));
         std::fs::write(&src, b"raw").unwrap();
         let _src_scrub = Scrub(vec![src.clone()]);
-        app.src_path = Some(src.clone());
+        app.photo.src_path = Some(src.clone());
         app.recipe.quarter_turns = 1;
         type Door = fn(&mut AutoShadeApp, PathBuf);
         let doors: [(&str, Door); 4] = [
@@ -832,13 +839,13 @@
         let (mut app, _scrub) = app_with_masked_photo("rotate-paint");
         let ctx = egui::Context::default();
         let plate = std::sync::Arc::new(image::DynamicImage::new_rgb8(8, 6));
-        app.base_preview = Some(plate.clone());
-        app.source_preview = Some(plate);
-        app.base_turns = 0;
+        app.photo.base_preview = Some(plate.clone());
+        app.photo.source_preview = Some(plate);
+        app.photo.base_turns = 0;
         app.masks.mask_paint = Some(image::RgbaImage::new(8, 6));
         app.recipe.quarter_turns = 1;
         app.sync_base_turns(&ctx);
-        assert_eq!(app.base_preview.as_ref().unwrap().dimensions(), (6, 8));
+        assert_eq!(app.photo.base_preview.as_ref().unwrap().dimensions(), (6, 8));
         assert_eq!(
             app.masks.mask_paint.as_ref().unwrap().dimensions(),
             (6, 8),
@@ -974,7 +981,14 @@
             app.paint_mask_changed(Some(true));
         };
         let mut app = AutoShadeApp {
-            base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(8, 6))),
+            photo: PhotoPixels {
+
+                base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(8, 6))),
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         app.rebind_paint_canvas(8, 6);

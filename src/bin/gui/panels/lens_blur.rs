@@ -30,7 +30,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut actions = Vec::new();
         let has_helper = depth_helper_available();
-        let can_run = !self.busy && self.base_preview.is_some() && self.src_path.is_some() && has_helper;
+        let can_run = !self.busy && self.photo.base_preview.is_some() && self.photo.src_path.is_some() && has_helper;
         let has_blur = self.recipe.lens_blur.is_some();
         let verb = if has_blur { tr(lang, "🤖 Re-estimate depth") } else { tr(lang, "🤖 Estimate depth") };
         let tip = if has_helper {

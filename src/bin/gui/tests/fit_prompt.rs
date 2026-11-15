@@ -18,14 +18,23 @@
         let neg = Arc::new(image::DynamicImage::new_rgb8(4, 4));
         let mut app = AutoShadeApp {
             lang,
-            src_path: Some(PathBuf::from("library/_fit_prompt_test.png")),
+            photo: PhotoPixels {
+
+                src_path: Some(PathBuf::from("library/_fit_prompt_test.png")),
+
+                source_preview: Some(neg.clone()),
+
+                base_preview: Some(neg),
+
+                ..Default::default()
+
+            },
+
             variants: vec![
                 card(VariantKind::Original, ORIGINAL_VARIANT_ID, None),
                 card(VariantKind::Denoised, "dn", Some("out/_fit_prompt_test.denoise.png".into())),
             ],
             active: 1,
-            source_preview: Some(neg.clone()),
-            base_preview: Some(neg),
             ..Default::default()
         };
         app.reset_history();

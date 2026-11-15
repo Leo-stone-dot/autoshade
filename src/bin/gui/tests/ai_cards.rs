@@ -143,7 +143,11 @@
     fn a_fill_lands_as_a_layer_on_the_card_it_was_made_on() {
         let ctx = egui::Context::default();
         let src = std::path::PathBuf::from("_fill_layer_test.ARW");
-        let mut app = AutoShadeApp { src_path: Some(src.clone()), ..Default::default() };
+        let mut app = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(src.clone()),
+     ..Default::default()
+ },
+ ..Default::default() };
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
         let developed = EditRecipe { contrast: 7.0, ..Default::default() };
         let card = |kind, id: &str, recipe: &EditRecipe, origin: Option<std::path::PathBuf>| Variant {
@@ -158,7 +162,7 @@
         app.variants = vec![card(VariantKind::Original, ORIGINAL_VARIANT_ID, &developed, None)];
         app.active = 0;
         app.recipe = developed.clone();
-        app.base_preview = Some(b0.clone());
+        app.photo.base_preview = Some(b0.clone());
         app.reset_history();
         let out = std::path::PathBuf::from("out/_fill_layer_test.fill.png");
         let land = |app: &mut AutoShadeApp| {
@@ -221,13 +225,21 @@
                     ..Default::default()
                 };
                 let mut app = AutoShadeApp {
-                    src_path: Some(src.clone()),
+                    photo: PhotoPixels {
+
+                        src_path: Some(src.clone()),
+
+                        base_preview: Some(base.clone()),
+
+                        ..Default::default()
+
+                    },
+
                     variants: vec![Variant {
                         id: new_variant_id(), name: None, kind: VariantKind::Generated,
                         recipe: EditRecipe::default(), base: Some(base.clone()),
                         origin: Some(origin.clone()), thumb: None,
                     }],
-                    base_preview: Some(base.clone()),
                     ..Default::default()
                 };
                 app.reset_history();
@@ -337,7 +349,7 @@
         app.genai.adjust_prompt.clear();
         app.masks.mask_paint = None;
         app.paint_mask_changed(Some(false));
-        app.src_path = Some(PathBuf::from("adjust-guard.png"));
+        app.photo.src_path = Some(PathBuf::from("adjust-guard.png"));
         app.start_adjust();
         assert!(!app.busy, "blank whole-image adjustment never reaches a worker");
     }
@@ -445,7 +457,14 @@
         for drag in [false, true] {
             let base = Arc::new(image::DynamicImage::new_rgb8(1024, 768));
             let mut app = AutoShadeApp {
-                base_preview: Some(base.clone()),
+                photo: PhotoPixels {
+
+                    base_preview: Some(base.clone()),
+
+                    ..Default::default()
+
+                },
+
                 variants: (0..2).map(|_| Variant {
                     id: new_variant_id(), name: None, kind: VariantKind::Generated,
                     recipe: EditRecipe::default(), base: Some(base.clone()), origin: None, thumb: None,
@@ -645,7 +664,11 @@
         app.save_xmp();
         assert!(!app.unsaved_marker_dirty(), "{}", app.status);
         assert_eq!(saved_strip_of(&src).active_kind, "edited");
-        let mut again = AutoShadeApp { src_path: Some(src.clone()), ..Default::default() };
+        let mut again = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(src.clone()),
+     ..Default::default()
+ },
+ ..Default::default() };
         open_onto_ai_card(&mut again, &ctx, &ai_px, &master);
         assert_eq!(
             strip_kinds(&again),
@@ -772,7 +795,7 @@
             },
         ];
         app.active = 1;
-        app.base_preview = Some(ai.clone());
+        app.photo.base_preview = Some(ai.clone());
         assert_eq!(
             app.negative_origin().as_deref(),
             Some(master.as_path()),
@@ -831,7 +854,11 @@
     fn an_ai_denoise_lands_as_a_new_denoised_card_and_leaves_the_source_and_negative_alone() {
         let ctx = egui::Context::default();
         let src = std::path::PathBuf::from("_negative_follow_test.ARW");
-        let mut app = AutoShadeApp { src_path: Some(src.clone()), ..Default::default() };
+        let mut app = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(src.clone()),
+     ..Default::default()
+ },
+ ..Default::default() };
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
         let developed = EditRecipe { contrast: 7.0, ..Default::default() };
         app.variants = vec![Variant {
@@ -845,7 +872,7 @@
         }];
         app.active = 0;
         app.recipe = developed.clone();
-        app.base_preview = Some(b0.clone());
+        app.photo.base_preview = Some(b0.clone());
         app.reset_history();
         assert_eq!(app.negative_origin(), None);
         assert_eq!(app.negative_path().as_deref(), Some(src.as_path()), "no master: the loaded file");
@@ -906,7 +933,11 @@
         let _scrub = Scrub(vec![dir.clone(), dev.clone()]);
         let master = dir.join("denoise.png");
         let developed = EditRecipe { contrast: 4.0, ..Default::default() };
-        let mut app = AutoShadeApp { src_path: Some(src.clone()), ..Default::default() };
+        let mut app = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(src.clone()),
+     ..Default::default()
+ },
+ ..Default::default() };
         app.variants = vec![
             Variant {
                 id: ORIGINAL_VARIANT_ID.into(),
@@ -965,7 +996,14 @@
         let src = std::path::PathBuf::from("_stack_landing_test.ARW");
         let developed = EditRecipe { contrast: 11.0, ..Default::default() };
         let mut app = AutoShadeApp {
-            src_path: Some(src.clone()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.clone()),
+
+                ..Default::default()
+
+            },
+
             variants: vec![Variant {
                 id: ORIGINAL_VARIANT_ID.into(),
                 name: None,

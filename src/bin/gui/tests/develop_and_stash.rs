@@ -9,7 +9,7 @@
         // never run_native.
         let (mut app, _scrub) = app_with_masked_photo("latest");
         let ctx = egui::Context::default();
-        let base = app.base_preview.clone().unwrap();
+        let base = app.photo.base_preview.clone().unwrap();
 
         // Dispatch itself (U10): arming must set the in-flight flag and
         // consume the pending edit, and the guard must swallow a SECOND
@@ -56,9 +56,9 @@
     fn a_swap_fades_in_and_a_rerender_does_not() {
         let (mut app, _scrub) = app_with_masked_photo("fade");
         // The fixture opens no file; the fade keys on (photo, version).
-        app.src_path.get_or_insert_with(|| PathBuf::from("fade-photo.arw"));
+        app.photo.src_path.get_or_insert_with(|| PathBuf::from("fade-photo.arw"));
         let ctx = egui::Context::default();
-        let base = app.base_preview.clone().unwrap();
+        let base = app.photo.base_preview.clone().unwrap();
         let frame = |app: &AutoShadeApp| {
             build_preview(base.clone(), app.recipe.clone(), false, None, autoshade::render::SourceFrame::Baked(None))
         };
@@ -100,7 +100,7 @@
         app.recipe.masks[0].name = "sky".into();
         app.session.hist.saved_recipe = app.recipe.clone();
         let old = std::path::PathBuf::from("out/_rename_old.arw");
-        app.src_path = Some(old.clone());
+        app.photo.src_path = Some(old.clone());
         app.masks.mask_name_buf = Some((0, "sky".into(), "sky gradient".into()));
 
         app.open_path(std::path::PathBuf::from("out/_rename_new.arw"));
@@ -122,7 +122,7 @@
         // photo open save_xmp returns right after its head flush (since
         // 2026-09-13 a generated card no longer refuses — it saves like any
         // other — so the empty-path return is the disk-free door).
-        app.src_path = None;
+        app.photo.src_path = None;
         app.masks.mask_name_buf = Some((0, "sky gradient".into(), "sky gradient 2".into()));
         app.save_xmp();
         assert_eq!(
@@ -144,7 +144,7 @@
         app.variants[0].origin = None;
         app.session.hist.pixels_on_disk = None;
         let clean = std::env::temp_dir().join(format!("autoshade-chain-{}/clean.ARW", std::process::id()));
-        app.src_path = Some(clean.clone());
+        app.photo.src_path = Some(clean.clone());
         // ANOTHER photo's stash holds a dirty background variant.
         app.open.nav_stash.insert(
             std::env::temp_dir().join(format!("autoshade-chain-{}/other.ARW", std::process::id())),
@@ -205,7 +205,7 @@
         // nav target's own rename is defence-in-depth — its decode fails
         // into the Err arm, which never reads a sidecar.
         let old = std::env::temp_dir().join(format!("autoshade-h4-{}/__autoshade_h4_a__.ARW", std::process::id()));
-        app.src_path = Some(old.clone());
+        app.photo.src_path = Some(old.clone());
         assert_eq!(app.inactive_dirty_variants(), 1, "premise: background dirty");
         // Navigate away — the stash snapshot is written synchronously.
         app.open_path(std::env::temp_dir().join(format!("autoshade-h4-{}/__autoshade_h4_b__.ARW", std::process::id())));
@@ -225,7 +225,7 @@
         }
         assert!(!app.busy, "the failed decode of the nav target must land");
         // Return: simulate the Opened result for the original photo.
-        app.src_path = Some(old.clone());
+        app.photo.src_path = Some(old.clone());
         let base = Arc::new(image::DynamicImage::new_rgb8(8, 6));
         app.services.tx
             .send(Msg::Opened(Box::new(Ok((
@@ -724,7 +724,11 @@
         )
         .unwrap();
 
-        let mut app = AutoShadeApp { src_path: Some(src.clone()), ..Default::default() };
+        let mut app = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(src.clone()),
+     ..Default::default()
+ },
+ ..Default::default() };
         let ctx = egui::Context::default();
         let ai_px = Arc::new(image::DynamicImage::new_rgb8(6, 4));
         app.services.tx
@@ -781,7 +785,14 @@
         )
         .unwrap();
         let mut app = AutoShadeApp {
-            src_path: Some(src.to_path_buf()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.to_path_buf()),
+
+                ..Default::default()
+
+            },
+
             recipe: EditRecipe { contrast: 7.0, ..Default::default() },
             ..Default::default()
         };
@@ -850,7 +861,11 @@
             },
         )
         .unwrap();
-        let mut app = AutoShadeApp { src_path: Some(src.clone()), ..Default::default() };
+        let mut app = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(src.clone()),
+     ..Default::default()
+ },
+ ..Default::default() };
         let ctx = egui::Context::default();
         let ai_px = Arc::new(image::DynamicImage::new_rgb8(6, 4));
         open_onto_ai_card(&mut app, &ctx, &ai_px, &master);

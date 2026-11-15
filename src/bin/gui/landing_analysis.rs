@@ -107,7 +107,7 @@ pub(crate) fn on_analyzed(
                                 },
                             ),
                         )
-                    } else { match self.src_path.clone() {
+                    } else { match self.photo.src_path.clone() {
                         // The backup gate comes FIRST: if the existing save
                         // cannot be snapshotted, it is not overwritten —
                         // the analyze result stays on the canvas only.

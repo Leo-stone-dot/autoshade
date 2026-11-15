@@ -185,7 +185,14 @@
             thumb: None,
         };
         let mut app = AutoShadeApp {
-            src_path: Some(photo.clone()),
+            photo: PhotoPixels {
+
+                src_path: Some(photo.clone()),
+
+                ..Default::default()
+
+            },
+
             variants: vec![mk(VariantKind::Original, &gone), mk(VariantKind::Denoised, &gone)],
             ..Default::default()
         };
@@ -314,7 +321,14 @@
     fn the_ask_destination_routes_to_the_dialog_instead_of_writing() {
         let src = std::env::temp_dir().join(format!("autoshade-library-{}/DSC00042.ARW", std::process::id()));
         let asking = AutoShadeApp {
-            src_path: Some(src.clone()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.clone()),
+
+                ..Default::default()
+
+            },
+
             exp: ExportState {
                 dest: ExportDest::Ask,
                 format: ExportFormat::Jpeg,
@@ -338,7 +352,14 @@
         // without this half the assertion above could pass on a broken route
         // that never renders anything at all.
         let direct = AutoShadeApp {
-            src_path: Some(src),
+            photo: PhotoPixels {
+
+                src_path: Some(src),
+
+                ..Default::default()
+
+            },
+
             exp: ExportState {
                 dest: ExportDest::OutFolder,
                 format: ExportFormat::Jpeg,
@@ -453,7 +474,11 @@
         std::fs::write(autoshade::store::xmp_target(&raw), b"<x:xmpmeta>ours</x:xmpmeta>").unwrap();
         let beside = raw.with_extension("xmp");
 
-        let mut app = AutoShadeApp { src_path: Some(raw.clone()), ..Default::default() };
+        let mut app = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(raw.clone()),
+     ..Default::default()
+ },
+ ..Default::default() };
         assert!(app.can_export_xmp_beside(), "a RAW can hand its sidecar over");
 
         // First delivery: nothing in the way, so it lands with no confirmation.
@@ -488,7 +513,11 @@
         // A non-RAW cannot: its neighbouring .xmp is another program's file.
         let baked = dir.join("_r22_handoff.png");
         std::fs::write(&baked, b"png").unwrap();
-        let baked_app = AutoShadeApp { src_path: Some(baked), ..Default::default() };
+        let baked_app = AutoShadeApp { photo: PhotoPixels {
+     src_path: Some(baked),
+     ..Default::default()
+ },
+ ..Default::default() };
         assert!(
             !baked_app.can_export_xmp_beside(),
             "only a RAW has the Lightroom sidecar convention"

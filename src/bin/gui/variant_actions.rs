@@ -32,7 +32,7 @@ impl AutoShadeApp {
         // after it lands hits `master_cache`: no second decode either way.
         if vbase.is_none()
             && let Some(o) = &vorigin
-            && let Some(photo) = self.src_path.clone()
+            && let Some(photo) = self.photo.src_path.clone()
         {
             self.spawn_master_load(ctx, photo, o.clone());
         }
@@ -58,7 +58,7 @@ impl AutoShadeApp {
             // busy-gated later), and says so instead of claiming a live
             // scenario.
             && (!self.open.open_in_flight || (self.open.open_same_path && self.cards.keep_recipe))
-            && let Some(p) = self.src_path.clone()
+            && let Some(p) = self.photo.src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()
         {
             // The strip entry follows the healed canvas (the Ctrl+S rule),
@@ -80,7 +80,7 @@ impl AutoShadeApp {
         }
         // Base pixels: the variant's own baked raster, else the shared source
         // neutral (Original / Fitted re-develop the same negative).
-        let base = vbase.or_else(|| self.source_preview.clone());
+        let base = vbase.or_else(|| self.photo.source_preview.clone());
         if let Some(base) = base {
             let (mw, mh) = base.dimensions();
             // Before compares under the canvas recipe's own base calibration
@@ -94,7 +94,7 @@ impl AutoShadeApp {
             // same expression serves both.
             let start = self.recipe.start_only();
             self.set_before(ctx, &base, &start);
-            self.base_preview = Some(base);
+            self.photo.base_preview = Some(base);
             // A fresh transparent paint mask sized to THIS base (a generated
             // raster and the source neutral can differ in dimensions).
             self.masks.mask_paint = Some(image::RgbaImage::new(mw, mh));
@@ -438,7 +438,7 @@ pub(crate) fn negative_index(&self) -> Option<usize> {
 /// The negative's pixels on disk: its master when it carries one, else
 /// the loaded file — the input a whole-frame reimagine develops from.
 pub(crate) fn negative_path(&self) -> Option<PathBuf> {
-    crate::logic::cards::negative_path(&self.variants, self.active, self.src_path.as_deref())
+    crate::logic::cards::negative_path(&self.variants, self.active, self.photo.src_path.as_deref())
 }
 
 
@@ -587,7 +587,7 @@ pub(crate) fn commit_variant_name_buf(&mut self) {
     if buf == seed {
         return;
     }
-    if self.src_path.as_deref() != Some(photo.as_path()) || id.is_empty() {
+    if self.photo.src_path.as_deref() != Some(photo.as_path()) || id.is_empty() {
         // The card belongs to a photo that is no longer open (its strip
         // went with it), or to no identifiable card at all: drop the
         // buffer rather than paint the name onto whatever sits here now.
@@ -636,7 +636,7 @@ pub(crate) fn dispatch_variant_action(&mut self, act: VariantAction, ctx: &egui:
             // mask panel's cross-commit rule, made structural by keying on
             // the card's id (R24-3).
             self.commit_variant_name_buf();
-            if let Some(photo) = self.src_path.clone() {
+            if let Some(photo) = self.photo.src_path.clone() {
                 let cur = self
                     .variants
                     .iter()

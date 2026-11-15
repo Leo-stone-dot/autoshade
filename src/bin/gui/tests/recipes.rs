@@ -30,7 +30,14 @@ fn jpeg(p: &std::path::Path) {
 fn app_with(photo: &std::path::Path, recipe: EditRecipe) -> AutoShadeApp {
     AutoShadeApp {
         lang: Lang::En,
-        src_path: Some(photo.to_path_buf()),
+        photo: PhotoPixels {
+
+            src_path: Some(photo.to_path_buf()),
+
+            ..Default::default()
+
+        },
+
         recipe,
         ..Default::default()
     }
@@ -306,7 +313,7 @@ fn the_selected_recipe_is_previewed_on_the_open_photo() {
     let _scrub = Scrub(vec![recipe_library::entry_path(&name), dir.clone()]);
     recipe_library::create(&name, &EditRecipe { exposure_ev: 0.4, ..Default::default() }).unwrap();
     let mut app = app_with(&photo, EditRecipe::default());
-    app.base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
+    app.photo.base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
         image::RgbImage::from_pixel(120, 80, image::Rgb([90, 110, 130])),
     )));
     app.rlib.show_recipes = true;

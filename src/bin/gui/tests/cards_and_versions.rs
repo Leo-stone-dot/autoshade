@@ -211,7 +211,14 @@
         // Positive control first: with NO transient up, R arms the crop —
         // proving this harness actually reaches the tool tier.
         let mut app = AutoShadeApp {
-            src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/x.arw", std::process::id()))),
+            photo: PhotoPixels {
+
+                src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/x.arw", std::process::id()))),
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         let mut input = egui::RawInput::default();
@@ -221,7 +228,14 @@
 
         // The negative: a transient (Settings) swallows the tool tier…
         let mut app = AutoShadeApp {
-            src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/x.arw", std::process::id()))),
+            photo: PhotoPixels {
+
+                src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/x.arw", std::process::id()))),
+
+                ..Default::default()
+
+            },
+
             ui: ShellState { show_settings: true, ..Default::default() },
             ..Default::default()
         };
@@ -277,7 +291,14 @@
                 sel_mask: Some(3),
                 ..Default::default()
             },
-            src_path: Some(src.clone()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.clone()),
+
+                ..Default::default()
+
+            },
+
             // stale index into the OLD mask list
 rationale: "stale rationale".into(),
             ..Default::default()
@@ -703,7 +724,14 @@ rationale: "stale rationale".into(),
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let mut app = AutoShadeApp {
-                src_path: Some(photo.clone()),
+                photo: PhotoPixels {
+
+                    src_path: Some(photo.clone()),
+
+                    ..Default::default()
+
+                },
+
                 variants: vec![
                     mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID),
                     mk(kind, "card-b"),
@@ -763,7 +791,14 @@ rationale: "stale rationale".into(),
         };
         let photo = std::env::temp_dir().join(format!("autoshade-library-{}/_rename_card.ARW", std::process::id()));
         let mut app = AutoShadeApp {
-            src_path: Some(photo.clone()),
+            photo: PhotoPixels {
+
+                src_path: Some(photo.clone()),
+
+                ..Default::default()
+
+            },
+
             variants: vec![
                 mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID),
                 mk(VariantKind::Fitted, "card-fit"),
@@ -901,7 +936,14 @@ rationale: "stale rationale".into(),
             thumb: None,
         };
         let mut app = AutoShadeApp {
-            src_path: Some(src.clone()),
+            photo: PhotoPixels {
+
+                src_path: Some(src.clone()),
+
+                ..Default::default()
+
+            },
+
             variants: vec![mk(crate::model::VariantKind::Generated)],
             ..Default::default()
         };

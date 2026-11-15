@@ -44,8 +44,16 @@
         assert_eq!(p.own.lens_blur.as_ref(), Some(&blur), "the source photo keeps it");
 
         let mut app = AutoShadeApp {
-            src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/turn.ARW", std::process::id()))),
-            base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(6, 4))),
+            photo: PhotoPixels {
+
+                src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/turn.ARW", std::process::id()))),
+
+                base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(6, 4))),
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         assert!(app.can_rotate(), "premise: the photo is rotatable without a blur");

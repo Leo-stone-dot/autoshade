@@ -183,7 +183,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, "One-click look"), false, |_| {});
-        let ready = self.src_path.is_some() && !self.busy && !self.tools.analyze_inflight && !self.normal.building;
+        let ready = self.photo.src_path.is_some() && !self.busy && !self.tools.analyze_inflight && !self.normal.building;
         let names: [&str; 6] = [
             tr(lang, "Natural"),
             tr(lang, "Bright & clean"),
@@ -287,7 +287,7 @@ impl AutoShadeApp {
             .normal
             .result
             .as_ref()
-            .filter(|(p, f)| self.src_path.as_ref() == Some(p) && *f != FineTune::of(&self.recipe))
+            .filter(|(p, f)| self.photo.src_path.as_ref() == Some(p) && *f != FineTune::of(&self.recipe))
             .map(|(_, f)| *f);
         if action_row(ui, back.is_some(), tr(lang, "Back to the one-click result")).clicked()
             && let Some(f) = back
@@ -357,7 +357,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, "Save"), false, |_| {});
-        let ready = self.src_path.is_some() && !self.busy;
+        let ready = self.photo.src_path.is_some() && !self.busy;
         let mut save = false;
         ui.horizontal(|ui| {
             let cell = columns(ui, 2);

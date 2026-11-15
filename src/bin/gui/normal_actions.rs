@@ -71,7 +71,7 @@ impl AutoShadeApp {
                     .normal
                     .denoise_pair
                     .as_ref()
-                    .is_some_and(|d| d.denoised.is_none() && self.src_path.as_ref() == Some(&d.photo)))
+                    .is_some_and(|d| d.denoised.is_none() && self.photo.src_path.as_ref() == Some(&d.photo)))
     }
 
     /// The strip index of the card with `id` (an empty id matches nothing).
@@ -120,7 +120,7 @@ impl AutoShadeApp {
     /// from (the first card that is not a ◈ card when the switch did not
     /// make it).
     pub(crate) fn set_normal_denoise(&mut self, on: bool) {
-        let Some(photo) = self.src_path.clone() else { return };
+        let Some(photo) = self.photo.src_path.clone() else { return };
         if self.busy || on == self.normal_denoise_on() {
             return;
         }
@@ -161,7 +161,7 @@ impl AutoShadeApp {
         self.normal
             .denoise_pair
             .as_ref()
-            .is_some_and(|d| d.denoised.is_none() && self.src_path.as_ref() == Some(&d.photo))
+            .is_some_and(|d| d.denoised.is_none() && self.photo.src_path.as_ref() == Some(&d.photo))
             .then(|| self.take_look_history())
     }
 
@@ -170,7 +170,7 @@ impl AutoShadeApp {
     /// history onto it, and say so plainly.
     pub(crate) fn after_normal_denoise(&mut self, lang: Lang, history: Option<(Vec<UndoStep>, Vec<UndoStep>)>) {
         let Some(d) = self.normal.denoise_pair.as_mut() else { return };
-        if d.denoised.is_some() || self.src_path.as_ref() != Some(&d.photo) {
+        if d.denoised.is_some() || self.photo.src_path.as_ref() != Some(&d.photo) {
             return;
         }
         let Some(v) = self.variants.get(self.active).filter(|v| v.kind == VariantKind::Denoised && v.id != d.plain) else {

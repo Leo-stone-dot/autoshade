@@ -87,7 +87,7 @@ pub(crate) fn start_find_people(&mut self) {
         if self.busy {
             return;
         }
-        let (Some(base), Some(photo)) = (self.base_preview.clone(), self.src_path.clone()) else { return };
+        let (Some(base), Some(photo)) = (self.photo.base_preview.clone(), self.photo.src_path.clone()) else { return };
         // The detectors see the ORIGINAL frame the masks are stored in; the
         // skin seed is sampled on the canvas's own base (v1.17.0: a corrected
         // one, with the face mask read into its frame).
@@ -109,7 +109,7 @@ pub(crate) fn start_find_people(&mut self) {
 
 pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
         self.busy = false;
-        if self.src_path.as_deref() != Some(found.photo.as_path()) && !found.photo.as_os_str().is_empty() {
+        if self.photo.src_path.as_deref() != Some(found.photo.as_path()) && !found.photo.as_os_str().is_empty() {
             // Another photo is open now: its masks are not this one's.
             self.portrait.line = PortraitLine::Idle;
             return;
@@ -190,7 +190,7 @@ pub(crate) fn skin_held(&self) -> bool {
     }
 
 pub(crate) fn skin_held_for(&self, photo: &std::path::Path) -> bool {
-        if self.src_path.as_deref() == Some(photo) {
+        if self.photo.src_path.as_deref() == Some(photo) {
             return self.skin_held();
         }
         self.open.nav_stash.get(photo).is_none_or(|st| {
@@ -218,7 +218,7 @@ pub(crate) fn restore_skin_switch(&mut self, on: Option<bool>) {
     }
 
 fn skin_key(&self) -> Option<(PathBuf, String)> {
-        let photo = self.src_path.clone()?;
+        let photo = self.photo.src_path.clone()?;
         Some((photo, self.variants.get(self.active).map(|v| v.id.clone()).unwrap_or_default()))
     }
 
@@ -244,13 +244,13 @@ pub(crate) fn set_keep_skin(&mut self, on: bool) {
     }
 
 pub(crate) fn decide_keep_skin_for_photo(&mut self) {
-        let Some(photo) = self.src_path.clone() else { return };
+        let Some(photo) = self.photo.src_path.clone() else { return };
         self.portrait.keep_skin.retain(|(p, _), _| *p != photo);
         self.switch_off_cards_past_limits();
     }
 
 fn switch_off_cards_past_limits(&mut self) {
-        let Some(photo) = self.src_path.clone() else { return };
+        let Some(photo) = self.photo.src_path.clone() else { return };
         for (i, v) in self.variants.iter().enumerate() {
             let recipe = if i == self.active { &self.recipe } else { &v.recipe };
             if autoshade::face::skin_values_beyond(recipe) > 0 {
@@ -268,7 +268,7 @@ pub(crate) fn decide_keep_skin_for_card(&mut self) {
     }
 
 pub(crate) fn inherit_keep_skin(&mut self, from: &str, to: &str) {
-        let Some(photo) = self.src_path.clone() else { return };
+        let Some(photo) = self.photo.src_path.clone() else { return };
         if let Some(on) = self.portrait.keep_skin.get(&(photo.clone(), from.to_string())).copied() {
             self.portrait.keep_skin.insert((photo, to.to_string()), on);
         }

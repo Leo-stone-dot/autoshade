@@ -32,7 +32,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         );
                         self.toast(ToastKind::Error, t);
                     }
-                    if let Some(p) = self.src_path.clone() {
+                    if let Some(p) = self.photo.src_path.clone() {
                         self.remember_base(
                             &p,
                             &(
@@ -97,7 +97,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // resurrect the pre-undo edits on the next return.
                         // (Both outcomes below keep the canvas in place, so
                         // this is unconditional.)
-                        if let Some(p) = self.src_path.clone() {
+                        if let Some(p) = self.photo.src_path.clone() {
                             self.open.nav_stash.remove(&p);
                         }
                         let active_source =
@@ -182,7 +182,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.status = t.to_string();
                             self.toast(ToastKind::Error, t);
                         } else {
-                            self.source_preview = Some(base.clone());
+                            self.photo.source_preview = Some(base.clone());
                             self.open.source_part = part.clone();
                             self.open.source_part_inflight = None;
                             // Fresh decode = the EXIF display frame,
@@ -191,7 +191,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // what lets `sync_base_turns` put the plate
                             // into the recipe's own frame on the next
                             // frame — one mover for every path (R27).
-                            self.base_turns = 0;
+                            self.photo.base_turns = 0;
                             if active_source {
                                 let start = self.recipe.start_only();
                                 self.set_before(ctx, &base, &start);
@@ -201,7 +201,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // serve it stale against these new pixels.
                                 self.overlay.overlay_ref = None;
                                 self.overlay.overlay_stale = true;
-                                self.base_preview = Some(base);
+                                self.photo.base_preview = Some(base);
                             } else if master_hit
                                 && let Some((bimg, _, _)) = &baked
                             {
@@ -253,7 +253,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 self.rebind_paint_canvas(bw, bh);
                                 self.overlay.overlay_ref = None;
                                 self.overlay.overlay_stale = true;
-                                self.base_preview = Some(bimg.clone());
+                                self.photo.base_preview = Some(bimg.clone());
                             }
                             self.chrome.last_rgb = None; // resolution changed under the frame
                             self.session.dirty = true;
@@ -273,7 +273,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // before_tex is built AFTER the recipe is settled
                         // below — the Before pane carries the canvas
                         // recipe's own base_curve.
-                        self.source_preview = Some(base.clone());
+                        self.photo.source_preview = Some(base.clone());
                         self.open.source_part = part.clone();
                         self.open.source_part_inflight = None;
                             // Fresh decode = the EXIF display frame,
@@ -282,8 +282,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // what lets `sync_base_turns` put the plate
                             // into the recipe's own frame on the next
                             // frame — one mover for every path (R27).
-                            self.base_turns = 0;
-                        self.base_preview = Some(base);
+                            self.photo.base_turns = 0;
+                        self.photo.base_preview = Some(base);
                         let RestoredDevelop {
                             saved,
                             xmp_bad,
@@ -294,7 +294,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             lr_unreadable,
                             packet_unreadable,
                         } = self
-                            .src_path
+                            .photo.src_path
                             .as_deref()
                             .map(read_saved_develop)
                             .unwrap_or_default();
@@ -365,7 +365,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // safe in both directions).
                         let skip_repair = baked.as_ref().is_some_and(|(_, _, g)| *g)
                             || self
-                                .src_path
+                                .photo.src_path
                                 .as_ref()
                                 .is_some_and(|p| self.open.nav_stash.contains_key(p));
                         let ResolvedSaved {
@@ -378,7 +378,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             lang,
                             saved,
                             skip_repair,
-                            self.src_path.as_deref(),
+                            self.photo.src_path.as_deref(),
                         );
                         if unresolved {
                             self.open.open_unresolved = true;
@@ -461,7 +461,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // corrupt pixels.json. Those are precisely the
                         // cases the user must be told about.
                         if baked.is_none()
-                            && let Some(p) = self.src_path.as_deref()
+                            && let Some(p) = self.photo.src_path.as_deref()
                             && autoshade::store::has_pixel_source(p)
                         {
                             let t = tr(
@@ -495,7 +495,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         let mut active_id = ORIGINAL_VARIANT_ID.to_string();
                         let mut active_name: Option<String> = None;
                         if let Some(st) =
-                            self.src_path.as_ref().and_then(|p| self.open.nav_stash.remove(p))
+                            self.photo.src_path.as_ref().and_then(|p| self.open.nav_stash.remove(p))
                         {
                             recipe = st.recipe;
                             active_kind = st.kind;
@@ -561,7 +561,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // `!= Generated`; they ask
                             // `VariantKind::is_source_based` now, so a
                             // new kind cannot inherit the answer.
-                            if let Some(p) = self.src_path.clone() {
+                            if let Some(p) = self.photo.src_path.clone() {
                                 let mut relooked = active_kind.is_source_based()
                                     && autoshade::pipeline::repair_pre_era_base_curve(
                                         &p, &mut recipe,
@@ -593,7 +593,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // the background-variant dirty test compares
                         // against (see `open_dirty_variants`).
                         let disk_strip = match self
-                            .src_path
+                            .photo.src_path
                             .as_deref()
                             .map(autoshade::store::read_variants_checked)
                         {
@@ -667,7 +667,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // canvas recipe's own base calibration: stamped
                         // fresh opens compare bright, legacy saves compare
                         // as originally tuned.
-                        if let Some(b) = self.base_preview.clone() {
+                        if let Some(b) = self.photo.base_preview.clone() {
                             let start = self.recipe.start_only();
                             self.set_before(ctx, &b, &start);
                         }
@@ -735,7 +735,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // there compared 0.6–1.4 EV dark).
                             let start = self.recipe.start_only();
                             self.set_before(ctx, &bimg, &start);
-                            self.base_preview = Some(bimg);
+                            self.photo.base_preview = Some(bimg);
                             self.rebind_paint_canvas(bw, bh);
                         }
                         if let Some(o) = pending_master.clone() {
@@ -747,7 +747,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             if let Some(v) = self.variants.get_mut(0) {
                                 v.origin = Some(o.clone());
                             }
-                            if let Some(photo) = self.src_path.clone() {
+                            if let Some(photo) = self.photo.src_path.clone() {
                                 self.spawn_master_load(ctx, photo, o);
                             }
                         }
@@ -792,7 +792,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // strip never lights ● against the mirror.)
                             let active_v = self.variants.remove(0);
                             let (mut strip, strip_dropped) =
-                                strip_from_record(rec, self.src_path.as_deref());
+                                strip_from_record(rec, self.photo.src_path.as_deref());
                             let pos = rec.active_pos.min(strip.len());
                             strip.insert(pos, active_v);
                             self.variants = strip;
@@ -919,11 +919,11 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // no-photo state so src_path and the variants can never
                         // disagree. (A preview-res re-decode failure — keep —
                         // leaves the still-open photo untouched.)
-                        self.src_path = None;
+                        self.photo.src_path = None;
                         self.variants.clear();
                         self.active = 0;
-                        self.base_preview = None;
-                        self.source_preview = None;
+                        self.photo.base_preview = None;
+                        self.photo.source_preview = None;
                         self.open.source_part = Default::default();
                         self.open.source_part_inflight = None;
                         self.before_tex = None;
@@ -939,7 +939,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // photo's unsaved work is NOT lost — open_path
                         // stashed it before the flight.
                         self.reset_history();
-                    } else if let Some(p) = self.src_path.clone() {
+                    } else if let Some(p) = self.photo.src_path.clone() {
                         // A preview-res re-decode failed: the photo (and
                         // its live canvas) is untouched — consume the
                         // stash entry the same-path open_path call just
@@ -1000,7 +1000,7 @@ pub(crate) fn on_base_redeveloped(
     if self.open.source_part_inflight.as_ref() == Some(&part) {
         self.open.source_part_inflight = None;
     }
-    if self.src_path.as_deref() != Some(path.as_path()) {
+    if self.photo.src_path.as_deref() != Some(path.as_path()) {
         return;
     }
     let img = match img {
@@ -1020,16 +1020,16 @@ pub(crate) fn on_base_redeveloped(
             return;
         }
     };
-    let turns = self.base_turns % 4;
+    let turns = self.photo.base_turns % 4;
     let img = if turns == 0 {
         img
     } else {
         Arc::new(autoshade::render::turn_image((*img).clone(), turns))
     };
-    self.source_preview = Some(img.clone());
+    self.photo.source_preview = Some(img.clone());
     self.open.source_part = part;
     if self.active_variant().is_none_or(|v| v.base.is_none()) {
-        self.base_preview = Some(img.clone());
+        self.photo.base_preview = Some(img.clone());
         let start = self.recipe.start_only();
         self.set_before(ctx, &img, &start);
         let (mw, mh) = img.dimensions();
