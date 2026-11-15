@@ -592,6 +592,13 @@ enum Command {
     },
     /// Print the default EditRecipe as JSON — the exact shape the AI must emit.
     RecipeSchema,
+    /// Print the develop controls' clamp bands and reset values — the same
+    /// table the desktop GUI's capability rows and the web form read.
+    Controls {
+        /// Machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -619,6 +626,36 @@ enum SessionCmd {
         #[arg(long)]
         photo: Option<PathBuf>,
     },
+}
+
+/// One text line per form control: name, clamp band, reset.
+fn controls_text(rows: &[(&str, (f32, f32), Option<f32>)]) -> Vec<String> {
+    rows.iter()
+        .map(|(name, (lo, hi), reset)| {
+            let reset = reset.map(|v| format!("reset {v}")).unwrap_or_else(|| "reset —".to_string());
+            format!("{name:<28} {lo:>9} .. {hi:<9} {reset}")
+        })
+        .collect()
+}
+
+/// `controls`: the same `form_controls` table the GUI capability rows and the
+/// web form's sliders read, printed for scripts and humans.
+fn controls_cmd(json: bool) -> Result<()> {
+    let rows = autoshade::advisor::catalogue::form_controls();
+    if json {
+        let out: Vec<serde_json::Value> = rows
+            .iter()
+            .map(|(name, (lo, hi), reset)| {
+                serde_json::json!({ "name": name, "range": [lo, hi], "default": reset })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&out)?);
+    } else {
+        for line in controls_text(&rows) {
+            println!("{line}");
+        }
+    }
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -737,6 +774,7 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&template)?);
             Ok(())
         }
+        Command::Controls { json } => controls_cmd(json),
     }
 }
 
@@ -3058,6 +3096,24 @@ fn sparkline(bins: &[u32]) -> String {
 
 #[cfg(test)]
 mod tests {
+    /// The `controls` command's text shape, and the shared table behind it.
+    #[test]
+    fn controls_text_names_the_band_and_the_reset() {
+        let rows = [
+            ("exposure_ev", (-5.0f32, 5.0f32), Some(0.0f32)),
+            ("tint", (-150.0f32, 150.0f32), None),
+        ];
+        let lines = super::controls_text(&rows);
+        assert!(lines[0].contains("exposure_ev"));
+        assert!(lines[0].contains("-5") && lines[0].contains("5"));
+        assert!(lines[0].contains("reset 0"));
+        assert!(lines[1].contains("reset —"), "a null reset stays visible: {}", lines[1]);
+        // The real table is the library's shared one, companion reset included.
+        let all = autoshade::advisor::catalogue::form_controls();
+        let grain = all.iter().find(|(n, _, _)| *n == "grain_size").expect("grain_size listed");
+        assert_eq!(grain.2, Some(25.0), "grain_size resets to Lightroom's default");
+    }
+
 
     /// A keyless, endpoint-less Config — the shape the preflight tests and the
     /// flag-resolution test both need (no key, so nothing here can reach a
