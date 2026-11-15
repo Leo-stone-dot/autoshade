@@ -6,6 +6,7 @@
 
 use crate::*;
 use crate::logic::capability::{self, Capability, CapabilityId, SliderKind};
+use crate::logic::command::Command;
 
 /// The translated label of one row.
 fn label(lang: Lang, id: CapabilityId) -> &'static str {
@@ -98,6 +99,7 @@ pub(crate) fn render_rows(
     lang: Lang,
     recipe: &mut autoshade::recipe::EditRecipe,
     table: &[Capability],
+    out: &mut Vec<Command>,
 ) -> bool {
     let mut changed = false;
     for cap in table {
@@ -127,7 +129,7 @@ pub(crate) fn render_rows(
                     hint(lang, cap.id).unwrap_or(""),
                 );
                 if dirty {
-                    capability::set_value(recipe, cap.id, current);
+                    out.push(Command::SetCapability { id: cap.id, value: current });
                 }
                 dirty
             }
@@ -139,7 +141,7 @@ pub(crate) fn render_rows(
                     AutoShadeApp::slider(ui, lang, text, &mut current, min, max, cap.reset)
                 };
                 if dirty {
-                    capability::set_value(recipe, cap.id, current);
+                    out.push(Command::SetCapability { id: cap.id, value: current });
                 }
                 dirty
             }
