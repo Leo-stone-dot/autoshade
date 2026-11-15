@@ -7561,8 +7561,9 @@ the family set each ● reads, is a table too
 of the custom widgets — `SetCapability` for a plain field, `SetCompanion`
 for the explicit-zero encoding — which the panel's `capability_rows` applies
 through `logic::command::apply`; the mask list's delete / eye / drag-reorder
-verbs are `Command::Mask` (the selection remap and the overlay invalidation
-stay with the panel, which owns that state). The worker channel and the event-loop context workers
+verbs are `Command::Mask` — plus `InsertMask` for the duplicate verb, whose
+raster detach and name the caller prepares — and the selection remap and the
+overlay invalidation stay with the panel, which owns that state. The worker channel and the event-loop context workers
 wake are a `Services` struct
 ([`services.rs`](../src/bin/gui/services.rs)) the app holds — infrastructure,
 not photo state, so replacing the executor or the loop touches neither the
