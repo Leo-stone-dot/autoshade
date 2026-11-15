@@ -249,53 +249,53 @@
         );
     }
 
-    /// Step-6: the generation-side fidelity retry buys a SECOND image per
-    /// diverged reimagine, so it is off in BOTH defaults — a fresh install
-    /// and an older prefs file must give the same answer — and its switch
-    /// renders inside the Reimagine section it governs. Supervisor mutation
-    /// ME (the default flipped on) goes red here.
+    /// The PAID opt-ins are off in BOTH defaults (a fresh install and an
+    /// upgraded prefs file must agree, so nothing starts spending silently),
+    /// each is drawn where its fold lives, a remembered preference never lights
+    /// the section ●, the deep reverse-fit is unreachable without the review it
+    /// iterates, and the deep-thinking checkbox is what the request carries.
     #[test]
-    fn the_reimagine_fidelity_retry_is_off_in_both_defaults() {
+    fn the_paid_dials_are_off_in_both_defaults_and_drawn() {
         assert!(!AutoShadeApp::default().fit.reimagine_retry, "spending is opt-in");
-        assert!(
-            !Prefs::default().reimagine_retry,
-            "an older prefs file must decode to the same answer"
-        );
-        let mut app = AutoShadeApp::default();
-        let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
-        assert!(
-            seen.iter().any(|t| t.contains("auto-retry")),
-            "the switch must exist: {seen:?}"
-        );
-    }
-
-    /// R23-6 D (user decision 2026-08-17 ⑥): the deep reverse-fit is a PAID
-    /// opt-in on top of another paid opt-in, so it must be off in both
-    /// defaults — a prefs file written before the key existed has to decode
-    /// to the same answer a fresh install gives — and it must not be
-    /// reachable without the review it iterates.
-    #[test]
-    fn the_deep_reverse_fit_is_off_by_default_and_gated_on_the_review() {
+        assert!(!Prefs::default().reimagine_retry, "an older prefs file must decode to the same answer");
         assert!(!AutoShadeApp::default().fit.fit_deep, "spending is opt-in");
-        assert!(
-            !Prefs::default().fit_deep,
-            "an older prefs file must decode to the same answer"
-        );
+        assert!(!Prefs::default().fit_deep, "an older prefs file must decode to the same answer");
+        assert!(!AutoShadeApp::default().aip.deep_think, "a fresh app must not start paying for a deeper analyze");
+        assert!(!Prefs::default().deep_think, "an older prefs file must decode to the SAME answer");
+
         let mut app = AutoShadeApp::default();
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
-        assert!(
-            seen.iter().any(|t| t == "Retry once"),
-            "the switch must exist: {seen:?}"
-        );
-        // The gate is on the WIDGET, so the tooltip that explains the gate is
-        // what a headless frame can witness; the enabled state itself is
-        // egui's and is asserted through the same predicate the UI uses.
+        assert!(seen.iter().any(|t| t.contains("auto-retry")), "the retry switch must exist: {seen:?}");
+        assert!(seen.iter().any(|t| t == "Retry once"), "the deep-fit switch must exist: {seen:?}");
+        assert!(seen.iter().any(|t| t == "Deep thinking"), "the switch was not drawn in a 320 px panel: {seen:?}");
+
+        // The deep reverse-fit's gate is on the WIDGET; a stock app has the
+        // review off, and deep-without-review is not a configuration.
         assert!(!app.fit.fit_ai_judge, "premise: the review is off in a stock app");
         app.fit.fit_ai_judge = true;
         app.fit.fit_deep = true;
-        // The worker's own gate, which must not depend on the UI's: deep
-        // without the review is not a configuration.
         assert!(app.fit.fit_deep && app.fit.fit_ai_judge);
+
+        // Same rule as `fit_ai_judge` / `send_style_ref_image`: a remembered
+        // preference is not "this photo's AI inputs carry state".
+        app.aip.deep_think = true;
+        assert!(!app.ai_section_active(), "a preference must not light the section ●");
+
+        let request_app = AutoShadeApp {
+            aip: AiPrefs { deep_think: true, ..Default::default() },
+            ..Default::default()
+        };
+        let req = autoshade::pipeline::GradeRequest {
+            guide: request_app.aip.guide,
+            style: request_app.aip.style_strength,
+            send_reference_image: request_app.aip.send_style_ref_image,
+            strength: autoshade::recipe::GradeStrength::new(request_app.aip.grade_strength),
+            think: request_app.aip.deep_think,
+            adherence: autoshade::recipe::DirectionAdherence::default(),
+            embed: autoshade::library::EmbeddingSwitch::resolve(None, request_app.aip.style_embed),
+        };
+        assert!(req.think, "the checkbox must reach the worker's request");
+        assert!(!autoshade::pipeline::GradeRequest::with_style(0.65).think, "every unattended surface stays out of thinking mode");
     }
 
     /// R23-2: the reference-PHOTO switch is off by default in BOTH defaults
@@ -463,57 +463,6 @@
         assert!(
             !seen.iter().any(|t| t == title),
             "and no box is drawn for a sentence that still carries it: {seen:?}"
-        );
-    }
-
-    /// R23-4 (feedback #13, "let it think"): the desktop shell of thinking
-    /// mode. It is the most expensive switch on the panel, so the properties
-    /// that matter are: off in BOTH defaults, drawn beside the dials it reads
-    /// (the round budget comes off the Strength band right above it), NOT part
-    /// of the section ● (it is a persisted preference of a paid verb, exactly
-    /// like the reference-photo switch), and actually present in the request the
-    /// analyze worker builds.
-    #[test]
-    fn the_deep_thinking_switch_is_off_by_default_and_rides_the_request() {
-        assert!(
-            !AutoShadeApp::default().aip.deep_think,
-            "a fresh app must not start paying for a deeper analyze"
-        );
-        assert!(
-            !Prefs::default().deep_think,
-            "a prefs file written before this key existed must decode to the SAME answer"
-        );
-        let mut app = AutoShadeApp::default();
-        let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
-        assert!(
-            seen.iter().any(|t| t == "Deep thinking"),
-            "the switch was not drawn in a 320 px panel: {seen:?}"
-        );
-        // Same rule as `fit_ai_judge` / `send_style_ref_image`: a remembered
-        // preference is not "this photo's AI inputs carry state".
-        app.aip.deep_think = true;
-        assert!(!app.ai_section_active(), "a preference must not light the section ●");
-
-        let app = AutoShadeApp {
-            aip: AiPrefs {
-                deep_think: true,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let req = autoshade::pipeline::GradeRequest {
-            guide: app.aip.guide,
-            style: app.aip.style_strength,
-            send_reference_image: app.aip.send_style_ref_image,
-            strength: autoshade::recipe::GradeStrength::new(app.aip.grade_strength),
-            think: app.aip.deep_think,
-            adherence: autoshade::recipe::DirectionAdherence::default(),
-            embed: autoshade::library::EmbeddingSwitch::resolve(None, app.aip.style_embed),
-        };
-        assert!(req.think, "the checkbox must reach the worker's request");
-        assert!(
-            !autoshade::pipeline::GradeRequest::with_style(0.65).think,
-            "every unattended surface stays out of thinking mode"
         );
     }
 
