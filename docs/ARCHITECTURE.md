@@ -239,7 +239,7 @@
 > wrong reason; it writes a `=== name ===` transcript that
 > `scripts/check_docs.py --gates` reads the counts and the lane set back out
 > of, and it prints the by-name test-set difference against a saved baseline.
-> After the lanes it runs three script gates — `audit_i18n.py`, the font
+> After the lanes it runs three script gates — `check_text.py`, the font
 > subset check and, since 2026-10-02, `check_doc_drift.py` (every path, code
 > symbol, link and tier count the living documents name exists in the tree;
 > CI's `docs` job runs it on every push) — and a gate that exits non-zero
@@ -873,8 +873,9 @@
 > bytes); sidecar subprocesses are deadline-killed with bounded pipe drains;
 > the GUI embeds five Noto font subsets (symbols + the Chinese UI's own
 > hanzi) with a coverage gate, ships light/dark themes checked against the
-> COMPOSITED colours the screen shows, and `scripts/audit_i18n.py` is a
-> release gate (dynamic keys extracted from source, `tr()` bypasses flagged).
+> COMPOSITED colours the screen shows, and `scripts/check_text.py` is a
+> release gate (locale bundles aligned, generated accessors in step, and no
+> English literal in a catalogue-key position).
 > v0.20.0 added the first RUNTIME end-to-end pass (real CLI processes over a
 > real 61 MP ARW, a live `serve` hit with 25 HTTP assertions, the ambient
 > `.env`/settings guards exercised as real processes against a recording mock
@@ -7552,8 +7553,12 @@ nested `color_grade` fields of `COLOR_GRADE_FIELDS` — and
 `panels/develop_forms.rs` turns a table into sliders in one loop (`render_rows`:
 plain, fine and companion rows) — the Tone, Presence, Effects, HDR, Crop,
 Detail, Transform, Lens, Calibration, the white balance's Tint row and the
-grading panel's Blending/Balance no longer spell a range or a reset by hand. The labels stay literal `tr()` calls per id in that file's
-`label`, so the i18n audit still checks every key. The local-adjustments
+grading panel's Blending/Balance no longer spell a range or a reset by hand. The labels are text RESOURCES
+(Android/iOS model): one dotted key per string, its English and Chinese text in
+`resources/strings/{en,zh-Hans}.toml`, compiled by `scripts/gen_text.py` into
+the `K_…` constants (`autoshade::text`); `scripts/check_text.py` keeps the
+locales, the placeholder sets and the generated module in step, and fails on an
+English literal where a key belongs. The local-adjustments
 subsystem (mask list, the selected mask's controls, composed shapes, the
 range editor, the AI segmentation verbs) has its own module,
 [`panels/develop_masks.rs`](../src/bin/gui/panels/develop_masks.rs); the

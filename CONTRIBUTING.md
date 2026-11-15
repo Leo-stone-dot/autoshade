@@ -14,7 +14,7 @@ cargo test  --release                                        # + CLI integration
 cargo test  --release --features gui --bin autoshade-gui     # desktop front end (a test binary; it never opens a window)
 cargo clippy --release --all-targets                         # must be warning-free
 python scripts/check_docs.py                                 # pinned release claims re-derived from the tree
-python scripts/audit_i18n.py                                 # every user-facing string has both languages, byte-identical to its source constant
+python scripts/check_text.py                                 # text resources: locales aligned, generated in step, no literal key positions
 python scripts/subset_gui_fonts.py --check                   # the GUI font subsets still cover every glyph the UI can show
 python scripts/check_doc_drift.py                            # every path, code symbol, link and tier count the docs name exists in the tree
 ```
@@ -38,8 +38,12 @@ reason when `AUTOSHADE_FIT_CALIBRATION_DIR` is unset.
   the site describe the code as it is; `scripts/check_docs.py` pins the numbers
   that matter, so re-pin them to the new measurement rather than loosening the
   claim.
-- **Both languages.** Every rationale key and GUI string has an English and a
-  Chinese row in `src/bin/gui/i18n.rs`, with the same placeholders.
+- **Text is a resource.** Every user-facing string is a dotted key whose English
+  and Chinese text live in `resources/strings/{en,zh-Hans}.toml`; code names the
+  generated `K_…` constant. Add the row to both locale files with the same
+  placeholders, then run `py -3 scripts/gen_text.py`; `scripts/check_text.py`
+  fails on a missing translation, a stale generated module, a placeholder
+  mismatch or an English literal in a key position.
 
 ## House style
 

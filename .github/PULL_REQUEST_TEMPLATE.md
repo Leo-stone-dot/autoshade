@@ -58,9 +58,10 @@ that name reaches the CLI's stderr, the desktop app's banner and the web reply.
 - [ ] Anything now carried-but-not-rendered, approximated, or refused is
       **disclosed by name** on every front-end that can reach it — or this PR
       does not add such a case.
-- [ ] Any new user-visible string is in both languages and passes
-      `python scripts/audit_i18n.py`; new 中文 text is covered by the GUI font
-      subset.
+- [ ] Any new user-visible string has its row in both
+      `resources/strings/*.toml` files (same placeholders), and
+      `python scripts/check_text.py` passes; new 中文 text is covered by the
+      GUI font subset.
 
 ## Notes for the reviewer
 
