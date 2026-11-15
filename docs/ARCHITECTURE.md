@@ -7202,15 +7202,19 @@ the user's own browser*, and the guarantees are:
   paid image API; generative pixels now go through the local ComfyUI server.
 
 - **The develop form's bands are the server's.** `GET /api/controls` answers the
-  scalar `RECIPE_CONTROLS` bands — the same table `EditRecipe::clamp` is pinned
-  to — and the page overwrites its slider ranges from that answer on load,
-  keeping only its labels and steps locally; the same answer carries each
-  control's RESET value (a companion's Lightroom default, e.g. grain size 25,
-  rather than the stored 0 that means absent). A failed fetch keeps the local
-  numbers, so the page still works when the endpoint is unreachable. The same
-  table is one library function (`advisor::catalogue::form_controls`: name,
-  clamp band, reset), which the web endpoint and the CLI's `autoshade
-  controls [--json]` both print — the three clients read one answer.
+  scalar form controls' bands: the `RECIPE_CONTROLS` rows — the same table
+  `EditRecipe::clamp` is pinned to — plus the nested `color_grade` fields, whose
+  band and neutral live in `advisor::catalogue::COLOR_GRADE_FIELDS`
+  (`color_grade.blending` 0..100 reset 50, `color_grade.balance` -100..100 reset
+  0, and the twelve wheel scalars). The page overwrites its slider ranges from
+  that answer on load, keeping only its labels and steps locally; the same
+  answer carries each control's RESET value (a companion's Lightroom default,
+  e.g. grain size 25, rather than the stored 0 that means absent). A failed fetch
+  keeps the local numbers, so the page still works when the endpoint is
+  unreachable. The same list is one library function
+  (`advisor::catalogue::form_controls`: name, clamp band, reset; the single-row
+  lookup is `form_control`), which the web endpoint, the CLI's `autoshade
+  controls [--json]` and the GUI's capability rows all read.
 
 - **Bounded work.** `EditRecipe::clamp` caps masks/curves/knots **and strings**
   (`rationale`, mask names, bitmap-mask paths), and the cap is enforced at
@@ -7540,14 +7544,15 @@ closed per domain (`Look`, `Lens`, `Gallery`), so a panel can only ask for its
 own verbs. `logic/` is headless — no widget code, no rendered text — so a
 domain is tested by calling it. The develop panel's scalar controls are a
 capability table too ([`logic/capability.rs`](../src/bin/gui/logic/capability.rs):
-`TONE`, `PRESENCE`, `value`/`set_value`): one row names the recipe field, the
-core catalogue spelling and the double-click reset, the slider BAND is read
-from `advisor::catalogue::global_control` (the table `EditRecipe::clamp` is
-pinned to), and `panels/develop_forms.rs` turns a table into sliders in one
-loop (`render_rows`: plain, fine and companion rows) — the Tone, Presence,
-Effects, HDR, Crop, Detail, Transform, Lens, Calibration and the white
-balance's Tint row no longer spell a range, a feel, a hint line or a companion
-default by hand. The labels stay literal `tr()` calls per id in that file's
+`TONE`, `PRESENCE`, `value`/`set_value`): one row names the recipe field and the
+core catalogue spelling, while its slider BAND and its double-click RESET are
+both read from `advisor::catalogue::form_control` — the top-level
+`RECIPE_CONTROLS` rows (the table `EditRecipe::clamp` is pinned to) and the
+nested `color_grade` fields of `COLOR_GRADE_FIELDS` — and
+`panels/develop_forms.rs` turns a table into sliders in one loop (`render_rows`:
+plain, fine and companion rows) — the Tone, Presence, Effects, HDR, Crop,
+Detail, Transform, Lens, Calibration, the white balance's Tint row and the
+grading panel's Blending/Balance no longer spell a range or a reset by hand. The labels stay literal `tr()` calls per id in that file's
 `label`, so the i18n audit still checks every key. The local-adjustments
 subsystem (mask list, the selected mask's controls, composed shapes, the
 range editor, the AI segmentation verbs) has its own module,
