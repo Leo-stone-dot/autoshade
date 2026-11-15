@@ -17,7 +17,7 @@ impl AutoShadeApp {
         // #14b, group 3: masks and the pixel-level tools they reach.
         group_caption(ui, tr(lang, K_DEVELOP_LOCAL_PIXEL));
         // --- 局部调整: manual masks — the SAME recipe.masks the AI writes -----
-        let n_masks = self.editor.doc.recipe.masks.len();
+        let n_masks = self.editor.doc().recipe.masks.len();
         let n_masks_s = n_masks.to_string();
         card_fold(ui, egui::CollapsingHeader::new(section_title(
             &trf(lang, K_DEVELOP_LOCAL_MASKS, &[("n", &n_masks_s)]),
@@ -49,7 +49,7 @@ impl AutoShadeApp {
             for i in 0..n_masks {
                 let row_resp = ui
                     .horizontal(|ui| {
-                        let m = &self.editor.doc.recipe.masks[i];
+                        let m = &self.editor.doc().recipe.masks[i];
                         let kind = match m.range {
                             Some(RangeMask::Luminance { .. }) => {
                                 tr(self.lang, K_DEVELOP_LUMINANCE_RANGE)
@@ -187,14 +187,14 @@ impl AutoShadeApp {
                 // captured at drag start, and the list can shrink mid-drag
                 // (Ctrl+Z, an async AI result) — a stale `from` would panic
                 // in Vec::remove.
-                && from < self.editor.doc.recipe.masks.len()
-                && insert <= self.editor.doc.recipe.masks.len()
+                && from < self.editor.doc().recipe.masks.len()
+                && insert <= self.editor.doc().recipe.masks.len()
                 && insert != from
                 && insert != from + 1
             {
                 let (to, remap) = reorder_move(from, insert);
                 crate::logic::command::apply(
-                    &mut self.editor.doc.recipe,
+                    &mut self.editor.doc_mut().recipe,
                     crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Reorder { from, to }),
                 );
                 self.remap_mask_indices(|s| Some(remap(s)));
@@ -206,7 +206,7 @@ impl AutoShadeApp {
                 // and commit_if_settled makes it one undo step. Through the
                 // command layer like the develop form's rows.
                 crate::logic::command::apply(
-                    &mut self.editor.doc.recipe,
+                    &mut self.editor.doc_mut().recipe,
                     crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::ToggleEnabled { index: i }),
                 );
                 self.workspace.overlay.overlay_stale = true;
@@ -214,7 +214,7 @@ impl AutoShadeApp {
             }
             if let Some(i) = delete {
                 crate::logic::command::apply(
-                    &mut self.editor.doc.recipe,
+                    &mut self.editor.doc_mut().recipe,
                     crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Delete { index: i }),
                 );
                 self.remap_mask_indices(|s| {
@@ -270,7 +270,7 @@ impl AutoShadeApp {
             {
                 if brush_armed {
                     self.disarm_tools();
-                } else if self.editor.photo.base_preview.is_some() {
+                } else if self.editor.photo().base_preview.is_some() {
                     self.apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::MaskBrush(None),
                     )]);
@@ -315,7 +315,7 @@ impl AutoShadeApp {
             // disk these two can only fail, so the button says so up front
             // instead of spending the click on a "not found at …" toast.
             let has_helper = segment_helper_available();
-            let can_seg = !self.workspace.busy && self.editor.photo.base_preview.is_some() && has_helper;
+            let can_seg = !self.workspace.busy && self.editor.photo().base_preview.is_some() && has_helper;
             let cell = columns(ui, 2);
             let missing = tr(lang,
                 K_DEVELOP_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPER_WHI,
@@ -380,11 +380,11 @@ impl AutoShadeApp {
         // stack position to drag. Three controls, which are the three
         // questions a user actually has about it — is it on, how much of
         // it, and get rid of it.
-        if self.editor.doc.recipe.colour_field.is_some() {
+        if self.editor.doc().recipe.colour_field.is_some() {
             ui.add_space(SPACE_XS);
             let mut remove_field = false;
             ui.horizontal(|ui| {
-                let field = self.editor.doc.recipe.colour_field.as_mut().expect("just checked");
+                let field = self.editor.doc_mut().recipe.colour_field.as_mut().expect("just checked");
                 if glyph_toggle(ui, field.enabled, "👁")
                     .on_hover_text(tr(
                         lang,
@@ -416,7 +416,7 @@ impl AutoShadeApp {
                     remove_field = true;
                 }
             });
-            let field = self.editor.doc.recipe.colour_field.as_mut().expect("just checked");
+            let field = self.editor.doc_mut().recipe.colour_field.as_mut().expect("just checked");
             // Through the shared slider (its look, reset to the solved
             // field's full amount, ↑/↓) — it was the one bare egui slider.
             let enabled = field.enabled;
@@ -429,7 +429,7 @@ impl AutoShadeApp {
                 changed = true;
             }
             if remove_field {
-                self.editor.doc.recipe.colour_field = None;
+                self.editor.doc_mut().recipe.colour_field = None;
                 changed = true;
             }
         }
@@ -443,7 +443,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut changed = false;
         // Selected mask: its full slider set.
-        if let Some(i) = self.workspace.masks.sel_mask.filter(|&i| i < self.editor.doc.recipe.masks.len()) {
+        if let Some(i) = self.workspace.masks.sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len()) {
             let coverage = self.dev_mask_geometry_and_range(ui, i);
             // Any edit up to here — geometry, range, Amount — can move the
             // coverage wash (the overlay key carries them all); the key
@@ -488,7 +488,7 @@ impl AutoShadeApp {
     fn dev_mask_adjustments(&mut self, ui: &mut egui::Ui, i: usize) -> bool {
         let lang = self.lang;
         let mut changed = false;
-        let m = &mut self.editor.doc.recipe.masks[i];
+        let m = &mut self.editor.doc_mut().recipe.masks[i];
         // Lightroom's own three groups for a mask's adjustments (user
         // decision 8 of the 17-feedback triage): Tone / Detail /
         // Color, weak captions in the Color-Grading "All regions"
@@ -654,16 +654,16 @@ impl AutoShadeApp {
             // index shifts (delete/reorder) can never cross-commit.
             if self.workspace.masks.mask_name_buf.as_ref().is_none_or(|(j, ..)| *j != i) {
                 if let Some((j, orig, buf)) = self.workspace.masks.mask_name_buf.take() {
-                    let same = self.editor.doc.recipe.masks.get(j).is_some_and(|prev| prev.name == orig);
+                    let same = self.editor.doc().recipe.masks.get(j).is_some_and(|prev| prev.name == orig);
                     if same && buf != orig {
                         crate::logic::command::apply(
-                            &mut self.editor.doc.recipe,
+                            &mut self.editor.doc_mut().recipe,
                             crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Rename { index: j, name: buf }),
                         );
                         changed = true;
                     }
                 }
-                let cur = self.editor.doc.recipe.masks[i].name.clone();
+                let cur = self.editor.doc().recipe.masks[i].name.clone();
                 self.workspace.masks.mask_name_buf = Some((i, cur.clone(), cur));
             }
             // R38: the name takes what the row leaves after the verbs
@@ -673,7 +673,7 @@ impl AutoShadeApp {
             // this row, it ran 100 px past the panel — and the panel
             // widened to fit, taking every row below it along.
             let has_redraw = matches!(
-                self.editor.doc.recipe.masks[i].mask,
+                self.editor.doc().recipe.masks[i].mask,
                 MaskGeometry::Linear { .. } | MaskGeometry::Radial { .. }
             );
             let reserve = {
@@ -710,10 +710,10 @@ impl AutoShadeApp {
             };
             if name_resp.lost_focus()
                 && let Some((_, orig, buf)) = self.workspace.masks.mask_name_buf.as_mut()
-                && *buf != self.editor.doc.recipe.masks[i].name
+                && *buf != self.editor.doc().recipe.masks[i].name
             {
                 crate::logic::command::apply(
-                    &mut self.editor.doc.recipe,
+                    &mut self.editor.doc_mut().recipe,
                     crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Rename {
                         index: i,
                         name: buf.clone(),
@@ -724,7 +724,7 @@ impl AutoShadeApp {
                 *orig = buf.clone();
                 changed = true;
             }
-            let m = &mut self.editor.doc.recipe.masks[i];
+            let m = &mut self.editor.doc_mut().recipe.masks[i];
             // Raster masks have no drag-to-place geometry — no 重画.
             let kind = match m.mask {
                 MaskGeometry::Linear { .. } => Some(MaskKind::Linear),
@@ -772,7 +772,7 @@ impl AutoShadeApp {
                     logic::develop::DevelopAction::MoveMaskUp(i),
                 )]);
             }
-            if glyph(ui, i + 1 < self.editor.doc.recipe.masks.len(), "⬇")
+            if glyph(ui, i + 1 < self.editor.doc().recipe.masks.len(), "⬇")
                 .on_hover_text(tr(lang, K_DEVELOP_MOVE_DOWN_RENDERS_LATER))
                 .clicked()
             {
@@ -798,7 +798,7 @@ impl AutoShadeApp {
             // must drive the develop + overlay like every other mask
             // control (was silently discarded: the toggle mutated the
             // recipe but never re-rendered until an unrelated edit).
-            if ui.checkbox(&mut self.editor.doc.recipe.masks[i].inverted, tr(lang, K_DEVELOP_INVERT)).changed() {
+            if ui.checkbox(&mut self.editor.doc_mut().recipe.masks[i].inverted, tr(lang, K_DEVELOP_INVERT)).changed() {
                 self.workspace.overlay.overlay_stale = true;
                 changed = true;
             }
@@ -823,7 +823,7 @@ impl AutoShadeApp {
         // Radial geometry: edge feather (shown 0..100, LR's track) +
         // rotation + inside/outside flip — all engine-rendered.
         if let MaskGeometry::Radial { feather, flipped, angle, .. } =
-            &mut self.editor.doc.recipe.masks[i].mask
+            &mut self.editor.doc_mut().recipe.masks[i].mask
         {
             let mut geo_ch = false;
             ui.horizontal(|ui| {
@@ -873,7 +873,7 @@ impl AutoShadeApp {
         // `Bitmap`": the reverse-fit zones are Select Sky components
         // now and still ride an ordinary claimed PNG, while an AI mask
         // whose alpha has not resolved has nothing to open.
-        if autoshade::render::geometry_raster_path(&self.editor.doc.recipe.masks[i].mask).is_some() {
+        if autoshade::render::geometry_raster_path(&self.editor.doc().recipe.masks[i].mask).is_some() {
             // R38: two aligned rows — the pair that opens a session
             // or a full-size re-cut, then the three one-step
             // morphologies — instead of five free-width buttons
@@ -1011,11 +1011,11 @@ impl AutoShadeApp {
                     }
                 }
             });
-            let n_comp = self.editor.doc.recipe.masks[i].components.len();
+            let n_comp = self.editor.doc().recipe.masks[i].components.len();
             let mut del_comp: Option<usize> = None;
             for c in 0..n_comp {
                 ui.horizontal(|ui| {
-                    let comp = &self.editor.doc.recipe.masks[i].components[c];
+                    let comp = &self.editor.doc().recipe.masks[i].components[c];
                     let icon = match comp.mode {
                         autoshade::recipe::MaskCombine::Add => "＋",
                         autoshade::recipe::MaskCombine::Subtract => "－",
@@ -1052,7 +1052,7 @@ impl AutoShadeApp {
                         });
                     if mode != comp.mode {
                         crate::logic::command::apply(
-                            &mut self.editor.doc.recipe,
+                            &mut self.editor.doc_mut().recipe,
                             crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::SetComponentMode {
                                 index: i,
                                 component: c,
@@ -1062,10 +1062,10 @@ impl AutoShadeApp {
                         self.workspace.overlay.overlay_stale = true;
                         changed = true;
                     }
-                    let mut inverted = self.editor.doc.recipe.masks[i].components[c].inverted;
+                    let mut inverted = self.editor.doc().recipe.masks[i].components[c].inverted;
                     if ui.checkbox(&mut inverted, tr(lang, K_DEVELOP_INVERT)).changed() {
                         crate::logic::command::apply(
-                            &mut self.editor.doc.recipe,
+                            &mut self.editor.doc_mut().recipe,
                             crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::SetComponentInverted {
                                 index: i,
                                 component: c,
@@ -1082,7 +1082,7 @@ impl AutoShadeApp {
             }
             if let Some(c) = del_comp {
                 crate::logic::command::apply(
-                    &mut self.editor.doc.recipe,
+                    &mut self.editor.doc_mut().recipe,
                     crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::RemoveComponent {
                         index: i,
                         component: c,
@@ -1116,7 +1116,7 @@ impl AutoShadeApp {
         // tracker went blind whenever an earlier control had already
         // set `changed` in the same frame.
         {
-            let cur = match &self.editor.doc.recipe.masks[i].range {
+            let cur = match &self.editor.doc().recipe.masks[i].range {
                 None => 0usize,
                 Some(RangeMask::Luminance { .. }) => 1,
                 Some(RangeMask::Color { .. }) => 2,
@@ -1147,7 +1147,7 @@ impl AutoShadeApp {
                     _ => None,
                 };
                 crate::logic::command::apply(
-                    &mut self.editor.doc.recipe,
+                    &mut self.editor.doc_mut().recipe,
                     crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::SetRange { index: i, range }),
                 );
                 if sel == 2 {
@@ -1161,7 +1161,7 @@ impl AutoShadeApp {
             }
             let picking_this = self.workspace.tools.range_picking == Some(i);
             let mut want_pick = false;
-            match &mut self.editor.doc.recipe.masks[i].range {
+            match &mut self.editor.doc_mut().recipe.masks[i].range {
                 Some(RangeMask::Luminance { lo_outer, lo, hi, hi_outer }) => {
                     ui.horizontal(|ui| {
                         ui.label(tr(lang, K_DEVELOP_ORDERED_BOUNDS));
@@ -1223,7 +1223,7 @@ impl AutoShadeApp {
                 }
             }
         }
-        let m = &mut self.editor.doc.recipe.masks[i];
+        let m = &mut self.editor.doc_mut().recipe.masks[i];
         // LR's 0..100 display track (storage stays 0..1 — slider_pct).
         changed |= Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_AMOUNT), &mut m.amount, 1.0, 1.0);
         changed

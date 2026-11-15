@@ -121,10 +121,10 @@ impl AutoShadeApp {
     /// are remembered by the look protocol and put back on the landed recipe.
     pub(crate) fn start_portrait_look(&mut self) {
         let kept: Vec<LocalAdjustment> =
-            self.editor.doc.recipe.masks.iter().filter(|m| PORTRAIT_ROLES.contains(&m.role)).cloned().collect();
+            self.editor.doc().recipe.masks.iter().filter(|m| PORTRAIT_ROLES.contains(&m.role)).cloned().collect();
         let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Portrait);
         intent.kept_masks = kept;
-        intent.kept_blur = self.editor.doc.recipe.lens_blur.clone();
+        intent.kept_blur = self.editor.doc().recipe.lens_blur.clone();
         self.apply_actions(vec![logic::Action::Look(intent)]);
     }
 
@@ -187,10 +187,10 @@ impl AutoShadeApp {
 
     /// Why the skin and eyes groups are greyed, or `None` when they work.
     pub(crate) fn portrait_face_gate(&self, lang: Lang) -> Option<&'static str> {
-        if self.editor.doc.recipe.masks.iter().any(|m| matches!(m.role, MaskRole::Face | MaskRole::Skin)) {
+        if self.editor.doc().recipe.masks.iter().any(|m| matches!(m.role, MaskRole::Face | MaskRole::Skin)) {
             return None;
         }
-        let searched = self.workspace.portrait.found.as_ref().is_some_and(|(p, n)| self.editor.photo.src_path.as_ref() == Some(p) && *n == 0);
+        let searched = self.workspace.portrait.found.as_ref().is_some_and(|(p, n)| self.editor.photo().src_path.as_ref() == Some(p) && *n == 0);
         Some(if searched { tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO) } else { tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP) })
     }
 
@@ -209,8 +209,8 @@ impl AutoShadeApp {
             changed |= self.portrait_background(ui);
         });
         if changed {
-            self.editor.doc.recipe.clamp();
-            self.editor.session.dirty = true;
+            self.editor.doc_mut().recipe.clamp();
+            self.editor.session_mut().dirty = true;
         }
         ui.add_space(SPACE_MD);
         ui.separator();
@@ -226,7 +226,7 @@ impl AutoShadeApp {
     fn portrait_people(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         Self::portrait_group(ui, tr(lang, K_PORTRAIT_PEOPLE_AND_BACKGROUND));
-        let ready = self.editor.photo.src_path.is_some() && self.editor.photo.base_preview.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
+        let ready = self.editor.photo().src_path.is_some() && self.editor.photo().base_preview.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
         let mut find = false;
         let mut look = false;
         ui.horizontal(|ui| {
@@ -273,7 +273,7 @@ impl AutoShadeApp {
         let mut changed = false;
         ui.add_enabled_ui(gate.is_none(), |ui| {
             let mut probe = LocalAdjustment::default();
-            let m = skin_target(&mut self.editor.doc.recipe).unwrap_or(&mut probe);
+            let m = skin_target(&mut self.editor.doc_mut().recipe).unwrap_or(&mut probe);
             let mut soften = soften_of(m);
             let soft_max = logic::portrait::reach(guarded, -autoshade::face::SKIN_TEXTURE_MIN, 100.0);
             if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SOFTEN_SKIN), &mut soften, 0.0, soft_max, 0.0, tr(lang, K_PORTRAIT_SMOOTHS_THE_SKIN_S_FINE_TEXTURE_THE_FACE_S_SHAPE)) {
@@ -298,7 +298,7 @@ impl AutoShadeApp {
                 logic::portrait::PortraitAction::SetKeepSkin(on),
             )]);
         }
-        let can_heal = face_raster(&self.editor.doc.recipe).is_some() && !self.workspace.busy && self.editor.photo.src_path.is_some();
+        let can_heal = face_raster(&self.editor.doc().recipe).is_some() && !self.workspace.busy && self.editor.photo().src_path.is_some();
         if action_row(ui, can_heal, tr(lang, K_PORTRAIT_REMOVE_BLEMISHES))
             .on_hover_text(tr(
                 lang,
@@ -321,12 +321,12 @@ impl AutoShadeApp {
         let lang = self.lang;
         Self::portrait_group(ui, tr(lang, K_PORTRAIT_EYES));
         let gate = self.portrait_face_gate(lang).or_else(|| {
-            (!self.editor.doc.recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP))
+            (!self.editor.doc().recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP))
         });
         let mut changed = false;
         ui.add_enabled_ui(gate.is_none(), |ui| {
             let mut probe = LocalAdjustment::default();
-            let m = role_mask(&mut self.editor.doc.recipe, MaskRole::Eyes).unwrap_or(&mut probe);
+            let m = role_mask(&mut self.editor.doc_mut().recipe, MaskRole::Eyes).unwrap_or(&mut probe);
             changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_BRIGHTEN_EYES), &mut m.exposure_ev, 0.0, EYES_BRIGHTEN_MAX_EV, 0.0, tr(lang, K_PORTRAIT_LIFTS_THE_EYES_A_LITTLE));
             let mut crisp = crisp_of(m);
             if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_CRISP_EYES), &mut crisp, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_BRINGS_OUT_THE_DETAIL_IN_THE_EYES)) {
@@ -346,9 +346,9 @@ impl AutoShadeApp {
         let lang = self.lang;
         Self::portrait_group(ui, tr(lang, K_PORTRAIT_BACKGROUND));
         let mut changed = false;
-        let subject = subject_raster(&self.editor.doc.recipe);
-        if self.editor.doc.recipe.lens_blur.is_none() {
-            let can = !self.workspace.busy && self.editor.photo.base_preview.is_some() && self.editor.photo.src_path.is_some() && depth_helper_available();
+        let subject = subject_raster(&self.editor.doc().recipe);
+        if self.editor.doc().recipe.lens_blur.is_none() {
+            let can = !self.workspace.busy && self.editor.photo().base_preview.is_some() && self.editor.photo().src_path.is_some() && depth_helper_available();
             if action_row(ui, can, tr(lang, K_PORTRAIT_PREPARE_THE_BACKGROUND_BLUR))
                 .on_hover_text(tr(lang, K_PORTRAIT_MEASURES_HOW_FAR_AWAY_EVERY_PART_OF_THE_PHOTO_IS))
                 .clicked()
@@ -356,7 +356,7 @@ impl AutoShadeApp {
                 self.workspace.portrait.blur_from_panel = true;
                 self.apply_actions(vec![logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth)]);
             }
-        } else if let Some(lb) = self.editor.doc.recipe.lens_blur.as_mut() {
+        } else if let Some(lb) = self.editor.doc_mut().recipe.lens_blur.as_mut() {
             changed |= Self::slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut lb.amount, 0.0, 100.0, 50.0);
             changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SHARP_RANGE), &mut lb.range, 0.0, 100.0, 10.0, tr(lang, K_PORTRAIT_HOW_DEEP_THE_SHARP_PART_OF_THE_PICTURE_IS_AROUND));
             let mut keep = lb.protect.is_some();
@@ -371,10 +371,10 @@ impl AutoShadeApp {
                 )]);
             }
         }
-        let has_bg = self.editor.doc.recipe.masks.iter().any(|m| m.role == MaskRole::Background);
+        let has_bg = self.editor.doc().recipe.masks.iter().any(|m| m.role == MaskRole::Background);
         ui.add_enabled_ui(has_bg, |ui| {
             let mut probe = LocalAdjustment::default();
-            let m = role_mask(&mut self.editor.doc.recipe, MaskRole::Background).unwrap_or(&mut probe);
+            let m = role_mask(&mut self.editor.doc_mut().recipe, MaskRole::Background).unwrap_or(&mut probe);
             let mut darken = darken_of(m);
             if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_DARKEN_BACKGROUND), &mut darken, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_EVERYTHING_BUT_THE_PERSON_A_LITTLE_DARKER)) {
                 set_darken(m, darken);

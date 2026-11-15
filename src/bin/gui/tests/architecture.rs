@@ -79,7 +79,7 @@
             "self.workspace.status =",
             "self.toast(",
             "self.workspace.busy =",
-            "self.editor.session.dirty =",
+            "self.editor.session().dirty =",
         ];
         // `lens_blur.rs` — the pilot: it must not start the depth worker, open
         // a dialog or reach into the recipe.
@@ -136,7 +136,7 @@
             concat!("crate::budget::heavy_permit", "("),
             "autoshade::store::",
             "rfd::",
-            "self.editor.doc.recipe.pixel_layers.push(",
+            "self.editor.doc().recipe.pixel_layers.push(",
         ] {
             assert!(
                 !retouch.contains(needle),
@@ -284,10 +284,10 @@
             concat!("crate::budget::heavy_permit", "("),
             "autoshade::store::",
             "self.start_",
-            "self.editor.doc.recipe =",
-            "self.editor.doc.recipe.masks.push(",
-            "self.editor.doc.recipe.point_colors.push(",
-            "self.editor.doc.recipe.pixel_layers.push(",
+            "self.editor.doc().recipe =",
+            "self.editor.doc().recipe.masks.push(",
+            "self.editor.doc().recipe.point_colors.push(",
+            "self.editor.doc().recipe.pixel_layers.push(",
         ] {
             assert!(
                 !canvas.contains(needle),
@@ -305,8 +305,8 @@
                 "autoshade::store::",
                 "ToastKind",
                 "self.start_",
-                "self.editor.doc.recipe =",
-                "self.editor.doc.recipe.masks.push(",
+                "self.editor.doc().recipe =",
+                "self.editor.doc().recipe.masks.push(",
             ] {
                 assert!(
                     !src.contains(needle),

@@ -977,12 +977,12 @@ impl AutoShadeApp {
     /// without an alpha (a Lightroom sidecar's), on a worker — the segmenter
     /// is a sidecar run, seconds of GPU the first time, cached after.
     pub(crate) fn start_ai_mask_resolve(&mut self, lang: Lang) {
-        if self.workspace.busy || self.workspace.open.open_in_flight || unresolved_develop_masks(&self.editor.doc.recipe) == 0 {
+        if self.workspace.busy || self.workspace.open.open_in_flight || unresolved_develop_masks(&self.editor.doc().recipe) == 0 {
             return;
         }
-        let (Some(photo), Some(pixels)) = (self.editor.photo.src_path.clone(), self.active_source_path()) else { return };
+        let (Some(photo), Some(pixels)) = (self.editor.photo().src_path.clone(), self.active_source_path()) else { return };
         let card = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
-        let mut recipe = self.editor.doc.recipe.clone();
+        let mut recipe = self.editor.doc().recipe.clone();
         let run = self.ai_mask_runner();
         self.workspace.busy = true;
         self.workspace.status = if unresolved_ai_masks(&recipe) > 0 {
@@ -1020,25 +1020,26 @@ impl AutoShadeApp {
     ) {
         self.workspace.busy = false;
         let here = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
-        if self.editor.photo.src_path.as_ref() != Some(&photo) || here != card {
+        if self.editor.photo().src_path.as_ref() != Some(&photo) || here != card {
             return;
         }
         let fill = |r: &mut EditRecipe| {
             fill_ai_rasters(r, &resolved);
             fill_face_intents(r, &faces);
         };
-        let n = fill_ai_rasters(&mut self.editor.doc.recipe, &resolved);
-        let nf = fill_face_intents(&mut self.editor.doc.recipe, &faces);
-        fill(&mut self.editor.session.hist.saved_recipe);
-        fill(&mut self.editor.session.hist.committed.recipe);
-        for s in self.editor.session.hist.undo_stack.iter_mut().chain(self.editor.session.hist.redo_stack.iter_mut()) {
+        let n = fill_ai_rasters(&mut self.editor.doc_mut().recipe, &resolved);
+        let nf = fill_face_intents(&mut self.editor.doc_mut().recipe, &faces);
+        fill(&mut self.editor.session_mut().hist.saved_recipe);
+        fill(&mut self.editor.session_mut().hist.committed.recipe);
+        let hist = self.editor.history_mut();
+        for s in hist.undo_stack.iter_mut().chain(hist.redo_stack.iter_mut()) {
             fill(&mut s.recipe);
         }
-        if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
+        if let Some(v) = self.editor.active_variant_mut() {
             fill(&mut v.recipe);
         }
         if n + nf > 0 || faces.iter().any(Option::is_none) {
-            self.editor.session.dirty = true;
+            self.editor.session_mut().dirty = true;
             self.workspace.overlay.overlay_stale = true;
         }
         if let Some(why) = res.warning() {

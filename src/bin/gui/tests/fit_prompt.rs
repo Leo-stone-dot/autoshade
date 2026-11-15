@@ -16,7 +16,7 @@
             thumb: None,
         };
         let neg = Arc::new(image::DynamicImage::new_rgb8(4, 4));
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 src_path: Some(PathBuf::from("library/_fit_prompt_test.png")),
 
@@ -26,7 +26,7 @@
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![
@@ -41,7 +41,7 @@
                 ..Default::default()
 
 
-            }, ..Default::default() }, lang, ..Default::default() };
+            }; editor } , lang, ..Default::default() };
         app.reset_history();
         app
     }

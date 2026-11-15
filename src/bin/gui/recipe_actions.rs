@@ -23,7 +23,7 @@ impl AutoShadeApp {
 
     /// The name a blank field saves under: the open photo's stem.
     fn recipe_default_name(&self) -> String {
-        match self.editor.photo.src_path.as_deref() {
+        match self.editor.photo().src_path.as_deref() {
             Some(p) => autoshade::pipeline::stem(p).to_string(),
             None => tr(self.lang, K_ACTIONS_RECIPE).to_string(),
         }
@@ -76,7 +76,7 @@ impl AutoShadeApp {
 
     /// Save the open photo's develop into the library under a name.
     pub(crate) fn save_current_recipe(&mut self) {
-        let Some(src) = self.editor.photo.src_path.clone() else {
+        let Some(src) = self.editor.photo().src_path.clone() else {
             return;
         };
         if self.workspace.busy {
@@ -99,7 +99,7 @@ impl AutoShadeApp {
             self.recipe_status(false, text);
             return;
         }
-        let (entry, losses) = autoshade::recipe_library::portable(&self.editor.doc.recipe, false);
+        let (entry, losses) = autoshade::recipe_library::portable(&self.editor.doc().recipe, false);
         match autoshade::recipe_library::create(&name, &entry) {
             Ok(()) => {
                 let _ = src;
@@ -132,7 +132,7 @@ impl AutoShadeApp {
         if self.workspace.busy {
             return;
         }
-        let Some(src) = self.editor.photo.src_path.clone() else {
+        let Some(src) = self.editor.photo().src_path.clone() else {
             return;
         };
         self.commit_pending_names();
@@ -175,8 +175,8 @@ impl AutoShadeApp {
                 coord_migration_failure_sentence(self.lang, &e.to_string()),
             );
         }
-        self.editor.doc.recipe = live;
-        self.editor.session.dirty = true;
+        self.editor.doc_mut().recipe = live;
+        self.editor.session_mut().dirty = true;
         // A recipe placed on the pristine ✨ card is an edit like any other:
         // it lands on a new ✎ card (the immutability rule).
         self.fork_edited_card();
@@ -213,11 +213,11 @@ impl AutoShadeApp {
 
     /// Replace a library entry's content with the open photo's current look.
     pub(crate) fn update_recipe_from_open(&mut self, name: &str) {
-        if self.workspace.busy || self.editor.photo.src_path.is_none() {
+        if self.workspace.busy || self.editor.photo().src_path.is_none() {
             return;
         }
         self.commit_pending_names();
-        let (entry, losses) = autoshade::recipe_library::portable(&self.editor.doc.recipe, false);
+        let (entry, losses) = autoshade::recipe_library::portable(&self.editor.doc().recipe, false);
         match autoshade::recipe_library::replace(name, &entry) {
             Ok(()) => {
                 self.refresh_recipes();

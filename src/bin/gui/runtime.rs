@@ -19,7 +19,7 @@ impl AutoShadeApp {
             match action {
                 Action::Look(intent) => self.start_look(intent),
                 Action::References(dir) => {
-                    let photo = self.editor.photo.src_path.clone();
+                    let photo = self.editor.photo().src_path.clone();
                     let started = logic::look::references_start(
                         photo.as_deref(),
                         dir,
@@ -32,21 +32,21 @@ impl AutoShadeApp {
                 Action::Lens(action) => {
                     let start = match action {
                         logic::lens_blur::LensAction::EstimateDepth => {
-                            self.editor.photo.src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
+                            self.editor.photo().src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
                         }
                         _ => None,
                     };
-                    effects.extend(logic::lens_blur::apply(&mut self.editor.doc.recipe, action, start, self.workspace.busy));
+                    effects.extend(logic::lens_blur::apply(&mut self.editor.doc_mut().recipe, action, start, self.workspace.busy));
                 }
                 Action::Gallery(action) => self.apply_gallery(action),
                 Action::Pick(action) => {
-                    effects.extend(logic::pick::apply(&mut self.editor.doc.recipe, action));
+                    effects.extend(logic::pick::apply(&mut self.editor.doc_mut().recipe, action));
                 }
                 Action::Crop(action) => {
-                    effects.extend(logic::crop::apply(&mut self.editor.doc.recipe, action));
+                    effects.extend(logic::crop::apply(&mut self.editor.doc_mut().recipe, action));
                 }
                 Action::MaskEdit(action) => {
-                    effects.extend(logic::mask_edit::apply(&mut self.editor.doc.recipe, action));
+                    effects.extend(logic::mask_edit::apply(&mut self.editor.doc_mut().recipe, action));
                 }
                 Action::Region(action) => effects.extend(logic::region::apply(action)),
                 Action::Portrait(action) => match action {
@@ -54,7 +54,7 @@ impl AutoShadeApp {
                     logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
                     logic::portrait::PortraitAction::KeepPersonSharp(on) => {
                         if self.set_keep_person_sharp(on) {
-                            self.editor.session.dirty = true;
+                            self.editor.session_mut().dirty = true;
                         }
                     }
                     logic::portrait::PortraitAction::SetKeepSkin(on) => self.set_keep_skin(on),
@@ -72,7 +72,7 @@ impl AutoShadeApp {
                     logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
                     logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
                     logic::develop::DevelopAction::DeleteVersion(n) => {
-                        if let Some(src) = self.editor.photo.src_path.clone() {
+                        if let Some(src) = self.editor.photo().src_path.clone() {
                             self.delete_version_clicked(self.lang, src, n);
                         }
                     }
@@ -192,7 +192,7 @@ impl AutoShadeApp {
                     logic::pick::Picker::PointColor => self.workspace.tools.point_color_picking = false,
                 },
                 Effect::DisarmTools => self.disarm_tools(),
-                Effect::MarkDirty => self.editor.session.dirty = true,
+                Effect::MarkDirty => self.editor.session_mut().dirty = true,
             }
         }
     }
@@ -202,7 +202,7 @@ impl AutoShadeApp {
     /// logic's.
     pub(crate) fn on_depth_estimated(&mut self, res: anyhow::Result<std::path::PathBuf>) {
         self.workspace.busy = false;
-        let effects = logic::lens_blur::landed(&mut self.editor.doc.recipe, res);
+        let effects = logic::lens_blur::landed(&mut self.editor.doc_mut().recipe, res);
         self.run_effects(effects);
     }
 
@@ -252,7 +252,7 @@ impl AutoShadeApp {
         let effects = logic::look::references_built(
             &res,
             for_photo.as_deref(),
-            self.editor.photo.src_path.as_deref(),
+            self.editor.photo().src_path.as_deref(),
             self.workspace.tools.analyze_inflight,
         );
         self.run_effects(effects);
@@ -270,7 +270,7 @@ impl AutoShadeApp {
             adherence: autoshade::recipe::DirectionAdherence::new(self.aip.direction_adherence),
             embed: autoshade::library::EmbeddingSwitch::resolve(None, self.aip.style_embed),
         };
-        let photo = self.editor.photo.src_path.clone();
+        let photo = self.editor.photo().src_path.clone();
         let Some(started) = logic::look::plan(
             &prefs,
             intent,
@@ -317,8 +317,8 @@ impl AutoShadeApp {
             GalleryAction::CopyRecipe => {
                 // The clipboard must carry the name the user sees in the box.
                 self.commit_pending_names();
-                self.workspace.genai.copied = Some(self.editor.doc.recipe.clone());
-                self.workspace.genai.copied_from = self.editor.photo.src_path.clone();
+                self.workspace.genai.copied = Some(self.editor.doc().recipe.clone());
+                self.workspace.genai.copied_from = self.editor.photo().src_path.clone();
                 self.workspace.status = crate::i18n::tr(
                     self.lang,
                     K_APP_RECIPE_COPIED_CTRL_CLICK_TO_PICK_SEVERAL_THEN_PA,

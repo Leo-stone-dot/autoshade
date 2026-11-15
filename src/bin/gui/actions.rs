@@ -238,7 +238,7 @@ impl AutoShadeApp {
             .collect();
         for stem in &stems {
             for (script, sample) in undrawable_scripts(stem, installed) {
-                if self.editor.analysis.disclosed_scripts.insert(script) {
+                if self.editor.analysis_mut().disclosed_scripts.insert(script) {
                     let t = trf(
                         self.lang,
                         K_ACTIONS_SOME_FILE_NAMES_USE_CHARACTERS_NO_INSTALLED_FONT,
@@ -325,7 +325,7 @@ impl AutoShadeApp {
     /// pixels.json) — the source mtime doesn't move then, so the mtime guard
     /// alone would happily serve a hit with stale baked pixels.
     pub(crate) fn forget_open_base(&mut self) {
-        if let Some(p) = self.editor.photo.src_path.clone() {
+        if let Some(p) = self.editor.photo().src_path.clone() {
             crate::logic::lru::retain(&mut self.workspace.open.base_cache, |(q, _, _, _)| q != &p);
         }
     }
@@ -351,11 +351,11 @@ impl AutoShadeApp {
     }
 
     fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {
-        let live = self.editor.doc.variants.get(live_position)?;
-        let rec = match &self.editor.session.hist.saved_strip {
+        let live = self.editor.doc().variants.get(live_position)?;
+        let rec = match &self.editor.session().hist.saved_strip {
             Some(rec) => rec,
             None => {
-                let trivial = self.editor.doc.variants.len() == 1
+                let trivial = self.editor.doc().variants.len() == 1
                     && live_position == 0
                     && crate::model::strip_is_trivial(
                         live.kind,
@@ -364,8 +364,8 @@ impl AutoShadeApp {
                         0,
                     );
                 return trivial.then_some(PersistedCard {
-                    recipe: &self.editor.session.hist.saved_recipe,
-                    origin: self.editor.session.hist.pixels_on_disk.as_deref(),
+                    recipe: &self.editor.session().hist.saved_recipe,
+                    origin: self.editor.session().hist.pixels_on_disk.as_deref(),
                 });
             }
         };
@@ -380,8 +380,8 @@ impl AutoShadeApp {
             )
         {
             return Some(PersistedCard {
-                recipe: &self.editor.session.hist.saved_recipe,
-                origin: self.editor.session.hist.pixels_on_disk.as_deref(),
+                recipe: &self.editor.session().hist.saved_recipe,
+                origin: self.editor.session().hist.pixels_on_disk.as_deref(),
             });
         }
 
@@ -407,16 +407,16 @@ impl AutoShadeApp {
     /// unsaved. With no strip record, only the trivial lone Original maps to
     /// `recipe.json` / `pixels.json`.
     pub(crate) fn active_baseline(&self) -> Option<ActiveBaseline<'_>> {
-        let saved = self.persisted_card_for(self.editor.doc.active)?;
+        let saved = self.persisted_card_for(self.editor.doc().active)?;
         Some(ActiveBaseline { recipe: saved.recipe, origin: saved.origin })
     }
 
     fn active_canvas_dirty(&self) -> bool {
-        if self.editor.photo.src_path.is_none() || self.active_variant().is_none() {
+        if self.editor.photo().src_path.is_none() || self.active_variant().is_none() {
             return false;
         }
         self.active_baseline().is_none_or(|saved| {
-            dirty_vs(&self.editor.doc.recipe, saved.recipe)
+            dirty_vs(&self.editor.doc().recipe, saved.recipe)
                 || !same_master_opt(
                     self.active_variant().and_then(|v| v.origin.as_deref()),
                     saved.origin,
@@ -463,7 +463,7 @@ impl AutoShadeApp {
     /// generate→fit flow) counted dirty forever, no save could clear it, and
     /// the quit dialog re-armed until 「Discard」.
     pub(crate) fn open_dirty_variants(&self) -> usize {
-        let saved = self.editor.session.hist.saved_strip.as_ref().map(|rec| {
+        let saved = self.editor.session().hist.saved_strip.as_ref().map(|rec| {
             use crate::logic::strip::SavedCard;
             let mut cards: Vec<SavedCard<'_>> = Vec::with_capacity(rec.others.len() + 1);
             if let Some(kind) = VariantKind::from_store_str(&rec.active_kind) {
@@ -472,8 +472,8 @@ impl AutoShadeApp {
                     position: rec.active_pos,
                     id: rec.active_id.as_deref(),
                     name: rec.active_name.as_deref(),
-                    recipe: &self.editor.session.hist.saved_recipe,
-                    origin: self.editor.session.hist.pixels_on_disk.as_deref(),
+                    recipe: &self.editor.session().hist.saved_recipe,
+                    origin: self.editor.session().hist.pixels_on_disk.as_deref(),
                 });
             }
             cards.extend(rec.others.iter().enumerate().filter_map(|(i, entry)| {
@@ -489,7 +489,7 @@ impl AutoShadeApp {
             }));
             cards
         });
-        crate::logic::strip::open_dirty_count(&self.editor.doc.variants, self.editor.doc.active, saved.as_deref())
+        crate::logic::strip::open_dirty_count(&self.editor.doc().variants, self.editor.doc().active, saved.as_deref())
     }
 
     pub(crate) fn inactive_dirty_variants(&self) -> usize {
@@ -516,7 +516,7 @@ impl AutoShadeApp {
             ak,
             self.active_variant().map_or("", |v| v.id.as_str()),
             self.active_variant().and_then(|v| v.name.as_deref()),
-            self.editor.doc.variants.len().saturating_sub(1),
+            self.editor.doc().variants.len().saturating_sub(1),
         ) {
             return None;
         }
@@ -524,11 +524,11 @@ impl AutoShadeApp {
             extra: Default::default(),
             v: 1,
             active_kind: ak.store_str().to_string(),
-            active_pos: self.editor.doc.active,
-            others: self.editor.doc.variants
+            active_pos: self.editor.doc().active,
+            others: self.editor.doc().variants
                 .iter()
                 .enumerate()
-                .filter(|(i, _)| *i != self.editor.doc.active)
+                .filter(|(i, _)| *i != self.editor.doc().active)
                 .map(|(_, v)| autoshade::store::VariantEntry {
                     extra: Default::default(),
                     kind: v.kind.store_str().to_string(),
@@ -558,11 +558,11 @@ impl AutoShadeApp {
         match self.current_strip_record() {
             Some(rec) => {
                 autoshade::store::write_variants(path, &rec)?;
-                self.editor.session.hist.saved_strip = Some(rec);
+                self.editor.session_mut().hist.saved_strip = Some(rec);
             }
             None => {
                 autoshade::store::clear_variants(path)?;
-                self.editor.session.hist.saved_strip = None;
+                self.editor.session_mut().hist.saved_strip = None;
             }
         }
         Ok(())
@@ -570,7 +570,7 @@ impl AutoShadeApp {
 
     /// The active variant, if a photo is open.
     pub(crate) fn active_variant(&self) -> Option<&Variant> {
-        self.editor.doc.variants.get(self.editor.doc.active)
+        self.editor.doc().variants.get(self.editor.doc().active)
     }
 
     /// The on-disk PIXEL SOURCE the active variant renders / retouches /
@@ -584,8 +584,8 @@ impl AutoShadeApp {
     /// the untouched negative underneath a generated / retouched rendition.
     pub(crate) fn active_source_path(&self) -> Option<PathBuf> {
         match self.active_variant() {
-            Some(v) => v.origin.clone().or_else(|| self.editor.photo.src_path.clone()),
-            None => self.editor.photo.src_path.clone(),
+            Some(v) => v.origin.clone().or_else(|| self.editor.photo().src_path.clone()),
+            None => self.editor.photo().src_path.clone(),
         }
     }
 
@@ -637,7 +637,7 @@ impl AutoShadeApp {
         if self.workspace.crop.mode == on {
             return;
         }
-        if let Some(c) = &self.editor.doc.recipe.crop {
+        if let Some(c) = &self.editor.doc().recipe.crop {
             let (l, t) = (c.left.min(c.right), c.top.min(c.bottom));
             let (w, h) =
                 ((c.right - c.left).abs().max(1e-6), (c.bottom - c.top).abs().max(1e-6));
@@ -753,7 +753,7 @@ impl AutoShadeApp {
     /// old name and the advanced baseline dropped the rename.
     pub(crate) fn commit_mask_name_buf(&mut self) {
         if let Some((j, orig, buf)) = self.workspace.masks.mask_name_buf.clone()
-            && let Some(prev) = self.editor.doc.recipe.masks.get_mut(j)
+            && let Some(prev) = self.editor.doc_mut().recipe.masks.get_mut(j)
             && prev.name == orig
             && buf != orig
         {
@@ -883,7 +883,7 @@ impl AutoShadeApp {
     /// jpgs' folder is settled FIRST: a folder dialog cancelled after the
     /// paste would have left every photo's look changed and nothing saved.
     pub(crate) fn start_apply_to_folder(&mut self) {
-        if self.workspace.busy || self.workspace.gal.gallery.is_empty() || self.editor.photo.src_path.is_none() {
+        if self.workspace.busy || self.workspace.gal.gallery.is_empty() || self.editor.photo().src_path.is_none() {
             return;
         }
         let Some(dest) = self.apply_all_dest() else {
@@ -894,7 +894,7 @@ impl AutoShadeApp {
         self.commit_pending_names();
         let targets = self.workspace.gal.gallery.clone();
         self.workspace.normal.apply_all = Some(dest);
-        self.start_paste_to(self.editor.doc.recipe.clone(), self.editor.photo.src_path.clone(), targets, false);
+        self.start_paste_to(self.editor.doc().recipe.clone(), self.editor.photo().src_path.clone(), targets, false);
         if !self.workspace.busy {
             self.workspace.normal.apply_all = None;
         }
@@ -921,11 +921,11 @@ impl AutoShadeApp {
             if i == 0 { return }
             i - 1
         } else {
-            if i + 1 >= self.editor.doc.recipe.masks.len() { return }
+            if i + 1 >= self.editor.doc().recipe.masks.len() { return }
             i + 1
         };
         crate::logic::command::apply(
-            &mut self.editor.doc.recipe,
+            &mut self.editor.doc_mut().recipe,
             crate::logic::command::Command::Mask(if up {
                 crate::logic::command::MaskCommand::MoveUp { index: i }
             } else {
@@ -934,19 +934,19 @@ impl AutoShadeApp {
         );
         self.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
         self.workspace.overlay.overlay_stale = true;
-        self.editor.session.dirty = true;
+        self.editor.session_mut().dirty = true;
     }
 
     /// Duplicate a mask: its tuned sliders come along, its rasters are DETACHED
     /// copies (the version-load rule), so the twins never share a mutable file.
     pub(crate) fn duplicate_mask(&mut self, lang: Lang, i: usize) {
-        if self.editor.doc.recipe.masks.len() >= 64 {
+        if self.editor.doc().recipe.masks.len() >= 64 {
             let t = tr(lang, K_ACTIONS_MASK_LIMIT_REACHED_64_DELETE_ONE_FIRST);
             self.toast(ToastKind::Error, t.to_string());
             return;
         }
-        let Some(mut clone) = self.editor.doc.recipe.masks.get(i).cloned() else { return };
-        if let Some(p) = self.editor.photo.src_path.as_deref() {
+        let Some(mut clone) = self.editor.doc().recipe.masks.get(i).cloned() else { return };
+        if let Some(p) = self.editor.photo().src_path.as_deref() {
             let mut tmp = EditRecipe { masks: vec![clone], ..Default::default() };
             autoshade::store::detach_rasters(p, &mut tmp, "mask-dup");
             clone = tmp.masks.remove(0);
@@ -955,7 +955,7 @@ impl AutoShadeApp {
             clone.name = format!("{} 2", clone.name);
         }
         crate::logic::command::apply(
-            &mut self.editor.doc.recipe,
+            &mut self.editor.doc_mut().recipe,
             crate::logic::command::Command::InsertMask { after: i, mask: Box::new(clone) },
         );
         self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
@@ -972,7 +972,7 @@ impl AutoShadeApp {
             );
             self.toast(ToastKind::Error, t.to_string());
         }
-        self.editor.session.dirty = true;
+        self.editor.session_mut().dirty = true;
     }
 
 }

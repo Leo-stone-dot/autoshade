@@ -70,25 +70,25 @@ impl AutoShadeApp {
                 && self.workspace.normal
                     .denoise_pair
                     .as_ref()
-                    .is_some_and(|d| d.denoised.is_none() && self.editor.photo.src_path.as_ref() == Some(&d.photo)))
+                    .is_some_and(|d| d.denoised.is_none() && self.editor.photo().src_path.as_ref() == Some(&d.photo)))
     }
 
     /// The strip index of the card with `id` (an empty id matches nothing).
     fn card_index(&self, id: &str) -> Option<usize> {
-        (!id.is_empty()).then(|| self.editor.doc.variants.iter().position(|v| v.id == id)).flatten()
+        (!id.is_empty()).then(|| self.editor.doc().variants.iter().position(|v| v.id == id)).flatten()
     }
 
     /// Put card `idx` under the canvas with the look on screen: the switch
     /// changes the grain, never the look the sliders made — nor the look's
     /// undo history.
     fn show_card_keeping_look(&mut self, idx: usize) {
-        let look = self.editor.doc.recipe.clone();
+        let look = self.editor.doc().recipe.clone();
         let history = self.take_look_history();
         let ctx = self.services.egui_ctx.clone();
         self.switch_variant(idx, &ctx);
-        if self.editor.doc.active == idx {
-            self.editor.doc.recipe = look;
-            self.editor.session.dirty = true;
+        if self.editor.doc().active == idx {
+            self.editor.doc_mut().recipe = look;
+            self.editor.session_mut().dirty = true;
             self.carry_look_history(history);
         }
     }
@@ -98,7 +98,7 @@ impl AutoShadeApp {
     /// look on screen is committed first, so it is the head.
     pub(crate) fn take_look_history(&mut self) -> (Vec<UndoStep>, Vec<UndoStep>) {
         self.commit_now();
-        (self.editor.session.hist.undo_stack.clone(), self.editor.session.hist.redo_stack.clone())
+        (self.editor.session().hist.undo_stack.clone(), self.editor.session().hist.redo_stack.clone())
     }
 
     /// …and back, on the card now on screen: every step keeps its look and
@@ -107,9 +107,9 @@ impl AutoShadeApp {
     pub(crate) fn carry_look_history(&mut self, (undo, redo): (Vec<UndoStep>, Vec<UndoStep>)) {
         let here = self.current_step();
         let onto = |s: UndoStep| UndoStep { recipe: s.recipe, base: here.base.clone(), origin: here.origin.clone(), keep_skin: s.keep_skin };
-        self.editor.session.hist.undo_stack = undo.into_iter().map(onto).collect();
-        self.editor.session.hist.redo_stack = redo.into_iter().map(onto).collect();
-        self.editor.session.hist.committed = here;
+        self.editor.session_mut().hist.undo_stack = undo.into_iter().map(onto).collect();
+        self.editor.session_mut().hist.redo_stack = redo.into_iter().map(onto).collect();
+        self.editor.session_mut().hist.committed = here;
     }
 
     /// The noise switch. On: the Retouch panel's own AI denoise
@@ -119,7 +119,7 @@ impl AutoShadeApp {
     /// from (the first card that is not a ◈ card when the switch did not
     /// make it).
     pub(crate) fn set_normal_denoise(&mut self, on: bool) {
-        let Some(photo) = self.editor.photo.src_path.clone() else { return };
+        let Some(photo) = self.editor.photo().src_path.clone() else { return };
         if self.workspace.busy || on == self.normal_denoise_on() {
             return;
         }
@@ -145,10 +145,10 @@ impl AutoShadeApp {
             let back = pair
                 .filter(|d| d.denoised.as_deref() == Some(active.as_str()))
                 .and_then(|d| self.card_index(&d.plain))
-                .or_else(|| self.editor.doc.variants.iter().position(|v| v.kind != VariantKind::Denoised));
+                .or_else(|| self.editor.doc().variants.iter().position(|v| v.kind != VariantKind::Denoised));
             let Some(idx) = back else { return };
             // Remembered, so turning it on again shows this ◈ card.
-            self.workspace.normal.denoise_pair = Some(DenoisePair { photo, plain: self.editor.doc.variants[idx].id.clone(), denoised: Some(active) });
+            self.workspace.normal.denoise_pair = Some(DenoisePair { photo, plain: self.editor.doc().variants[idx].id.clone(), denoised: Some(active) });
             self.show_card_keeping_look(idx);
             self.workspace.status = tr(lang, K_ACTIONS_AI_DENOISE_OFF).into();
         }
@@ -160,7 +160,7 @@ impl AutoShadeApp {
         self.workspace.normal
             .denoise_pair
             .as_ref()
-            .is_some_and(|d| d.denoised.is_none() && self.editor.photo.src_path.as_ref() == Some(&d.photo))
+            .is_some_and(|d| d.denoised.is_none() && self.editor.photo().src_path.as_ref() == Some(&d.photo))
             .then(|| self.take_look_history())
     }
 
@@ -169,10 +169,10 @@ impl AutoShadeApp {
     /// history onto it, and say so plainly.
     pub(crate) fn after_normal_denoise(&mut self, lang: Lang, history: Option<(Vec<UndoStep>, Vec<UndoStep>)>) {
         let Some(d) = self.workspace.normal.denoise_pair.as_mut() else { return };
-        if d.denoised.is_some() || self.editor.photo.src_path.as_ref() != Some(&d.photo) {
+        if d.denoised.is_some() || self.editor.photo().src_path.as_ref() != Some(&d.photo) {
             return;
         }
-        let Some(v) = self.editor.doc.variants.get(self.editor.doc.active).filter(|v| v.kind == VariantKind::Denoised && v.id != d.plain) else {
+        let Some(v) = self.editor.doc().variants.get(self.editor.doc().active).filter(|v| v.kind == VariantKind::Denoised && v.id != d.plain) else {
             return;
         };
         d.denoised = Some(v.id.clone());

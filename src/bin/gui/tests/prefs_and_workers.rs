@@ -88,13 +88,13 @@
             repeat: false,
             modifiers: egui::Modifiers::NONE,
         };
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 src_path: Some(PathBuf::from("x.png")),
 
                 ..Default::default()
 
-            }, ..Default::default() }, workspace: WorkspaceView { view: ViewState {
+            }; editor } , workspace: WorkspaceView { view: ViewState {
                 one_to_one: 4.0,
                 // what the canvas computed last frame
                 zoom: 2.0,
@@ -123,7 +123,7 @@
         run_key(&mut app, egui::Key::Plus);
         assert_eq!(app.workspace.view.zoom_target, 12.0, "zoom keys respect the 12x ceiling");
         // No photo → the keys are inert (same gate as the canvas buttons).
-        app.editor.photo.src_path = None;
+        app.editor.photo_mut().src_path = None;
         app.workspace.view.zoom_target = 3.0;
         run_key(&mut app, egui::Key::Num0);
         assert_eq!(app.workspace.view.zoom_target, 3.0, "no photo: zoom keys must not act");
@@ -194,14 +194,14 @@
     /// pass through untouched for egui's own selected-label copy.
     #[test]
     fn recipe_copy_rides_the_shift_chord_not_the_bare_copy_event() {
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 src_path: Some(PathBuf::from("x.png")),
 
                 ..Default::default()
 
-            }, ..Default::default() }, ..Default::default() };
-        app.editor.doc.recipe.exposure_ev = 1.5;
+            }; editor } , ..Default::default() };
+        app.editor.doc_mut().recipe.exposure_ev = 1.5;
         let ctx = egui::Context::default();
         let run_copy = |app: &mut AutoShadeApp, shift: bool| {
             let input = egui::RawInput {
@@ -570,10 +570,10 @@
             ),
         ];
         for (label, variants) in scenarios {
-            let mut app = AutoShadeApp { editor: Editor { doc: Document {
+            let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.doc_mut() = Document {
      variants,
      ..Default::default()
- }, ..Default::default() }, ..Default::default() };
+ }; editor } , ..Default::default() };
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let input = egui::RawInput {
@@ -752,7 +752,7 @@
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let mut app = AutoShadeApp { lang, ..Default::default() };
             // A plate is what start_mask_brush sizes its buffers against.
-            app.editor.photo.base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
+            app.editor.photo_mut().base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
             app.start_mask_brush(None);
             assert!(app.workspace.masks.mask_brush.is_some(), "{lang:?}: the brush session armed");
             let input = || egui::RawInput {
@@ -808,13 +808,13 @@
     fn arming_a_brush_sweeps_the_other_tools_and_putting_it_away_ends_a_mask_session() {
         // Phase 1: arming sweeps the other canvas tools and stays armed; the
         // Stamp arms through clone_mode and takes the other brush down.
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(32, 48))),
 
                 ..Default::default()
 
-            }, ..Default::default() }, workspace: WorkspaceView { crop: CropState { mode: true, ..Default::default() }, tools: ToolsState { clone_mode: true, ..Default::default() }, ..Default::default() }, ..Default::default() };
+            }; editor } , workspace: WorkspaceView { crop: CropState { mode: true, ..Default::default() }, tools: ToolsState { clone_mode: true, ..Default::default() }, ..Default::default() }, ..Default::default() };
         app.arm_brush(BrushOwner::Fill);
         assert!(app.workspace.masks.paint_mode && app.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
         assert!(!app.workspace.crop.mode && !app.workspace.tools.clone_mode, "the other tools are disarmed");

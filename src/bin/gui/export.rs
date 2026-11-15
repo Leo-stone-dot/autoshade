@@ -417,7 +417,7 @@ impl AutoShadeApp {
         // guarding only that would leave the ORIGINAL photo unprotected
         // exactly when a generated variant is active.
         let mut anchors = vec![path.clone()];
-        if let Some(orig) = self.editor.photo.src_path.clone()
+        if let Some(orig) = self.editor.photo().src_path.clone()
             && orig != path
         {
             anchors.push(orig);
@@ -475,8 +475,8 @@ impl AutoShadeApp {
         } else {
             trf(lang, K_EXPORT_RENDERING_FULL_RESOLUTION, &[("path", &shown)])
         };
-        let recipe = self.editor.doc.recipe.clone();
-        let src_photo = self.editor.photo.src_path.clone();
+        let recipe = self.editor.doc().recipe.clone();
+        let src_photo = self.editor.photo().src_path.clone();
         let ai_masks = self.ai_mask_runner();
         self.spawn_worker(
             move || {
@@ -674,12 +674,12 @@ impl AutoShadeApp {
                 )
             })
             .collect();
-        if let Some(p) = self.editor.photo.src_path.clone() {
+        if let Some(p) = self.editor.photo().src_path.clone() {
             let pix = self
                 .active_variant()
                 .and_then(|v| v.origin.clone())
                 .map(|o| (o, self.active_on_ai_pixels()));
-            overrides.insert(p, (self.editor.doc.recipe.clone(), pix));
+            overrides.insert(p, (self.editor.doc().recipe.clone(), pix));
         }
         self.spawn_worker(
             move || {
@@ -962,7 +962,7 @@ impl AutoShadeApp {
     /// click (the store's own NotFound message says exactly that) than a button
     /// that is greyed out for a reason nothing explains.
     pub(crate) fn can_export_xmp_beside(&self) -> bool {
-        self.editor.photo.src_path.as_deref().is_some_and(autoshade::decode::is_raw)
+        self.editor.photo().src_path.as_deref().is_some_and(autoshade::decode::is_raw)
     }
 
     /// SF8-A: hand the stored Lightroom sidecar over to Lightroom — copy this
@@ -977,7 +977,7 @@ impl AutoShadeApp {
     /// answered by a file that appeared in between.
     pub(crate) fn export_xmp_beside(&mut self) {
         let lang = self.lang;
-        let Some(path) = self.editor.photo.src_path.clone() else { return };
+        let Some(path) = self.editor.photo().src_path.clone() else { return };
         let overwrite = self.workspace.exp.xmp_beside_confirm;
         match autoshade::store::export_xmp_beside(&path, overwrite) {
             Ok(to) => {
@@ -995,7 +995,7 @@ impl AutoShadeApp {
                 // about to open it in Lightroom (a colour field, a lens blur:
                 // the rendered exports carry them, the sidecar cannot). The
                 // mask half was said on the save that wrote the file.
-                let globals = autoshade::xmp::global_export_losses(&self.editor.session.hist.saved_recipe);
+                let globals = autoshade::xmp::global_export_losses(&self.editor.session().hist.saved_recipe);
                 if let Some(m) = xmp_loss_line(lang, &[], &globals)
                     && xmp_loss_interrupts(&[], &globals)
                 {
@@ -1055,7 +1055,7 @@ impl AutoShadeApp {
         // stale projection that refusal left standing.)
         self.fork_edited_card();
         let lang = self.lang;
-        let Some(path) = self.editor.photo.src_path.clone() else { return };
+        let Some(path) = self.editor.photo().src_path.clone() else { return };
         // Reset-then-save means "clear my edits": writing a neutral pair would
         // only pin a misleading ● badge with no in-app way to remove it —
         // delete the working sidecars instead (version snapshots are kept).
@@ -1071,7 +1071,7 @@ impl AutoShadeApp {
         // a multi-variant strip must take the save path (noop recipe + strip
         // record) — "clear my edits" must not silently destroy the OTHER
         // cards.
-        if self.editor.doc.recipe.is_noop()
+        if self.editor.doc().recipe.is_noop()
             && self.active_variant().is_none_or(|v| v.origin.is_none())
             && self.current_strip_record().is_none()
         {
@@ -1089,9 +1089,9 @@ impl AutoShadeApp {
                     // the stamped lens profile (and knots) on the canvas, and
                     // a default baseline compared dirty on lens_profile
                     // forever — a permanent ● with quit prompts (R4-8).
-                    self.editor.session.hist.saved_recipe = self.editor.doc.recipe.clone();
-                    self.editor.session.hist.pixels_on_disk = None;
-                    self.editor.session.hist.saved_strip = None;
+                    self.editor.session_mut().hist.saved_recipe = self.editor.doc().recipe.clone();
+                    self.editor.session_mut().hist.pixels_on_disk = None;
+                    self.editor.session_mut().hist.saved_strip = None;
                     self.workspace.open.nav_stash.remove(&path);
                     self.forget_open_base();
                     match o.marker_warning {
@@ -1146,26 +1146,24 @@ impl AutoShadeApp {
         // the washed curve back to the canvas invisibly (dirty_vs neutralises
         // both fields, so no ● would have said so) — while disk and every
         // deliverable stayed repaired.
-        let before = (self.editor.doc.recipe.version, self.editor.doc.recipe.base_curve.clone());
+        let before = (self.editor.doc().recipe.version, self.editor.doc().recipe.base_curve.clone());
         let relooked =
-            autoshade::pipeline::repair_pre_era_base_curve(&path, &mut self.editor.doc.recipe).is_some();
+            autoshade::pipeline::repair_pre_era_base_curve(&path, &mut self.editor.doc_mut().recipe).is_some();
         if relooked {
             let (after_ver, after_curve) =
-                (self.editor.doc.recipe.version, self.editor.doc.recipe.base_curve.clone());
+                (self.editor.doc().recipe.version, self.editor.doc().recipe.base_curve.clone());
             let restamp = |r: &mut EditRecipe| {
                 if r.version == before.0 && r.base_curve == before.1 {
                     r.version = after_ver;
                     r.base_curve = after_curve.clone();
                 }
             };
-            restamp(&mut self.editor.session.hist.committed.recipe);
-            self.editor.session.hist.undo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
-            self.editor.session.hist.redo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
+            restamp(&mut self.editor.session_mut().hist.committed.recipe);
+            self.editor.session_mut().hist.undo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
+            self.editor.session_mut().hist.redo_stack.iter_mut().for_each(|s| restamp(&mut s.recipe));
             // The strip entry that IS the canvas follows it, and the preview
             // re-develops under the healed curve.
-            if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
-                v.recipe = self.editor.doc.recipe.clone();
-            }
+            self.editor.sync_active_recipe();
             // ...and the SIBLINGS follow too (the stash-retry rule): the
             // estimate is already paid, so healing the rest of the strip is
             // a memo hit apiece — a save must not leave the photo split
@@ -1173,8 +1171,8 @@ impl AutoShadeApp {
             // sibling also drops its CARD: the thumb is a stale render of
             // the washed recipe, and keeping it showed a stops-dark
             // thumbnail beside a bright canvas until the next rebuild.
-            let active = self.editor.doc.active;
-            for (i, v) in self.editor.doc.variants.iter_mut().enumerate() {
+            let active = self.editor.doc().active;
+            for (i, v) in self.editor.doc_mut().variants.iter_mut().enumerate() {
                 if i != active
                     && v.kind.is_source_based()
                     && autoshade::pipeline::repair_pre_era_base_curve(&path, &mut v.recipe)
@@ -1183,7 +1181,7 @@ impl AutoShadeApp {
                     v.thumb = None;
                 }
             }
-            self.editor.session.dirty = true;
+            self.editor.session_mut().dirty = true;
         }
         // ONE lock across the whole compound save: recipe.json, the
         // pixels.json link, the strip record and the XMP projection publish
@@ -1199,7 +1197,7 @@ impl AutoShadeApp {
             // develop — snapshot whatever is on disk before overwriting it
             // (v<N> copy). Refusing on a failed snapshot beats destroying a
             // save nobody ever looked at.
-            if let Err(e) = autoshade::store::backup_saved_develop(&path, Some(&self.editor.doc.recipe)) {
+            if let Err(e) = autoshade::store::backup_saved_develop(&path, Some(&self.editor.doc().recipe)) {
                 return Err(std::io::Error::other(format!(
                     "the unread develop could not be backed up ({e}) — nothing was overwritten"
                 )));
@@ -1224,11 +1222,11 @@ impl AutoShadeApp {
         let disk = if generated {
             // Every calibration half, the start (v1.17.0) included, through
             // the one stamper.
-            let mut d = self.editor.doc.recipe.clone();
+            let mut d = self.editor.doc().recipe.clone();
             autoshade::pipeline::stamp_fit_calibration(&mut d, autoshade::pipeline::photo_calibration(&path));
             d
         } else {
-            self.editor.doc.recipe.clone()
+            self.editor.doc().recipe.clone()
         };
         // The Lightroom projection is a MEMBER of this commit (2026-09-13):
         // it lands or clears with the recipe it projects, never after it.
@@ -1293,11 +1291,11 @@ impl AutoShadeApp {
                 // The strip mirror advances WITH the commit (all-or-nothing:
                 // a failed commit leaves it untouched and the
                 // background-variant unsaved protection armed).
-                self.editor.session.hist.saved_strip = strip_rec;
+                self.editor.session_mut().hist.saved_strip = strip_rec;
                 self.workspace.gal.edited_badge.clear(); // the open photo just gained its badge
-                self.editor.session.hist.saved_recipe = self.editor.doc.recipe.clone();
+                self.editor.session_mut().hist.saved_recipe = self.editor.doc().recipe.clone();
                 self.workspace.open.nav_stash.remove(&path);
-                self.editor.session.hist.pixels_on_disk = origin;
+                self.editor.session_mut().hist.pixels_on_disk = origin;
                 let mut s = if generated {
                     // No sidecar reproduces AI pixels: the projection member
                     // CLEARED, and the line says so instead of "XMP + recipe".
@@ -1333,7 +1331,7 @@ impl AutoShadeApp {
                             // act on, and an error toast on every single
                             // Ctrl+S is how the mask half — which they CAN act
                             // on — stopped being read.
-                            let globals = autoshade::xmp::global_export_losses(&self.editor.doc.recipe);
+                            let globals = autoshade::xmp::global_export_losses(&self.editor.doc().recipe);
                             let interrupts = xmp_loss_interrupts(&losses, &globals);
                             let mask_note = xmp_loss_line(lang, &losses, &globals);
                             if let Some(m) = &mask_note
@@ -1369,7 +1367,7 @@ impl AutoShadeApp {
                             // the two renders starts to matter.
                             if let Some(m) = render_gap_line(
                                 lang,
-                                &autoshade::xmp::global_render_gaps(&self.editor.doc.recipe),
+                                &autoshade::xmp::global_render_gaps(&self.editor.doc().recipe),
                             ) {
                                 s.push_str(&format!(" · {m}"));
                             }
@@ -1532,7 +1530,7 @@ impl AutoShadeApp {
         // leaving `saved_recipe` behind kept a false "● unsaved" lit for
         // edits that were already on disk.
         self.workspace.open.pasted_open = None;
-        if let Some(open) = self.editor.photo.src_path.clone()
+        if let Some(open) = self.editor.photo().src_path.clone()
             && targets.iter().any(|t| t == &open)
         {
             // Same base_curve rule the worker applies to every target below,
@@ -1554,8 +1552,8 @@ impl AutoShadeApp {
                 live.as_shot_k = None;
                 live.as_shot_tint = None;
             }
-            self.editor.doc.recipe = live.clone();
-            self.editor.session.dirty = true;
+            self.editor.doc_mut().recipe = live.clone();
+            self.editor.session_mut().dirty = true;
             // A paste onto the pristine ✨ card is an edit: it lands on a new
             // ✎ card now (the immutability rule), so the ● baseline below
             // belongs to that card's canvas.

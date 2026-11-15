@@ -19,7 +19,7 @@
                 egui::Color32::from_rgb((60.0 + 150.0 * y) as u8, (110.0 + 40.0 * x) as u8, (190.0 - 120.0 * y) as u8)
             })
             .collect();
-        app.editor.plates.after_tex = Some(ctx.load_texture("normal-photo", egui::ColorImage::new([w, h], px), egui::TextureOptions::LINEAR));
+        app.editor.plates_mut().after_tex = Some(ctx.load_texture("normal-photo", egui::ColorImage::new([w, h], px), egui::TextureOptions::LINEAR));
         let mut tex = ShotTextures::default();
         let mut last = None;
         for i in 0..4 {
@@ -70,7 +70,7 @@
         for lang in [Lang::En, Lang::Zh] {
             let mut app = app_in(lang);
             // Portraits with the people found: its panel's four groups open.
-            app.editor.doc.recipe.masks.extend(found_masks());
+            app.editor.doc_mut().recipe.masks.extend(found_masks());
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let mut out = None;
@@ -249,10 +249,10 @@
         let src = dir.join(format!("_gui_normal_{tag}.jpg"));
         let dev = autoshade::store::develop_dir(&src);
         let _ = std::fs::remove_dir_all(&dev);
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
      src_path: Some(src.clone()),
      ..Default::default()
- }, ..Default::default() }, ..Default::default() };
+ }; editor } , ..Default::default() };
         app.workspace.normal.runner = Some(heuristic_runner);
         (app, src, Scrub(vec![dir, dev]))
     }
@@ -342,24 +342,24 @@
     fn without_a_key_the_one_click_lands_the_built_in_look() {
         let (mut app, _src, _scrub) = normal_photo("nokey");
         let ctx = egui::Context::default();
-        assert_eq!(app.editor.doc.recipe.exposure_ev, 0.0);
+        assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0);
         app.apply_actions(vec![logic::Action::Look(logic::look::LookIntent::of(
             logic::look::LookKind::OneClick(crate::logic::look::OneClick::Preset("natural")),
         ))]);
         assert!(app.workspace.busy && app.workspace.tools.analyze_inflight);
         land_analysis(&mut app, &ctx);
         assert!(!app.workspace.busy);
-        assert!(app.editor.doc.recipe.exposure_ev > 0.0, "the dark frame was brightened: {}", app.editor.doc.recipe.exposure_ev);
+        assert!(app.editor.doc().recipe.exposure_ev > 0.0, "the dark frame was brightened: {}", app.editor.doc().recipe.exposure_ev);
         assert_eq!(app.workspace.normal.line, crate::panels::normal::NormalLine::BuiltIn);
         assert_eq!(app.workspace.status, "No AI key set — built-in look used");
         assert_eq!(app.workspace.normal.key_present, Some(false));
         let (photo, kept) = app.workspace.normal.result.clone().expect("the one-click result is remembered");
-        assert_eq!(Some(photo), app.editor.photo.src_path);
-        assert_eq!(kept.exposure_ev, app.editor.doc.recipe.exposure_ev);
+        assert_eq!(Some(photo), app.editor.photo().src_path);
+        assert_eq!(kept.exposure_ev, app.editor.doc().recipe.exposure_ev);
         // Undoable, like every analysis landing.
         app.commit_now();
         app.undo(&ctx);
-        assert_eq!(app.editor.doc.recipe.exposure_ev, 0.0, "Ctrl+Z goes back");
+        assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0, "Ctrl+Z goes back");
     }
 
     /// Poll the app's workers until nothing is running.
@@ -409,7 +409,7 @@
         let (mut app, src, _scrub) = normal_photo("keys-save");
         image::RgbImage::from_pixel(32, 24, image::Rgb([60, 90, 120])).save(&src).unwrap();
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
-        app.editor.doc.variants = vec![Variant {
+        app.editor.doc_mut().variants = vec![Variant {
             id: ORIGINAL_VARIANT_ID.into(),
             name: None,
             kind: VariantKind::Original,
@@ -418,10 +418,10 @@
             origin: None,
             thumb: None,
         }];
-        app.editor.doc.active = 0;
-        app.editor.photo.base_preview = Some(b0);
+        app.editor.doc_mut().active = 0;
+        app.editor.photo_mut().base_preview = Some(b0);
         app.reset_history();
-        app.editor.doc.recipe.exposure_ev = 0.4;
+        app.editor.doc_mut().recipe.exposure_ev = 0.4;
         assert!(app.unsaved_marker_dirty(), "the edit is unsaved before Ctrl+S");
         let ctx = egui::Context::default();
         press(&mut app, &ctx, egui::Key::S);
@@ -492,10 +492,10 @@
         let words = ["配方", "显影", "反推", "变体", "蒙版", "API", "recipe", "develop", "reverse-fit", "variant", "mask", "sidecar"];
         for lang in [Lang::En, Lang::Zh] {
             let plain = tr(lang, K_NORMAL_IT_TAKES_A_MOMENT_THE_PREVIEW_THEN_SHOWS_THE_RES).to_string();
-            let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+            let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
      src_path: Some(PathBuf::from("phone.jpg")),
      ..Default::default()
- }, ..Default::default() }, lang, ..Default::default() };
+ }; editor } , lang, ..Default::default() };
             assert_eq!(app.noise_lines(lang, false), vec![tr(lang, K_NORMAL_THIS_DOWNLOAD_DOES_NOT_INCLUDE_THE_NOISE_TOOL).to_string()]);
             app.workspace.normal.denoise_ready = Some(true);
             assert_eq!(app.noise_lines(lang, true), vec![plain.clone()], "{lang:?}: the model is there");
@@ -506,7 +506,7 @@
                 assert_eq!(lines[0], plain);
                 assert!(lines[1].contains("72 MB"), "{lang:?}: {lines:?}");
             }
-            app.editor.photo.src_path = Some(PathBuf::from("camera.arw"));
+            app.editor.photo_mut().src_path = Some(PathBuf::from("camera.arw"));
             assert_eq!(app.noise_lines(lang, true), vec![plain.clone()], "{lang:?}: a RAW downloads nothing new");
             let (moment, preview) = match lang {
                 Lang::En => ("takes a moment", "preview"),
@@ -514,7 +514,7 @@
             };
             assert!(plain.contains(moment) && plain.contains(preview), "{lang:?}: {plain}");
             let mut said = app.noise_lines(lang, true);
-            app.editor.photo.src_path = Some(PathBuf::from("phone.jpg"));
+            app.editor.photo_mut().src_path = Some(PathBuf::from("phone.jpg"));
             said.extend(app.noise_lines(lang, true));
             said.extend(
                 [
@@ -557,7 +557,7 @@
         let (mut app, src, _scrub) = normal_photo("denoise");
         let ctx = egui::Context::default();
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
-        app.editor.doc.variants = vec![Variant {
+        app.editor.doc_mut().variants = vec![Variant {
             id: ORIGINAL_VARIANT_ID.into(),
             name: None,
             kind: VariantKind::Original,
@@ -566,17 +566,17 @@
             origin: None,
             thumb: None,
         }];
-        app.editor.doc.active = 0;
-        app.editor.photo.base_preview = Some(b0);
+        app.editor.doc_mut().active = 0;
+        app.editor.photo_mut().base_preview = Some(b0);
         app.reset_history();
         // The Retouch door's own gate answers: a turned photo is refused
         // before any worker, with that door's words.
-        app.editor.doc.recipe.quarter_turns = 1;
+        app.editor.doc_mut().recipe.quarter_turns = 1;
         app.set_normal_denoise(true);
         assert!(!app.workspace.busy, "refused before a worker");
         assert!(app.workspace.status.contains("this photo is turned"), "{}", app.workspace.status);
         assert!(app.workspace.normal.denoise_pair.is_none(), "a refused run remembers nothing");
-        app.editor.doc.recipe.quarter_turns = 0;
+        app.editor.doc_mut().recipe.quarter_turns = 0;
         // The door's worker runs: this photo has no file, so it fails fast at
         // the decode — through `Msg::Retouched`, the Retouch button's message.
         app.set_normal_denoise(true);
@@ -585,7 +585,7 @@
         assert!(app.normal_denoise_on(), "the switch reads on while it runs");
         land_all(&mut app, &ctx);
         assert!(!app.normal_denoise_on(), "a failed run leaves the switch off");
-        assert_eq!(app.editor.doc.variants.len(), 1, "and no card");
+        assert_eq!(app.editor.doc().variants.len(), 1, "and no card");
         // A landed run, through the same message the worker sends.
         app.workspace.normal.denoise_pair =
             Some(DenoisePair { photo: src.clone(), plain: ORIGINAL_VARIANT_ID.into(), denoised: None });
@@ -594,28 +594,28 @@
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
         app.services.tx.send(Msg::Retouched(app.workspace.tools.gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.editor.doc.variants[app.editor.doc.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
+        assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         assert_eq!(app.active_source_path().as_deref(), Some(master.as_path()), "…and is what a save renders");
         assert!(app.normal_denoise_on());
-        let made = app.editor.doc.variants[app.editor.doc.active].id.clone();
+        let made = app.editor.doc().variants[app.editor.doc().active].id.clone();
         assert_eq!(app.workspace.normal.denoise_pair.as_ref().and_then(|d| d.denoised.clone()), Some(made.clone()), "remembered");
         assert_eq!(app.workspace.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P));
         // Off: the card it was made from, the look kept.
-        app.editor.doc.recipe.exposure_ev = 0.7;
+        app.editor.doc_mut().recipe.exposure_ev = 0.7;
         app.set_normal_denoise(false);
         assert!(!app.workspace.busy);
-        assert_eq!(app.editor.doc.variants[app.editor.doc.active].id, ORIGINAL_VARIANT_ID, "back to the un-denoised card");
+        assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, ORIGINAL_VARIANT_ID, "back to the un-denoised card");
         assert_eq!(app.active_source_path().as_deref(), Some(src.as_path()));
-        assert_eq!(app.editor.doc.recipe.exposure_ev, 0.7, "the look rides across");
+        assert_eq!(app.editor.doc().recipe.exposure_ev, 0.7, "the look rides across");
         assert!(!app.normal_denoise_on());
         assert_eq!(app.workspace.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_OFF));
         // On again: the same ◈ card, no second run.
-        app.editor.doc.recipe.contrast = 12.0;
+        app.editor.doc_mut().recipe.contrast = 12.0;
         app.set_normal_denoise(true);
         assert!(!app.workspace.busy, "no second sidecar run");
-        assert_eq!(app.editor.doc.variants.len(), 2, "no second card");
-        assert_eq!(app.editor.doc.variants[app.editor.doc.active].id, made, "the master already made");
-        assert_eq!((app.editor.doc.recipe.exposure_ev, app.editor.doc.recipe.contrast), (0.7, 12.0), "the look rides across");
+        assert_eq!(app.editor.doc().variants.len(), 2, "no second card");
+        assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, made, "the master already made");
+        assert_eq!((app.editor.doc().recipe.exposure_ev, app.editor.doc().recipe.contrast), (0.7, 12.0), "the look rides across");
         assert_eq!(app.workspace.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_ON));
         // The switch's behaviour above IS the claim: turning it on runs the
         // Retouch worker (busy + that door's status), turning it off returns to
@@ -654,7 +654,7 @@
         let names = ["_gui_normal_numbered.developed.jpg", "_gui_normal_numbered.developed-2.jpg", "_gui_normal_numbered.developed-3.jpg"];
         let mut sizes = Vec::new();
         for (i, name) in names.iter().enumerate() {
-            app.editor.doc.recipe.exposure_ev = 0.2 * (i + 1) as f32;
+            app.editor.doc_mut().recipe.exposure_ev = 0.2 * (i + 1) as f32;
             app.start_normal_save();
             assert!(app.workspace.busy, "save {}: {}", i + 1, app.workspace.status);
             assert!(app.workspace.status.contains(name), "save {}: the line names the file: {}", i + 1, app.workspace.status);
@@ -669,7 +669,7 @@
         let before = std::fs::read(&picked).unwrap();
         app.workspace.exp.dest = ExportDest::Ask;
         app.workspace.normal.file_pick = Some(Some(picked.clone()));
-        app.editor.doc.recipe.exposure_ev = -1.5;
+        app.editor.doc_mut().recipe.exposure_ev = -1.5;
         app.start_normal_save();
         assert!(app.workspace.busy, "the picked save runs: {}", app.workspace.status);
         land_all(&mut app, &ctx);
@@ -681,7 +681,7 @@
         // …while the app-made name is numbered again.
         app.workspace.exp.dest = ExportDest::LastUsed;
         app.workspace.exp.last_dir = Some(out.clone());
-        app.editor.doc.recipe.exposure_ev = 0.9;
+        app.editor.doc_mut().recipe.exposure_ev = 0.9;
         app.start_normal_save();
         land_all(&mut app, &ctx);
         assert!(fourth.is_file(), "the app-made name steps on to -4: {}", app.workspace.status);
@@ -691,7 +691,7 @@
         let _scrub_all = Scrub(vec![all.clone()]);
         app.workspace.exp.last_dir = Some(all.clone());
         for run in 0..2 {
-            app.editor.doc.recipe.contrast = 10.0 * (run + 1) as f32;
+            app.editor.doc_mut().recipe.contrast = 10.0 * (run + 1) as f32;
             app.start_apply_to_folder();
             land_all(&mut app, &ctx);
             let folder = all.file_name().unwrap().to_string_lossy().into_owned();
@@ -737,7 +737,7 @@
         app.workspace.exp.dest = ExportDest::LastUsed;
         app.workspace.exp.last_dir = Some(own.clone());
         let ctx = egui::Context::default();
-        app.editor.doc.recipe.exposure_ev = 0.3;
+        app.editor.doc_mut().recipe.exposure_ev = 0.3;
         app.start_normal_save();
         land_all(&mut app, &ctx);
         let landed: Vec<String> = std::fs::read_dir(&own)
@@ -799,7 +799,7 @@
                 active_pos: 0,
             },
         );
-        app.editor.doc.recipe.exposure_ev = -1.0;
+        app.editor.doc_mut().recipe.exposure_ev = -1.0;
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-applystash-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
         app.workspace.exp.dest = ExportDest::Ask;
@@ -866,7 +866,7 @@
         app.workspace.normal.building = true;
         app.workspace.normal.build_photo = Some(src.clone());
         app.workspace.busy = true;
-        app.editor.photo.src_path = Some(src.with_file_name("_gui_normal_buildbusy_other.jpg"));
+        app.editor.photo_mut().src_path = Some(src.with_file_name("_gui_normal_buildbusy_other.jpg"));
         app.on_one_click_built(Lang::En, Ok(3));
         assert!(!app.workspace.busy && !app.workspace.normal.building);
         assert!(app.workspace.normal.last_request.is_none(), "no look for a photo the folder was not picked for");
@@ -874,7 +874,7 @@
         assert_eq!(app.workspace.status, said);
         assert_eq!(app.workspace.normal.line, crate::panels::normal::NormalLine::Failed(said.to_string()));
         // Back on its own photo, the build hands over to the look.
-        app.editor.photo.src_path = Some(src.clone());
+        app.editor.photo_mut().src_path = Some(src.clone());
         app.workspace.normal.building = true;
         app.workspace.normal.build_photo = Some(src.clone());
         app.workspace.busy = true;
@@ -898,7 +898,7 @@
         let (mut app, src, _scrub) = normal_photo("denoise-undo");
         let ctx = egui::Context::default();
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
-        app.editor.doc.variants = vec![Variant {
+        app.editor.doc_mut().variants = vec![Variant {
             id: ORIGINAL_VARIANT_ID.into(),
             name: None,
             kind: VariantKind::Original,
@@ -907,11 +907,11 @@
             origin: None,
             thumb: None,
         }];
-        app.editor.doc.active = 0;
-        app.editor.photo.base_preview = Some(b0.clone());
+        app.editor.doc_mut().active = 0;
+        app.editor.photo_mut().base_preview = Some(b0.clone());
         app.reset_history();
         // A look, then the switch on: its ◈ card lands.
-        app.editor.doc.recipe.exposure_ev = 0.5;
+        app.editor.doc_mut().recipe.exposure_ev = 0.5;
         app.commit_now();
         app.workspace.normal.denoise_pair =
             Some(DenoisePair { photo: src.clone(), plain: ORIGINAL_VARIANT_ID.into(), denoised: None });
@@ -920,25 +920,25 @@
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
         app.services.tx.send(Msg::Retouched(app.workspace.tools.gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.editor.doc.variants[app.editor.doc.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
-        let denoised = app.editor.doc.variants[app.editor.doc.active].base.clone().unwrap();
+        assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
+        let denoised = app.editor.doc().variants[app.editor.doc().active].base.clone().unwrap();
         app.undo(&ctx);
-        assert_eq!(app.editor.doc.recipe.exposure_ev, 0.0, "Ctrl+Z goes back to the look before");
-        assert_eq!(app.editor.doc.variants[app.editor.doc.active].kind, VariantKind::Denoised, "on the card on screen");
-        assert!(std::sync::Arc::ptr_eq(app.editor.doc.variants[app.editor.doc.active].base.as_ref().unwrap(), &denoised), "its pixels kept");
+        assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0, "Ctrl+Z goes back to the look before");
+        assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "on the card on screen");
+        assert!(std::sync::Arc::ptr_eq(app.editor.doc().variants[app.editor.doc().active].base.as_ref().unwrap(), &denoised), "its pixels kept");
         app.redo(&ctx);
-        assert_eq!(app.editor.doc.recipe.exposure_ev, 0.5, "and forward again");
+        assert_eq!(app.editor.doc().recipe.exposure_ev, 0.5, "and forward again");
         // Another look, then the switch off: back on the plain card, the
         // history still there.
-        app.editor.doc.recipe.contrast = 10.0;
+        app.editor.doc_mut().recipe.contrast = 10.0;
         app.commit_now();
         app.set_normal_denoise(false);
-        assert_eq!(app.editor.doc.variants[app.editor.doc.active].id, ORIGINAL_VARIANT_ID);
+        assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, ORIGINAL_VARIANT_ID);
         app.undo(&ctx);
-        assert_eq!((app.editor.doc.recipe.exposure_ev, app.editor.doc.recipe.contrast), (0.5, 0.0), "Ctrl+Z after the switch went off");
-        assert!(std::sync::Arc::ptr_eq(app.editor.doc.variants[app.editor.doc.active].base.as_ref().unwrap(), &b0), "the plain card's pixels kept");
+        assert_eq!((app.editor.doc().recipe.exposure_ev, app.editor.doc().recipe.contrast), (0.5, 0.0), "Ctrl+Z after the switch went off");
+        assert!(std::sync::Arc::ptr_eq(app.editor.doc().variants[app.editor.doc().active].base.as_ref().unwrap(), &b0), "the plain card's pixels kept");
         app.undo(&ctx);
-        assert_eq!(app.editor.doc.recipe.exposure_ev, 0.0, "all the way back");
+        assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0, "all the way back");
     }
 
     /// 「Save as jpg」 into a folder picked in the save window remembers that

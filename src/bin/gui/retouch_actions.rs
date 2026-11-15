@@ -53,7 +53,7 @@ pub(crate) fn start_fill(&mut self) {
         // The photo names the artifact (as a reimagine's is named); the
         // card's OWN pixel source (a ✨/✎ card → its raster, ▣/◭ → the
         // negative) is what its recipe develops in the worker below.
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
         let Some(path) = self.active_source_path() else { return };
         if self.workspace.busy || self.refuse_pixel_work_on_a_turned_photo() {
             return;
@@ -86,7 +86,7 @@ pub(crate) fn start_fill(&mut self) {
         let full_res = self.workspace.genai.fill_fullres;
         // The card's live develop, captured at the click like every other
         // input the worker reads; the source kind decides the working size.
-        let recipe = self.editor.doc.recipe.clone();
+        let recipe = self.editor.doc().recipe.clone();
         let edge = self.canvas_edge(); // show at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
@@ -159,7 +159,7 @@ pub(crate) fn start_fill(&mut self) {
     }
 
 pub(crate) fn start_adjust(&mut self) {
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
         let Some(path) = self.active_source_path() else { return };
         if !self.can_adjust() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
@@ -175,7 +175,7 @@ pub(crate) fn start_adjust(&mut self) {
         self.workspace.busy = true;
         self.workspace.status = tr(lang, K_ACTIONS_ADJUSTING_GENERATED_IMAGE_VIA_GPT_IMAGE_HIGH_QUA).into();
         let quality = ["high", "medium", "low"][self.workspace.genai.adjust_quality.min(2)].to_string();
-        let recipe = self.editor.doc.recipe.clone();
+        let recipe = self.editor.doc().recipe.clone();
         let edge = self.canvas_edge();
         let out_claim = out.clone();
         let out_panic = out.clone();
@@ -278,7 +278,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         // The master is baked over the canvas's own base (v1.17.0): its
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
-        let part = autoshade::render::BasePart::of(&self.editor.doc.recipe);
+        let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
         let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
@@ -364,7 +364,7 @@ pub(crate) fn start_ai_denoise(&mut self) {
         // The master is baked over the canvas's own base (v1.17.0): its
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
-        let part = autoshade::render::BasePart::of(&self.editor.doc.recipe);
+        let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
         let (epoch, _flag) = self.arm_cancel(); // sidecar compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
@@ -423,7 +423,7 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
         // The master is baked over the canvas's own base (v1.17.0): its
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
-        let part = autoshade::render::BasePart::of(&self.editor.doc.recipe);
+        let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
         let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
@@ -506,7 +506,7 @@ pub(crate) fn start_clone(&mut self) {
         // The master is baked over the canvas's own base (v1.17.0): its
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
-        let part = autoshade::render::BasePart::of(&self.editor.doc.recipe);
+        let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
         let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
@@ -552,7 +552,7 @@ pub(crate) fn start_reimagine(&mut self) {
         // key on the photo: each call gets a UNIQUE ./out PNG so two
         // Generated variants never alias the same origin (which would
         // cross-wire their export / reverse-fit).
-        let Some(path) = self.editor.photo.src_path.clone() else { return };
+        let Some(path) = self.editor.photo().src_path.clone() else { return };
         let Some(negative) = self.negative_path() else { return };
         // R27 gate (`refuse_pixel_work_on_a_turned_photo`): the ✨ card's
         // raster would land in the EXIF frame, and a baked card cannot be turned.
@@ -644,14 +644,14 @@ pub(crate) fn start_reimagine(&mut self) {
     }
 
 pub(crate) fn start_style_prompt(&mut self) {
-        let (Some(base), Some(tgt)) = (self.editor.photo.source_preview.clone(), self.fit_target())
+        let (Some(base), Some(tgt)) = (self.editor.photo().source_preview.clone(), self.fit_target())
         else {
             return;
         };
         if self.workspace.busy {
             return;
         }
-        let src_path = self.editor.photo.src_path.clone();
+        let src_path = self.editor.photo().src_path.clone();
         // No lang capture: the worker returns FACTS; the landing localises
         // them with the language live at landing time (L12#4).
         self.workspace.busy = true;

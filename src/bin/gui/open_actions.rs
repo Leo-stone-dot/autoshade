@@ -48,7 +48,7 @@ impl AutoShadeApp {
         // FACT the repair gates key on — keep_recipe is only a request, and
         // a stale request must never classify a flight.
         self.workspace.open.open_in_flight = true;
-        self.workspace.open.open_same_path = self.editor.photo.src_path.as_ref() == Some(&path);
+        self.workspace.open.open_same_path = self.editor.photo().src_path.as_ref() == Some(&path);
         // Leaving a photo with unsaved edits: stash the canvas for this
         // session so navigation can never silently destroy work (arrow keys /
         // thumbnail clicks used to drop the whole develop). Ctrl+S still owns
@@ -62,7 +62,7 @@ impl AutoShadeApp {
         // disk — without the entry, a dirty canvas was silently replaced by
         // the disk state. The stash entry is consumed by that same restore,
         // so a same-path reopen becomes "reload, preserving unsaved work".
-        if let Some(old) = self.editor.photo.src_path.clone() {
+        if let Some(old) = self.editor.photo().src_path.clone() {
             let origin = self.active_variant().and_then(|v| v.origin.clone());
             // Background variants count too (H4): their unsaved work has no
             // sidecar to survive in, and the strip used to collapse to the
@@ -70,10 +70,10 @@ impl AutoShadeApp {
             // the cross-photo sum (inactive_dirty_variants) belongs to the
             // quit dialog, and using it here chain-stashed clean photos.
             if self.nav_stash_gate_dirty() {
-                let others: Vec<StashedVariant> = self.editor.doc.variants
+                let others: Vec<StashedVariant> = self.editor.doc().variants
                     .iter()
                     .enumerate()
-                    .filter(|(i, _)| *i != self.editor.doc.active)
+                    .filter(|(i, _)| *i != self.editor.doc().active)
                     .map(|(_, v)| StashedVariant {
                         kind: v.kind,
                         // Hop 3 of 6 (R24-2): identity + name ride the stash
@@ -85,11 +85,11 @@ impl AutoShadeApp {
                         origin: v.origin.clone(),
                     })
                     .collect();
-                let active_pos = self.editor.doc.active.min(others.len());
+                let active_pos = self.editor.doc().active.min(others.len());
                 self.workspace.open.nav_stash.insert(
                     old,
                     StashEntry {
-                        recipe: self.editor.doc.recipe.clone(),
+                        recipe: self.editor.doc().recipe.clone(),
                         base: self.active_variant().and_then(|v| v.base.clone()),
                         origin,
                         kind: self.active_variant().map_or(VariantKind::Original, |v| v.kind),
@@ -113,13 +113,13 @@ impl AutoShadeApp {
         // handler's Unreadable arm re-arms it for THIS photo when the read
         // fails.
         self.workspace.open.open_unresolved = false;
-        self.editor.photo.src_path = Some(path.clone());
+        self.editor.photo_mut().src_path = Some(path.clone());
         // The version list describes the photo `src_path` NAMES, so it dies
         // with the old value of that field — not later, when the decode lands.
         // `refresh_versions` only runs from the completed `Msg::Opened`, and a
         // RAW decode is seconds; for that whole window the Versions panel
         // showed photo A's v1/v2/v3 with live buttons while every action
-        // resolved `self.editor.photo.src_path`, which already pointed at photo B. Clicking
+        // resolved `self.editor.photo().src_path`, which already pointed at photo B. Clicking
         // 🗑 on the stale list called `store::delete_version(B, n)` and
         // PERMANENTLY removed a snapshot of B — recipe and frozen mask
         // rasters, no backup, no undo — then refreshed the list from B so the

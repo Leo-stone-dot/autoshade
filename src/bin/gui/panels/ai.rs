@@ -53,7 +53,7 @@ impl AutoShadeApp {
     /// inputs carry state", and a remembered dial or folder says nothing
     /// about this photo.
     pub(crate) fn ai_section_active(&self) -> bool {
-        self.editor.analysis.verdict.is_some() || !self.workspace.ai.guidance.is_empty()
+        self.editor.analysis().verdict.is_some() || !self.workspace.ai.guidance.is_empty()
     }
 
     /// The AI area — TWO first-level sections (user ruling 2026-10-20: the two
@@ -184,7 +184,7 @@ impl AutoShadeApp {
 
     /// Whether the last analysis left anything to read.
     fn has_analysis_output(&self) -> bool {
-        self.editor.analysis.verdict.is_some() || !self.editor.analysis.rationale.is_empty()
+        self.editor.analysis().verdict.is_some() || !self.editor.analysis().rationale.is_empty()
     }
 
     /// What one Analyze run wrote — the verdict, the rationale sentence and
@@ -192,7 +192,7 @@ impl AutoShadeApp {
     /// box and the full-text window, so the two can never disagree.
     fn analysis_output(&self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        if let Some((d, reasons)) = &self.editor.analysis.verdict {
+        if let Some((d, reasons)) = &self.editor.analysis().verdict {
             // Accept reads calm; anything else (Revise/Reject)
             // gets the warn colour so it can't be skimmed past.
             // Matched on the TYPED decision, never its rendered
@@ -228,14 +228,14 @@ impl AutoShadeApp {
         // surfaces); the split is a display decision, and on the fallback
         // path the working is still inside `shown`, so no box is drawn.
         let (working, tail): (Vec<_>, Vec<_>) =
-            self.editor.analysis.rationale_notes.iter().partition(|n| is_working_note(n.key));
-        let localized = (!self.editor.analysis.rationale_notes.is_empty())
+            self.editor.analysis().rationale_notes.iter().partition(|n| is_working_note(n.key));
+        let localized = (!self.editor.analysis().rationale_notes.is_empty())
             .then(|| {
-                let det: String = self.editor.analysis.rationale_notes
+                let det: String = self.editor.analysis().rationale_notes
                     .iter()
                     .map(autoshade::rationale::render_one)
                     .collect();
-                self.editor.analysis.rationale.strip_suffix(det.as_str()).map(|prose| {
+                self.editor.analysis().rationale.strip_suffix(det.as_str()).map(|prose| {
                     let mut s = String::from(prose);
                     for n in &tail {
                         s.push_str(&trf(lang, n.key, &note_args(n)));
@@ -244,7 +244,7 @@ impl AutoShadeApp {
                 })
             })
             .flatten();
-        let shown = localized.as_deref().unwrap_or(&self.editor.analysis.rationale);
+        let shown = localized.as_deref().unwrap_or(&self.editor.analysis().rationale);
         if !shown.is_empty() {
             ui.label(
                 egui::RichText::new(format!("“{shown}”"))
@@ -368,7 +368,7 @@ impl AutoShadeApp {
             // A button that looks live and does nothing, for up to the
             // 600 s stall budget, with the status line saying the app
             // is free, is worse than one that says why it is greyed.
-            let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
+            let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
             let waiting = self.workspace.tools.analyze_inflight && !self.workspace.busy;
             let why = |ui: egui::Response| {
                 if waiting {
@@ -514,7 +514,7 @@ impl AutoShadeApp {
                 {
                     self.seams.prompt_rects.push(_field.rect);
                 }
-                let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
+                let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
                 let asked = ready && !self.workspace.genai.adjust_edit_prompt.trim().is_empty();
                 let resp = primary_row(ui, asked, tr(lang, K_AI_AI_ADJUST))
                     .on_hover_text(tr(lang,
@@ -528,7 +528,7 @@ impl AutoShadeApp {
                     let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Adjust);
                     intent.typed = self.workspace.genai.adjust_edit_prompt.clone();
                     intent.region = self.workspace.overlay.region;
-                    intent.base = Some(self.editor.doc.recipe.clone());
+                    intent.base = Some(self.editor.doc().recipe.clone());
                     intent.pixels = self
                         .active_on_ai_pixels()
                         .then(|| self.active_variant().and_then(|v| v.origin.clone()))
@@ -970,7 +970,7 @@ impl AutoShadeApp {
             // exists to catch.
             .open(fold_open_in_tests())
             , |ui| {
-            let can_fit = self.fit_target().is_some() && self.editor.photo.source_preview.is_some();
+            let can_fit = self.fit_target().is_some() && self.editor.photo().source_preview.is_some();
             if !can_fit {
                 // An ✎ card is not a fit target (`fit_target`): the fit reads
                 // pixels, and the card's edits are sliders the user already
@@ -993,7 +993,7 @@ impl AutoShadeApp {
             // source was a rule nobody could see (`negative_index`).
             let (auto, sources) = self.fit_source_menu();
             let to = (self.workspace.fit.fit_ref.is_none() && self.fit_target().is_some())
-                .then(|| trf(lang, K_ACTIONS_TO, &[("card", &self.numbered_card_label(self.editor.doc.active))]));
+                .then(|| trf(lang, K_ACTIONS_TO, &[("card", &self.numbered_card_label(self.editor.doc().active))]));
             if !sources.is_empty() {
                 let shown = match self.workspace.fit.fit_from.as_deref() {
                     Some(id) => sources.iter().find(|(s, _)| s == id).map(|(_, l)| l.clone()),

@@ -91,7 +91,7 @@ impl AutoShadeApp {
                     self.on_analyzed(lang, epoch, boxed);
                     // The claimed look's own line, memory and view facts.
                     if let Some(claim) = claim {
-                        let effects = logic::look::landed(&claim, &self.editor.doc.recipe, landed);
+                        let effects = logic::look::landed(&claim, &self.editor.doc().recipe, landed);
                         self.run_effects(effects);
                     }
                 }
@@ -113,17 +113,17 @@ impl AutoShadeApp {
                             // single most-reported "where did my file go".
                             let p = abs_display(&out);
                             if relooked
-                                && let Some(photo) = self.editor.photo.src_path.clone()
+                                && let Some(photo) = self.editor.photo().src_path.clone()
                                 && autoshade::pipeline::repair_pre_era_base_curve(
                                     &photo,
-                                    &mut self.editor.doc.recipe,
+                                    &mut self.editor.doc_mut().recipe,
                                 )
                                 .is_some()
                             {
                                 // The export repaired its own COPY: the canvas
                                 // is repaired too, or export and preview stay
                                 // divergent for the rest of the session.
-                                self.editor.session.dirty = true;
+                                self.editor.session_mut().dirty = true;
                             }
                             let words =
                                 logic::export_landing::single_words(&p, relooked, warn.as_deref());

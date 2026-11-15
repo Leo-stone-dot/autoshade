@@ -87,13 +87,13 @@ pub(crate) fn start_find_people(&mut self) {
         if self.workspace.busy {
             return;
         }
-        let (Some(base), Some(photo)) = (self.editor.photo.base_preview.clone(), self.editor.photo.src_path.clone()) else { return };
+        let (Some(base), Some(photo)) = (self.editor.photo().base_preview.clone(), self.editor.photo().src_path.clone()) else { return };
         // The detectors see the ORIGINAL frame the masks are stored in; the
         // skin seed is sampled on the canvas's own base (v1.17.0: a corrected
         // one, with the face mask read into its frame).
         let Some(original) = self.original_frame_base() else { return };
-        let lens = self.base_corrected().then(|| autoshade::render::geometry_profile(&self.editor.doc.recipe).into_owned());
-        let recipe = self.editor.doc.recipe.clone();
+        let lens = self.base_corrected().then(|| autoshade::render::geometry_profile(&self.editor.doc().recipe).into_owned());
+        let recipe = self.editor.doc().recipe.clone();
         let film = self.film_short_edge();
         let raw_source = self.source_is_raw();
         self.workspace.busy = true;
@@ -109,7 +109,7 @@ pub(crate) fn start_find_people(&mut self) {
 
 pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
         self.workspace.busy = false;
-        if self.editor.photo.src_path.as_deref() != Some(found.photo.as_path()) && !found.photo.as_os_str().is_empty() {
+        if self.editor.photo().src_path.as_deref() != Some(found.photo.as_path()) && !found.photo.as_os_str().is_empty() {
             // Another photo is open now: its masks are not this one's.
             self.workspace.portrait.line = PortraitLine::Idle;
             return;
@@ -120,7 +120,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
             // No face this time: the face, eyes and skin masks of an earlier
             // search stood on a face that is not found — left in place they
             // keep acting with their sliders while the groups say "no face".
-            self.editor.doc.recipe.masks.retain(|m| !matches!(m.role, MaskRole::Face | MaskRole::Eyes | MaskRole::Skin));
+            self.editor.doc_mut().recipe.masks.retain(|m| !matches!(m.role, MaskRole::Face | MaskRole::Eyes | MaskRole::Skin));
         }
         if let Ok(Some(f)) = &found.faces {
             faces_n = f.n;
@@ -135,19 +135,19 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
             let subject = subject.to_string_lossy().into_owned();
             fresh.push(autoshade::face::background_adjustment(subject.clone()));
             // A blur that protects the person follows the new matte.
-            if let Some(p) = self.editor.doc.recipe.lens_blur.as_mut().and_then(|lb| lb.protect.as_mut()) {
+            if let Some(p) = self.editor.doc_mut().recipe.lens_blur.as_mut().and_then(|lb| lb.protect.as_mut()) {
                 *p = subject;
             }
         }
         for m in fresh {
-            match role_mask(&mut self.editor.doc.recipe, m.role) {
+            match role_mask(&mut self.editor.doc_mut().recipe, m.role) {
                 Some(old) => {
                     old.mask = m.mask;
                     if m.range.is_some() {
                         old.range = m.range;
                     }
                 }
-                None => self.editor.doc.recipe.masks.push(m),
+                None => self.editor.doc_mut().recipe.masks.push(m),
             }
         }
         let failed = match (&found.subject, &found.faces) {
@@ -166,7 +166,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
         }
         self.workspace.portrait.line = PortraitLine::Found { faces: faces_n, failed: failed.clone() };
         self.workspace.overlay.overlay_stale = true;
-        self.editor.session.dirty = true;
+        self.editor.session_mut().dirty = true;
         self.workspace.status = self.portrait_line_text(lang);
         if let Some(why) = failed {
             self.toast(ToastKind::Error, trf(lang, K_ACTIONS_PART_OF_THE_SEARCH_DID_NOT_WORK, &[("err", &why)]));
@@ -174,14 +174,14 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
     }
 
 pub(crate) fn start_remove_blemishes(&mut self) {
-        if let Some(face) = face_raster(&self.editor.doc.recipe) {
+        if let Some(face) = face_raster(&self.editor.doc().recipe) {
             self.start_heal(false, Some(face));
         }
     }
 
 pub(crate) fn guard_portrait_skin(&mut self) {
-        if self.skin_held() && autoshade::face::keep_skin_natural_in(&mut self.editor.doc.recipe) {
-            self.editor.session.dirty = true;
+        if self.skin_held() && autoshade::face::keep_skin_natural_in(&mut self.editor.doc_mut().recipe) {
+            self.editor.session_mut().dirty = true;
         }
     }
 
@@ -190,7 +190,7 @@ pub(crate) fn skin_held(&self) -> bool {
     }
 
 pub(crate) fn skin_held_for(&self, photo: &std::path::Path) -> bool {
-        if self.editor.photo.src_path.as_deref() == Some(photo) {
+        if self.editor.photo().src_path.as_deref() == Some(photo) {
             return self.skin_held();
         }
         self.workspace.open.nav_stash.get(photo).is_none_or(|st| {
@@ -200,7 +200,7 @@ pub(crate) fn skin_held_for(&self, photo: &std::path::Path) -> bool {
 
 pub(crate) fn release_skin_for_history(&mut self) {
         if self.skin_held()
-            && autoshade::face::skin_values_beyond(&self.editor.doc.recipe) > 0
+            && autoshade::face::skin_values_beyond(&self.editor.doc().recipe) > 0
             && let Some(key) = self.skin_key()
         {
             self.workspace.portrait.keep_skin.insert(key, false);
@@ -218,8 +218,8 @@ pub(crate) fn restore_skin_switch(&mut self, on: Option<bool>) {
     }
 
 fn skin_key(&self) -> Option<(PathBuf, String)> {
-        let photo = self.editor.photo.src_path.clone()?;
-        Some((photo, self.editor.doc.variants.get(self.editor.doc.active).map(|v| v.id.clone()).unwrap_or_default()))
+        let photo = self.editor.photo().src_path.clone()?;
+        Some((photo, self.editor.doc().variants.get(self.editor.doc().active).map(|v| v.id.clone()).unwrap_or_default()))
     }
 
 pub(crate) fn keep_skin_on(&self) -> bool {
@@ -232,9 +232,9 @@ pub(crate) fn set_keep_skin(&mut self, on: bool) {
         if !on {
             return;
         }
-        let n = autoshade::face::skin_values_beyond(&self.editor.doc.recipe);
-        if n > 0 && autoshade::face::keep_skin_natural_in(&mut self.editor.doc.recipe) {
-            self.editor.session.dirty = true;
+        let n = autoshade::face::skin_values_beyond(&self.editor.doc().recipe);
+        if n > 0 && autoshade::face::keep_skin_natural_in(&mut self.editor.doc_mut().recipe) {
+            self.editor.session_mut().dirty = true;
             self.workspace.status = if n == 1 {
                 tr(self.lang, K_ACTIONS_SKIN_KEPT_NATURAL_1_VALUE_BROUGHT_BACK_WITHIN_TH).into()
             } else {
@@ -244,15 +244,15 @@ pub(crate) fn set_keep_skin(&mut self, on: bool) {
     }
 
 pub(crate) fn decide_keep_skin_for_photo(&mut self) {
-        let Some(photo) = self.editor.photo.src_path.clone() else { return };
+        let Some(photo) = self.editor.photo().src_path.clone() else { return };
         self.workspace.portrait.keep_skin.retain(|(p, _), _| *p != photo);
         self.switch_off_cards_past_limits();
     }
 
 fn switch_off_cards_past_limits(&mut self) {
-        let Some(photo) = self.editor.photo.src_path.clone() else { return };
-        for (i, v) in self.editor.doc.variants.iter().enumerate() {
-            let recipe = if i == self.editor.doc.active { &self.editor.doc.recipe } else { &v.recipe };
+        let Some(photo) = self.editor.photo().src_path.clone() else { return };
+        for (i, v) in self.editor.doc().variants.iter().enumerate() {
+            let recipe = if i == self.editor.doc().active { &self.editor.doc().recipe } else { &v.recipe };
             if autoshade::face::skin_values_beyond(recipe) > 0 {
                 self.workspace.portrait.keep_skin.insert((photo.clone(), v.id.clone()), false);
             }
@@ -262,13 +262,13 @@ fn switch_off_cards_past_limits(&mut self) {
 pub(crate) fn decide_keep_skin_for_card(&mut self) {
         let Some(key) = self.skin_key() else { return };
         self.workspace.portrait.keep_skin.remove(&key);
-        if autoshade::face::skin_values_beyond(&self.editor.doc.recipe) > 0 {
+        if autoshade::face::skin_values_beyond(&self.editor.doc().recipe) > 0 {
             self.workspace.portrait.keep_skin.insert(key, false);
         }
     }
 
 pub(crate) fn inherit_keep_skin(&mut self, from: &str, to: &str) {
-        let Some(photo) = self.editor.photo.src_path.clone() else { return };
+        let Some(photo) = self.editor.photo().src_path.clone() else { return };
         if let Some(on) = self.workspace.portrait.keep_skin.get(&(photo.clone(), from.to_string())).copied() {
             self.workspace.portrait.keep_skin.insert((photo, to.to_string()), on);
         }
@@ -278,12 +278,12 @@ pub(crate) fn after_portrait_depth(&mut self) {
         if !std::mem::take(&mut self.workspace.portrait.blur_from_panel) {
             return;
         }
-        let centre = self.editor.doc.recipe.masks.iter().find(|m| m.role == MaskRole::Skin).and_then(|m| match m.range {
+        let centre = self.editor.doc().recipe.masks.iter().find(|m| m.role == MaskRole::Skin).and_then(|m| match m.range {
             Some(autoshade::recipe::RangeMask::Color { px, py, .. }) => Some([px, py]),
             _ => None,
         });
-        let subject = subject_raster(&self.editor.doc.recipe);
-        let Some(lb) = self.editor.doc.recipe.lens_blur.as_mut() else { return };
+        let subject = subject_raster(&self.editor.doc().recipe);
+        let Some(lb) = self.editor.doc_mut().recipe.lens_blur.as_mut() else { return };
         if let Some(c) = centre {
             lb.focus = c;
             self.workspace.tools.lens_focus_picking = false;
@@ -291,12 +291,12 @@ pub(crate) fn after_portrait_depth(&mut self) {
         if lb.protect.is_none() {
             lb.protect = subject;
         }
-        self.editor.session.dirty = true;
+        self.editor.session_mut().dirty = true;
     }
 
 pub(crate) fn set_keep_person_sharp(&mut self, on: bool) -> bool {
-        let subject = subject_raster(&self.editor.doc.recipe);
-        let Some(lb) = self.editor.doc.recipe.lens_blur.as_mut() else { return false };
+        let subject = subject_raster(&self.editor.doc().recipe);
+        let Some(lb) = self.editor.doc_mut().recipe.lens_blur.as_mut() else { return false };
         let protect = if on { subject } else { None };
         if on && protect.is_none() {
             return false;

@@ -199,7 +199,7 @@ impl AutoShadeApp {
     ///
     /// Returns `true` when the caller must stop.
     pub(crate) fn refuse_pixel_work_on_a_turned_photo(&mut self) -> bool {
-        if self.editor.doc.recipe.quarter_turns.is_multiple_of(4) {
+        if self.editor.doc().recipe.quarter_turns.is_multiple_of(4) {
             return false;
         }
         self.workspace.status = tr(
@@ -425,15 +425,15 @@ impl AutoShadeApp {
     /// so an undone removal has its pixels to come back to.
     fn layer_rows(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        if self.editor.doc.recipe.pixel_layers.is_empty() {
+        if self.editor.doc().recipe.pixel_layers.is_empty() {
             return;
         }
         sub_caption(ui, tr(lang, K_RETOUCH_LAYERS_ON_THIS_CARD));
         let mut remove = None;
         let mut changed = false;
-        for i in 0..self.editor.doc.recipe.pixel_layers.len() {
+        for i in 0..self.editor.doc().recipe.pixel_layers.len() {
             ui.horizontal(|ui| {
-                let layer = &mut self.editor.doc.recipe.pixel_layers[i];
+                let layer = &mut self.editor.doc_mut().recipe.pixel_layers[i];
                 if glyph_toggle(ui, layer.enabled, "👁")
                     .on_hover_text(tr(lang, K_RETOUCH_SHOW_OR_HIDE_THIS_LAYER_A_HIDDEN_LAYER_IS_KEPT_A))
                     .clicked()
@@ -454,18 +454,18 @@ impl AutoShadeApp {
                 ui,
                 lang,
                 tr(lang, K_RETOUCH_LAYER_OPACITY),
-                &mut self.editor.doc.recipe.pixel_layers[i].opacity,
+                &mut self.editor.doc_mut().recipe.pixel_layers[i].opacity,
                 1.0,
                 1.0,
                 tr(lang, K_RETOUCH_HOW_STRONGLY_THIS_LAYER_COVERS_THE_DEVELOP_UNDER),
             );
         }
         if let Some(i) = remove {
-            self.editor.doc.recipe.pixel_layers.remove(i);
+            self.editor.doc_mut().recipe.pixel_layers.remove(i);
             changed = true;
         }
         if changed {
-            self.editor.session.dirty = true;
+            self.editor.session_mut().dirty = true;
         }
     }
 
@@ -488,10 +488,10 @@ impl AutoShadeApp {
         //
         // Silent on the photographs that carry none, which is 150 of the
         // reference library's 175.
-        if !self.editor.doc.recipe.retouch.is_empty() {
-            let total = self.editor.doc.recipe.retouch.len();
+        if !self.editor.doc().recipe.retouch.is_empty() {
+            let total = self.editor.doc().recipe.retouch.len();
             let synth =
-                self.editor.doc.recipe.retouch.iter().filter(|a| a.origin.is_synthesised()).count();
+                self.editor.doc().recipe.retouch.iter().filter(|a| a.origin.is_synthesised()).count();
             sub_caption(ui, tr(lang, K_RETOUCH_IMPORTED_REMOVAL));
             ui.label(
                 egui::RichText::new(trf(

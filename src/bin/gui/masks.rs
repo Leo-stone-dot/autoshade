@@ -27,7 +27,7 @@ impl AutoShadeApp {
         // The ORIGINAL frame the recipe stores the mask in (v1.17.0: a
         // corrected base is mapped back first).
         let Some(base) = self.original_frame_base() else { return };
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
         self.workspace.busy = true;
         self.workspace.status = trf(
             lang,
@@ -95,13 +95,13 @@ impl AutoShadeApp {
     /// regenerate the enclosing disk of a long thin stroke would rewrite a
     /// circle of content the photographer never touched.
     pub(crate) fn paint_imported_removals(&mut self) -> usize {
-        let Some(base) = self.editor.photo.base_preview.as_ref() else { return 0 };
+        let Some(base) = self.editor.photo().base_preview.as_ref() else { return 0 };
         let (mw, mh) = base.dimensions();
         if mw == 0 || mh == 0 {
             return 0;
         }
         let wanted: Vec<_> =
-            autoshade::render::retouch_spots(&self.editor.doc.recipe, mw as usize, mh as usize)
+            autoshade::render::retouch_spots(&self.editor.doc().recipe, mw as usize, mh as usize)
                 .into_iter()
                 .filter(|s| s.origin.is_synthesised())
                 .collect();
@@ -358,7 +358,7 @@ impl AutoShadeApp {
     /// resolution, so the session bakes exactly what it shows.
     pub(crate) fn start_mask_brush(&mut self, target: Option<usize>) {
         self.disarm_tools();
-        let Some(base) = self.editor.photo.base_preview.as_ref() else { return };
+        let Some(base) = self.editor.photo().base_preview.as_ref() else { return };
         let (mw, mh) = base.dimensions();
         // The session takes the canvas; the owner's area waits in the store.
         self.stash_owner_area();
@@ -370,12 +370,12 @@ impl AutoShadeApp {
         // 「🖌 Edit raster」 open an empty canvas over a mask that has pixels.
         if let Some(i) = target
             && let Some(path) =
-                self.editor.doc.recipe.masks.get(i).and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
+                self.editor.doc().recipe.masks.get(i).and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
         {
             // Through THE raster entry, in the sensor frame this canvas
             // paints in (a reverse-fit zone may be drawn lens-corrected).
             let at = std::path::Path::new(path);
-            match autoshade::render::open_mask_raster(at).and_then(|r| r.into_sensor_gray(&self.editor.doc.recipe, at)) {
+            match autoshade::render::open_mask_raster(at).and_then(|r| r.into_sensor_gray(&self.editor.doc().recipe, at)) {
                 Ok(img) => {
                     let g = image::imageops::resize(
                         &img,
@@ -421,7 +421,7 @@ impl AutoShadeApp {
     pub(crate) fn commit_mask_brush(&mut self) {
         let Some((target, _)) = self.workspace.masks.mask_brush else { return };
         let Some(gray) = self.workspace.masks.mask_brush_gray.clone() else { return };
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
         let lang = self.lang;
         if target.is_none() {
             if gray.pixels().all(|p| p[0] == 0) {
@@ -429,7 +429,7 @@ impl AutoShadeApp {
                 self.toast(ToastKind::Error, t.to_string());
                 return;
             }
-            if self.editor.doc.recipe.masks.len() >= 64 {
+            if self.editor.doc().recipe.masks.len() >= 64 {
                 let t = tr(lang, K_ACTIONS_MASK_LIMIT_REACHED_64_DELETE_ONE_FIRST);
                 self.toast(ToastKind::Error, t.to_string());
                 return;
@@ -450,7 +450,7 @@ impl AutoShadeApp {
             Ok(path) => {
                 let path_s = path.to_string_lossy().into_owned();
                 match target {
-                    Some(i) if i < self.editor.doc.recipe.masks.len() => {
+                    Some(i) if i < self.editor.doc().recipe.masks.len() => {
                         // REPOINT, never re-shape. A zone's geometry is the
                         // Select Sky component the sidecar carries; rewriting
                         // it as a `Bitmap` here would silently take the mask
@@ -459,19 +459,19 @@ impl AutoShadeApp {
                         // raster at all has nothing to repoint, so for that one
                         // the bake still MAKES the raster.
                         match autoshade::render::geometry_raster_path_mut(
-                            &mut self.editor.doc.recipe.masks[i].mask,
+                            &mut self.editor.doc_mut().recipe.masks[i].mask,
                         ) {
                             Some(slot) => *slot = path_s,
                             None => {
-                                self.editor.doc.recipe.masks[i].mask = MaskGeometry::Bitmap { path: path_s }
+                                self.editor.doc_mut().recipe.masks[i].mask = MaskGeometry::Bitmap { path: path_s }
                             }
                         }
                         self.workspace.masks.sel_mask = Some(i);
                         self.workspace.status = tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO).into();
                     }
                     _ => {
-                        let n = self.editor.doc.recipe.masks.len();
-                        self.editor.doc.recipe.masks.push(autoshade::recipe::LocalAdjustment {
+                        let n = self.editor.doc().recipe.masks.len();
+                        self.editor.doc_mut().recipe.masks.push(autoshade::recipe::LocalAdjustment {
                             mask: MaskGeometry::Bitmap { path: path_s },
                             name: trf(lang, K_GUI_BRUSH, &[("n", &(n + 1).to_string())]),
                             ..Default::default()
@@ -481,7 +481,7 @@ impl AutoShadeApp {
                     }
                 }
                 self.workspace.masks.sel_component = None;
-                self.editor.session.dirty = true;
+                self.editor.session_mut().dirty = true;
                 self.workspace.overlay.overlay_stale = true;
                 self.disarm_tools(); // ends the session and clears the canvas
             }
@@ -505,8 +505,8 @@ impl AutoShadeApp {
         op: impl FnOnce(&image::GrayImage) -> image::GrayImage,
         tag: &str,
     ) {
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
-        let Some(path) = self.editor.doc.recipe
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
+        let Some(path) = self.editor.doc().recipe
             .masks
             .get(i)
             .and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
@@ -519,7 +519,7 @@ impl AutoShadeApp {
         // written in (unmarked).
         let at = std::path::Path::new(&path);
         let done = autoshade::render::open_mask_raster(at)
-            .and_then(|r| r.into_sensor_gray(&self.editor.doc.recipe, at))
+            .and_then(|r| r.into_sensor_gray(&self.editor.doc().recipe, at))
             .map(|img| op(&img))
             .and_then(|g| {
                 let p = autoshade::store::claim_raster(&src, tag).map_err(anyhow::Error::from)?;
@@ -534,11 +534,11 @@ impl AutoShadeApp {
                 // `commit_mask_brush`. The read above already proved this
                 // geometry carries a raster, so the slot is there.
                 if let Some(slot) =
-                    autoshade::render::geometry_raster_path_mut(&mut self.editor.doc.recipe.masks[i].mask)
+                    autoshade::render::geometry_raster_path_mut(&mut self.editor.doc_mut().recipe.masks[i].mask)
                 {
                     *slot = p.to_string_lossy().into_owned();
                 }
-                self.editor.session.dirty = true;
+                self.editor.session_mut().dirty = true;
                 self.workspace.overlay.overlay_stale = true;
                 self.workspace.status =
                     tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO)
@@ -580,9 +580,9 @@ impl AutoShadeApp {
         if self.workspace.busy || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
         let Some(guide_src) = self.active_source_path() else { return };
-        let Some(path) = self.editor.doc.recipe
+        let Some(path) = self.editor.doc().recipe
             .masks
             .get(i)
             .and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
@@ -599,9 +599,9 @@ impl AutoShadeApp {
         // raster still be loadable next to this recipe's other active
         // rasters?"), so the recipe travels with the job. Spawn-time snapshot by
         // design: it is the same recipe the landing re-validates `stored_ref`
-        // against, and the alternative — reading `self.editor.doc.recipe` from the worker —
+        // against, and the alternative — reading `self.editor.doc().recipe` from the worker —
         // is not available on a background thread anyway.
-        let recipe_at_spawn = self.editor.doc.recipe.clone();
+        let recipe_at_spawn = self.editor.doc().recipe.clone();
         self.spawn_worker(
             move || {
                 // Budget permit BEFORE the big-decode mutex — the one ordering

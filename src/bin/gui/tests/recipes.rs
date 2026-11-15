@@ -28,13 +28,13 @@ fn jpeg(p: &std::path::Path) {
 }
 
 fn app_with(photo: &std::path::Path, recipe: EditRecipe) -> AutoShadeApp {
-    AutoShadeApp { editor: Editor { photo: PhotoPixels {
+    AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
             src_path: Some(photo.to_path_buf()),
 
             ..Default::default()
 
-        }, doc: Document {
+        }; *editor.doc_mut() = Document {
 
 
             recipe,
@@ -43,7 +43,7 @@ fn app_with(photo: &std::path::Path, recipe: EditRecipe) -> AutoShadeApp {
             ..Default::default()
 
 
-        }, ..Default::default() }, lang: Lang::En, ..Default::default() }
+        }; editor } , lang: Lang::En, ..Default::default() }
 }
 
 /// The window's own frame, tall enough that no row is culled.
@@ -119,7 +119,7 @@ fn a_taken_or_illegal_name_is_refused_and_nothing_is_written() {
     let first = std::fs::read_to_string(&path).unwrap();
 
     // The field clears after a save: type the same name again to ask for it.
-    app.editor.doc.recipe.exposure_ev = -2.0;
+    app.editor.doc_mut().recipe.exposure_ev = -2.0;
     app.workspace.rlib.recipe_name_buf = name.clone();
     app.save_current_recipe();
     assert!(app.workspace.status.contains("already exists"), "{}", app.workspace.status);
@@ -145,11 +145,11 @@ fn applying_a_recipe_to_the_canvas_is_an_unsaved_edit() {
     recipe_library::create(&name, &EditRecipe { exposure_ev: 0.9, contrast: 21.0, ..Default::default() }).unwrap();
 
     let mut app = app_with(&photo, EditRecipe::default());
-    app.editor.session.hist.saved_recipe = app.editor.doc.recipe.clone();
+    app.editor.session_mut().hist.saved_recipe = app.editor.doc().recipe.clone();
     app.apply_recipe_to_open(&name);
-    assert!((app.editor.doc.recipe.exposure_ev - 0.9).abs() < 1e-6, "{}", app.editor.doc.recipe.exposure_ev);
-    assert_eq!(app.editor.doc.recipe.contrast, 21.0);
-    assert!(app.editor.session.dirty, "the canvas is an unsaved edit");
+    assert!((app.editor.doc().recipe.exposure_ev - 0.9).abs() < 1e-6, "{}", app.editor.doc().recipe.exposure_ev);
+    assert_eq!(app.editor.doc().recipe.contrast, 21.0);
+    assert!(app.editor.session().dirty, "the canvas is an unsaved edit");
     assert!(!autoshade::store::recipe_target(&photo).exists(), "nothing was written to the store");
     assert!(app.workspace.status.contains("Applied recipe"), "{}", app.workspace.status);
 }
@@ -209,7 +209,7 @@ fn rename_moves_the_file_and_update_keeps_the_name() {
     app.workspace.rlib.recipes_loaded = true;
     app.refresh_recipes();
 
-    app.editor.doc.recipe.contrast = 44.0;
+    app.editor.doc_mut().recipe.contrast = 44.0;
     app.update_recipe_from_open(&from);
     let back = recipe_library::read(&from).unwrap();
     assert_eq!(back.contrast, 44.0, "the content was replaced");
@@ -316,7 +316,7 @@ fn the_selected_recipe_is_previewed_on_the_open_photo() {
     let _scrub = Scrub(vec![recipe_library::entry_path(&name), dir.clone()]);
     recipe_library::create(&name, &EditRecipe { exposure_ev: 0.4, ..Default::default() }).unwrap();
     let mut app = app_with(&photo, EditRecipe::default());
-    app.editor.photo.base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
+    app.editor.photo_mut().base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
         image::RgbImage::from_pixel(120, 80, image::Rgb([90, 110, 130])),
     )));
     app.workspace.rlib.show_recipes = true;

@@ -44,7 +44,7 @@ impl AutoShadeApp {
         // suppresses the "bitmap mask(s) not pasted" warning, so the
         // mismatch INVERTS that guard and writes A's raster masks into
         // B's saved develop.
-        if action_in(ui, cell, self.editor.photo.src_path.is_some() && !self.workspace.busy, tr(lang, K_GALLERY_COPY_RECIPE))
+        if action_in(ui, cell, self.editor.photo().src_path.is_some() && !self.workspace.busy, tr(lang, K_GALLERY_COPY_RECIPE))
             .on_hover_text(tr(lang, K_GALLERY_COPY_EVERY_DEVELOP_SETTING_FROM_THE_CURRENT_PHOT))
             .clicked()
         {

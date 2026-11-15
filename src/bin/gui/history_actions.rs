@@ -10,7 +10,7 @@ impl AutoShadeApp {
     /// variant's pixel identity. Arc/path clones only — never pixel copies.
     pub(crate) fn current_step(&self) -> UndoStep {
         UndoStep {
-            recipe: self.editor.doc.recipe.clone(),
+            recipe: self.editor.doc().recipe.clone(),
             base: self.active_variant().and_then(|v| v.base.clone()),
             origin: self.active_variant().and_then(|v| v.origin.clone()),
             keep_skin: self.skin_switch(),
@@ -24,9 +24,9 @@ impl AutoShadeApp {
     /// becomes the current head — with no photo open that is the empty step,
     /// which is exactly what stops the next settled frame pushing a phantom.
     pub(crate) fn reset_history(&mut self) {
-        self.editor.session.hist.committed = self.current_step();
-        self.editor.session.hist.undo_stack.clear();
-        self.editor.session.hist.redo_stack.clear();
+        self.editor.session_mut().hist.committed = self.current_step();
+        self.editor.session_mut().hist.undo_stack.clear();
+        self.editor.session_mut().hist.redo_stack.clear();
     }
 
     /// Commit the current state as one undo step RIGHT NOW (when it differs
@@ -36,16 +36,17 @@ impl AutoShadeApp {
     /// while keeping the freshly retouched pixels installed.
     pub(crate) fn commit_now(&mut self) {
         let cur = self.current_step();
-        if cur.recipe != self.editor.session.hist.committed.recipe || !cur.same_pixels(&self.editor.session.hist.committed) {
-            self.editor.session.hist.undo_stack.push(std::mem::replace(&mut self.editor.session.hist.committed, cur));
-            if self.editor.session.hist.undo_stack.len() > 100 {
-                self.editor.session.hist.undo_stack.remove(0); // cap history memory
+        if cur.recipe != self.editor.session().hist.committed.recipe || !cur.same_pixels(&self.editor.session().hist.committed) {
+            let hist = self.editor.history_mut();
+            hist.undo_stack.push(std::mem::replace(&mut hist.committed, cur));
+            if self.editor.session().hist.undo_stack.len() > 100 {
+                self.editor.session_mut().hist.undo_stack.remove(0); // cap history memory
             }
-            self.editor.session.hist.redo_stack.clear();
+            self.editor.session_mut().hist.redo_stack.clear();
         } else {
             // A flip of the skin switch that changed no value belongs to the
             // step on screen, so a later undo/redo hands it back as set.
-            self.editor.session.hist.committed.keep_skin = cur.keep_skin;
+            self.editor.session_mut().hist.committed.keep_skin = cur.keep_skin;
         }
     }
 
@@ -59,12 +60,12 @@ impl AutoShadeApp {
     }
 
     pub(crate) fn resync_recipe_display(&mut self) {
-        self.editor.analysis.rationale = self.editor.doc.recipe.rationale.clone();
+        self.editor.analysis_mut().rationale = self.editor.doc().recipe.rationale.clone();
         // Typed notes described the PREVIOUS rationale — a swap without a
         // clear would render a stale zh text over a different develop. The
         // landings that produce fresh notes install them AFTER this call.
-        self.editor.analysis.rationale_notes.clear();
-        self.editor.analysis.verdict = None;
+        self.editor.analysis_mut().rationale_notes.clear();
+        self.editor.analysis_mut().verdict = None;
         // A wholesale recipe swap (undo/redo/Reset/version load/AI apply)
         // disarms EVERY canvas tool — an armed index-carrying tool would fire
         // into whatever now sits at its remembered index, and a live
@@ -81,12 +82,12 @@ impl AutoShadeApp {
         // panel would silently deselect anyway; do it deterministically).
         // Same-index-different-mask after undo is a known cosmetic residue —
         // mask identity isn't tracked across history steps.
-        self.workspace.masks.sel_mask = self.workspace.masks.sel_mask.filter(|&i| i < self.editor.doc.recipe.masks.len());
+        self.workspace.masks.sel_mask = self.workspace.masks.sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len());
         // The component selection rides on the mask's OWN list, which the
         // swap can also reshape — same deterministic bound.
         self.workspace.masks.sel_component = self.workspace.masks.sel_component.filter(|&c| {
             self.workspace.masks.sel_mask
-                .and_then(|i| self.editor.doc.recipe.masks.get(i))
+                .and_then(|i| self.editor.doc().recipe.masks.get(i))
                 .is_some_and(|m| c < m.components.len())
         });
     }
@@ -96,10 +97,10 @@ impl AutoShadeApp {
     /// and O(1)). A restored `base: None` reverts a retouched source variant
     /// to the shared source neutral.
     pub(crate) fn apply_step(&mut self, step: UndoStep, ctx: &egui::Context) {
-        let pixels_differ = !step.same_pixels(&self.editor.session.hist.committed);
+        let pixels_differ = !step.same_pixels(&self.editor.session().hist.committed);
         let keep_skin = step.keep_skin;
-        self.editor.session.hist.committed = step.clone();
-        self.editor.doc.recipe = step.recipe;
+        self.editor.session_mut().hist.committed = step.clone();
+        self.editor.doc_mut().recipe = step.recipe;
         // The history is a READER too: a step recorded while the canvas was
         // washed reinstalls the pre-era pair on undo/redo — and the actor
         // that later promoted the canvas (Reset, Analyze, load_version,
@@ -134,14 +135,12 @@ impl AutoShadeApp {
         // any more. The gate stays because ungating the keyboard would
         // resurrect every scenario above, and the test drives it directly.
         if (!self.workspace.open.open_in_flight || (self.workspace.open.open_same_path && self.workspace.cards.keep_recipe))
-            && self.editor.doc.variants.get(self.editor.doc.active).is_none_or(|v| v.kind.is_source_based())
-            && let Some(p) = self.editor.photo.src_path.clone()
-            && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.editor.doc.recipe).is_some()
+            && self.editor.doc().variants.get(self.editor.doc().active).is_none_or(|v| v.kind.is_source_based())
+            && let Some(p) = self.editor.photo().src_path.clone()
+            && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.editor.doc_mut().recipe).is_some()
         {
-            self.editor.session.hist.committed.recipe = self.editor.doc.recipe.clone();
-            if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
-                v.recipe = self.editor.doc.recipe.clone();
-            }
+            self.editor.session_mut().hist.committed.recipe = self.editor.doc().recipe.clone();
+            self.editor.sync_active_recipe();
             let lang = self.lang;
             self.toast(
                 ToastKind::Success,
@@ -153,7 +152,7 @@ impl AutoShadeApp {
             );
         }
         if pixels_differ {
-            if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
+            if let Some(v) = self.editor.active_variant_mut() {
                 v.base = step.base;
                 v.origin = step.origin;
             }
@@ -166,7 +165,7 @@ impl AutoShadeApp {
             // canvas has to retract the claim, or it stands there false.
             self.set_canvas_status("restored the canvas pixels");
         }
-        self.editor.session.dirty = true;
+        self.editor.session_mut().dirty = true;
         self.resync_recipe_display();
         // The skin switch comes back as the step had it; a step past the
         // skin limits is then put back as it was (Portraits).
@@ -179,16 +178,16 @@ impl AutoShadeApp {
     /// paint canvas, overlay reference and the retained frame all described
     /// the old raster. History is deliberately NOT touched here.
     pub(crate) fn refresh_active_pixels(&mut self, ctx: &egui::Context) {
-        let Some(v) = self.editor.doc.variants.get(self.editor.doc.active) else { return };
-        let base = v.base.clone().or_else(|| self.editor.photo.source_preview.clone());
+        let Some(v) = self.editor.doc().variants.get(self.editor.doc().active) else { return };
+        let base = v.base.clone().or_else(|| self.editor.photo().source_preview.clone());
         if let Some(base) = base {
             let (mw, mh) = base.dimensions();
             // Same rule as load_active: the canvas recipe's own curve serves
             // every variant (a Generated recipe's curve is empty by
             // construction; an InPlace master is neutral and needs it).
-            let start = self.editor.doc.recipe.start_only();
+            let start = self.editor.doc().recipe.start_only();
             self.set_before(ctx, &base, &start);
-            self.editor.photo.base_preview = Some(base);
+            self.editor.photo_mut().base_preview = Some(base);
             self.rebind_paint_canvas(mw, mh);
         }
         self.workspace.overlay.overlay_ref = None;
@@ -244,21 +243,21 @@ impl AutoShadeApp {
     /// gestures bind screen coordinates to plate pixels mid-drag, and the
     /// plate is about to move under them.
     pub(crate) fn can_rotate(&self) -> bool {
-        self.editor.photo.src_path.is_some()
-            && self.editor.photo.base_preview.is_some()
+        self.editor.photo().src_path.is_some()
+            && self.editor.photo().base_preview.is_some()
             && !self.workspace.busy
             && !self.workspace.open.open_in_flight
             && !self.workspace.masks.paint_mode
             && self.workspace.overlay.region.is_none()
-            && self.editor.doc.variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
+            && self.editor.doc().variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
             // A fill layer is pixels in the frame it was made in, like a
             // baked master (2026-10-01): the live card and every stored one.
-            && self.editor.doc.recipe.pixel_layers.is_empty()
-            && self.editor.doc.variants.iter().all(|v| v.recipe.pixel_layers.is_empty())
+            && self.editor.doc().recipe.pixel_layers.is_empty()
+            && self.editor.doc().variants.iter().all(|v| v.recipe.pixel_layers.is_empty())
             // …and so is a lens blur's depth map (2026-10-13): estimated in
             // the frame the photo had, its texels would not follow a turn.
-            && self.editor.doc.recipe.lens_blur.is_none()
-            && self.editor.doc.variants.iter().all(|v| v.recipe.lens_blur.is_none())
+            && self.editor.doc().recipe.lens_blur.is_none()
+            && self.editor.doc().variants.iter().all(|v| v.recipe.lens_blur.is_none())
     }
 
     /// Turn the open photo by `delta` clockwise quarter turns — ONE undo step,
@@ -273,15 +272,15 @@ impl AutoShadeApp {
         if !self.can_rotate() {
             return;
         }
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
         let lang = self.lang;
         // The step BEFORE the turn, so one Ctrl+Z puts it back (7.7).
         self.commit_now();
-        let mut next = self.editor.doc.recipe.clone();
+        let mut next = self.editor.doc().recipe.clone();
         match autoshade::pipeline::rotate_recipe(&mut next, &src, delta) {
             Ok(_) => {
-                self.editor.doc.recipe = next;
-                self.editor.session.dirty = true;
+                self.editor.doc_mut().recipe = next;
+                self.editor.session_mut().dirty = true;
                 self.sync_base_turns(ctx);
                 self.resync_recipe_display();
                 // …and SEAL it, rather than waiting for `commit_if_settled`
@@ -321,8 +320,8 @@ impl AutoShadeApp {
     /// is defined against the plate, so one turn here moves all of them and
     /// none of them needs to know.
     pub(crate) fn sync_base_turns(&mut self, ctx: &egui::Context) {
-        let want = self.editor.doc.recipe.quarter_turns % 4;
-        let delta = (want + 4 - self.editor.photo.base_turns % 4) % 4;
+        let want = self.editor.doc().recipe.quarter_turns % 4;
+        let delta = (want + 4 - self.editor.photo().base_turns % 4) % 4;
         if delta == 0 {
             return;
         }
@@ -333,16 +332,16 @@ impl AutoShadeApp {
         // so what this branch protects is the per-variant `v.base` plate,
         // whose frame nothing tracks: turning the previews under it would
         // put the canvas and the cards in two frames.
-        if self.editor.doc.variants.iter().any(|v| v.base.is_some() || v.origin.is_some()) {
-            self.editor.photo.base_turns = want;
+        if self.editor.doc().variants.iter().any(|v| v.base.is_some() || v.origin.is_some()) {
+            self.editor.photo_mut().base_turns = want;
             return;
         }
         let turn = |p: &Arc<image::DynamicImage>| {
             Arc::new(autoshade::render::turn_image((**p).clone(), delta))
         };
-        self.editor.photo.source_preview = self.editor.photo.source_preview.as_ref().map(&turn);
-        self.editor.photo.base_preview = self.editor.photo.base_preview.as_ref().map(&turn);
-        self.editor.photo.base_turns = want;
+        self.editor.photo_mut().source_preview = self.editor.photo().source_preview.as_ref().map(&turn);
+        self.editor.photo_mut().base_preview = self.editor.photo().base_preview.as_ref().map(&turn);
+        self.editor.photo_mut().base_turns = want;
         // Everything derived from the plate's frame. The Before texture is
         // rebuilt here rather than invalidated: `set_before` is the only
         // writer, and leaving a stale one on screen for a frame is the
@@ -353,8 +352,8 @@ impl AutoShadeApp {
         // brush stroke — and the fill/heal mask exported from it — at the
         // wrong coordinates. A live brush session dies with the old frame,
         // disclosed, exactly as at every other replacement door.
-        if let Some(b) = self.editor.photo.base_preview.clone() {
-            let start = self.editor.doc.recipe.start_only();
+        if let Some(b) = self.editor.photo().base_preview.clone() {
+            let start = self.editor.doc().recipe.start_only();
             self.set_before(ctx, &b, &start);
             let (mw, mh) = b.dimensions();
             self.rebind_paint_canvas(mw, mh);
@@ -365,19 +364,21 @@ impl AutoShadeApp {
         self.workspace.overlay.mask_tex = None;
         self.workspace.overlay.mask_overlay_tex = None;
         self.workspace.overlay.overlay_key = None;
-        self.editor.session.dirty = true;
+        self.editor.session_mut().dirty = true;
     }
 
     pub(crate) fn undo(&mut self, ctx: &egui::Context) {
-        if let Some(prev) = self.editor.session.hist.undo_stack.pop() {
-            self.editor.session.hist.redo_stack.push(self.editor.session.hist.committed.clone());
+        if let Some(prev) = self.editor.session_mut().hist.undo_stack.pop() {
+            let hist = self.editor.history_mut();
+            hist.redo_stack.push(hist.committed.clone());
             self.apply_step(prev, ctx);
         }
     }
 
     pub(crate) fn redo(&mut self, ctx: &egui::Context) {
-        if let Some(next) = self.editor.session.hist.redo_stack.pop() {
-            self.editor.session.hist.undo_stack.push(self.editor.session.hist.committed.clone());
+        if let Some(next) = self.editor.session_mut().hist.redo_stack.pop() {
+            let hist = self.editor.history_mut();
+            hist.undo_stack.push(hist.committed.clone());
             self.apply_step(next, ctx);
         }
     }

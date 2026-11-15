@@ -183,7 +183,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, K_NORMAL_ONE_CLICK_LOOK), false, |_| {});
-        let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight && !self.workspace.normal.building;
+        let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight && !self.workspace.normal.building;
         let names: [&str; 6] = [
             tr(lang, K_NORMAL_NATURAL),
             tr(lang, K_NORMAL_BRIGHT_CLEAN),
@@ -264,7 +264,7 @@ impl AutoShadeApp {
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, K_NORMAL_FINE_TUNE), false, |_| {});
         let mut changed = false;
-        let r = &mut self.editor.doc.recipe;
+        let r = &mut self.editor.doc_mut().recipe;
         changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_BRIGHTNESS), &mut r.exposure_ev, -5.0, 5.0, 0.0);
         changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_CONTRAST), &mut r.contrast, -100.0, 100.0, 0.0);
         let mut warmth = r.warmth();
@@ -286,17 +286,17 @@ impl AutoShadeApp {
         let back = self.workspace.normal
             .result
             .as_ref()
-            .filter(|(p, f)| self.editor.photo.src_path.as_ref() == Some(p) && *f != FineTune::of(&self.editor.doc.recipe))
+            .filter(|(p, f)| self.editor.photo().src_path.as_ref() == Some(p) && *f != FineTune::of(&self.editor.doc().recipe))
             .map(|(_, f)| *f);
         if action_row(ui, back.is_some(), tr(lang, K_NORMAL_BACK_TO_THE_ONE_CLICK_RESULT)).clicked()
             && let Some(f) = back
         {
-            f.apply(&mut self.editor.doc.recipe);
+            f.apply(&mut self.editor.doc_mut().recipe);
             changed = true;
         }
         if changed {
-            self.editor.doc.recipe.clamp();
-            self.editor.session.dirty = true;
+            self.editor.doc_mut().recipe.clamp();
+            self.editor.session_mut().dirty = true;
         }
     }
 
@@ -356,7 +356,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, K_NORMAL_SAVE), false, |_| {});
-        let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy;
+        let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy;
         let mut save = false;
         ui.horizontal(|ui| {
             let cell = columns(ui, 2);

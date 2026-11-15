@@ -79,13 +79,13 @@ impl AutoShadeApp {
     pub(crate) fn refresh_versions(&mut self) {
         self.workspace.cards.versions.clear();
         self.workspace.cards.version_meta.clear();
-        let Some(src) = self.editor.photo.src_path.as_deref() else { return };
+        let Some(src) = self.editor.photo().src_path.as_deref() else { return };
         // ONE store query for the photo's whole edit-state list (R24-4
         // `store::list_edits`), which joins the version family with its
         // advisory metadata — including the listed-numbers-only restriction
         // this used to spell for itself. The VARIANT half is deliberately
         // dropped here: it describes the LAST SAVED strip, while
-        // `self.editor.doc.variants` is the live one (pushes, deletes and renames that
+        // `self.editor.doc().variants` is the live one (pushes, deletes and renames that
         // have not been saved yet), and an editor must never renumber its own
         // cards from a stale record. For every non-GUI surface that half IS
         // the list.
@@ -151,7 +151,7 @@ impl AutoShadeApp {
                 // screen, and a SECOND rename in the same row has to compare
                 // against what we just wrote, not the original.
                 self.workspace.cards.version_name_buf = Some((photo.clone(), n, buf.clone(), buf));
-                if self.editor.photo.src_path.as_deref() == Some(photo.as_path()) {
+                if self.editor.photo().src_path.as_deref() == Some(photo.as_path()) {
                     self.workspace.cards.version_meta
                         .entry(n)
                         .or_insert_with(|| autoshade::store::VersionMetaEntry {
@@ -192,7 +192,7 @@ impl AutoShadeApp {
             self.toast(ToastKind::Error, t);
             return;
         }
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
         // Attribution for the record below, read before the lock closure
         // borrows `self`: which card this snapshot is a picture OF (R24-2).
         let from_kind = self.active_variant().map(|v| v.kind.store_str().to_string());
@@ -221,7 +221,7 @@ impl AutoShadeApp {
         // pair): a version whose recipe pointed at another version's frozen
         // raster (load v3 → save as v4) broke the moment v3 was deleted.
         let dev = autoshade::store::develop_dir(&src);
-        let mut snap = self.editor.doc.recipe.clone();
+        let mut snap = self.editor.doc().recipe.clone();
         if let Err(e) = autoshade::store::snapshot_rasters(&mut snap, &dev, n) {
             let _ = std::fs::remove_file(&vpath); // release the claim
             let t = trf(lang, K_ACTIONS_SAVE_VERSION_FAILED, &[("err", &e.to_string())]);
@@ -278,7 +278,7 @@ impl AutoShadeApp {
     /// Load version `n` as the working recipe (one undo step, like AI Analyze).
     pub(crate) fn load_version(&mut self, n: u32) {
         let lang = self.lang;
-        let Some(src) = self.editor.photo.src_path.clone() else { return };
+        let Some(src) = self.editor.photo().src_path.clone() else { return };
         let p = Self::version_path(&src, n);
         // ONE NoWait lock across the whole snapshot read: the version file,
         // the mask re-anchor probes and the raster detach copies are separate
@@ -392,13 +392,13 @@ impl AutoShadeApp {
                 // still has geometry) and toasted rather than folded into the
                 // status line, so the raster caveat has room.
                 let reframe = autoshade::pipeline::migrate_recipe_coord_frame(&src, &mut r);
-                self.editor.doc.recipe = r;
+                self.editor.doc_mut().recipe = r;
                 // Read from disk: "Keep skin natural" is decided afresh for
                 // this card (`panels/portrait.rs`) — opening never changes a
                 // value.
                 self.decide_keep_skin_for_card();
                 self.resync_recipe_display();
-                self.editor.session.dirty = true;
+                self.editor.session_mut().dirty = true;
                 // A snapshot loaded onto the pristine ✨ card is an edit like
                 // any other: it lands on a new ✎ card (the immutability rule),
                 // and the load announcement below names that card's canvas.

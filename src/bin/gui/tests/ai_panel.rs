@@ -192,7 +192,7 @@
         // …and it OUTRANKS a generated variant: an explicit choice must not
         // be shadowed by whichever card happens to be active.
         let generated = std::path::PathBuf::from("./out/P21.reimagine.png");
-        app.editor.doc.variants.push(Variant {
+        app.editor.doc_mut().variants.push(Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Generated,
@@ -201,7 +201,7 @@
             origin: Some(generated.clone()),
             thumb: None,
         });
-        app.editor.doc.active = app.editor.doc.variants.len() - 1;
+        app.editor.doc_mut().active = app.editor.doc().variants.len() - 1;
         assert_eq!(app.fit_target(), Some(reference), "the chosen reference wins");
         // Clearing it hands the entry back to the generated variant — both
         // doors stay open, which is the whole shape of this change.
@@ -400,7 +400,7 @@
         let working =
             ["a harbour at dusk", "cool and quiet", "a touch under the target", "denoise (grain in the sky)"];
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
-            let mut app = AutoShadeApp { editor: Editor { analysis: AnalysisSession {
+            let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.analysis_mut() = AnalysisSession {
 
                     rationale: rationale.clone(),
 
@@ -408,8 +408,8 @@
 
                     ..Default::default()
 
-                }, ..Default::default() }, lang, ..Default::default() };
-            app.editor.doc.recipe.rationale = rationale.clone();
+                }; editor } , lang, ..Default::default() };
+            app.editor.doc_mut().recipe.rationale = rationale.clone();
             let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
             let sentence = seen
                 .iter()
@@ -439,11 +439,11 @@
             }
         }
         // Fallback: no typed notes → the raw English, whole, and no box.
-        let mut app = AutoShadeApp { editor: Editor { analysis: AnalysisSession {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.analysis_mut() = AnalysisSession {
      rationale: rationale.clone(),
      ..Default::default()
- }, ..Default::default() }, ..Default::default() };
-        app.editor.doc.recipe.rationale = rationale.clone();
+ }; editor } , ..Default::default() };
+        app.editor.doc_mut().recipe.rationale = rationale.clone();
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         let title = tr(app.lang, K_AI_DEEP_THINKING_ITS_WORKING);
         assert!(
@@ -648,10 +648,10 @@
         let long = format!("{}END-OF-RATIONALE", "The sky is lifted and the shadows are opened a little. ".repeat(60));
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             let verb = tr(lang, K_AI_VIEW_FULL_TEXT);
-            let mut app = AutoShadeApp { editor: Editor { analysis: AnalysisSession {
+            let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.analysis_mut() = AnalysisSession {
      rationale: long.clone(),
      ..Default::default()
- }, ..Default::default() }, lang, ..Default::default() };
+ }; editor } , lang, ..Default::default() };
             let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
             let rect = app.seams.analysis_box_rect.expect("the analysis box was drawn");
             assert!(
@@ -684,10 +684,10 @@
             );
             assert!(app.workspace.ui.show_analysis_full, "{lang:?}: the window stays open while there is text");
 
-            let mut short = AutoShadeApp { editor: Editor { analysis: AnalysisSession {
+            let mut short = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.analysis_mut() = AnalysisSession {
      rationale: "Balanced.".into(),
      ..Default::default()
- }, ..Default::default() }, lang, ..Default::default() };
+ }; editor } , lang, ..Default::default() };
             let seen = tall_frame(&mut short, |a, ui| a.ai_panel(ui));
             assert!(!seen.iter().any(|t| t == verb), "{lang:?}: a short analysis offers no {verb:?}");
         }

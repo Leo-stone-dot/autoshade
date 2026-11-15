@@ -246,10 +246,10 @@
             "whites eased so the sky keeps its gradient, vibrance up and saturation held so the red rock ",
             "stays believable, a cooler white balance on the sky band only, and a gentle S curve for depth. ",
         );
-        app.editor.analysis.rationale = std::iter::once(prose.to_string()).chain(notes.iter().map(render_one)).collect();
-        app.editor.doc.recipe.rationale = app.editor.analysis.rationale.clone();
-        app.editor.analysis.rationale_notes = notes;
-        app.editor.analysis.verdict = Some((autoshade::advisor::Decision::Accept, vec!["balanced".into(), "on target".into()]));
+        app.editor.analysis_mut().rationale = std::iter::once(prose.to_string()).chain(notes.iter().map(render_one)).collect();
+        app.editor.doc_mut().recipe.rationale = app.editor.analysis().rationale.clone();
+        app.editor.analysis_mut().rationale_notes = notes;
+        app.editor.analysis_mut().verdict = Some((autoshade::advisor::Decision::Accept, vec!["balanced".into(), "on target".into()]));
     }
 
     /// The analysis full-text window alone, on a 720 × 560 screen at 2×.
@@ -299,7 +299,7 @@
             })
             .collect();
         let photo = egui::ColorImage::new([w, h], px);
-        app.editor.plates.after_tex = Some(ctx.load_texture("shot-photo", photo, egui::TextureOptions::LINEAR));
+        app.editor.plates_mut().after_tex = Some(ctx.load_texture("shot-photo", photo, egui::TextureOptions::LINEAR));
         let ppp = 1.5;
         let mut tex = ShotTextures::default();
         let mut last = None;
@@ -404,7 +404,7 @@
             let mut app = app_with_every_button(lang);
             // Pixels the preview pane develops (a warm-rock / blue-sky frame,
             // the same stand-in the canvas shots use).
-            app.editor.photo.base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
+            app.editor.photo_mut().base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
                 image::RgbImage::from_fn(96, 64, |x, y| {
                     if y < 28 {
                         image::Rgb([70 + (x / 2) as u8, 110, 190])

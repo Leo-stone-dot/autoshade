@@ -71,7 +71,7 @@ pub(crate) fn on_analyzed(
                         self.active_on_ai_pixels(),
                     );
                     let stamped = shaped.stamped;
-                    self.editor.doc.recipe = shaped.canvas;
+                    self.editor.doc_mut().recipe = shaped.canvas;
                     // The immutability rule, BEFORE the persist below
                     // reads the strip: an analysis landing on the
                     // pristine ✨ card is an edit, and lands on a new ✎
@@ -81,10 +81,10 @@ pub(crate) fn on_analyzed(
                     // refresh rationale, THEN install the fresh verdict
                     // and the typed notes (resync cleared both).
                     self.resync_recipe_display();
-                    self.editor.analysis.rationale_notes = rationale_notes;
-                    self.editor.analysis.verdict =
+                    self.editor.analysis_mut().rationale_notes = rationale_notes;
+                    self.editor.analysis_mut().verdict =
                         Some((verdict.decision.clone(), verdict.reasons.clone()));
-                    self.editor.session.dirty = true;
+                    self.editor.session_mut().dirty = true;
                     self.workspace.busy = false;
                     // Persist like the CLI and the web do — the badge,
                     // batch render and reopening all read recipe.json, so
@@ -107,7 +107,7 @@ pub(crate) fn on_analyzed(
                                 },
                             ),
                         )
-                    } else { match self.editor.photo.src_path.clone() {
+                    } else { match self.editor.photo().src_path.clone() {
                         // The backup gate comes FIRST: if the existing save
                         // cannot be snapshotted, it is not overwritten —
                         // the analyze result stays on the canvas only.

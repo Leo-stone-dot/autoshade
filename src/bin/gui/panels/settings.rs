@@ -71,7 +71,7 @@ impl AutoShadeApp {
         // guessing, and "where is my XMP" is the question this row exists to
         // answer. Falls back to the root when no photo is open, which is all
         // there is to say then.
-        let shown = match self.editor.photo.src_path.as_deref() {
+        let shown = match self.editor.photo().src_path.as_deref() {
             Some(p) => autoshade::store::develop_dir(p),
             None => autoshade::store::store_root(),
         };

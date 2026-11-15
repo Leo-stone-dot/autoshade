@@ -16,9 +16,9 @@
                 ..Default::default()
             }, ..Default::default() }, ..Default::default() };
         assert_eq!(app.canvas_edge(), 4096, "no canvas yet: the preference is all there is");
-        app.editor.photo.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853)));
+        app.editor.photo_mut().base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853)));
         assert_eq!(app.canvas_edge(), 1280, "a baked canvas bakes at its OWN resolution");
-        app.editor.photo.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(853, 1280)));
+        app.editor.photo_mut().base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(853, 1280)));
         assert_eq!(app.canvas_edge(), 1280, "…measured on the long edge, portrait included");
     }
 
@@ -39,13 +39,13 @@
         std::fs::remove_file(&gone).unwrap(); // recorded, and now unresolvable
         assert!(autoshade::store::has_pixel_source(src), "premise: a record survives");
         let ctx = egui::Context::default();
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 src_path: Some(src.to_path_buf()),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![Variant {
@@ -62,7 +62,7 @@
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 4096,
                 ..Default::default()
             }, cards: CardsState {
@@ -101,13 +101,13 @@
         // a generated variant outright, so that remedy is unreachable for it.
         let present = dev.join("present-master.png");
         std::fs::write(&present, b"png").unwrap();
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 src_path: Some(src.to_path_buf()),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![Variant {
@@ -124,7 +124,7 @@
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 4096,
                 ..Default::default()
             }, cards: CardsState {
@@ -177,13 +177,13 @@
             thumb: None,
         };
         // (1) source-based canvas, sensor below the preference: no disclosure.
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![src(None), src(None)],
@@ -192,7 +192,7 @@
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 1280,
                 ..Default::default()
             }, ..Default::default() }, ..Default::default() };
@@ -204,13 +204,13 @@
             app.workspace.status
         );
         // (2) the same size gap, but the canvas really is a baked raster.
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![
@@ -222,7 +222,7 @@
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 1280,
                 ..Default::default()
             }, ..Default::default() }, ..Default::default() };
@@ -235,13 +235,13 @@
         // (3) a baked canvas at the resolution the source DELIVERS — a
         // sub-preference sensor, freshly healed. Measured against the raw
         // preference this fresh bake was called a stale one.
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![
@@ -253,7 +253,7 @@
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 1280,
                 ..Default::default()
             }, ..Default::default() }, ..Default::default() };
@@ -268,13 +268,13 @@
         // exactly the preference. Measured against the delivered edge alone,
         // this said "stays at 1280px … not the preview preference" while the
         // preference was 1280.
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![
@@ -286,7 +286,7 @@
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 1280,
                 ..Default::default()
             }, ..Default::default() }, ..Default::default() };
@@ -319,10 +319,10 @@
             origin: Some(PathBuf::from(format!("out/_{tag}.png"))),
             keep_skin: None,
         };
-        let mut app = AutoShadeApp { editor: Editor { session: EditorSession { hist: HistoryState {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.session_mut() = EditorSession { hist: HistoryState {
                 committed: step(&current, "current"),
                 ..Default::default()
-            }, ..Default::default() }, photo: PhotoPixels {
+            }, ..Default::default() }; *editor.photo_mut() = PhotoPixels {
 
                 // A REAL source: without it the ruler took its `unwrap_or`
 // fallback and never the delivered-edge path this test covers.
@@ -332,7 +332,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![Variant {
@@ -349,14 +349,14 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 1280,
                 ..Default::default()
             }, ..Default::default() }, ..Default::default() };
-        app.editor.session.hist.undo_stack.push(step(&superseded, "superseded"));
+        app.editor.session_mut().hist.undo_stack.push(step(&superseded, "superseded"));
         app.undo(&ctx);
         assert!(
-            app.editor.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &superseded)),
+            app.editor.photo().base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &superseded)),
             "premise: the superseded raster is back on the canvas"
         );
         assert!(
@@ -368,7 +368,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // disclosure left standing is false in both halves.
         app.redo(&ctx);
         assert!(
-            app.editor.photo.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &current)),
+            app.editor.photo().base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &current)),
             "premise: the matching-edge raster is back"
         );
         // EXACT, not `!contains("640px")`: a negative substring cannot tell
@@ -397,13 +397,13 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             origin: Some(PathBuf::from(format!("out/_{tag}.png"))),
             thumb: None,
         };
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![baked(640, 480, "keep"), baked(1280, 853, "drop")],
@@ -415,22 +415,22 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 1280,
                 ..Default::default()
             }, ..Default::default() }, ..Default::default() };
         // R24-4: the ✕ ARMS first — a deleted card cannot be brought back, so
         // the first call asks and changes nothing about the strip.
         app.delete_variant(1, &ctx);
-        assert_eq!(app.editor.doc.variants.len(), 2, "the arming click deletes nothing");
-        assert_eq!(app.editor.doc.active, 1, "…and does not re-anchor the strip either");
+        assert_eq!(app.editor.doc().variants.len(), 2, "the arming click deletes nothing");
+        assert_eq!(app.editor.doc().active, 1, "…and does not re-anchor the strip either");
         assert_eq!(
             app.workspace.cards.variant_delete_confirm,
             Some(1),
             "the arming click names the card the next one deletes"
         );
         app.delete_variant(1, &ctx);
-        assert_eq!(app.editor.doc.active, 0, "premise: the strip re-anchored");
+        assert_eq!(app.editor.doc().active, 0, "premise: the strip re-anchored");
         assert_eq!(app.workspace.cards.variant_delete_confirm, None, "the arm is spent");
         assert!(
             app.workspace.status.contains("640px"),
@@ -438,13 +438,13 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             app.workspace.status
         );
         // ...and landing on a canvas the preference DOES reach says so plainly.
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![
@@ -467,7 +467,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 ..Default::default()
 
 
-            }, ..Default::default() }, workspace: WorkspaceView { genai: GenerativeState {
+            }; editor } , workspace: WorkspaceView { genai: GenerativeState {
                 preview_edge: 1280,
                 ..Default::default()
             }, ..Default::default() }, ..Default::default() };
@@ -490,8 +490,8 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // lost: open_path stashed it before the flight.)
         let mut app = AutoShadeApp::default();
         let ctx = egui::Context::default();
-        app.editor.photo.src_path = Some(std::env::temp_dir().join(format!("autoshade-deadopen-{}/__autoshade_deadopen__.ARW", std::process::id())));
-        app.editor.doc.variants = vec![Variant {
+        app.editor.photo_mut().src_path = Some(std::env::temp_dir().join(format!("autoshade-deadopen-{}/__autoshade_deadopen__.ARW", std::process::id())));
+        app.editor.doc_mut().variants = vec![Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Original,
@@ -506,21 +506,21 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             origin: None,
             keep_skin: None,
         };
-        app.editor.session.hist.undo_stack.push(step());
-        app.editor.session.hist.redo_stack.push(step());
+        app.editor.session_mut().hist.undo_stack.push(step());
+        app.editor.session_mut().hist.redo_stack.push(step());
         app.services.tx
             .send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed")))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert!(app.editor.photo.src_path.is_none(), "premise: a FRESH open failed into the no-photo state");
+        assert!(app.editor.photo().src_path.is_none(), "premise: a FRESH open failed into the no-photo state");
         assert!(
-            app.editor.session.hist.undo_stack.is_empty() && app.editor.session.hist.redo_stack.is_empty(),
+            app.editor.session().hist.undo_stack.is_empty() && app.editor.session().hist.redo_stack.is_empty(),
             "the dead photo's history goes with it"
         );
         // …so an undo here cannot reinstate the recipe of a photo that is gone.
         app.undo(&ctx);
-        assert_eq!(app.editor.doc.recipe.contrast, 0.0, "nothing left to restore");
-        assert!(app.editor.doc.variants.is_empty(), "…and no canvas to restore it onto");
+        assert_eq!(app.editor.doc().recipe.contrast, 0.0, "nothing left to restore");
+        assert!(app.editor.doc().variants.is_empty(), "…and no canvas to restore it onto");
     }
 
     #[test]
@@ -613,7 +613,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     #[test]
     fn the_mask_brush_session_follows_index_remaps() {
         let mut app = AutoShadeApp::default();
-        app.editor.doc.recipe.masks =
+        app.editor.doc_mut().recipe.masks =
             vec![Default::default(), Default::default(), Default::default()];
         // Session open on mask 2, deleting mask 0 shifts it to 1 — the stroke
         // must keep committing into the SAME mask, not whatever slid under
@@ -621,7 +621,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         app.workspace.masks.mask_brush = Some((Some(2), false));
         app.workspace.masks.mask_brush_gray = Some(image::GrayImage::new(4, 4));
         app.workspace.masks.paint_mode = true;
-        app.editor.doc.recipe.masks.remove(0);
+        app.editor.doc_mut().recipe.masks.remove(0);
         app.remap_mask_indices(|s| match s {
             0 => None,
             s => Some(s - 1),
@@ -632,7 +632,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // Deleting the session's OWN mask ends it like Esc: buffer gone,
         // paint mode disarmed — never a new-mask fallback that would
         // resurrect the deleted mask under a fresh slot.
-        app.editor.doc.recipe.masks.remove(1);
+        app.editor.doc_mut().recipe.masks.remove(1);
         app.remap_mask_indices(|s| match s {
             1 => None,
             s => Some(s),
@@ -650,13 +650,13 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     #[test]
     fn an_async_variant_push_commits_a_typed_mask_rename_first() {
         let mut app = AutoShadeApp::default();
-        app.editor.doc.recipe.masks = vec![autoshade::recipe::LocalAdjustment {
+        app.editor.doc_mut().recipe.masks = vec![autoshade::recipe::LocalAdjustment {
             name: "old".into(),
             ..Default::default()
         }];
         // A photo is open: its strip holds the outgoing variant that
         // push_variant snapshots the live canvas into.
-        app.editor.doc.variants = vec![Variant {
+        app.editor.doc_mut().variants = vec![Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Original,
@@ -665,7 +665,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             origin: None,
             thumb: None,
         }];
-        app.editor.doc.active = 0;
+        app.editor.doc_mut().active = 0;
         // The user is mid-typing "sky gradient" when a reverse-fit lands and
         // push_variant auto-switches: the switch's M15 boundary clear used to
         // discard the buffer, and the outgoing variant snapshotted "old".
@@ -683,7 +683,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             &egui::Context::default(),
         );
         assert_eq!(
-            app.editor.doc.variants[0].recipe.masks[0].name, "sky gradient",
+            app.editor.doc().variants[0].recipe.masks[0].name, "sky gradient",
             "the typed rename survives into the outgoing variant's snapshot"
         );
     }
@@ -839,15 +839,15 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     #[test]
     fn a_recipe_swap_clears_stale_rationale_notes() {
         let mut app = AutoShadeApp::default();
-        app.editor.doc.recipe.rationale = "old english tail".into();
-        app.editor.analysis.rationale_notes = vec![autoshade::rationale::Note::plain(
+        app.editor.doc_mut().recipe.rationale = "old english tail".into();
+        app.editor.analysis_mut().rationale_notes = vec![autoshade::rationale::Note::plain(
             autoshade::rationale::keys::FIT_NOTE_SAT_PEGGED,
         )];
-        app.editor.doc.recipe = EditRecipe { rationale: "a different develop".into(), ..Default::default() };
+        app.editor.doc_mut().recipe = EditRecipe { rationale: "a different develop".into(), ..Default::default() };
         app.resync_recipe_display();
-        assert_eq!(app.editor.analysis.rationale, "a different develop");
+        assert_eq!(app.editor.analysis().rationale, "a different develop");
         assert!(
-            app.editor.analysis.rationale_notes.is_empty(),
+            app.editor.analysis().rationale_notes.is_empty(),
             "stale notes must not survive a recipe swap — they rendered another rationale"
         );
     }
@@ -940,5 +940,5 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         assert_eq!(after_first, 1, "one script, one toast");
         app.disclose_undrawable_names_given(&[]);
         assert_eq!(app.workspace.chrome.toasts.len(), after_first, "the second open stays silent");
-        assert!(app.editor.analysis.disclosed_scripts.contains("thai"));
+        assert!(app.editor.analysis().disclosed_scripts.contains("thai"));
     }

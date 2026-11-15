@@ -42,7 +42,7 @@
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.editor.doc.recipe.masks = vec![
+            app.editor.doc_mut().recipe.masks = vec![
                 autoshade::recipe::LocalAdjustment {
                     mask: autoshade::recipe::MaskGeometry::Radial {
                         top: 0.2, left: 0.2, bottom: 0.8, right: 0.8,
@@ -139,7 +139,7 @@
             [(crate::i18n::Lang::En, "Curve"), (crate::i18n::Lang::Zh, "曲线")]
         {
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.editor.doc.recipe.masks =
+            app.editor.doc_mut().recipe.masks =
                 vec![autoshade::recipe::LocalAdjustment { name: "sky".into(), ..Default::default() }];
             // ① selected → the fourth group caption is drawn.
             app.workspace.masks.sel_mask = Some(0);
@@ -165,7 +165,7 @@
 
         // ③ the driven half: a click in the MASK editor lands in the mask.
         let mut app = AutoShadeApp::default();
-        app.editor.doc.recipe.masks =
+        app.editor.doc_mut().recipe.masks =
             vec![autoshade::recipe::LocalAdjustment { name: "sky".into(), ..Default::default() }];
         let ctx = egui::Context::default();
         let run_pass = |app: &mut AutoShadeApp, events: Vec<egui::Event>| -> bool {
@@ -198,18 +198,18 @@
         let released = run_pass(&mut app, vec![button(false)]);
         assert!(pressed || released, "the mask editor must report the edit");
         assert_eq!(
-            app.editor.doc.recipe.masks[0].main_curve.len(),
+            app.editor.doc().recipe.masks[0].main_curve.len(),
             1,
             "the click adds one point to the MASK's master curve"
         );
         assert!(
-            app.editor.doc.recipe.tone_curve.is_empty(),
+            app.editor.doc().recipe.tone_curve.is_empty(),
             "the mask editor wrote into the GLOBAL tone curve: {:?}",
-            app.editor.doc.recipe.tone_curve
+            app.editor.doc().recipe.tone_curve
         );
         // ④ a target that no longer addresses a mask draws nothing rather
         //    than falling through to the global curves.
-        app.editor.doc.recipe.masks.clear();
+        app.editor.doc_mut().recipe.masks.clear();
         let mut drew = true;
         let _ = ctx.run(egui::RawInput::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -217,7 +217,7 @@
             });
         });
         assert!(!drew, "a stale mask index must not report an edit");
-        assert!(app.editor.doc.recipe.tone_curve.is_empty(), "…and must not touch the global curves");
+        assert!(app.editor.doc().recipe.tone_curve.is_empty(), "…and must not touch the global curves");
     }
 
     /// Every text one frame drew, nested `Shape::Vec` included — the way to read
@@ -271,7 +271,7 @@
             // 2) A plain Lightroom heal: the summary, and NO ✨ verb — the
             //    pixels were copied, so there is nothing for a model to redo.
             let mut copied = AutoShadeApp { lang, ..Default::default() };
-            copied.editor.doc.recipe.retouch = vec![area(SpotOrigin::LightroomHeal)];
+            copied.editor.doc_mut().recipe.retouch = vec![area(SpotOrigin::LightroomHeal)];
             let seen = tall_frame(&mut copied, |a, ui| a.retouch_panel(ui));
             assert!(
                 seen.iter().any(|t| t == tr(lang, K_RETOUCH_IMPORTED_REMOVAL)),
@@ -284,7 +284,7 @@
 
             // 3) One Adobe-synthesised area among them: the verb appears.
             let mut invented = AutoShadeApp { lang, ..Default::default() };
-            invented.editor.doc.recipe.retouch = vec![
+            invented.editor.doc_mut().recipe.retouch = vec![
                 area(SpotOrigin::LightroomHeal),
                 area(SpotOrigin::LightroomGenerative),
             ];
@@ -338,7 +338,7 @@
             // 2) A stored control with the MODE OFF — renders nothing, and
             //    must still be visible.
             let mut stored = AutoShadeApp { lang, ..Default::default() };
-            stored.editor.doc.recipe.sdr_brightness = 40.0;
+            stored.editor.doc_mut().recipe.sdr_brightness = 40.0;
             let seen = tall_frame(&mut stored, |a, ui| {
                 a.develop_panel(ui);
             });
@@ -349,7 +349,7 @@
 
             // 3) …and so does the mode by itself.
             let mut on = AutoShadeApp { lang, ..Default::default() };
-            on.editor.doc.recipe.hdr_edit = true;
+            on.editor.doc_mut().recipe.hdr_edit = true;
             let seen = tall_frame(&mut on, |a, ui| {
                 a.develop_panel(ui);
             });
@@ -404,7 +404,7 @@
                 ("verdict", true, "", true),
                 ("Direction", false, "warmer and moodier", true),
             ] {
-                let mut app = AutoShadeApp { editor: Editor { analysis: AnalysisSession {
+                let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.analysis_mut() = AnalysisSession {
 
                         verdict: has_verdict.then(|| (
                         autoshade::advisor::Decision::Accept, vec!["ok".into()]
@@ -412,7 +412,7 @@
 
                         ..Default::default()
 
-                    }, ..Default::default() }, workspace: WorkspaceView { ai: AiState {
+                    }; editor } , workspace: WorkspaceView { ai: AiState {
                         guidance: guidance.into(),
                         ..Default::default()
                     }, ..Default::default() }, aip: AiPrefs {
@@ -697,18 +697,18 @@
         let mut app = AutoShadeApp::default();
         app.restore_prefs(Prefs { prefs_era: 1, denoise_strength: 0.45,
             save_denoise_strength: 0.6, ..Prefs::default() });
-        app.editor.photo.src_path = Some(PathBuf::from("master.tif"));
+        app.editor.photo_mut().src_path = Some(PathBuf::from("master.tif"));
         let mut storage = PrefsMemory::default();
         eframe::App::save(&mut app, &mut storage);
         let prefs: Prefs = eframe::get_value(&storage, eframe::APP_KEY).unwrap();
         assert_eq!(prefs.prefs_era, 2);
         let mut reopened = AutoShadeApp::default();
         reopened.restore_prefs(prefs);
-        reopened.editor.photo.src_path = Some(PathBuf::from("master.tif"));
+        reopened.editor.photo_mut().src_path = Some(PathBuf::from("master.tif"));
         assert_eq!(reopened.selected_denoise_strength(false), 0.45);
         assert_eq!(reopened.selected_denoise_strength(true), 0.6);
         assert!(!reopened.workspace.status.contains("reset to"));
-        reopened.editor.photo.src_path = Some(PathBuf::from("frame.ARW"));
+        reopened.editor.photo_mut().src_path = Some(PathBuf::from("frame.ARW"));
         assert_eq!(reopened.selected_denoise_strength(false), autoshade::denoise::DEFAULT_STRENGTH_RAW);
     }
 

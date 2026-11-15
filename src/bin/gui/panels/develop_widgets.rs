@@ -23,7 +23,7 @@ impl AutoShadeApp {
             .default_open(false)
             , |ui| {
                 changed |= self.curve_editor(ui);
-                changed |= Self::parametric_curve(ui, lang, &mut self.editor.doc.recipe);
+                changed |= Self::parametric_curve(ui, lang, &mut self.editor.doc_mut().recipe);
             });
         changed
     }
@@ -81,7 +81,7 @@ impl AutoShadeApp {
             .default_open(false)
             , |ui| {
                 changed |= ui
-                    .checkbox(&mut self.editor.doc.recipe.convert_to_grayscale, tr(lang, K_DEVELOP_BLACK_WHITE))
+                    .checkbox(&mut self.editor.doc_mut().recipe.convert_to_grayscale, tr(lang, K_DEVELOP_BLACK_WHITE))
                     .changed();
                 // What the CANVAS does, not what the checkbox says (v1.5.0 F7):
                 // a monochrome creative profile develops the photograph to grey
@@ -89,7 +89,7 @@ impl AutoShadeApp {
                 // offering the colour mixer over a grey canvas is a row of
                 // sliders that move numbers and no pixels. `render::apply_develop`
                 // asks the same question the same way.
-                let mono = self.editor.doc.recipe.renders_grayscale();
+                let mono = self.editor.doc().recipe.renders_grayscale();
                 // LR's mixer layout: pick ONE property (Hue / Saturation /
                 // Luminance) and see all 8 bands at once. The old band picker
                 // showed one band at a time — every other band's state was
@@ -112,12 +112,12 @@ impl AutoShadeApp {
                     if glyph(ui, true, "↺").on_hover_text(tr(lang, K_DEVELOP_RESET_ALL)).clicked() {
                         if mono {
                             for b in 0..HSL_BANDS.len() {
-                                if let Some(v) = self.editor.doc.recipe.gray_mixer_mut(b) {
+                                if let Some(v) = self.editor.doc_mut().recipe.gray_mixer_mut(b) {
                                     *v = 0.0;
                                 }
                             }
                         } else {
-                            self.editor.doc.recipe.hsl = Hsl::default();
+                            self.editor.doc_mut().recipe.hsl = Hsl::default();
                         }
                         changed = true;
                     }
@@ -127,13 +127,13 @@ impl AutoShadeApp {
                     // ONE row shape for both mixers: same band, same swatch,
                     // same ±100 track — only the number behind it changes.
                     let v = match (mono, tab) {
-                        (true, _) => match self.editor.doc.recipe.gray_mixer_mut(b) {
+                        (true, _) => match self.editor.doc_mut().recipe.gray_mixer_mut(b) {
                             Some(v) => v,
                             None => continue,
                         },
-                        (false, 0) => &mut self.editor.doc.recipe.hsl.hue[b],
-                        (false, 1) => &mut self.editor.doc.recipe.hsl.saturation[b],
-                        (false, _) => &mut self.editor.doc.recipe.hsl.luminance[b],
+                        (false, 0) => &mut self.editor.doc_mut().recipe.hsl.hue[b],
+                        (false, 1) => &mut self.editor.doc_mut().recipe.hsl.saturation[b],
+                        (false, _) => &mut self.editor.doc_mut().recipe.hsl.luminance[b],
                     };
                     ui.horizontal(|ui| {
                         // Band swatch so rows scan like LR's mixer.
@@ -167,7 +167,7 @@ impl AutoShadeApp {
         ui.add_space(SPACE_SM);
         // Point Color has no colour to act on in black and white, whichever of
         // the two switches produced it (v1.5.0 F7 — see the mixer above).
-        ui.add_enabled_ui(!self.editor.doc.recipe.renders_grayscale(), |ui| {
+        ui.add_enabled_ui(!self.editor.doc().recipe.renders_grayscale(), |ui| {
             ui.horizontal_wrapped(|ui| {
                 // One cell of the grid beside the caption (2026-09-27).
                 let cell = columns(ui, 2);
@@ -177,7 +177,7 @@ impl AutoShadeApp {
                 } else {
                     tr(lang, K_DEVELOP_PICK_A_COLOR)
                 };
-                let room = self.editor.doc.recipe.point_colors.len() < MAX_POINT_COLORS;
+                let room = self.editor.doc().recipe.point_colors.len() < MAX_POINT_COLORS;
                 if action_in(ui, cell, room, label)
                     .on_hover_text(tr(lang,
                         K_DEVELOP_CLICK_A_COLOUR_IN_THE_IMAGE_TO_ADD_A_SWATCH_ITS,
@@ -204,7 +204,7 @@ impl AutoShadeApp {
             // Deferred like every other list row's ✕ (R24-5): removing inside
             // the loop would invalidate the iterator it is drawn from.
             let mut remove = None;
-            for (i, p) in self.editor.doc.recipe.point_colors.iter_mut().enumerate() {
+            for (i, p) in self.editor.doc_mut().recipe.point_colors.iter_mut().enumerate() {
                 ui.horizontal(|ui| {
                     // The colour the swatch was sampled from, as a chip: the
                     // sliders below say what happens to it, and nothing else
@@ -245,7 +245,7 @@ impl AutoShadeApp {
                 }
             }
             if let Some(i) = remove {
-                self.editor.doc.recipe.point_colors.remove(i);
+                self.editor.doc_mut().recipe.point_colors.remove(i);
                 changed = true;
             }
         });
@@ -277,12 +277,12 @@ impl AutoShadeApp {
                     }
                     // R38: a glyph square — the same reset in every mixer row.
                     if glyph(ui, true, "↺").on_hover_text(tr(lang, K_DEVELOP_RESET_ALL)).clicked() {
-                        self.editor.doc.recipe.color_grade = ColorGrade::default();
+                        self.editor.doc_mut().recipe.color_grade = ColorGrade::default();
                         changed = true;
                     }
                 });
                 ui.add_space(SPACE_SM);
-                let cg = &mut self.editor.doc.recipe.color_grade;
+                let cg = &mut self.editor.doc_mut().recipe.color_grade;
                 // One wheel with its luminance slider in a column `width` wide.
                 let wheel = |ui: &mut egui::Ui, title: &str, width: f32, h: &mut f32, s: &mut f32, l: &mut f32| {
                     let mut c = false;

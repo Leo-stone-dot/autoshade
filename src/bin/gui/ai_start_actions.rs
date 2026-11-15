@@ -50,7 +50,7 @@ impl AutoShadeApp {
     pub(crate) fn offer_fit_prompt(&mut self, ctx: &egui::Context, divergence: f32) {
         if self.workspace.busy
             || !self.workspace.fit.ask_fit_after_generate
-            || self.editor.photo.source_preview.is_none()
+            || self.editor.photo().source_preview.is_none()
         {
             return;
         }
@@ -71,7 +71,7 @@ impl AutoShadeApp {
         }
         // The ▣ original first (the user's wording: 默认原图), not Automatic,
         // which solves from a ◈ / ▦ master whenever the strip holds one.
-        let from = self.original_index().map(|i| self.editor.doc.variants[i].id.clone()).filter(|id| !id.is_empty());
+        let from = self.original_index().map(|i| self.editor.doc().variants[i].id.clone()).filter(|id| !id.is_empty());
         self.workspace.fit.fit_prompt = Some(FitPrompt { target, divergence, from, dont_ask: false });
         // The layer's Enter waits for "no widget focused" — surrendered now,
         // as the quit layer does when it opens.
@@ -93,7 +93,7 @@ impl AutoShadeApp {
             return;
         };
         let (automatic, sources) = self.fit_source_menu();
-        let to = self.editor.doc.variants
+        let to = self.editor.doc().variants
             .iter()
             .position(|v| v.id == prompt.target)
             .map(|i| trf(lang, K_ACTIONS_TO, &[("card", &self.numbered_card_label(i))]));
@@ -232,7 +232,7 @@ impl AutoShadeApp {
         // `pending`, and the empty-pending branch below then CLOSED the app,
         // losing a sole live unsaved canvas (background work still lands
         // under the dialog — the scrim below blocks only pointer input).
-        if !self.workspace.open.open_in_flight && let Some(p) = self.editor.photo.src_path.clone() {
+        if !self.workspace.open.open_in_flight && let Some(p) = self.editor.photo().src_path.clone() {
             let origin = self.active_variant().and_then(|v| v.origin.clone());
             // The live canvas outranks its own stash entry WHOLESALE: displace
             // it even when the canvas is clean (the user reverted) — the loop
@@ -246,7 +246,7 @@ impl AutoShadeApp {
                 let pix = origin.map(|o| (o, self.active_on_ai_pixels()));
                 pending.push(PendingSave {
                     photo: p,
-                    recipe: self.editor.doc.recipe.clone(),
+                    recipe: self.editor.doc().recipe.clone(),
                     pixels: pix,
                     strip: self.current_strip_record(),
                 });
@@ -388,8 +388,8 @@ impl AutoShadeApp {
                             // open photo's mirror must follow, or the guard's
                             // way-out re-check compares live-trivial against
                             // a stale record and bounces the close.
-                            if self.editor.photo.src_path.as_deref() == Some(p.as_path()) {
-                                self.editor.session.hist.saved_strip = None;
+                            if self.editor.photo().src_path.as_deref() == Some(p.as_path()) {
+                                self.editor.session_mut().hist.saved_strip = None;
                             }
                             // Cleared, but not MARKED — same channel as the XMP
                             // half: quitting silently would let a projection
@@ -489,15 +489,15 @@ impl AutoShadeApp {
                         if let Some(note) = relook_note.as_deref() {
                             eprintln!("⚠ {}: {note}", autoshade::pipeline::stem(p));
                         }
-                        if self.editor.photo.src_path.as_deref() == Some(p.as_path()) {
-                            self.editor.session.hist.saved_strip = strip.clone();
+                        if self.editor.photo().src_path.as_deref() == Some(p.as_path()) {
+                            self.editor.session_mut().hist.saved_strip = strip.clone();
                             // The FOURTH mirror of the single-save set
                             // (export.rs): pixels.json for the ACTIVE photo
                             // just committed, and without this the ● badge
                             // and the exit re-check compared against a stale
                             // master link — a just-saved retouch was
                             // re-reported as unsaved (L11-6).
-                            self.editor.session.hist.pixels_on_disk = pix.as_ref().map(|(o, _)| o.clone());
+                            self.editor.session_mut().hist.pixels_on_disk = pix.as_ref().map(|(o, _)| o.clone());
                         }
                     }
                     Err(e) => {
@@ -590,7 +590,7 @@ impl AutoShadeApp {
             match failed {
                 None => {
                     self.workspace.open.nav_stash.clear();
-                    self.editor.session.hist.saved_recipe = self.editor.doc.recipe.clone();
+                    self.editor.session_mut().hist.saved_recipe = self.editor.doc().recipe.clone();
                     self.workspace.ui.confirm_quit = false;
                     // The close guard re-checks on the way out. Everything
                     // above just persisted, so the re-check passes — but if
@@ -633,7 +633,7 @@ impl AutoShadeApp {
             }
         } else if discard_quit {
             self.workspace.open.nav_stash.clear();
-            self.editor.session.hist.saved_recipe = self.editor.doc.recipe.clone();
+            self.editor.session_mut().hist.saved_recipe = self.editor.doc().recipe.clone();
             // The answer to the guard's question, recorded: these two lines
             // clean the ACTIVE canvas, but a background variant's edits have
             // nowhere to be saved, so nothing can make them "clean" — only
@@ -825,14 +825,14 @@ impl AutoShadeApp {
     /// active variant's base IS the generated raster, and fitting a rendition
     /// onto itself would recover ~neutral. Fit must map the negative → the look.
     pub(crate) fn start_fit(&mut self) {
-        let (Some(base), Some(tgt)) = (self.editor.photo.source_preview.clone(), self.fit_target())
+        let (Some(base), Some(tgt)) = (self.editor.photo().source_preview.clone(), self.fit_target())
         else {
             return;
         };
         if self.workspace.busy {
             return;
         }
-        let src_path = self.editor.photo.src_path.clone();
+        let src_path = self.editor.photo().src_path.clone();
         // The source the fold names (`fit_source_index`: the user's pick, else
         // the automatic negative): the source frame below, the ◭ card's origin
         // and the persisted pixel link all read this ONE capture, so the three

@@ -38,9 +38,9 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
         Ok((label, path, backend)) => {
             // The mask choice, the words and the fallback disclosure are
             // the logic layer's (`logic/segmented.rs`).
-            let photo_stem = self.editor.photo.src_path.clone().map(|p| autoshade::pipeline::stem(&p).to_owned());
+            let photo_stem = self.editor.photo().src_path.clone().map(|p| autoshade::pipeline::stem(&p).to_owned());
             let landed =
-                logic::segmented::apply(&mut self.editor.doc.recipe, &label, &path, &backend, photo_stem.as_deref());
+                logic::segmented::apply(&mut self.editor.doc_mut().recipe, &label, &path, &backend, photo_stem.as_deref());
             self.workspace.masks.sel_mask = Some(landed.selection);
             // The landing MOVED the selection — index-armed tools bound to
             // another row die with it, exactly like the row-click sites
@@ -82,7 +82,7 @@ pub(crate) fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRef
                     }
                 }
             };
-            let landed = logic::mask_refine::apply(&mut self.editor.doc.recipe, &outcome);
+            let landed = logic::mask_refine::apply(&mut self.editor.doc_mut().recipe, &outcome);
             if let Some(i) = landed.selection {
                 self.workspace.masks.sel_mask = Some(i);
                 // Same rule as the segmentation landing: the selection
@@ -148,7 +148,7 @@ pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo
                 // Install by identity, not index: only while the SAME
                 // photo is open, and only into strip entries that still
                 // reference this exact master and still await pixels.
-                if self.editor.photo.src_path.as_ref() == Some(&photo) {
+                if self.editor.photo().src_path.as_ref() == Some(&photo) {
                     match img {
                         Ok(im) => {
                             let arc = Arc::new(im);
@@ -174,7 +174,7 @@ pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo
                             // that exists but will not decode keeps it.
                             let mut dropped = false;
                             if !origin.exists() {
-                                for v in &mut self.editor.doc.variants {
+                                for v in &mut self.editor.doc_mut().variants {
                                     if v.kind == VariantKind::Original
                                         && v.base.is_none()
                                         && v.origin.as_ref() == Some(&origin)
@@ -280,11 +280,11 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // Absolute, so the saved recipe finds it from
                             // any working directory.
                             let path = std::path::absolute(&saved).unwrap_or(saved);
-                            self.editor.doc.recipe.pixel_layers.push(autoshade::render::PixelLayer {
+                            self.editor.doc_mut().recipe.pixel_layers.push(autoshade::render::PixelLayer {
                                 path: path.display().to_string(),
                                 ..Default::default()
                             });
-                            self.editor.session.dirty = true;
+                            self.editor.session_mut().dirty = true;
                             self.commit_now();
                             drop(img);
                         }
@@ -301,7 +301,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // exactly like a reimagine landing. Nothing
                             // enters the outgoing card's undo history — a
                             // card is deleted, not undone.
-                            let mut recipe = self.editor.doc.recipe.clone();
+                            let mut recipe = self.editor.doc().recipe.clone();
                             let stacked = kind == RetouchKind::NewStacked;
                             // An HDR merge hands over stops of highlight
                             // above the reference frame's white. They are
@@ -361,7 +361,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             self.fork_from_generated();
                             let img = Arc::new(img);
                             let (mw, mh) = img.dimensions();
-                            if let Some(v) = self.editor.doc.variants.get_mut(self.editor.doc.active) {
+                            if let Some(v) = self.editor.active_variant_mut() {
                                 v.base = Some(img.clone());
                                 v.origin = Some(saved);
                             }
@@ -370,19 +370,19 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // own camera curve, exactly like the source
                             // compare; an empty curve here sat 0.6–1.4 EV
                             // under After's starting point.
-                            let start = self.editor.doc.recipe.start_only();
+                            let start = self.editor.doc().recipe.start_only();
                             self.set_before(ctx, &img, &start);
                             // New baked base ⇒ the cached masks-cleared
                             // reference develop no longer matches it.
                             self.workspace.overlay.overlay_ref = None;
                             self.workspace.overlay.overlay_stale = true;
-                            self.editor.photo.base_preview = Some(img);
+                            self.editor.photo_mut().base_preview = Some(img);
                             // Keep the paint canvas sized to the new base (the
                             // retouch result can differ in dimensions — e.g. a
                             // non-square reimagine origin) — and end a brush
                             // session armed on the replaced plate.
                             self.rebind_paint_canvas(mw, mh);
-                            self.editor.session.dirty = true;
+                            self.editor.session_mut().dirty = true;
                             // The pixel swap must enter history THIS frame
                             // — a same-frame Ctrl+Z otherwise undoes an
                             // older recipe step over the new pixels.
@@ -444,9 +444,9 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // ● unsaved lit and lets nav_stash protect the fit —
                     // the ordinary unsaved-edit path takes over.
                     if out.persisted {
-                        self.editor.session.hist.saved_recipe = out.recipe.clone();
+                        self.editor.session_mut().hist.saved_recipe = out.recipe.clone();
                         self.workspace.open.nav_stash.remove(
-                            &self.editor.photo.src_path.clone().unwrap_or_default(),
+                            &self.editor.photo().src_path.clone().unwrap_or_default(),
                         );
                         // The pixel link the worker committed beside the
                         // recipe — the negative's in-place master when
@@ -454,7 +454,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // off it), cleared otherwise (a fit is
                         // source-based) — so the per-frame ● pixel
                         // comparison's disk mirror stays in step with it.
-                        self.editor.session.hist.pixels_on_disk = out.negative.clone();
+                        self.editor.session_mut().hist.pixels_on_disk = out.negative.clone();
                     }
                     self.refresh_versions();
                     // The landing's words are the logic layer's
@@ -480,7 +480,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // restored baked card).
                     let base = out.negative.as_deref().and_then(|m| {
                         let i = self.original_index()?;
-                        let v = &self.editor.doc.variants[i];
+                        let v = &self.editor.doc().variants[i];
                         (v.origin.as_deref() == Some(m)).then(|| v.base.clone()).flatten()
                     });
                     self.push_variant(
@@ -497,7 +497,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     );
                     // AFTER the variant load (which cleared them): the
                     // fit rationale's typed copy, for draw-time zh.
-                    self.editor.analysis.rationale_notes = out.rationale_notes;
+                    self.editor.analysis_mut().rationale_notes = out.rationale_notes;
                     self.done(note);
                 }
                 Err(e) => {
@@ -535,9 +535,9 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             // nothing: edits made while the worker ran leave
             // recipe != saved_recipe, correctly re-lighting ●.
             if let Some((p, r)) = self.workspace.open.pasted_open.take()
-                && self.editor.photo.src_path.as_ref() == Some(&p)
+                && self.editor.photo().src_path.as_ref() == Some(&p)
             {
-                self.editor.session.hist.saved_recipe = r;
+                self.editor.session_mut().hist.saved_recipe = r;
                 self.workspace.open.nav_stash.remove(&p);
             }
             // The counts and the sidecar disclosures are the logic layer's

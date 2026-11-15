@@ -110,10 +110,10 @@ impl AutoShadeApp {
                     logic::gallery::GalleryAction::OpenPhotoFile,
                 )]);
             }
-            if do_export && self.editor.photo.src_path.is_some() && !self.workspace.busy {
+            if do_export && self.editor.photo().src_path.is_some() && !self.workspace.busy {
                 self.start_export();
             }
-            if do_xmp && self.editor.photo.src_path.is_some() && !self.workspace.busy {
+            if do_xmp && self.editor.photo().src_path.is_some() && !self.workspace.busy {
                 // The pending-rename flush lives at save_xmp's head now (it
                 // fires while a TextEdit holds focus either way) — the Save
                 // develop BUTTON takes the same entry point (U10).
@@ -245,8 +245,8 @@ impl AutoShadeApp {
             // unlock that would never come (no photo, no history). Only a
             // press that WOULD have acted earns a refusal; the rest stay the
             // silent no-ops the disabled buttons are.
-            let armed_undo = do_undo && self.editor.photo.src_path.is_some() && !self.editor.session.hist.undo_stack.is_empty();
-            let armed_redo = do_redo && self.editor.photo.src_path.is_some() && !self.editor.session.hist.redo_stack.is_empty();
+            let armed_undo = do_undo && self.editor.photo().src_path.is_some() && !self.editor.session().hist.undo_stack.is_empty();
+            let armed_redo = do_redo && self.editor.photo().src_path.is_some() && !self.editor.session().hist.redo_stack.is_empty();
             if self.workspace.busy {
                 if armed_undo || armed_redo {
                     let t = tr(
@@ -261,7 +261,7 @@ impl AutoShadeApp {
             }
             // R mirrors the crop button exactly (incl. the one-tool-at-a-time
             // disarms); no photo → nothing to crop.
-            if do_crop && self.editor.photo.src_path.is_some() {
+            if do_crop && self.editor.photo().src_path.is_some() {
                 let on = !self.workspace.crop.mode;
                 self.disarm_tools();
                 self.set_crop_mode(on);
@@ -273,7 +273,7 @@ impl AutoShadeApp {
                 self.set_crop_mode(false);
             }
             if crop_nudge != (0.0, 0.0)
-                && let Some(c) = self.editor.doc.recipe.crop
+                && let Some(c) = self.editor.doc().recipe.crop
             {
                 // Keyboard twin of the move drag (D13): 0.5% of the frame per
                 // press (Shift ×10 via the multiplier above), clamped
@@ -291,9 +291,9 @@ impl AutoShadeApp {
                     right: nl + w,
                     bottom: nt + h,
                 });
-                if self.editor.doc.recipe.crop != next {
-                    self.editor.doc.recipe.crop = next;
-                    self.editor.session.dirty = true; // histogram/clipping follow the crop
+                if self.editor.doc().recipe.crop != next {
+                    self.editor.doc_mut().recipe.crop = next;
+                    self.editor.session_mut().dirty = true; // histogram/clipping follow the crop
                 }
             }
             if do_crop_grid {
@@ -301,7 +301,7 @@ impl AutoShadeApp {
             }
             // LR tool keys: each mirrors its own button exactly
             // (disarm-then-arm; a second press exits the tool).
-            if do_wb && self.editor.photo.src_path.is_some() {
+            if do_wb && self.editor.photo().src_path.is_some() {
                 let on = !self.workspace.tools.wb_picking;
                 self.disarm_tools();
                 self.workspace.tools.wb_picking = on;
@@ -309,15 +309,15 @@ impl AutoShadeApp {
                     self.workspace.status = tr(self.lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into();
                 }
             }
-            if do_heal && self.editor.photo.src_path.is_some() {
+            if do_heal && self.editor.photo().src_path.is_some() {
                 let on = !self.workspace.tools.clone_mode;
                 self.disarm_tools();
                 self.workspace.tools.clone_mode = on;
             }
-            if do_brush && self.editor.photo.src_path.is_some() {
+            if do_brush && self.editor.photo().src_path.is_some() {
                 self.toggle_brush_key();
             }
-            if do_linear && self.editor.photo.src_path.is_some() {
+            if do_linear && self.editor.photo().src_path.is_some() {
                 let armed = matches!(self.workspace.masks.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
                 self.disarm_tools();
                 if !armed {
@@ -325,7 +325,7 @@ impl AutoShadeApp {
                     self.workspace.status = tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_LINEAR_GRADIENT_STAR).into();
                 }
             }
-            if do_radial && self.editor.photo.src_path.is_some() {
+            if do_radial && self.editor.photo().src_path.is_some() {
                 let armed = matches!(self.workspace.masks.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
                 self.disarm_tools();
                 if !armed {
@@ -402,7 +402,7 @@ impl AutoShadeApp {
             // All three set the TARGET only: the glide in update() carries
             // `zoom` there, and +/− compound on the target so a key roll
             // accumulates instead of fighting the animation.
-            if self.editor.photo.src_path.is_some() {
+            if self.editor.photo().src_path.is_some() {
                 if do_fit {
                     self.workspace.view.zoom_target = 1.0;
                     self.workspace.view.pan = egui::vec2(0.5, 0.5);
@@ -418,14 +418,14 @@ impl AutoShadeApp {
             // Ctrl+C mirrors ⎘ Copy recipe (same guards + the pending-rename
             // flush); Ctrl+V mirrors ⇩ Paste to selected — and like the
             // disabled buttons, a press that would not act stays silent.
-            if do_copy && self.editor.photo.src_path.is_some() && !self.workspace.busy {
+            if do_copy && self.editor.photo().src_path.is_some() && !self.workspace.busy {
                 // Every name box at once (the 10+1 boundary rule): a name
                 // typed into a mask row, a version row or a variant card and
                 // never blurred still lands before anything else in the app
                 // acts.
                 self.commit_pending_names();
-                self.workspace.genai.copied = Some(self.editor.doc.recipe.clone());
-                self.workspace.genai.copied_from = self.editor.photo.src_path.clone();
+                self.workspace.genai.copied = Some(self.editor.doc().recipe.clone());
+                self.workspace.genai.copied_from = self.editor.photo().src_path.clone();
                 self.workspace.status = tr(
                     self.lang,
                     K_APP_RECIPE_COPIED_CTRL_CLICK_TO_PICK_SEVERAL_THEN_PA,
@@ -505,7 +505,7 @@ impl AutoShadeApp {
         }
 
         // Window title mirrors the open photo (send only on change).
-        let title = match &self.editor.photo.src_path {
+        let title = match &self.editor.photo().src_path {
             Some(p) => format!(
                 "{} — AutoShade",
                 p.file_name().and_then(|s| s.to_str()).unwrap_or("photo")
@@ -542,7 +542,7 @@ impl AutoShadeApp {
             // the Direction prompt it consumes (user feedback: a trigger
             // stranded in the toolbar, far from its input, reads as
             // unrelated — every prompt entry now carries its own button).
-            let ready = self.editor.photo.src_path.is_some() && !self.workspace.busy;
+            let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy;
             // R38: the row wraps only BETWEEN its groups — each group is one
             // measured allocation (`buttons::group`, sized from its labels),
             // so a narrow window moves a whole group to the next line instead
@@ -601,23 +601,23 @@ impl AutoShadeApp {
                         };
                         let start: autoshade::pipeline::CanvasStart = start;
                         start.stamp(&mut fresh);
-                        self.editor.doc.recipe = fresh;
+                        self.editor.doc_mut().recipe = fresh;
                         self.workspace.overlay.region = None;
-                        self.editor.session.dirty = true;
+                        self.editor.session_mut().dirty = true;
                         // The old AI rationale/verdict describe the recipe Reset
                         // just discarded — showing them under neutral sliders lies.
                         self.resync_recipe_display();
                     }
                 });
                 group(ui, &[tr(lang, K_APP_UNDO), tr(lang, K_APP_REDO)], 0, |ui| {
-                    if action(ui, ready && !self.editor.session.hist.undo_stack.is_empty(), tr(lang, K_APP_UNDO))
+                    if action(ui, ready && !self.editor.session().hist.undo_stack.is_empty(), tr(lang, K_APP_UNDO))
                         .on_hover_text(tr(lang, K_APP_CTRL_Z_UNDO_THE_LAST_EDIT))
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
                         self.undo(&ctx);
                     }
-                    if action(ui, ready && !self.editor.session.hist.redo_stack.is_empty(), tr(lang, K_APP_REDO))
+                    if action(ui, ready && !self.editor.session().hist.redo_stack.is_empty(), tr(lang, K_APP_REDO))
                         .on_hover_text(tr(lang, K_APP_CTRL_Y_REDO_THE_UNDONE_EDIT))
                         .clicked()
                     {
@@ -831,7 +831,7 @@ impl AutoShadeApp {
             egui::Frame::NONE
                 .inner_margin(egui::Margin { right: gutter.round() as i8, ..Default::default() })
                 .show(ui, |ui| {
-                    if self.editor.photo.src_path.is_some() {
+                    if self.editor.photo().src_path.is_some() {
                         // The one sidebar, top to bottom: the Portraits panel
                         // (people, skin, eyes, background, `panels/portrait.rs`),
                         // then Normal's four groups (`panels/normal.rs` — the
@@ -887,7 +887,7 @@ impl AutoShadeApp {
         // Variant strip — sits directly above the status bar (registered after
         // it so it stacks on top), only when a photo is open. The selector for
         // 原片 / AI 生成 / 反推 renditions.
-        if self.editor.photo.src_path.is_some() {
+        if self.editor.photo().src_path.is_some() {
             egui::TopBottomPanel::bottom("variants")
                 // At the old 96 the cards' slack all pooled below the labels
                 // — height and its derivation live on VARIANT_STRIP_H.
@@ -935,7 +935,7 @@ impl AutoShadeApp {
             .fill(self.workspace.ui.theme.colors().canvas_bed);
         egui::CentralPanel::default().frame(bed).show(ctx, |ui| {
             // Empty state: a real landing surface instead of a blank canvas.
-            if self.editor.photo.src_path.is_none() {
+            if self.editor.photo().src_path.is_none() {
                 ui.vertical_centered(|ui| {
                     ui.add_space(ui.available_height() * 0.32);
                     ui.heading("AutoShade");
@@ -989,7 +989,7 @@ impl AutoShadeApp {
                                     .weak()
                                     .small(),
                             );
-                            if let Some(t) = &self.editor.plates.before_tex {
+                            if let Some(t) = &self.editor.plates().before_tex {
                                 let size = t.size_vec2();
                                 let vis = egui::vec2(uv.width() * size.x, uv.height() * size.y);
                                 let disp = fit_in(vis, half, avail.y);
@@ -1272,24 +1272,24 @@ impl AutoShadeApp {
         // Reset re-stamping a legacy photo, a paste, or a restore would
         // otherwise leave the compare against a stale starting point. One
         // cheap LUT-only develop, and only when the curve actually changed.
-        if self.editor.photo.src_path.is_some()
+        if self.editor.photo().src_path.is_some()
             // NOT base-present: an InPlace master legitimately renders Before
             // under the canvas curve, and gating on v.base froze its Before
             // against Reset / undo / paste forever. A Generated canvas
             // recipe's curve is empty by construction, so this compare is
             // simply quiet there.
             && !self.active_on_ai_pixels()
-            && self.editor.doc.recipe.start_only() != self.workspace.open.before_start
-            && let Some(b) = self.editor.photo.base_preview.clone()
+            && self.editor.doc().recipe.start_only() != self.workspace.open.before_start
+            && let Some(b) = self.editor.photo().base_preview.clone()
         {
-            let start = self.editor.doc.recipe.start_only();
+            let start = self.editor.doc().recipe.start_only();
             self.set_before(ctx, &b, &start);
         }
         // A held-still pointer still needs a repaint to receive the result.
-        if self.editor.session.dirty && !self.editor.scheduler.inflight {
+        if self.editor.session().dirty && !self.editor.scheduler().inflight {
             self.start_redevelop();
         }
-        if self.editor.scheduler.inflight {
+        if self.editor.scheduler().inflight {
             ctx.request_repaint();
         }
         // The mask coverage overlay follows develop / selection / toggle /

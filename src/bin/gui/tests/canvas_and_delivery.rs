@@ -46,7 +46,7 @@
     #[test]
     fn entering_crop_mode_rebases_the_pan_it_reinterprets() {
         let mut app = AutoShadeApp::default();
-        app.editor.doc.recipe.crop =
+        app.editor.doc_mut().recipe.crop =
             Some(autoshade::recipe::Crop { left: 0.5, top: 0.5, right: 1.0, bottom: 1.0 });
         app.workspace.view.pan = egui::vec2(0.5, 0.5); // centre of the CROP window
         app.set_crop_mode(true);
@@ -181,13 +181,13 @@
             origin: Some(origin.to_path_buf()),
             thumb: None,
         };
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 src_path: Some(photo.clone()),
 
                 ..Default::default()
 
-            }, doc: Document {
+            }; *editor.doc_mut() = Document {
 
 
                 variants: vec![mk(VariantKind::Original, &gone), mk(VariantKind::Denoised, &gone)],
@@ -196,7 +196,7 @@
                 ..Default::default()
 
 
-            }, ..Default::default() }, ..Default::default() };
+            }; editor } , ..Default::default() };
         let ctx = egui::Context::default();
         let lost = |o: &std::path::Path| Msg::MasterLoaded {
             photo: photo.clone(),
@@ -207,14 +207,14 @@
         };
         app.services.tx.send(lost(&gone)).unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.editor.doc.variants[0].origin, None, "the ▣ card let go of the deleted master");
+        assert_eq!(app.editor.doc().variants[0].origin, None, "the ▣ card let go of the deleted master");
         assert_eq!(app.active_source_path(), Some(photo.clone()), "AI denoise now reads the photo");
-        assert_eq!(app.editor.doc.variants[1].origin.as_deref(), Some(gone.as_path()), "a ◈ card keeps its link");
+        assert_eq!(app.editor.doc().variants[1].origin.as_deref(), Some(gone.as_path()), "a ◈ card keeps its link");
 
-        app.editor.doc.variants[0].origin = Some(broken.clone());
+        app.editor.doc_mut().variants[0].origin = Some(broken.clone());
         app.services.tx.send(lost(&broken)).unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.editor.doc.variants[0].origin.as_deref(), Some(broken.as_path()), "an undecodable master is kept");
+        assert_eq!(app.editor.doc().variants[0].origin.as_deref(), Some(broken.as_path()), "an undecodable master is kept");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -321,13 +321,13 @@
     #[test]
     fn the_ask_destination_routes_to_the_dialog_instead_of_writing() {
         let src = std::env::temp_dir().join(format!("autoshade-library-{}/DSC00042.ARW", std::process::id()));
-        let asking = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let asking = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 src_path: Some(src.clone()),
 
                 ..Default::default()
 
-            }, ..Default::default() }, workspace: WorkspaceView { exp: ExportState {
+            }; editor } , workspace: WorkspaceView { exp: ExportState {
                 dest: ExportDest::Ask,
                 format: ExportFormat::Jpeg,
                 // A remembered folder is present ON PURPOSE: "ask every time"
@@ -347,13 +347,13 @@
         // The same app with the default destination DOES resolve to a file —
         // without this half the assertion above could pass on a broken route
         // that never renders anything at all.
-        let direct = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let direct = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 
                 src_path: Some(src),
 
                 ..Default::default()
 
-            }, ..Default::default() }, workspace: WorkspaceView { exp: ExportState {
+            }; editor } , workspace: WorkspaceView { exp: ExportState {
                 dest: ExportDest::OutFolder,
                 format: ExportFormat::Jpeg,
                 ..Default::default()
@@ -461,10 +461,10 @@
         std::fs::write(autoshade::store::xmp_target(&raw), b"<x:xmpmeta>ours</x:xmpmeta>").unwrap();
         let beside = raw.with_extension("xmp");
 
-        let mut app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
      src_path: Some(raw.clone()),
      ..Default::default()
- }, ..Default::default() }, ..Default::default() };
+ }; editor } , ..Default::default() };
         assert!(app.can_export_xmp_beside(), "a RAW can hand its sidecar over");
 
         // First delivery: nothing in the way, so it lands with no confirmation.
@@ -499,10 +499,10 @@
         // A non-RAW cannot: its neighbouring .xmp is another program's file.
         let baked = dir.join("_r22_handoff.png");
         std::fs::write(&baked, b"png").unwrap();
-        let baked_app = AutoShadeApp { editor: Editor { photo: PhotoPixels {
+        let baked_app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
      src_path: Some(baked),
      ..Default::default()
- }, ..Default::default() }, ..Default::default() };
+ }; editor } , ..Default::default() };
         assert!(
             !baked_app.can_export_xmp_beside(),
             "only a RAW has the Lightroom sidecar convention"
@@ -857,9 +857,9 @@
             Some(autoshade::recipe::MaskGeometry::AiMask { raster, .. }) => raster.clone(),
             other => panic!("the sky mask is not there: {other:?}"),
         };
-        assert!(alpha(&app.editor.doc.recipe).is_some(), "the open card's AI mask has its alpha: {}", app.workspace.status);
-        assert_eq!(alpha(&app.editor.session.hist.saved_recipe), alpha(&app.editor.doc.recipe), "an alpha is not an edit: ● stays dark");
-        assert_eq!(alpha(&app.editor.session.hist.committed.recipe), alpha(&app.editor.doc.recipe), "and Ctrl+Z does not take it away");
+        assert!(alpha(&app.editor.doc().recipe).is_some(), "the open card's AI mask has its alpha: {}", app.workspace.status);
+        assert_eq!(alpha(&app.editor.session().hist.saved_recipe), alpha(&app.editor.doc().recipe), "an alpha is not an edit: ● stays dark");
+        assert_eq!(alpha(&app.editor.session().hist.committed.recipe), alpha(&app.editor.doc().recipe), "and Ctrl+Z does not take it away");
         assert_eq!(app.workspace.status, trf(Lang::En, K_PERSIST_AI_MASKS_RE_DERIVED_LOCALLY_NOT_ADOBE_S_RASTER, &[("n", "1")]));
         // Export: a card still without its alpha is cut on the export's copy.
         let mean = |p: &std::path::Path| {
@@ -867,7 +867,7 @@
             img.pixels().map(|px| f64::from(px.0[0])).sum::<f64>() / f64::from(img.width() * img.height())
         };
         let export = |app: &mut AutoShadeApp, recipe: EditRecipe, name: &str| {
-            app.editor.doc.recipe = recipe;
+            app.editor.doc_mut().recipe = recipe;
             assert!(app.start_render_to(out.join(name)), "{}", app.workspace.status);
             land(app);
             mean(&out.join(name))
@@ -926,9 +926,9 @@
             Some((autoshade::recipe::MaskGeometry::Bitmap { path }, autoshade::recipe::MaskRole::Face)) => path.clone(),
             other => panic!("the face mask is not there: {other:?}"),
         };
-        assert!(!raster(&app.editor.doc.recipe).is_empty(), "the open card's face mask has its raster: {}", app.workspace.status);
-        assert_eq!(raster(&app.editor.session.hist.saved_recipe), raster(&app.editor.doc.recipe), "a raster is not an edit: ● stays dark");
-        assert_eq!(raster(&app.editor.session.hist.committed.recipe), raster(&app.editor.doc.recipe), "and Ctrl+Z does not take it away");
+        assert!(!raster(&app.editor.doc().recipe).is_empty(), "the open card's face mask has its raster: {}", app.workspace.status);
+        assert_eq!(raster(&app.editor.session().hist.saved_recipe), raster(&app.editor.doc().recipe), "a raster is not an edit: ● stays dark");
+        assert_eq!(raster(&app.editor.session().hist.committed.recipe), raster(&app.editor.doc().recipe), "and Ctrl+Z does not take it away");
         assert_eq!(app.workspace.status, trf(Lang::En, K_PERSIST_FACE_MASKS_OUTLINED_ON_THIS_COMPUTER, &[("n", "1")]));
         // Export: a card whose face mask still names no raster is drawn on
         // the export's copy, so the jpg carries it.
@@ -937,7 +937,7 @@
             img.pixels().map(|px| f64::from(px.0[0])).sum::<f64>() / f64::from(img.width() * img.height())
         };
         let export = |app: &mut AutoShadeApp, recipe: EditRecipe, name: &str| {
-            app.editor.doc.recipe = recipe;
+            app.editor.doc_mut().recipe = recipe;
             assert!(app.start_render_to(out.join(name)), "{}", app.workspace.status);
             land(app);
             mean(&out.join(name))
@@ -949,8 +949,8 @@
         let mut app = AutoShadeApp { seams: TestSeams { ai_mask_stub: Some(no_face_runner), ..Default::default() }, ..Default::default() };
         app.open_path(bare.clone());
         land(&mut app);
-        assert!(app.editor.doc.recipe.masks.is_empty(), "a face mask with no face to stand on is taken out: {:?}", app.editor.doc.recipe.masks);
-        assert!(app.editor.session.hist.saved_recipe.masks.is_empty(), "from the saved mark too, so ● stays dark");
+        assert!(app.editor.doc().recipe.masks.is_empty(), "a face mask with no face to stand on is taken out: {:?}", app.editor.doc().recipe.masks);
+        assert!(app.editor.session().hist.saved_recipe.masks.is_empty(), "from the saved mark too, so ● stays dark");
         let why = "\"Face\" left out (no face was found in this photo)";
         assert!(app.workspace.status.contains(why), "the status line names the mask and the reason: {}", app.workspace.status);
         assert!(
