@@ -776,6 +776,22 @@ function syncSliders() {
   syncWb(); syncHsl(); syncGrade();
 }
 
+// The control BANDS come from the server's catalogue (`/api/controls`) — the
+// same table the engine's clamp enforces. The local numbers above are only the
+// labels and steps; a failed fetch keeps them, so the page still works.
+(async () => {
+  try {
+    const body = await (await fetch("/api/controls")).json();
+    const band = new Map((body.controls || []).map(c => [c.name, c.range]));
+    for (const s of SLIDERS) {
+      const r = band.get(s[0]);
+      if (r && r.length === 2) { s[2] = r[0]; s[3] = r[1]; }
+    }
+  } catch (e) { /* keep the local defaults */ }
+  const panel = document.querySelector(".panel.sliders");
+  if (panel) { buildSliders(panel); syncSliders(); }
+})();
+
 // --- white balance (temperature_k is nullable = as-shot) -------------------
 // Log-position ⇄ Kelvin for the Temp track (mirrors gui.rs SliderFeel::LogK):
 // a linear 2000–40000 track put the 4000–8000 K band nearly every photo
