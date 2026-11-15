@@ -160,3 +160,43 @@ mod tests {
         assert_eq!(partial.base.args[2].1, super::super::Arg::Text("a failed; b failed".into()));
     }
 }
+
+#[cfg(test)]
+mod disclosure_order_tests {
+    use super::*;
+
+    #[test]
+    fn a_partial_batch_keeps_every_disclosure_in_its_fixed_order() {
+        let words = batch_words(
+            2,
+            &["a failed".into()],
+            &["photo → kept-2".into()],
+            1,
+            &["warn one".into(), "warn two".into()],
+            "out",
+        );
+        assert_eq!(words.base.key, "Batch: {ok} succeeded, {fail} failed: {detail}");
+        assert!(words.renamed.expect("renames disclosed").key.contains("kept apart"));
+        assert!(words.relooked.expect("relook disclosed").key.contains("re-estimated"));
+        let develops = words.develops.expect("develop warnings disclosed");
+        assert_eq!(develops.key, " · {n} develop warning(s): {detail}");
+        assert_eq!(develops.args[1].1, super::super::Arg::Text("warn one · warn two".into()));
+    }
+
+    #[test]
+    fn a_clean_batch_with_warnings_still_reads_as_done() {
+        let words = batch_words(4, &[], &[], 0, &["w1".into()], "out");
+        assert_eq!(words.base.key, "batch {n} done → {path}");
+        assert!(words.renamed.is_none() && words.relooked.is_none());
+        assert!(words.develops.is_some(), "a warning is never dropped because the batch succeeded");
+    }
+
+    #[test]
+    fn a_long_warning_list_is_abbreviated_but_counted() {
+        let warns: Vec<String> = (0..5).map(|i| format!("w{i}")).collect();
+        let words = batch_words(1, &[], &[], 0, &warns, "out");
+        let develops = words.develops.unwrap();
+        assert_eq!(develops.args[0].1, super::super::Arg::Text("5".into()), "the count names all five");
+        assert_eq!(develops.args[1].1, super::super::Arg::Text("w0 · w1 · w2 …".into()), "the list is abbreviated");
+    }
+}

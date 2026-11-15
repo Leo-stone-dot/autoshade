@@ -40,6 +40,7 @@ pub(crate) mod slider;
 pub(crate) mod strip;
 pub(crate) mod style;
 pub(crate) mod xmp_disclosure;
+pub(crate) mod range;
 pub(crate) mod region;
 pub(crate) mod retouch;
 pub(crate) mod same;
@@ -176,4 +177,46 @@ pub(crate) enum Effect {
     /// One canvas tool at a time: every arming site disarms the rest.
     DisarmTools,
     MarkDirty,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn brief_list_names_up_to_three_and_marks_the_overflow() {
+        assert_eq!(brief_list(&[]), "");
+        assert_eq!(brief_list(&["a".into()]), "a");
+        assert_eq!(brief_list(&["a".into(), "b".into()]), "a · b");
+        assert_eq!(brief_list(&["a".into(), "b".into(), "c".into()]), "a · b · c");
+        assert_eq!(brief_list(&["a".into(), "b".into(), "c".into(), "d".into()]), "a · b · c …");
+    }
+
+    #[test]
+    fn ui_text_carries_its_key_and_named_arguments() {
+        let plain = UiText::of("AI develop applied");
+        assert_eq!((plain.key, plain.args.len()), ("AI develop applied", 0));
+        let with = UiText::with("exported → {path}", &[("path", "out/a.jpg")]);
+        assert_eq!(with.args.len(), 1);
+        assert_eq!(with.args[0].0, "path");
+        assert_eq!(with.args[0].1, Arg::Text("out/a.jpg".into()));
+    }
+
+    #[test]
+    fn a_key_argument_stays_a_key_at_this_layer() {
+        let words = UiText::with_args(
+            "AI edit applied — the AI's self-check said: {v}. Not saved yet (Ctrl+S saves, Ctrl+Z undoes)",
+            &[("v", Arg::Key("Accept"))],
+        );
+        assert_eq!(words.args[0].1, Arg::Key("Accept"), "the decision word is translated at the render site");
+    }
+
+    #[test]
+    fn words_pair_a_status_with_an_optional_toast() {
+        let words = Words { status: UiText::of("AI develop applied · saved to recipe.json"), toast: None };
+        assert!(words.toast.is_none());
+        let status = UiText::of("AI develop applied · saved to recipe.json");
+        let words = Words { status: status.clone(), toast: Some((Tone::Error, status)) };
+        assert!(matches!(words.toast, Some((Tone::Error, _))));
+    }
 }

@@ -201,14 +201,7 @@ impl AutoShadeApp {
     /// cache on every click under a non-zero Red/cyan or Blue/yellow, paying
     /// a full preview develop on the UI thread for a 5×5 read.
     pub(crate) fn range_reference_recipe(&self, i: usize) -> EditRecipe {
-        let mut pre = self.recipe.clone();
-        pre.masks.truncate(i);
-        pre.straighten_deg = 0.0;
-        pre.lens_distortion = 0.0;
-        pre.ca_r = 0.0;
-        pre.ca_b = 0.0;
-        pre.crop = None;
-        pre
+        crate::logic::range::reference_recipe(&self.recipe, i)
     }
 
     /// (Re)build the translucent red coverage layer for the active mask. A

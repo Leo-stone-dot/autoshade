@@ -183,3 +183,37 @@ mod tests {
         assert!(unnamed.backend_note.is_none());
     }
 }
+
+#[cfg(test)]
+mod family_tests {
+    use super::*;
+    use std::path::Path;
+
+    fn bitmap(path: &str) -> LocalAdjustment {
+        LocalAdjustment {
+            mask: MaskGeometry::Bitmap { path: path.into() },
+            name: "sky".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_rerun_refreshes_the_mask_that_references_the_same_raster_family() {
+        let mut recipe = EditRecipe::default();
+        recipe.masks.push(bitmap("out/photo.mask-sky.png"));
+        let done = apply(&mut recipe, "sky", Path::new("out/photo.mask-sky-2.png"), "", Some("photo"));
+        assert_eq!(done.selection, 0, "the rerun re-selects the existing mask");
+        assert_eq!(recipe.masks.len(), 1, "no inert duplicate is stacked");
+        assert!(matches!(&recipe.masks[0].mask, MaskGeometry::Bitmap { path } if path.ends_with("mask-sky-2.png")));
+    }
+
+    #[test]
+    fn a_new_target_adds_its_own_mask_and_keeps_sliders() {
+        let mut recipe = EditRecipe::default();
+        recipe.masks.push(bitmap("out/photo.mask-sky.png"));
+        let done = apply(&mut recipe, "subject", Path::new("out/photo.mask-subject.png"), "", Some("photo"));
+        assert_eq!(done.selection, 1);
+        assert_eq!(recipe.masks.len(), 2);
+        assert_eq!(recipe.masks[1].name, "subject");
+    }
+}
