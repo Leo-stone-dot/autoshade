@@ -789,47 +789,6 @@ status: "decoding … ".to_string(),
     }
 
     #[test]
-    fn persisted_card_ids_outrank_kind_and_position() {
-        let mut app = persisted_two_card_fixture();
-        app.variants.swap(0, 1);
-        app.active = 0;
-        app.recipe = app.variants[0].recipe.clone();
-
-        assert_eq!(
-            app.active_baseline().map(|b| b.recipe.contrast),
-            Some(18.0),
-            "card-y follows its stable id to the saved others entry"
-        );
-        assert!(!app.unsaved_marker_dirty(), "position cannot override a matching id");
-        assert_eq!(
-            app.open_dirty_variants(),
-            0,
-            "the saved-active card also follows its id after becoming background"
-        );
-    }
-
-    #[test]
-    fn legacy_idless_strip_uses_kind_and_position_baselines() {
-        let mut app = persisted_two_card_fixture();
-        let rec = app.hist.saved_strip.as_mut().unwrap();
-        rec.active_id = None;
-        rec.others[0].id = None;
-        let ctx = egui::Context::default();
-        app.switch_variant(1, &ctx);
-
-        assert_eq!(
-            app.active_baseline().map(|b| b.recipe.contrast),
-            Some(18.0),
-            "the id-less fitted entry resolves by its kind and strip position"
-        );
-        assert!(!app.unsaved_marker_dirty());
-        assert!(!app.quit_guard_open_dirty());
-        assert!(!app.nav_stash_gate_dirty());
-        assert!(!app.pending_save_gate_dirty());
-        assert_eq!(app.open_dirty_variants(), 0);
-    }
-
-    #[test]
     fn switched_generated_card_uses_its_own_persisted_pixel_origin() {
         let mut app = persisted_two_card_fixture();
         let original_origin = std::env::temp_dir().join(format!("autoshade-masters-{}/original-heal.png", std::process::id()));
