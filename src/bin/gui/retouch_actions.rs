@@ -62,7 +62,7 @@ pub(crate) fn start_fill(&mut self) {
         // Blank = remove: the library substitutes its removal instruction
         // (`generative::fill_prompt`), so an empty box is a verb, not an
         // error — the mask already says what should go.
-        let prompt = self.fill_prompt.trim().to_string();
+        let prompt = self.genai.fill_prompt.trim().to_string();
         // No painted area: the words alone say what to change, and the model
         // finds where (`generative::auto_fill_onto`; user request 2026-10-12,
         // 「跟原先的涂抹后ai生成一个道理，只不过省去了涂抹这一步骤」). Only an empty
@@ -77,13 +77,13 @@ pub(crate) fn start_fill(&mut self) {
             return;
         };
         self.busy = true;
-        self.status = if self.fill_fullres {
+        self.status = if self.genai.fill_fullres {
             tr(lang, "generative fill (full-res render)… (slow, minutes)").into()
         } else {
             tr(lang, "generative fill via gpt-image… (high quality can run minutes — progress in the status bar; ✕ Cancel to stop)").into()
         };
-        let quality = ["high", "medium", "low"][self.fill_quality.min(2)].to_string();
-        let full_res = self.fill_fullres;
+        let quality = ["high", "medium", "low"][self.genai.fill_quality.min(2)].to_string();
+        let full_res = self.genai.fill_fullres;
         // The card's live develop, captured at the click like every other
         // input the worker reads; the source kind decides the working size.
         let recipe = self.recipe.clone();
@@ -165,7 +165,7 @@ pub(crate) fn start_adjust(&mut self) {
             return;
         }
         let lang = self.lang;
-        let prompt = self.adjust_prompt.trim().to_string();
+        let prompt = self.genai.adjust_prompt.trim().to_string();
         let mask_png = self.export_area_png(BrushOwner::Adjust);
         let region = mask_png.is_some();
         let Some(out) = unique_out(&src, "adjust") else {
@@ -174,7 +174,7 @@ pub(crate) fn start_adjust(&mut self) {
         };
         self.busy = true;
         self.status = tr(lang, "adjusting generated image via gpt-image… (high quality can run minutes — progress in the status bar; ✕ Cancel to stop)").into();
-        let quality = ["high", "medium", "low"][self.adjust_quality.min(2)].to_string();
+        let quality = ["high", "medium", "low"][self.genai.adjust_quality.min(2)].to_string();
         let recipe = self.recipe.clone();
         let edge = self.canvas_edge();
         let out_claim = out.clone();
@@ -271,7 +271,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         #[cfg(not(test))]
         let runner: Option<crate::panels::portrait::HealRunner> = None;
         let in_face = limit.is_some();
-        let full_res = self.heal_fullres;
+        let full_res = self.genai.heal_fullres;
         let edge = self.canvas_edge(); // bake at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
@@ -571,7 +571,7 @@ pub(crate) fn start_reimagine(&mut self) {
         let prompt = {
             // The Reimagine section's OWN prompt field (no longer the shared
             // Direction — each prompt entry pairs with its own trigger).
-            let g = self.reimagine_prompt.trim();
+            let g = self.genai.reimagine_prompt.trim();
             if g.is_empty() {
                 "Develop this photo into a finished, natural-looking edit: balanced exposure and \
                  contrast, pleasing realistic colour; keep the scene true to the original."
@@ -591,7 +591,7 @@ pub(crate) fn start_reimagine(&mut self) {
         // clicked while the preference sat at 4096 — pinned the new variant
         // below the resolution the user asked for, behind a refusal whose own
         // remedy (save) Ctrl+S REFUSES for a generated variant.
-        let edge = self.preview_edge.clamp(640, 8192);
+        let edge = self.genai.preview_edge.clamp(640, 8192);
         let retry = self.fit.reimagine_retry; // paid opt-in, captured at click time
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)

@@ -34,7 +34,7 @@ impl AutoShadeApp {
         self.base_preview
             .as_ref()
             .map(|b| b.width().max(b.height()))
-            .unwrap_or(self.preview_edge)
+            .unwrap_or(self.genai.preview_edge)
             .clamp(640, 8192)
     }
 
@@ -66,7 +66,7 @@ impl AutoShadeApp {
             .source_preview
             .as_ref()
             .map(|s| s.width().max(s.height()))
-            .unwrap_or(self.preview_edge)
+            .unwrap_or(self.genai.preview_edge)
             .clamp(640, 8192);
         let canvas = self.canvas_edge();
         // The baked-raster gate is DEFENCE IN DEPTH, not load-bearing: a
@@ -77,7 +77,7 @@ impl AutoShadeApp {
         // otherwise be announced with a word — "bake" — that would not be
         // true of it.
         (canvas != delivered
-            && canvas != self.preview_edge
+            && canvas != self.genai.preview_edge
             && self.active_variant().is_some_and(|v| v.base.is_some()))
         .then_some(canvas)
     }
@@ -583,20 +583,20 @@ impl AutoShadeApp {
                 // --- preview resolution (gap batch E): 1:1 that actually
                 // resolves detail. Switching re-decodes the current photo with
                 // the recipe KEPT (the keep_recipe path from batch B).
-                let before = self.preview_edge;
+                let before = self.genai.preview_edge;
                 ui.add_enabled_ui(!self.busy, |ui| {
                     egui::ComboBox::from_id_salt("preview_edge")
-                        .selected_text(format!("{}px", self.preview_edge))
+                        .selected_text(format!("{}px", self.genai.preview_edge))
                         .width(64.0)
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.preview_edge, 1280, tr(lang, "1280px · fluid"));
-                            ui.selectable_value(&mut self.preview_edge, 2560, "2560px");
-                            ui.selectable_value(&mut self.preview_edge, 4096, tr(lang, "4096px · inspect"));
+                            ui.selectable_value(&mut self.genai.preview_edge, 1280, tr(lang, "1280px · fluid"));
+                            ui.selectable_value(&mut self.genai.preview_edge, 2560, "2560px");
+                            ui.selectable_value(&mut self.genai.preview_edge, 4096, tr(lang, "4096px · inspect"));
                         })
                         .response
                         .on_hover_text(tr(lang, "Working preview resolution: 1280 is smoothest on the sliders; 2560/4096 for 1:1 focus/noise checks (slower on every adjustment)"));
                 });
-                if self.preview_edge != before
+                if self.genai.preview_edge != before
                     && let Some(p) = self.src_path.clone()
                 {
                     if self.busy {
@@ -610,7 +610,7 @@ impl AutoShadeApp {
                         // every bake site. The switch reverts with the
                         // refusal, and the status says so instead of
                         // dropping it silently.
-                        self.preview_edge = before;
+                        self.genai.preview_edge = before;
                         // BY TOAST (the switch_variant / Ctrl+S refusal
                         // rule): this runs during the draw phase, and a
                         // status line dies under the very next worker

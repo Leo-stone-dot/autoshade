@@ -52,7 +52,7 @@ impl AutoShadeApp {
         }
         let n = self.gal.multi_sel.len();
         let n_s = n.to_string();
-        if action_in(ui, cell, self.copied.is_some() && n > 0 && !self.busy, trf(lang, "Paste to selected ({n})", &[("n", &n_s)]))
+        if action_in(ui, cell, self.genai.copied.is_some() && n > 0 && !self.busy, trf(lang, "Paste to selected ({n})", &[("n", &n_s)]))
             .on_hover_text(tr(lang, "Writes each photo's develop into your develop store (recipe JSON; RAW also gets a Lightroom XMP). Leaves library files untouched, renders nothing."))
             .clicked()
         {
@@ -85,8 +85,8 @@ impl AutoShadeApp {
                 )]);
             }
         });
-        if self.copied.is_some() {
-            ui.checkbox(&mut self.paste_geometry, tr(lang, "Include crop / straighten when pasting"))
+        if self.genai.copied.is_some() {
+            ui.checkbox(&mut self.genai.paste_geometry, tr(lang, "Include crop / straighten when pasting"))
                 .on_hover_text(tr(lang, "Off by default — composition rarely transfers between photos"));
         }
         ui.separator();

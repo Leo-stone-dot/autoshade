@@ -483,6 +483,44 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The generative tools and the recipe clipboard: the fill/heal dials and
+/// prompts, the reimagine/adjust prompts and quality, the in-app recipe
+/// clipboard (what and from where), the paste-geometry switch and the working-
+/// preview long edge. Two of these are also `Prefs` fields; save/load maps them.
+pub(crate) struct GenerativeState {
+    pub(crate) fill_prompt: String,
+    pub(crate) fill_quality: usize,
+    pub(crate) fill_fullres: bool,
+    pub(crate) heal_fullres: bool,
+    pub(crate) reimagine_prompt: String,
+    pub(crate) adjust_prompt: String,
+    pub(crate) adjust_edit_prompt: String,
+    pub(crate) adjust_quality: usize,
+    pub(crate) copied: Option<EditRecipe>,
+    pub(crate) copied_from: Option<PathBuf>,
+    pub(crate) paste_geometry: bool,
+    pub(crate) preview_edge: u32,
+}
+
+impl Default for GenerativeState {
+    fn default() -> Self {
+        Self {
+            fill_prompt: String::new(),
+            fill_quality: 0,
+            fill_fullres: false,
+            heal_fullres: false,
+            reimagine_prompt: String::new(),
+            adjust_prompt: String::new(),
+            adjust_edit_prompt: String::new(),
+            adjust_quality: 0,
+            copied: None,
+            copied_from: None,
+            paste_geometry: false,
+            preview_edge: PREVIEW_EDGE,
+        }
+    }
+}
+
 /// The canvas tools and the AI/generation flight flags: the four eyedroppers,
 /// the clone brush, the stack merge dials, the generation epoch/cancel token,
 /// whether an analyze is in flight, and the Look protocol's state.

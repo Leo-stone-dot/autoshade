@@ -11,7 +11,13 @@
         // the five call sites that use it — the bake starters spawn network
         // workers and cannot run headless, so reverting one of those
         // single-expression uses would not fail here. Reviewed by reading.
-        let mut app = AutoShadeApp { preview_edge: 4096, ..Default::default() };
+        let mut app = AutoShadeApp {
+            genai: GenerativeState {
+                preview_edge: 4096,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         assert_eq!(app.canvas_edge(), 4096, "no canvas yet: the preference is all there is");
         app.base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853)));
         assert_eq!(app.canvas_edge(), 1280, "a baked canvas bakes at its OWN resolution");
@@ -37,6 +43,10 @@
         assert!(autoshade::store::has_pixel_source(src), "premise: a record survives");
         let ctx = egui::Context::default();
         let mut app = AutoShadeApp {
+            genai: GenerativeState {
+                preview_edge: 4096,
+                ..Default::default()
+            },
             cards: CardsState {
                 keep_recipe: true,
                 ..Default::default()
@@ -57,7 +67,6 @@
                 origin: Some(gone.clone()),
                 thumb: None,
             }],
-            preview_edge: 4096,
             ..Default::default()
         };
         app.tx
@@ -72,7 +81,7 @@
             )))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.preview_edge, 1280, "premise: the switch is refused");
+        assert_eq!(app.genai.preview_edge, 1280, "premise: the switch is refused");
         assert!(
             app.status.contains("no longer on disk"),
             "the missing-master case names its own cause: {}",
@@ -88,6 +97,10 @@
         let present = dev.join("present-master.png");
         std::fs::write(&present, b"png").unwrap();
         let mut app = AutoShadeApp {
+            genai: GenerativeState {
+                preview_edge: 4096,
+                ..Default::default()
+            },
             cards: CardsState {
                 keep_recipe: true,
                 ..Default::default()
@@ -108,7 +121,6 @@
                 origin: Some(present.clone()),
                 thumb: None,
             }],
-            preview_edge: 4096,
             ..Default::default()
         };
         app.tx
@@ -153,7 +165,10 @@
         };
         // (1) source-based canvas, sensor below the preference: no disclosure.
         let mut app = AutoShadeApp {
-            preview_edge: 1280,
+            genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            },
             source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             variants: vec![src(None), src(None)],
             ..Default::default()
@@ -167,7 +182,10 @@
         );
         // (2) the same size gap, but the canvas really is a baked raster.
         let mut app = AutoShadeApp {
-            preview_edge: 1280,
+            genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            },
             source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             variants: vec![
                 src(None),
@@ -185,7 +203,10 @@
         // sub-preference sensor, freshly healed. Measured against the raw
         // preference this fresh bake was called a stale one.
         let mut app = AutoShadeApp {
-            preview_edge: 1280,
+            genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            },
             source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             variants: vec![
                 src(None),
@@ -205,7 +226,10 @@
         // this said "stays at 1280px … not the preview preference" while the
         // preference was 1280.
         let mut app = AutoShadeApp {
-            preview_edge: 1280,
+            genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            },
             source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             variants: vec![
                 src(None),
@@ -243,11 +267,14 @@
             keep_skin: None,
         };
         let mut app = AutoShadeApp {
+            genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            },
             hist: HistoryState {
                 committed: step(&current, "current"),
                 ..Default::default()
             },
-            preview_edge: 1280,
             // A REAL source: without it the ruler took its `unwrap_or`
 // fallback and never the delivered-edge path this test covers.
 source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
@@ -308,7 +335,10 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             thumb: None,
         };
         let mut app = AutoShadeApp {
-            preview_edge: 1280,
+            genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            },
             source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
             variants: vec![baked(640, 480, "keep"), baked(1280, 853, "drop")],
             active: 1,
@@ -334,7 +364,10 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         );
         // ...and landing on a canvas the preference DOES reach says so plainly.
         let mut app = AutoShadeApp {
-            preview_edge: 1280,
+            genai: GenerativeState {
+                preview_edge: 1280,
+                ..Default::default()
+            },
             source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853))),
             variants: vec![
                 Variant {
@@ -442,7 +475,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             ..Default::default()
         };
         let p = &std::env::temp_dir().join(format!("autoshade-nonexistent-{}/x.ARW", std::process::id()));
-        // The entry's edge (2560) deliberately DIFFERS from app.preview_edge
+        // The entry's edge (2560) deliberately DIFFERS from app.genai.preview_edge
         // (1280): the key must come from the worker's pre-read ident riding
         // OpenedBase — a body that re-derives the EDGE from app state files
         // under 1280 and both edge asserts flip. (The stamp halves are

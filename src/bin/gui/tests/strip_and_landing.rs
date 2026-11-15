@@ -513,6 +513,10 @@
         // old-edge canvas). Three outcomes, three asserts.
         let ctx = egui::Context::default();
         let armed = |base: Option<Arc<image::DynamicImage>>, origin: Option<PathBuf>| AutoShadeApp {
+            genai: GenerativeState {
+                preview_edge: 4096,
+                ..Default::default()
+            },
             cards: CardsState {
                 // ...and armed the flight
                 keep_recipe: true,
@@ -537,7 +541,6 @@
                 origin,
                 thumb: None,
             }],
-            preview_edge: 4096,
             // What open_path leaves on the bar for the whole flight.
 status: "decoding … ".to_string(),
             ..Default::default()
@@ -548,7 +551,7 @@ status: "decoding … ".to_string(),
         let mut app = armed(None, None);
         app.tx.send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed"))))).unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.preview_edge, 1280, "a failed keep-flight puts the switch back");
+        assert_eq!(app.genai.preview_edge, 1280, "a failed keep-flight puts the switch back");
         assert!(app.src_path.is_some(), "…and leaves the still-open photo alone");
 
         // (2) It landed, but the canvas renders an UNSAVED retouch — no
@@ -579,7 +582,7 @@ status: "decoding … ".to_string(),
             )))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.preview_edge, 1280, "a switch the canvas cannot take is not recorded");
+        assert_eq!(app.genai.preview_edge, 1280, "a switch the canvas cannot take is not recorded");
         assert!(
             app.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &old_raster)),
             "…the retouched canvas is untouched"
@@ -622,7 +625,7 @@ status: "decoding … ".to_string(),
             )))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.preview_edge, 4096, "a canvas that CAN be re-pointed keeps the switch");
+        assert_eq!(app.genai.preview_edge, 4096, "a canvas that CAN be re-pointed keeps the switch");
         assert!(
             app.base_preview.as_ref().is_some_and(|b| Arc::ptr_eq(b, &master)),
             "…and renders the master re-decoded at the new edge"
