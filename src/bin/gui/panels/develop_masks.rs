@@ -653,13 +653,15 @@ impl AutoShadeApp {
             // that mask's name still equals the seed-time snapshot, so
             // index shifts (delete/reorder) can never cross-commit.
             if self.masks.mask_name_buf.as_ref().is_none_or(|(j, ..)| *j != i) {
-                if let Some((j, orig, buf)) = self.masks.mask_name_buf.take()
-                    && let Some(prev) = self.doc.recipe.masks.get_mut(j)
-                    && prev.name == orig
-                    && buf != orig
-                {
-                    prev.name = buf;
-                    changed = true;
+                if let Some((j, orig, buf)) = self.masks.mask_name_buf.take() {
+                    let same = self.doc.recipe.masks.get(j).is_some_and(|prev| prev.name == orig);
+                    if same && buf != orig {
+                        crate::logic::command::apply(
+                            &mut self.doc.recipe,
+                            crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Rename { index: j, name: buf }),
+                        );
+                        changed = true;
+                    }
                 }
                 let cur = self.doc.recipe.masks[i].name.clone();
                 self.masks.mask_name_buf = Some((i, cur.clone(), cur));
@@ -710,7 +712,13 @@ impl AutoShadeApp {
                 && let Some((_, orig, buf)) = self.masks.mask_name_buf.as_mut()
                 && *buf != self.doc.recipe.masks[i].name
             {
-                self.doc.recipe.masks[i].name = buf.clone();
+                crate::logic::command::apply(
+                    &mut self.doc.recipe,
+                    crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Rename {
+                        index: i,
+                        name: buf.clone(),
+                    }),
+                );
                 // Re-baseline the seed: a SECOND rename in this row
                 // must still cross-commit correctly on a row switch.
                 *orig = buf.clone();
@@ -1043,11 +1051,27 @@ impl AutoShadeApp {
                             ui.selectable_value(&mut mode, autoshade::recipe::MaskCombine::Intersect, tr(lang, "Intersect"));
                         });
                     if mode != comp.mode {
-                        self.doc.recipe.masks[i].components[c].mode = mode;
+                        crate::logic::command::apply(
+                            &mut self.doc.recipe,
+                            crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::SetComponentMode {
+                                index: i,
+                                component: c,
+                                mode,
+                            }),
+                        );
                         self.overlay.overlay_stale = true;
                         changed = true;
                     }
-                    if ui.checkbox(&mut self.doc.recipe.masks[i].components[c].inverted, tr(lang, "Invert")).changed() {
+                    let mut inverted = self.doc.recipe.masks[i].components[c].inverted;
+                    if ui.checkbox(&mut inverted, tr(lang, "Invert")).changed() {
+                        crate::logic::command::apply(
+                            &mut self.doc.recipe,
+                            crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::SetComponentInverted {
+                                index: i,
+                                component: c,
+                                inverted,
+                            }),
+                        );
                         self.overlay.overlay_stale = true;
                         changed = true;
                     }
@@ -1057,7 +1081,13 @@ impl AutoShadeApp {
                 });
             }
             if let Some(c) = del_comp {
-                self.doc.recipe.masks[i].components.remove(c);
+                crate::logic::command::apply(
+                    &mut self.doc.recipe,
+                    crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::RemoveComponent {
+                        index: i,
+                        component: c,
+                    }),
+                );
                 self.masks.sel_component = match self.masks.sel_component {
                     Some(s) if s == c => None,
                     Some(s) if s > c => Some(s - 1),
@@ -1110,12 +1140,16 @@ impl AutoShadeApp {
                 if cur == 2 && self.tools.range_picking == Some(i) {
                     self.tools.range_picking = None;
                 }
-                self.doc.recipe.masks[i].range = match sel {
+                let range = match sel {
                     // Full range = neutral start; narrow from there.
                     1 => Some(RangeMask::Luminance { lo_outer: 0.0, lo: 0.0, hi: 1.0, hi_outer: 1.0 }),
                     2 => Some(RangeMask::Color { r: 0.5, g: 0.5, b: 0.5, amount: 0.5, px: 0.5, py: 0.5 }),
                     _ => None,
                 };
+                crate::logic::command::apply(
+                    &mut self.doc.recipe,
+                    crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::SetRange { index: i, range }),
+                );
                 if sel == 2 {
                     // Jump straight into sampling — a colour range without
                     // a picked colour selects nothing useful.
