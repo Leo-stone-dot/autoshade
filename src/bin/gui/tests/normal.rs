@@ -458,7 +458,7 @@
     fn apply_to_every_photo_asks_for_the_folder_before_it_pastes() {
         let (mut app, src, _scrub) = normal_photo("applyall");
         let ctx = egui::Context::default();
-        app.gallery = vec![src.clone()];
+        app.gal.gallery = vec![src.clone()];
         app.exp_dest = ExportDest::Ask;
         app.status = "Recipe pasted onto 1 photo".into();
         app.normal.folder_pick = Some(None);
@@ -707,7 +707,7 @@
         land_all(&mut app, &ctx);
         assert!(fourth.is_file(), "the app-made name steps on to -4: {}", app.status);
         // The whole folder, twice: the second run numbers every photo.
-        app.gallery = vec![src.clone(), src2.clone()];
+        app.gal.gallery = vec![src.clone(), src2.clone()];
         let all = std::env::temp_dir().join(format!("autoshade-gui-normal-numbered-all-{}", std::process::id()));
         let _scrub_all = Scrub(vec![all.clone()]);
         app.last_export_dir = Some(all.clone());
@@ -825,7 +825,7 @@
         let _scrub_out = Scrub(vec![out.clone()]);
         app.exp_dest = ExportDest::Ask;
         app.normal.folder_pick = Some(Some(out.clone()));
-        app.gallery = vec![src.clone(), other.clone()];
+        app.gal.gallery = vec![src.clone(), other.clone()];
         let ctx = egui::Context::default();
         app.start_apply_to_folder();
         land_all(&mut app, &ctx);
@@ -861,7 +861,7 @@
         let refs = std::env::temp_dir().join(format!("autoshade-gui-normal-buildbusy-refs-{}", std::process::id()));
         std::fs::create_dir_all(&refs).unwrap();
         let _scrub_refs = Scrub(vec![refs.clone()]);
-        app.gallery = vec![src.clone()];
+        app.gal.gallery = vec![src.clone()];
         app.exp_dest = ExportDest::LastUsed;
         app.last_export_dir = Some(refs.clone());
         app.apply_actions(vec![logic::Action::References(refs.clone())]);

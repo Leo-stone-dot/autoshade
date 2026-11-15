@@ -163,8 +163,8 @@ fn applying_to_the_selection_writes_each_targets_develop() {
     recipe_library::create(&name, &EditRecipe { exposure_ev: 0.66, ..Default::default() }).unwrap();
 
     let mut app = app_with(&a, EditRecipe::default());
-    app.gallery = vec![a.clone(), b.clone()];
-    app.multi_sel = [0usize, 1usize].into_iter().collect();
+    app.gal.gallery = vec![a.clone(), b.clone()];
+    app.gal.multi_sel = [0usize, 1usize].into_iter().collect();
     app.apply_recipe_to_selection(&name);
     let ctx = egui::Context::default();
     let start = std::time::Instant::now();

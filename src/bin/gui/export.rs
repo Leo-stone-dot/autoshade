@@ -581,9 +581,9 @@ impl AutoShadeApp {
             return;
         }
         let targets: Vec<PathBuf> = {
-            let mut idx: Vec<usize> = self.multi_sel.iter().copied().collect();
+            let mut idx: Vec<usize> = self.gal.multi_sel.iter().copied().collect();
             idx.sort_unstable(); // report in gallery order, not hash order
-            idx.into_iter().filter_map(|i| self.gallery.get(i).cloned()).collect()
+            idx.into_iter().filter_map(|i| self.gal.gallery.get(i).cloned()).collect()
         };
         if targets.is_empty() {
             return;
@@ -1085,7 +1085,7 @@ impl AutoShadeApp {
                 || autoshade::store::clear_develop(&path),
             ) {
                 Ok(o) => {
-                    self.edited_badge.clear();
+                    self.gal.edited_badge.clear();
                     // The CANVAS is the baseline, not default(): Reset leaves
                     // the stamped lens profile (and knots) on the canvas, and
                     // a default baseline compared dirty on lens_profile
@@ -1295,7 +1295,7 @@ impl AutoShadeApp {
                 // a failed commit leaves it untouched and the
                 // background-variant unsaved protection armed).
                 self.saved_strip = strip_rec;
-                self.edited_badge.clear(); // the open photo just gained its badge
+                self.gal.edited_badge.clear(); // the open photo just gained its badge
                 self.saved_recipe = self.recipe.clone();
                 self.nav_stash.remove(&path);
                 self.pixels_on_disk = origin;
@@ -1452,9 +1452,9 @@ impl AutoShadeApp {
             return;
         }
         let targets: Vec<PathBuf> = {
-            let mut idx: Vec<usize> = self.multi_sel.iter().copied().collect();
+            let mut idx: Vec<usize> = self.gal.multi_sel.iter().copied().collect();
             idx.sort_unstable(); // report in gallery order, not hash order
-            idx.into_iter().filter_map(|i| self.gallery.get(i).cloned()).collect()
+            idx.into_iter().filter_map(|i| self.gal.gallery.get(i).cloned()).collect()
         };
         if targets.is_empty() {
             return;

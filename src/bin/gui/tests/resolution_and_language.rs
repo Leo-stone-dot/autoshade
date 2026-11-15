@@ -819,7 +819,11 @@
         // (Constructed chars — see undrawable_scripts_names_the_char…)
         let thai = char::from_u32(0x0E1F).expect("probe codepoint");
         let mut app = AutoShadeApp {
-            gallery: vec![std::path::PathBuf::from(format!("DSC_{thai}_01.arw"))],
+            gal: GalleryState {
+                gallery: vec![std::path::PathBuf::from(format!("DSC_{thai}_01.arw"))],
+            
+                ..Default::default()
+            },
             ..Default::default()
         };
         // The installed set is this test's own: the session's is

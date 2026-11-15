@@ -106,20 +106,20 @@ pub(crate) fn on_folder(&mut self, lang: Lang, res: anyhow::Result<(PathBuf, Vec
             match res {
                 Ok((dir, list, skipped)) => {
                     let n = list.len();
-                    self.gallery = list;
-                    self.gallery_dir = Some(dir);
-                    self.gallery_gen += 1; // invalidate any in-flight old thumbs
-                    self.thumbs.clear();
-                    self.thumb_requested.clear();
+                    self.gal.gallery = list;
+                    self.gal.gallery_dir = Some(dir);
+                    self.gal.gallery_gen += 1; // invalidate any in-flight old thumbs
+                    self.gal.thumbs.clear();
+                    self.gal.thumb_requested.clear();
                     // Keyed by gallery INDEX, so it is meaningless across
                     // folders: without this, index 0 failing three times
                     // here silently denied index 0 a thumbnail in every
                     // folder opened afterwards.
-                    self.thumb_fail.clear();
-                    self.thumb_inflight = 0;
-                    self.edited_badge.clear(); // badge stats belong to the old folder
-                    self.selected = None;
-                    self.multi_sel.clear(); // indices belong to the old folder
+                    self.gal.thumb_fail.clear();
+                    self.gal.thumb_inflight = 0;
+                    self.gal.edited_badge.clear(); // badge stats belong to the old folder
+                    self.gal.selected = None;
+                    self.gal.multi_sel.clear(); // indices belong to the old folder
                     self.busy = false;
                     // The count line and the skipped-items disclosure are
                     // the logic layer's words.
@@ -437,7 +437,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                 // Either way the worker may have persisted a recipe.json
                 // (an Err can land after that write) — recompute badges.
                 Ok(out) => {
-                    self.edited_badge.clear();
+                    self.gal.edited_badge.clear();
                     // Advance the ● baseline ONLY when the store actually
                     // holds the fit. A backup-gate refusal means nothing
                     // was written: leaving the baseline alone keeps
@@ -501,7 +501,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     self.done(note);
                 }
                 Err(e) => {
-                    self.edited_badge.clear();
+                    self.gal.edited_badge.clear();
                     // The pre-fit snapshot may exist even when the fit
                     // errored — keep the Versions list truthful.
                     self.refresh_versions();
@@ -513,7 +513,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
 pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>) {
     // Sidecars were written (possibly partially on error) — recompute the
     // gallery badges either way.
-    self.edited_badge.clear();
+    self.gal.edited_badge.clear();
     // Every photo the paste wrote now has the pasted look on disk, and that
     // look REPLACED whatever unsaved work its navigation stash held: left
     // in place, the stash would outrank the paste in a batch render, a

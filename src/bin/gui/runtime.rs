@@ -312,7 +312,7 @@ impl AutoShadeApp {
             }
             GalleryAction::Click { index, multi } => match logic::gallery::click(index, multi) {
                 Click::Open(index) => self.open_gallery_index(index),
-                Click::Toggle(index) => logic::gallery::toggle(&mut self.multi_sel, index),
+                Click::Toggle(index) => logic::gallery::toggle(&mut self.gal.multi_sel, index),
             },
             GalleryAction::CopyRecipe => {
                 // The clipboard must carry the name the user sees in the box.
@@ -328,11 +328,11 @@ impl AutoShadeApp {
             GalleryAction::PasteToSelected => self.start_paste(),
             GalleryAction::RenderSelected => self.start_batch_render(),
             GalleryAction::OpenRecipeLibrary => self.open_recipe_library(),
-            GalleryAction::ClearSelection => self.multi_sel.clear(),
+            GalleryAction::ClearSelection => self.gal.multi_sel.clear(),
             GalleryAction::ThumbNeeded(index) => self.request_thumb(index),
             GalleryAction::Trim { start, end } => {
-                self.thumbs.retain(|i, _| (*i >= start) && (*i < end));
-                self.thumb_requested.retain(|i| (*i >= start) && (*i < end));
+                self.gal.thumbs.retain(|i, _| (*i >= start) && (*i < end));
+                self.gal.thumb_requested.retain(|i| (*i >= start) && (*i < end));
             }
         }
     }

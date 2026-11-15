@@ -292,7 +292,7 @@ impl AutoShadeApp {
                     }
                 }
                 Msg::LegacyImported(res) => {
-                    self.edited_badge.clear(); // imported sidecars light ● badges
+                    self.gal.edited_badge.clear(); // imported sidecars light ● badges
                     match res {
                         Ok((n, dir)) => self.done(trf(
                             lang,
@@ -320,7 +320,7 @@ impl AutoShadeApp {
     /// completion pump armed.
     pub(crate) fn pump_repaint_gate(&mut self, ctx: &egui::Context) {
         if self.busy
-            || self.thumb_inflight > 0
+            || self.gal.thumb_inflight > 0
             || self.settings.image_models.fetching
             || self.settings.analysis_models.fetching
             || !self.master_loads.is_empty()

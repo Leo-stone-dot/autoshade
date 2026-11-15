@@ -243,7 +243,7 @@ impl AutoShadeApp {
     /// in the same process installed; tests pass their own.
     pub(crate) fn disclose_undrawable_names_given(&mut self, installed: &[&'static str]) {
         let stems: Vec<String> = self
-            .gallery
+            .gal.gallery
             .iter()
             .map(|p| autoshade::pipeline::stem(p).to_string())
             .collect();
@@ -2251,8 +2251,8 @@ impl AutoShadeApp {
         if self.busy {
             return;
         }
-        let Some(path) = self.gallery.get(idx).cloned() else { return };
-        self.selected = Some(idx);
+        let Some(path) = self.gal.gallery.get(idx).cloned() else { return };
+        self.gal.selected = Some(idx);
         self.open_path(path);
     }
 
@@ -3485,7 +3485,7 @@ impl AutoShadeApp {
     /// jpgs' folder is settled FIRST: a folder dialog cancelled after the
     /// paste would have left every photo's look changed and nothing saved.
     pub(crate) fn start_apply_to_folder(&mut self) {
-        if self.busy || self.gallery.is_empty() || self.src_path.is_none() {
+        if self.busy || self.gal.gallery.is_empty() || self.src_path.is_none() {
             return;
         }
         let Some(dest) = self.apply_all_dest() else {
@@ -3494,7 +3494,7 @@ impl AutoShadeApp {
             return;
         };
         self.commit_pending_names();
-        let targets = self.gallery.clone();
+        let targets = self.gal.gallery.clone();
         self.normal.apply_all = Some(dest);
         self.start_paste_to(self.recipe.clone(), self.src_path.clone(), targets, false);
         if !self.busy {
@@ -3980,7 +3980,7 @@ impl AutoShadeApp {
             return;
         }
         let lang = self.lang;
-        let photos = self.gallery.clone();
+        let photos = self.gal.gallery.clone();
         if photos.is_empty() {
             self.status = tr(
                 lang,

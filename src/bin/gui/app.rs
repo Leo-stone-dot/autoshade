@@ -230,7 +230,6 @@ pub(crate) struct AutoShadeApp {
     // while masks[i].name still equals the seed — index shifts can't misfire).
     pub(crate) mask_name_buf: Option<(usize, String, String)>,
     // Arrow-key navigation: gallery index to scroll into view next frame.
-    pub(crate) gallery_scroll_to: Option<usize>,
     // --- settings / denoise ---
     pub(crate) save_denoise: bool,     // run SCUNet AI denoise before the full-res render
     /// 「🤖 AI Denoise on export」's OWN strength (the Export fold's dial) and
@@ -288,17 +287,11 @@ pub(crate) struct AutoShadeApp {
     pub(crate) theme: ThemePref,       // surface scheme — applied via install_look, kept in Prefs
     pub(crate) accent: AccentPref,     // chrome accent — applied with the theme, kept in Prefs
     // --- library / gallery ---
-    pub(crate) gallery: Vec<PathBuf>,          // sources in the working folder (sorted)
-    pub(crate) gallery_dir: Option<PathBuf>,   // the working folder
-    pub(crate) gallery_gen: u64,               // bumped on every folder load (thumb invalidation)
-    pub(crate) selected: Option<usize>,        // index of the open gallery photo (for highlight)
-    pub(crate) thumbs: HashMap<usize, egui::TextureHandle>, // decoded thumbnails by index
-    pub(crate) thumb_requested: HashSet<usize>,             // indices already queued/decoded
+    /// The gallery's own state (scan, thumbnails, selection); see
+    /// [`GalleryState`].
+    pub(crate) gal: GalleryState,
     /// Decode attempts that FAILED, per gallery index. Bounds the retry: see
     /// `request_thumb`. Not a cache — it holds no pixels, only a count.
-    pub(crate) thumb_fail: std::collections::HashMap<usize, u8>,
-    pub(crate) thumb_inflight: usize,                       // live thumbnail-decode threads
-    pub(crate) edited_badge: HashMap<usize, bool>,          // cached "● edited" sidecar stat per index
     // Decoded-base LRU (recent last): base pixels + the photo's base-look knots.
     pub(crate) base_cache: Vec<(BaseCacheKey, OpenedBase)>,
     // --- region box-select (local-edit target on the After image) ---
@@ -461,9 +454,7 @@ pub(crate) struct AutoShadeApp {
     #[cfg(test)]
     pub(crate) adjust_btn_enabled: Option<bool>,      // actual egui response, including parent gates
     #[cfg(test)]
-    pub(crate) gallery_slot_rect: Option<egui::Rect>, // test seam: first drawn gallery thumb's SLOT
     #[cfg(test)]
-    pub(crate) gallery_thumb_rect: Option<egui::Rect>, // test seam: … and the image drawn inside it
     #[cfg(test)]
     pub(crate) brush_slider_rect: Option<egui::Rect>, // test seam: the last Brush size slider's rect
     #[cfg(test)]
@@ -517,7 +508,6 @@ pub(crate) struct AutoShadeApp {
     #[cfg(test)]
     pub(crate) ai_mask_stub: Option<crate::persist::AiMaskRunner>,
     // --- batch recipe copy / paste ---
-    pub(crate) multi_sel: HashSet<usize>,             // Ctrl+click gallery multi-selection
     pub(crate) copied: Option<EditRecipe>,            // the recipe "clipboard" (in-app only)
     // WHICH photo the clipboard came from: pasting back onto that photo may
     // keep its bitmap masks (the rasters are its own); every other target
@@ -709,7 +699,7 @@ impl AutoShadeApp {
                 if i.consume_key(egui::Modifiers::COMMAND, egui::Key::S) { do_xmp = true; }
             });
             if do_open && !self.busy {
-                self.selected = None;
+                self.gal.selected = None;
                 self.apply_actions(vec![logic::Action::Gallery(
                     logic::gallery::GalleryAction::OpenPhotoFile,
                 )]);
@@ -985,18 +975,18 @@ impl AutoShadeApp {
                 // Instant: rebuilt from the retained frame, no redevelop (J).
                 self.toggle_clipping(ctx);
             }
-            if nav != 0 && !self.busy && !self.gallery.is_empty() {
+            if nav != 0 && !self.busy && !self.gal.gallery.is_empty() {
                 // Nothing selected yet: either arrow ENTERS the gallery at its
                 // first photo (the old Right-arrow default skipped index 0).
-                let next = match self.selected {
-                    Some(i) => (i as i32 + nav).clamp(0, self.gallery.len() as i32 - 1),
+                let next = match self.gal.selected {
+                    Some(i) => (i as i32 + nav).clamp(0, self.gal.gallery.len() as i32 - 1),
                     None => 0,
                 };
-                if Some(next as usize) != self.selected {
+                if Some(next as usize) != self.gal.selected {
                     // Keyboard walking must keep the highlight on screen — the
                     // gallery scrolls to it next frame (clicks don't set this:
                     // a clicked row is visible by definition).
-                    self.gallery_scroll_to = Some(next as usize);
+                    self.gal.gallery_scroll_to = Some(next as usize);
                     self.open_gallery_index(next as usize);
                 }
             }
@@ -1036,7 +1026,7 @@ impl AutoShadeApp {
                 )
                 .to_string();
             }
-            if do_paste && !self.busy && self.copied.is_some() && !self.multi_sel.is_empty() {
+            if do_paste && !self.busy && self.copied.is_some() && !self.gal.multi_sel.is_empty() {
                 self.start_paste();
             }
         }
@@ -1078,7 +1068,7 @@ impl AutoShadeApp {
                     );
                 }
             } else if is_photo_path(&p) {
-                self.selected = None;
+                self.gal.selected = None;
                 self.open_path(p);
                 if n_dropped > 1 {
                     // Silently eating the rest read as "it opened them all".
@@ -1162,7 +1152,7 @@ impl AutoShadeApp {
                         .on_hover_text(tr(lang, "Ctrl+O · or drag a file into the window"))
                         .clicked()
                     {
-                        self.selected = None; // a one-off file isn't a gallery selection
+                        self.gal.selected = None; // a one-off file isn't a gallery selection
                         self.apply_actions(vec![logic::Action::Gallery(
                             logic::gallery::GalleryAction::OpenPhotoFile,
                         )]);
@@ -1826,15 +1816,7 @@ impl Default for AutoShadeApp {
             lang: Lang::En,
             theme: ThemePref::Dark,
             accent: AccentPref::Gold,
-            gallery: Vec::new(),
-            gallery_dir: None,
-            gallery_gen: 0,
-            selected: None,
-            thumbs: HashMap::new(),
-            thumb_requested: HashSet::new(),
-            thumb_fail: std::collections::HashMap::new(),
-            thumb_inflight: 0,
-            edited_badge: HashMap::new(),
+            gal: GalleryState::default(),
             base_cache: Vec::new(),
             saved_recipe: EditRecipe::default(),
             pixels_on_disk: None,
@@ -1852,7 +1834,6 @@ impl Default for AutoShadeApp {
             before_start: EditRecipe::default(),
             confirm_quit: false,
             mask_name_buf: None,
-            gallery_scroll_to: None,
             region: None,
             region_drag: None,
             region_restore: None,
@@ -1929,9 +1910,7 @@ impl Default for AutoShadeApp {
             #[cfg(test)]
             adjust_btn_enabled: None,
             #[cfg(test)]
-            gallery_slot_rect: None,
             #[cfg(test)]
-            gallery_thumb_rect: None,
             #[cfg(test)]
             brush_slider_rect: None,
             #[cfg(test)]
@@ -1954,7 +1933,6 @@ impl Default for AutoShadeApp {
             ai_library_build_enabled: None,
             #[cfg(test)]
             ai_mask_stub: None,
-            multi_sel: HashSet::new(),
             copied: None,
             copied_from: None,
             paste_geometry: false,
@@ -2309,7 +2287,7 @@ impl eframe::App for AutoShadeApp {
             eframe::APP_KEY,
             &Prefs {
                 prefs_era: PREFS_ERA,
-                gallery_dir: self.gallery_dir.clone(),
+                gallery_dir: self.gal.gallery_dir.clone(),
                 guide: self.guide,
                 style_strength: self.style_strength,
                 grade_strength: self.grade_strength,
