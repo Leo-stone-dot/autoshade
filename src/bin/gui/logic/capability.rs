@@ -85,6 +85,14 @@ pub(crate) enum CapabilityId {
     DefringeGreen,
     DefringeGreenLo,
     DefringeGreenHi,
+    CalShadowTint,
+    CalRedHue,
+    CalRedSat,
+    CalGreenHue,
+    CalGreenSat,
+    CalBlueHue,
+    CalBlueSat,
+    WhiteBalanceTint,
 }
 
 impl CapabilityId {
@@ -211,6 +219,32 @@ pub(crate) const LENS_DEFRINGE: &[Capability] = &[
     cap!(DefringeGreenHi, "defringe_green_hi", 60.0, Hinted),
 ];
 
+/// Calibration's shadows tint (its own captioned group in the panel).
+pub(crate) const CAL_TINT: &[Capability] = &[cap!(CalShadowTint, "cal_shadow_tint", 0.0, Plain)];
+
+/// Calibration's red primary pair: hue then saturation, the panel drawing the
+/// group label between the tables.
+pub(crate) const CAL_RED: &[Capability] = &[
+    cap!(CalRedHue, "cal_red_hue", 0.0, Plain),
+    cap!(CalRedSat, "cal_red_sat", 0.0, Plain),
+];
+
+/// Calibration's green primary pair.
+pub(crate) const CAL_GREEN: &[Capability] = &[
+    cap!(CalGreenHue, "cal_green_hue", 0.0, Plain),
+    cap!(CalGreenSat, "cal_green_sat", 0.0, Plain),
+];
+
+/// Calibration's blue primary pair.
+pub(crate) const CAL_BLUE: &[Capability] = &[
+    cap!(CalBlueHue, "cal_blue_hue", 0.0, Plain),
+    cap!(CalBlueSat, "cal_blue_sat", 0.0, Plain),
+];
+
+/// The white balance's Tint half (the Temp slider and the Custom-WB checkbox
+/// stay custom: one is a log Kelvin anchor, the other an enable switch).
+pub(crate) const WB_TINT: &[Capability] = &[cap!(WhiteBalanceTint, "tint", 0.0, Plain)];
+
 /// The crop section's one scalar row (the box itself is a canvas tool).
 pub(crate) const CROP: &[Capability] = &[cap!(Straighten, "straighten_deg", 0.0, Fine)];
 
@@ -299,6 +333,14 @@ pub(crate) fn value(recipe: &EditRecipe, id: CapabilityId) -> f32 {
         CapabilityId::DefringeGreen => recipe.defringe_green,
         CapabilityId::DefringeGreenLo => recipe.defringe_green_lo,
         CapabilityId::DefringeGreenHi => recipe.defringe_green_hi,
+        CapabilityId::CalShadowTint => recipe.cal_shadow_tint,
+        CapabilityId::CalRedHue => recipe.cal_red_hue,
+        CapabilityId::CalRedSat => recipe.cal_red_sat,
+        CapabilityId::CalGreenHue => recipe.cal_green_hue,
+        CapabilityId::CalGreenSat => recipe.cal_green_sat,
+        CapabilityId::CalBlueHue => recipe.cal_blue_hue,
+        CapabilityId::CalBlueSat => recipe.cal_blue_sat,
+        CapabilityId::WhiteBalanceTint => recipe.tint,
         other => unreachable!("companion row {other:?} is read through `EditRecipe::resolved`"),
     }
 }
@@ -354,6 +396,14 @@ pub(crate) fn set_value(recipe: &mut EditRecipe, id: CapabilityId, value: f32) {
         CapabilityId::DefringeGreen => recipe.defringe_green = value,
         CapabilityId::DefringeGreenLo => recipe.defringe_green_lo = value,
         CapabilityId::DefringeGreenHi => recipe.defringe_green_hi = value,
+        CapabilityId::CalShadowTint => recipe.cal_shadow_tint = value,
+        CapabilityId::CalRedHue => recipe.cal_red_hue = value,
+        CapabilityId::CalRedSat => recipe.cal_red_sat = value,
+        CapabilityId::CalGreenHue => recipe.cal_green_hue = value,
+        CapabilityId::CalGreenSat => recipe.cal_green_sat = value,
+        CapabilityId::CalBlueHue => recipe.cal_blue_hue = value,
+        CapabilityId::CalBlueSat => recipe.cal_blue_sat = value,
+        CapabilityId::WhiteBalanceTint => recipe.tint = value,
         other => unreachable!("companion row {other:?} is written through `EditRecipe::set_resolved`"),
     }
 }
@@ -378,6 +428,11 @@ mod tests {
         LENS_PROFILE,
         LENS_CA,
         LENS_DEFRINGE,
+        CAL_TINT,
+        CAL_RED,
+        CAL_GREEN,
+        CAL_BLUE,
+        WB_TINT,
     ];
 
     #[test]
@@ -456,6 +511,11 @@ mod tests {
                 "defringe_green_hi",
             ],
         );
+        assert_eq!(names(CAL_TINT), ["cal_shadow_tint"]);
+        assert_eq!(names(CAL_RED), ["cal_red_hue", "cal_red_sat"]);
+        assert_eq!(names(CAL_GREEN), ["cal_green_hue", "cal_green_sat"]);
+        assert_eq!(names(CAL_BLUE), ["cal_blue_hue", "cal_blue_sat"]);
+        assert_eq!(names(WB_TINT), ["tint"]);
     }
 
     #[test]

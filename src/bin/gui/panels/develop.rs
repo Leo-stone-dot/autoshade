@@ -949,14 +949,13 @@ impl AutoShadeApp {
                     changed = true;
                 }
                 let custom_wb = self.recipe.temperature_k.is_some() || self.recipe.tint != 0.0;
-                let r = &mut self.recipe;
                 // Tint is HALF of the white balance: editable only under
                 // Custom WB, or a tint move silently contradicted the
                 // checkbox's "off = as-shot" promise. A legacy tint-only
                 // recipe counts as Custom (see the checkbox above) so its
                 // slider stays reachable.
                 ui.add_enabled_ui(custom_wb, |ui| {
-                    changed |= Self::slider(ui, lang, tr(lang, "Tint"), &mut r.tint, -150.0, 150.0, 0.0);
+                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::WB_TINT);
                 });
                 // The tone band is a capability table row each: the panel owns
                 // the fold and the white balance controls above; the fields,
@@ -1251,28 +1250,19 @@ impl AutoShadeApp {
             .id_salt("sec_calibration")
             .default_open(false)
             , |ui| {
-                let r = &mut self.recipe;
                 // Lightroom's own order and grouping: the shadows tint first,
-                // then a hue + saturation pair per primary.
+                // then a hue + saturation pair per primary. The group captions
+                // stay here; the rows are capability tables.
                 ui.label(egui::RichText::new(tr(lang, "Shadows")).weak().small());
-                changed |= Self::slider(
-                    ui,
-                    lang,
-                    tr(lang, "Tint"),
-                    &mut r.cal_shadow_tint,
-                    -100.0,
-                    100.0,
-                    0.0,
-                );
-                for (primary, hue, sat) in [
-                    (tr(lang, "Red primary"), &mut r.cal_red_hue, &mut r.cal_red_sat),
-                    (tr(lang, "Green primary"), &mut r.cal_green_hue, &mut r.cal_green_sat),
-                    (tr(lang, "Blue primary"), &mut r.cal_blue_hue, &mut r.cal_blue_sat),
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::CAL_TINT);
+                for (primary, table) in [
+                    (tr(lang, "Red primary"), crate::logic::capability::CAL_RED),
+                    (tr(lang, "Green primary"), crate::logic::capability::CAL_GREEN),
+                    (tr(lang, "Blue primary"), crate::logic::capability::CAL_BLUE),
                 ] {
                     ui.add_space(SPACE_XS);
                     ui.label(egui::RichText::new(primary).weak().small());
-                    changed |= Self::slider(ui, lang, tr(lang, "Hue"), hue, -100.0, 100.0, 0.0);
-                    changed |= Self::slider(ui, lang, tr(lang, "Saturation"), sat, -100.0, 100.0, 0.0);
+                    changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, table);
                 }
             });
         changed
