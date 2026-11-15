@@ -11,7 +11,19 @@ use crate::*;
 
 impl AutoShadeApp {
     /// The Lens Blur section of the Develop panel.
-    pub(crate) fn dev_lens_blur(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
+    pub(crate) fn dev_lens_blur(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
+        // A verb section: its body returns the actions the worker start
+        // needs, and the row's draw applies them (the facade does this for
+        // every surface).
+        let actions = self.lens_blur_section(ui);
+        let touched = !actions.is_empty();
+        if touched {
+            self.apply_actions(actions);
+        }
+        touched
+    }
+
+    fn lens_blur_section(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
         let lang = self.lang;
         let active = logic::lens_blur::active(&self.doc.recipe);
         let mut actions = Vec::new();

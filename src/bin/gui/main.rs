@@ -43,6 +43,7 @@ mod photo;
 mod scheduler;
 mod session;
 mod persist;
+mod sections;
 // The PORTABLE half of the quit guard: its state machine, and the
 // process-wide slots the delegate method reads through. Compiled and tested on
 // every platform on purpose — the Windows battery is what gates this decision

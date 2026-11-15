@@ -1,20 +1,26 @@
-//! The develop form's scalar capability table: one row per control, the single
-//! place a control's recipe field and its catalogue spelling are named. The
-//! BAND and the reset are not repeated here — both come from the core
-//! catalogue through `advisor::catalogue::form_control` (the top-level
-//! `RECIPE_CONTROLS` rows the advisor and XMP writer read, plus the nested
-//! `COLOR_GRADE_FIELDS`), so the form cannot state a band the engine does not
-//! enforce nor a reset `EditRecipe::default` does not store. The renderer turns
-//! one row into one slider; the label (and its translation) stays at the draw
-//! site.
+//! The develop form's scalar capability table: one row per control, and the
+//! row owns its own behaviour — the label resource, the read and the write.
+//!
+//! The BAND and the reset still come from the core catalogue through
+//! `advisor::catalogue::form_control` (the top-level `RECIPE_CONTROLS` rows and
+//! the nested `COLOR_GRADE_FIELDS`), so the form cannot state a band the engine
+//! does not enforce. Everything ELSE about a control is in its row: adding one
+//! is a row here plus its core catalogue row, never an edit to an enum or a
+//! central `match` in the renderer, the command layer or the label dispatch.
+//!
+//! A row is one of three shapes:
+//!   * [`cap!`] — a plain field: `label`, read and write closures;
+//!   * [`cap_hinted!`] — a plain field whose slider carries a disclosure line;
+//!   * [`capc!`] — a Lightroom COMPANION (a stored 0 means "the sidecar said
+//!     nothing"), read and written through [`EditRecipe::resolved`] /
+//!     [`EditRecipe::set_resolved`] by `Command::SetCompanion`.
 
 use autoshade::advisor::catalogue::form_control;
 use autoshade::recipe::EditRecipe;
+use autoshade::text::generated::*;
 
-/// How one row is drawn. `Companion*` is the Lightroom companion encoding (a
-/// stored 0 means "the sidecar said nothing", read and written through
-/// [`EditRecipe::resolved`]/[`EditRecipe::set_resolved`]); the siblings are
-/// plain recipe fields differing only in slider feel.
+/// How one row is drawn. `Companion*` is the Lightroom companion encoding; the
+/// siblings are plain recipe fields differing only in slider feel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SliderKind {
     Plain,
@@ -25,443 +31,247 @@ pub(crate) enum SliderKind {
     Hinted,
 }
 
-/// Which scalar the form edits — the handle the renderer's read/write pair is
-/// dispatched on. One variant per table row.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum CapabilityId {
-    Exposure,
-    Contrast,
-    Highlights,
-    Shadows,
-    Whites,
-    Blacks,
-    Texture,
-    Clarity,
-    Dehaze,
-    Vibrance,
-    Saturation,
-    PostCropVignette,
-    CompanionPostCropMid,
-    CompanionPostCropFeather,
-    PostCropVignetteRound,
-    CompanionPostCropStyle,
-    PostCropVignetteHl,
-    Grain,
-    CompanionGrainSize,
-    CompanionGrainRough,
-    HdrMaxEv,
-    SdrBlend,
-    SdrBrightness,
-    SdrContrast,
-    SdrHighlights,
-    SdrShadows,
-    SdrWhites,
-    SdrClarity,
-    Straighten,
-    SharpenRadius,
-    SharpenDetail,
-    SharpenMasking,
-    NoiseReduction,
-    NoiseDetail,
-    NoiseContrast,
-    ColorNoiseReduction,
-    ColorNoiseDetail,
-    ColorNoiseSmooth,
-    PerspectiveVertical,
-    PerspectiveHorizontal,
-    PerspectiveRotate,
-    PerspectiveScale,
-    PerspectiveAspect,
-    PerspectiveX,
-    PerspectiveY,
-    LensVignetting,
-    LensVignettingMid,
-    LensDistortion,
-    LensProfileDistortionScale,
-    LensProfileVignettingScale,
-    CaRed,
-    CaBlue,
-    DefringePurple,
-    DefringePurpleLo,
-    DefringePurpleHi,
-    DefringeGreen,
-    DefringeGreenLo,
-    DefringeGreenHi,
-    CalShadowTint,
-    CalRedHue,
-    CalRedSat,
-    CalGreenHue,
-    CalGreenSat,
-    CalBlueHue,
-    CalBlueSat,
-    WhiteBalanceTint,
-    GradeBlending,
-    GradeBalance,
+/// How a row reads and writes its value. `Companion` rows carry no closures:
+/// their encoding is the `resolved` pair, which needs the control NAME, so the
+/// renderer's stable two-arm match on the access kind handles them.
+pub(crate) enum Access {
+    Plain { get: fn(&EditRecipe) -> f32, set: fn(&mut EditRecipe, f32) },
+    Companion,
 }
 
-impl CapabilityId {
-    #[cfg(test)]
-    fn is_companion(self) -> bool {
-        matches!(
-            self,
-            CapabilityId::CompanionPostCropMid
-                | CapabilityId::CompanionPostCropFeather
-                | CapabilityId::CompanionPostCropStyle
-                | CapabilityId::CompanionGrainSize
-                | CapabilityId::CompanionGrainRough
-                | CapabilityId::SharpenRadius
-                | CapabilityId::SharpenDetail
-                | CapabilityId::NoiseDetail
-                | CapabilityId::ColorNoiseDetail
-                | CapabilityId::ColorNoiseSmooth
-        )
-    }
-}
-
-/// One row of the form: the field, the catalogue spelling it must resolve to,
-/// and how it is drawn. The BAND and the double-click reset come from the core
-/// catalogue's `form_control` lookup — a row never restates either.
+/// One row of the form.
 pub(crate) struct Capability {
-    pub id: CapabilityId,
+    /// The recipe field / catalogue spelling the band and reset resolve through.
     pub control: &'static str,
+    /// The translated label's resource id (`develop_forms` renders it).
+    pub label: autoshade::text::Key,
     pub kind: SliderKind,
+    pub access: Access,
+    /// The one disclosure line a [`SliderKind::Hinted`] row carries.
+    pub hint: Option<autoshade::text::Key>,
 }
 
 impl Capability {
     /// The band the slider draws plus the double-click reset, both from the
-    /// catalogue's one `form_controls` answer (top-level scalars and the
-    /// nested `color_grade.<field>` rows). `None` = the catalogue has no band
-    /// for this spelling; the headless table tests reject such a row.
+    /// catalogue's one `form_controls` answer. `None` = no band for this
+    /// spelling; the table tests reject such a row.
     pub(crate) fn band_and_reset(&self) -> Option<((f32, f32), f32)> {
         let (band, reset) = form_control(self.control)?;
         Some((band, reset.unwrap_or(0.0)))
     }
+
+    /// The plain read/write pair, or `None` for a companion row.
+    pub(crate) fn plain(&self) -> Option<(fn(&EditRecipe) -> f32, fn(&mut EditRecipe, f32))> {
+        match self.access {
+            Access::Plain { get, set } => Some((get, set)),
+            Access::Companion => None,
+        }
+    }
 }
 
 macro_rules! cap {
-    ($id:ident, $control:literal, $kind:ident) => {
-        Capability { id: CapabilityId::$id, control: $control, kind: SliderKind::$kind }
+    ($control:literal, $label:expr, $kind:ident, $get:expr, $set:expr) => {
+        Capability {
+            control: $control,
+            label: $label,
+            kind: SliderKind::$kind,
+            access: Access::Plain { get: $get, set: $set },
+            hint: None,
+        }
     };
 }
 
-/// Lightroom's Basic-panel tone controls, in the panel's order.
+macro_rules! cap_hinted {
+    ($control:literal, $label:expr, $kind:ident, $hint:expr, $get:expr, $set:expr) => {
+        Capability {
+            control: $control,
+            label: $label,
+            kind: SliderKind::$kind,
+            access: Access::Plain { get: $get, set: $set },
+            hint: Some($hint),
+        }
+    };
+}
+
+macro_rules! capc {
+    ($control:literal, $label:expr, $kind:ident) => {
+        Capability {
+            control: $control,
+            label: $label,
+            kind: SliderKind::$kind,
+            access: Access::Companion,
+            hint: None,
+        }
+    };
+}
+
+/// TONE.
 pub(crate) const TONE: &[Capability] = &[
-    cap!(Exposure, "exposure_ev", Plain),
-    cap!(Contrast, "contrast", Plain),
-    cap!(Highlights, "highlights", Plain),
-    cap!(Shadows, "shadows", Plain),
-    cap!(Whites, "whites", Plain),
-    cap!(Blacks, "blacks", Plain),
+    cap!("exposure_ev", K_DEVELOP_EXPOSURE, Plain, |r| r.exposure_ev, |r, v| r.exposure_ev = v),
+    cap!("contrast", K_DEVELOP_CONTRAST, Plain, |r| r.contrast, |r, v| r.contrast = v),
+    cap!("highlights", K_DEVELOP_HIGHLIGHTS, Plain, |r| r.highlights, |r, v| r.highlights = v),
+    cap!("shadows", K_DEVELOP_SHADOWS, Plain, |r| r.shadows, |r, v| r.shadows = v),
+    cap!("whites", K_DEVELOP_WHITES, Plain, |r| r.whites, |r, v| r.whites = v),
+    cap!("blacks", K_DEVELOP_BLACKS, Plain, |r| r.blacks, |r, v| r.blacks = v),
 ];
 
-/// Presence, in the engine's own order (texture → clarity → dehaze, then the
-/// two colour dials).
+/// PRESENCE.
 pub(crate) const PRESENCE: &[Capability] = &[
-    cap!(Texture, "texture", Plain),
-    cap!(Clarity, "clarity", Plain),
-    cap!(Dehaze, "dehaze", Plain),
-    cap!(Vibrance, "vibrance", Plain),
-    cap!(Saturation, "saturation", Plain),
+    cap!("texture", K_DEVELOP_TEXTURE, Plain, |r| r.texture, |r, v| r.texture = v),
+    cap!("clarity", K_DEVELOP_CLARITY, Plain, |r| r.clarity, |r, v| r.clarity = v),
+    cap!("dehaze", K_DEVELOP_DEHAZE, Plain, |r| r.dehaze, |r, v| r.dehaze = v),
+    cap!("vibrance", K_DEVELOP_VIBRANCE, Plain, |r| r.vibrance, |r, v| r.vibrance = v),
+    cap!("saturation", K_DEVELOP_SATURATION, Plain, |r| r.saturation, |r, v| r.saturation = v),
 ];
 
-/// Post-crop vignetting, in the panel's row order.
+/// VIGNETTE.
 pub(crate) const VIGNETTE: &[Capability] = &[
-    cap!(PostCropVignette, "post_crop_vignette", Plain),
-    cap!(CompanionPostCropMid, "post_crop_vignette_mid", CompanionInt),
-    cap!(CompanionPostCropFeather, "post_crop_vignette_feather", CompanionInt),
-    cap!(PostCropVignetteRound, "post_crop_vignette_round", Plain),
-    cap!(CompanionPostCropStyle, "post_crop_vignette_style", CompanionInt),
-    cap!(PostCropVignetteHl, "post_crop_vignette_hl", Plain),
+    cap!("post_crop_vignette", K_DEVELOP_VIGNETTE_AMOUNT, Plain, |r| r.post_crop_vignette, |r, v| r.post_crop_vignette = v),
+    capc!("post_crop_vignette_mid", K_DEVELOP_MIDPOINT, CompanionInt),
+    capc!("post_crop_vignette_feather", K_DEVELOP_VIGNETTE_FEATHER, CompanionInt),
+    cap!("post_crop_vignette_round", K_DEVELOP_VIGNETTE_ROUNDNESS, Plain, |r| r.post_crop_vignette_round, |r, v| r.post_crop_vignette_round = v),
+    capc!("post_crop_vignette_style", K_DEVELOP_VIGNETTE_STYLE, CompanionInt),
+    cap!("post_crop_vignette_hl", K_DEVELOP_VIGNETTE_HIGHLIGHTS, Plain, |r| r.post_crop_vignette_hl, |r, v| r.post_crop_vignette_hl = v),
 ];
 
-/// Grain, below the vignette rows.
+/// GRAIN.
 pub(crate) const GRAIN: &[Capability] = &[
-    cap!(Grain, "grain", Plain),
-    cap!(CompanionGrainSize, "grain_size", CompanionInt),
-    cap!(CompanionGrainRough, "grain_rough", CompanionInt),
+    cap!("grain", K_DEVELOP_GRAIN_AMOUNT, Plain, |r| r.grain, |r, v| r.grain = v),
+    capc!("grain_size", K_DEVELOP_GRAIN_SIZE, CompanionInt),
+    capc!("grain_rough", K_DEVELOP_GRAIN_ROUGHNESS, CompanionInt),
 ];
 
-/// HDR edit mode's own dial (above the SDR block).
-pub(crate) const HDR_HEADROOM: &[Capability] = &[cap!(HdrMaxEv, "hdr_max_ev", Fine)];
+/// HDR_HEADROOM.
+pub(crate) const HDR_HEADROOM: &[Capability] = &[
+    cap!("hdr_max_ev", K_DEVELOP_HEADROOM_STOPS, Fine, |r| r.hdr_max_ev, |r, v| r.hdr_max_ev = v),
+];
 
-/// The SDR rendition's seven dials, in panel order.
+/// HDR_SDR.
 pub(crate) const HDR_SDR: &[Capability] = &[
-    cap!(SdrBlend, "sdr_blend", Plain),
-    cap!(SdrBrightness, "sdr_brightness", Plain),
-    cap!(SdrContrast, "sdr_contrast", Plain),
-    cap!(SdrHighlights, "sdr_highlights", Plain),
-    cap!(SdrShadows, "sdr_shadows", Plain),
-    cap!(SdrWhites, "sdr_whites", Plain),
-    cap!(SdrClarity, "sdr_clarity", Plain),
+    cap!("sdr_blend", K_DEVELOP_BLEND, Plain, |r| r.sdr_blend, |r, v| r.sdr_blend = v),
+    cap!("sdr_brightness", K_DEVELOP_BRIGHTNESS, Plain, |r| r.sdr_brightness, |r, v| r.sdr_brightness = v),
+    cap!("sdr_contrast", K_DEVELOP_CONTRAST, Plain, |r| r.sdr_contrast, |r, v| r.sdr_contrast = v),
+    cap!("sdr_highlights", K_DEVELOP_HIGHLIGHTS, Plain, |r| r.sdr_highlights, |r, v| r.sdr_highlights = v),
+    cap!("sdr_shadows", K_DEVELOP_SHADOWS, Plain, |r| r.sdr_shadows, |r, v| r.sdr_shadows = v),
+    cap!("sdr_whites", K_DEVELOP_WHITES, Plain, |r| r.sdr_whites, |r, v| r.sdr_whites = v),
+    cap!("sdr_clarity", K_DEVELOP_CLARITY, Plain, |r| r.sdr_clarity, |r, v| r.sdr_clarity = v),
 ];
 
-/// Lens correction's manual rows, above the profile-strength block.
+/// LENS_MANUAL.
 pub(crate) const LENS_MANUAL: &[Capability] = &[
-    cap!(LensVignetting, "lens_vignette", Plain),
-    cap!(LensVignettingMid, "lens_vignette_mid", Plain),
-    cap!(LensDistortion, "lens_distortion", Plain),
+    cap!("lens_vignette", K_DEVELOP_LENS_VIGNETTING, Plain, |r| r.lens_vignette, |r, v| r.lens_vignette = v),
+    cap!("lens_vignette_mid", K_DEVELOP_MIDPOINT, Plain, |r| r.lens_vignette_mid, |r, v| r.lens_vignette_mid = v),
+    cap!("lens_distortion", K_DEVELOP_DISTORTION, Plain, |r| r.lens_distortion, |r, v| r.lens_distortion = v),
 ];
 
-/// The profile's own two strengths (a Hinted row: the tooltip says what 0 and
-/// 100 mean).
+/// LENS_PROFILE.
 pub(crate) const LENS_PROFILE: &[Capability] = &[
-    cap!(LensProfileDistortionScale, "lens_profile_distortion_scale", Hinted),
-    cap!(LensProfileVignettingScale, "lens_profile_vignetting_scale", Hinted),
+    cap_hinted!("lens_profile_distortion_scale", K_DEVELOP_DISTORTION_AMOUNT, Hinted, K_DEVELOP_100_EXACTLY_WHAT_THE_PROFILE_SAYS_0_SWITCHES_THA, |r| r.lens_profile_distortion_scale, |r, v| r.lens_profile_distortion_scale = v),
+    cap_hinted!("lens_profile_vignetting_scale", K_DEVELOP_VIGNETTING_AMOUNT, Hinted, K_DEVELOP_100_EXACTLY_WHAT_THE_PROFILE_SAYS_0_SWITCHES_THA, |r| r.lens_profile_vignetting_scale, |r, v| r.lens_profile_vignetting_scale = v),
 ];
 
-/// The manual lateral CA pair.
+/// LENS_CA.
 pub(crate) const LENS_CA: &[Capability] = &[
-    cap!(CaRed, "ca_r", Plain),
-    cap!(CaBlue, "ca_b", Plain),
+    cap!("ca_r", K_DEVELOP_RED_CYAN, Plain, |r| r.ca_r, |r, v| r.ca_r = v),
+    cap!("ca_b", K_DEVELOP_BLUE_YELLOW, Plain, |r| r.ca_b, |r, v| r.ca_b = v),
 ];
 
-/// Adobe's de-fringe block: two amounts plus the hue windows, whose neutrals
-/// are NOT zero (30/70 and 40/60).
+/// LENS_DEFRINGE.
 pub(crate) const LENS_DEFRINGE: &[Capability] = &[
-    cap!(DefringePurple, "defringe_purple", Plain),
-    cap!(DefringePurpleLo, "defringe_purple_lo", Hinted),
-    cap!(DefringePurpleHi, "defringe_purple_hi", Hinted),
-    cap!(DefringeGreen, "defringe_green", Plain),
-    cap!(DefringeGreenLo, "defringe_green_lo", Hinted),
-    cap!(DefringeGreenHi, "defringe_green_hi", Hinted),
+    cap!("defringe_purple", K_DEVELOP_PURPLE_AMOUNT, Plain, |r| r.defringe_purple, |r, v| r.defringe_purple = v),
+    cap_hinted!("defringe_purple_lo", K_DEVELOP_PURPLE_HUE_LOW, Hinted, K_DEVELOP_A_HUE_WINDOW_CORRECTS_NOTHING_UNTIL_ITS_AMOUNT_I, |r| r.defringe_purple_lo, |r, v| r.defringe_purple_lo = v),
+    cap_hinted!("defringe_purple_hi", K_DEVELOP_PURPLE_HUE_HIGH, Hinted, K_DEVELOP_A_HUE_WINDOW_CORRECTS_NOTHING_UNTIL_ITS_AMOUNT_I, |r| r.defringe_purple_hi, |r, v| r.defringe_purple_hi = v),
+    cap!("defringe_green", K_DEVELOP_GREEN_AMOUNT, Plain, |r| r.defringe_green, |r, v| r.defringe_green = v),
+    cap_hinted!("defringe_green_lo", K_DEVELOP_GREEN_HUE_LOW, Hinted, K_DEVELOP_A_HUE_WINDOW_CORRECTS_NOTHING_UNTIL_ITS_AMOUNT_I, |r| r.defringe_green_lo, |r, v| r.defringe_green_lo = v),
+    cap_hinted!("defringe_green_hi", K_DEVELOP_GREEN_HUE_HIGH, Hinted, K_DEVELOP_A_HUE_WINDOW_CORRECTS_NOTHING_UNTIL_ITS_AMOUNT_I, |r| r.defringe_green_hi, |r, v| r.defringe_green_hi = v),
 ];
 
-/// Calibration's shadows tint (its own captioned group in the panel).
-pub(crate) const CAL_TINT: &[Capability] = &[cap!(CalShadowTint, "cal_shadow_tint", Plain)];
+/// CAL_TINT.
+pub(crate) const CAL_TINT: &[Capability] = &[
+    cap!("cal_shadow_tint", K_DEVELOP_TINT, Plain, |r| r.cal_shadow_tint, |r, v| r.cal_shadow_tint = v),
+];
 
-/// Calibration's red primary pair: hue then saturation, the panel drawing the
-/// group label between the tables.
+/// CAL_RED.
 pub(crate) const CAL_RED: &[Capability] = &[
-    cap!(CalRedHue, "cal_red_hue", Plain),
-    cap!(CalRedSat, "cal_red_sat", Plain),
+    cap!("cal_red_hue", K_DEVELOP_HUE, Plain, |r| r.cal_red_hue, |r, v| r.cal_red_hue = v),
+    cap!("cal_red_sat", K_DEVELOP_SATURATION, Plain, |r| r.cal_red_sat, |r, v| r.cal_red_sat = v),
 ];
 
-/// Calibration's green primary pair.
+/// CAL_GREEN.
 pub(crate) const CAL_GREEN: &[Capability] = &[
-    cap!(CalGreenHue, "cal_green_hue", Plain),
-    cap!(CalGreenSat, "cal_green_sat", Plain),
+    cap!("cal_green_hue", K_DEVELOP_HUE, Plain, |r| r.cal_green_hue, |r, v| r.cal_green_hue = v),
+    cap!("cal_green_sat", K_DEVELOP_SATURATION, Plain, |r| r.cal_green_sat, |r, v| r.cal_green_sat = v),
 ];
 
-/// Calibration's blue primary pair.
+/// CAL_BLUE.
 pub(crate) const CAL_BLUE: &[Capability] = &[
-    cap!(CalBlueHue, "cal_blue_hue", Plain),
-    cap!(CalBlueSat, "cal_blue_sat", Plain),
+    cap!("cal_blue_hue", K_DEVELOP_HUE, Plain, |r| r.cal_blue_hue, |r, v| r.cal_blue_hue = v),
+    cap!("cal_blue_sat", K_DEVELOP_SATURATION, Plain, |r| r.cal_blue_sat, |r, v| r.cal_blue_sat = v),
 ];
 
-/// The white balance's Tint half (the Temp slider and the Custom-WB checkbox
-/// stay custom: one is a log Kelvin anchor, the other an enable switch).
-pub(crate) const WB_TINT: &[Capability] = &[cap!(WhiteBalanceTint, "tint", Plain)];
+/// WB_TINT.
+pub(crate) const WB_TINT: &[Capability] = &[
+    cap!("tint", K_DEVELOP_TINT, Plain, |r| r.tint, |r, v| r.tint = v),
+];
 
-/// Colour grading's two WHOLE-GRADE dials, under the wheel block. The wheels
-/// themselves stay a custom widget (`develop_widgets.rs` cannot draw a wheel
-/// from a scalar row), but these two are plain scalars of the nested object, so
-/// their band and reset come from the catalogue like every other form row.
+/// GRADE_GLOBALS.
 pub(crate) const GRADE_GLOBALS: &[Capability] = &[
-    cap!(GradeBlending, "color_grade.blending", Plain),
-    cap!(GradeBalance, "color_grade.balance", Plain),
+    cap!("color_grade.blending", K_DEVELOP_BLENDING, Plain, |r| r.color_grade.blending, |r, v| r.color_grade.blending = v),
+    cap!("color_grade.balance", K_DEVELOP_BALANCE, Plain, |r| r.color_grade.balance, |r, v| r.color_grade.balance = v),
 ];
 
-/// The crop section's one scalar row (the box itself is a canvas tool).
-pub(crate) const CROP: &[Capability] = &[cap!(Straighten, "straighten_deg", Fine)];
+/// CROP.
+pub(crate) const CROP: &[Capability] = &[
+    cap!("straighten_deg", K_DEVELOP_STRAIGHTEN, Fine, |r| r.straighten_deg, |r, v| r.straighten_deg = v),
+];
 
-/// Detail's sharpening rows below the amount (whose RAW/baked default is the
-/// custom `sharpening_slider` arm, so it stays out of this table).
+/// SHARPEN.
 pub(crate) const SHARPEN: &[Capability] = &[
-    cap!(SharpenRadius, "sharpen_radius", CompanionFine),
-    cap!(SharpenDetail, "sharpen_detail", CompanionInt),
-    cap!(SharpenMasking, "sharpen_mask", Plain),
+    capc!("sharpen_radius", K_DEVELOP_SHARPEN_RADIUS, CompanionFine),
+    capc!("sharpen_detail", K_DEVELOP_SHARPEN_DETAIL, CompanionInt),
+    cap!("sharpen_mask", K_DEVELOP_SHARPEN_MASKING, Plain, |r| r.sharpen_mask, |r, v| r.sharpen_mask = v),
 ];
 
-/// Luminance noise reduction's rows.
+/// NOISE_LUMA.
 pub(crate) const NOISE_LUMA: &[Capability] = &[
-    cap!(NoiseReduction, "noise_reduction", Plain),
-    cap!(NoiseDetail, "nr_detail", CompanionInt),
-    cap!(NoiseContrast, "nr_contrast", Plain),
+    cap!("noise_reduction", K_DEVELOP_NOISE_REDUCTION, Plain, |r| r.noise_reduction, |r, v| r.noise_reduction = v),
+    capc!("nr_detail", K_DEVELOP_NOISE_DETAIL, CompanionInt),
+    cap!("nr_contrast", K_DEVELOP_NOISE_CONTRAST, Plain, |r| r.nr_contrast, |r, v| r.nr_contrast = v),
 ];
 
-/// Colour noise reduction's rows.
+/// NOISE_COLOR.
 pub(crate) const NOISE_COLOR: &[Capability] = &[
-    cap!(ColorNoiseReduction, "color_nr", Plain),
-    cap!(ColorNoiseDetail, "color_nr_detail", CompanionInt),
-    cap!(ColorNoiseSmooth, "color_nr_smooth", CompanionInt),
+    cap!("color_nr", K_DEVELOP_COLOUR_NOISE_REDUCTION, Plain, |r| r.color_nr, |r, v| r.color_nr = v),
+    capc!("color_nr_detail", K_DEVELOP_COLOUR_NOISE_DETAIL, CompanionInt),
+    capc!("color_nr_smooth", K_DEVELOP_COLOUR_NOISE_SMOOTHNESS, CompanionInt),
 ];
 
-/// Transform's projective sliders, in panel order. The Upright mode, its notes
-/// and the constrain-crop checkbox stay custom.
+/// TRANSFORM.
 pub(crate) const TRANSFORM: &[Capability] = &[
-    cap!(PerspectiveVertical, "perspective_vertical", Plain),
-    cap!(PerspectiveHorizontal, "perspective_horizontal", Plain),
-    cap!(PerspectiveRotate, "perspective_rotate", Plain),
-    cap!(PerspectiveScale, "perspective_scale", Plain),
-    cap!(PerspectiveAspect, "perspective_aspect", Plain),
-    cap!(PerspectiveX, "perspective_x", Plain),
-    cap!(PerspectiveY, "perspective_y", Plain),
+    cap!("perspective_vertical", K_DEVELOP_VERTICAL, Plain, |r| r.perspective_vertical, |r, v| r.perspective_vertical = v),
+    cap!("perspective_horizontal", K_DEVELOP_HORIZONTAL, Plain, |r| r.perspective_horizontal, |r, v| r.perspective_horizontal = v),
+    cap!("perspective_rotate", K_DEVELOP_ROTATE, Plain, |r| r.perspective_rotate, |r, v| r.perspective_rotate = v),
+    cap!("perspective_scale", K_DEVELOP_TRANSFORM_SCALE, Plain, |r| r.perspective_scale, |r, v| r.perspective_scale = v),
+    cap!("perspective_aspect", K_DEVELOP_ASPECT, Plain, |r| r.perspective_aspect, |r, v| r.perspective_aspect = v),
+    cap!("perspective_x", K_DEVELOP_X_OFFSET, Plain, |r| r.perspective_x, |r, v| r.perspective_x = v),
+    cap!("perspective_y", K_DEVELOP_Y_OFFSET, Plain, |r| r.perspective_y, |r, v| r.perspective_y = v),
 ];
 
-/// Read a plain/fine row's current value.
-pub(crate) fn value(recipe: &EditRecipe, id: CapabilityId) -> f32 {
-    match id {
-        CapabilityId::Exposure => recipe.exposure_ev,
-        CapabilityId::Contrast => recipe.contrast,
-        CapabilityId::Highlights => recipe.highlights,
-        CapabilityId::Shadows => recipe.shadows,
-        CapabilityId::Whites => recipe.whites,
-        CapabilityId::Blacks => recipe.blacks,
-        CapabilityId::Texture => recipe.texture,
-        CapabilityId::Clarity => recipe.clarity,
-        CapabilityId::Dehaze => recipe.dehaze,
-        CapabilityId::Vibrance => recipe.vibrance,
-        CapabilityId::Saturation => recipe.saturation,
-        CapabilityId::PostCropVignette => recipe.post_crop_vignette,
-        CapabilityId::PostCropVignetteRound => recipe.post_crop_vignette_round,
-        CapabilityId::PostCropVignetteHl => recipe.post_crop_vignette_hl,
-        CapabilityId::Grain => recipe.grain,
-        CapabilityId::HdrMaxEv => recipe.hdr_max_ev,
-        CapabilityId::SdrBlend => recipe.sdr_blend,
-        CapabilityId::SdrBrightness => recipe.sdr_brightness,
-        CapabilityId::SdrContrast => recipe.sdr_contrast,
-        CapabilityId::SdrHighlights => recipe.sdr_highlights,
-        CapabilityId::SdrShadows => recipe.sdr_shadows,
-        CapabilityId::SdrWhites => recipe.sdr_whites,
-        CapabilityId::SdrClarity => recipe.sdr_clarity,
-        CapabilityId::Straighten => recipe.straighten_deg,
-        CapabilityId::SharpenMasking => recipe.sharpen_mask,
-        CapabilityId::NoiseReduction => recipe.noise_reduction,
-        CapabilityId::NoiseContrast => recipe.nr_contrast,
-        CapabilityId::ColorNoiseReduction => recipe.color_nr,
-        CapabilityId::PerspectiveVertical => recipe.perspective_vertical,
-        CapabilityId::PerspectiveHorizontal => recipe.perspective_horizontal,
-        CapabilityId::PerspectiveRotate => recipe.perspective_rotate,
-        CapabilityId::PerspectiveScale => recipe.perspective_scale,
-        CapabilityId::PerspectiveAspect => recipe.perspective_aspect,
-        CapabilityId::PerspectiveX => recipe.perspective_x,
-        CapabilityId::PerspectiveY => recipe.perspective_y,
-        CapabilityId::LensVignetting => recipe.lens_vignette,
-        CapabilityId::LensVignettingMid => recipe.lens_vignette_mid,
-        CapabilityId::LensDistortion => recipe.lens_distortion,
-        CapabilityId::LensProfileDistortionScale => recipe.lens_profile_distortion_scale,
-        CapabilityId::LensProfileVignettingScale => recipe.lens_profile_vignetting_scale,
-        CapabilityId::CaRed => recipe.ca_r,
-        CapabilityId::CaBlue => recipe.ca_b,
-        CapabilityId::DefringePurple => recipe.defringe_purple,
-        CapabilityId::DefringePurpleLo => recipe.defringe_purple_lo,
-        CapabilityId::DefringePurpleHi => recipe.defringe_purple_hi,
-        CapabilityId::DefringeGreen => recipe.defringe_green,
-        CapabilityId::DefringeGreenLo => recipe.defringe_green_lo,
-        CapabilityId::DefringeGreenHi => recipe.defringe_green_hi,
-        CapabilityId::CalShadowTint => recipe.cal_shadow_tint,
-        CapabilityId::CalRedHue => recipe.cal_red_hue,
-        CapabilityId::CalRedSat => recipe.cal_red_sat,
-        CapabilityId::CalGreenHue => recipe.cal_green_hue,
-        CapabilityId::CalGreenSat => recipe.cal_green_sat,
-        CapabilityId::CalBlueHue => recipe.cal_blue_hue,
-        CapabilityId::CalBlueSat => recipe.cal_blue_sat,
-        CapabilityId::WhiteBalanceTint => recipe.tint,
-        CapabilityId::GradeBlending => recipe.color_grade.blending,
-        CapabilityId::GradeBalance => recipe.color_grade.balance,
-        other => unreachable!("companion row {other:?} is read through `EditRecipe::resolved`"),
-    }
-}
-
-/// Write a plain/fine row's value back.
-pub(crate) fn set_value(recipe: &mut EditRecipe, id: CapabilityId, value: f32) {
-    match id {
-        CapabilityId::Exposure => recipe.exposure_ev = value,
-        CapabilityId::Contrast => recipe.contrast = value,
-        CapabilityId::Highlights => recipe.highlights = value,
-        CapabilityId::Shadows => recipe.shadows = value,
-        CapabilityId::Whites => recipe.whites = value,
-        CapabilityId::Blacks => recipe.blacks = value,
-        CapabilityId::Texture => recipe.texture = value,
-        CapabilityId::Clarity => recipe.clarity = value,
-        CapabilityId::Dehaze => recipe.dehaze = value,
-        CapabilityId::Vibrance => recipe.vibrance = value,
-        CapabilityId::Saturation => recipe.saturation = value,
-        CapabilityId::PostCropVignette => recipe.post_crop_vignette = value,
-        CapabilityId::PostCropVignetteRound => recipe.post_crop_vignette_round = value,
-        CapabilityId::PostCropVignetteHl => recipe.post_crop_vignette_hl = value,
-        CapabilityId::Grain => recipe.grain = value,
-        CapabilityId::HdrMaxEv => recipe.hdr_max_ev = value,
-        CapabilityId::SdrBlend => recipe.sdr_blend = value,
-        CapabilityId::SdrBrightness => recipe.sdr_brightness = value,
-        CapabilityId::SdrContrast => recipe.sdr_contrast = value,
-        CapabilityId::SdrHighlights => recipe.sdr_highlights = value,
-        CapabilityId::SdrShadows => recipe.sdr_shadows = value,
-        CapabilityId::SdrWhites => recipe.sdr_whites = value,
-        CapabilityId::SdrClarity => recipe.sdr_clarity = value,
-        CapabilityId::Straighten => recipe.straighten_deg = value,
-        CapabilityId::SharpenMasking => recipe.sharpen_mask = value,
-        CapabilityId::NoiseReduction => recipe.noise_reduction = value,
-        CapabilityId::NoiseContrast => recipe.nr_contrast = value,
-        CapabilityId::ColorNoiseReduction => recipe.color_nr = value,
-        CapabilityId::PerspectiveVertical => recipe.perspective_vertical = value,
-        CapabilityId::PerspectiveHorizontal => recipe.perspective_horizontal = value,
-        CapabilityId::PerspectiveRotate => recipe.perspective_rotate = value,
-        CapabilityId::PerspectiveScale => recipe.perspective_scale = value,
-        CapabilityId::PerspectiveAspect => recipe.perspective_aspect = value,
-        CapabilityId::PerspectiveX => recipe.perspective_x = value,
-        CapabilityId::PerspectiveY => recipe.perspective_y = value,
-        CapabilityId::LensVignetting => recipe.lens_vignette = value,
-        CapabilityId::LensVignettingMid => recipe.lens_vignette_mid = value,
-        CapabilityId::LensDistortion => recipe.lens_distortion = value,
-        CapabilityId::LensProfileDistortionScale => recipe.lens_profile_distortion_scale = value,
-        CapabilityId::LensProfileVignettingScale => recipe.lens_profile_vignetting_scale = value,
-        CapabilityId::CaRed => recipe.ca_r = value,
-        CapabilityId::CaBlue => recipe.ca_b = value,
-        CapabilityId::DefringePurple => recipe.defringe_purple = value,
-        CapabilityId::DefringePurpleLo => recipe.defringe_purple_lo = value,
-        CapabilityId::DefringePurpleHi => recipe.defringe_purple_hi = value,
-        CapabilityId::DefringeGreen => recipe.defringe_green = value,
-        CapabilityId::DefringeGreenLo => recipe.defringe_green_lo = value,
-        CapabilityId::DefringeGreenHi => recipe.defringe_green_hi = value,
-        CapabilityId::CalShadowTint => recipe.cal_shadow_tint = value,
-        CapabilityId::CalRedHue => recipe.cal_red_hue = value,
-        CapabilityId::CalRedSat => recipe.cal_red_sat = value,
-        CapabilityId::CalGreenHue => recipe.cal_green_hue = value,
-        CapabilityId::CalGreenSat => recipe.cal_green_sat = value,
-        CapabilityId::CalBlueHue => recipe.cal_blue_hue = value,
-        CapabilityId::CalBlueSat => recipe.cal_blue_sat = value,
-        CapabilityId::WhiteBalanceTint => recipe.tint = value,
-        CapabilityId::GradeBlending => recipe.color_grade.blending = value,
-        CapabilityId::GradeBalance => recipe.color_grade.balance = value,
-        other => unreachable!("companion row {other:?} is written through `EditRecipe::set_resolved`"),
-    }
-}
+/// Every table, for the tests and the command layer's walk.
+#[allow(dead_code)] // read by the command tests, not by the renderer
+pub(crate) const TABLES: &[&[Capability]] = &[TONE, PRESENCE, VIGNETTE, GRAIN, HDR_HEADROOM, HDR_SDR, LENS_MANUAL, LENS_PROFILE, LENS_CA, LENS_DEFRINGE, CAL_TINT, CAL_RED, CAL_GREEN, CAL_BLUE, WB_TINT, GRADE_GLOBALS, CROP, SHARPEN, NOISE_LUMA, NOISE_COLOR, TRANSFORM];
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const ALL: &[&[Capability]] = &[
-        TONE,
-        PRESENCE,
-        VIGNETTE,
-        GRAIN,
-        HDR_HEADROOM,
-        HDR_SDR,
-        CROP,
-        SHARPEN,
-        NOISE_LUMA,
-        NOISE_COLOR,
-        TRANSFORM,
-        LENS_MANUAL,
-        LENS_PROFILE,
-        LENS_CA,
-        LENS_DEFRINGE,
-        CAL_TINT,
-        CAL_RED,
-        CAL_GREEN,
-        CAL_BLUE,
-        WB_TINT,
-        GRADE_GLOBALS,
-    ];
-
     #[test]
     fn every_row_resolves_to_a_catalogue_band_and_reset() {
-        for table in ALL {
+        for table in TABLES {
             for cap in *table {
-                let ((lo, hi), _) =
-                    cap.band_and_reset().unwrap_or_else(|| panic!("`{}` has no catalogue band", cap.control));
+                let ((lo, hi), _) = cap
+                    .band_and_reset()
+                    .unwrap_or_else(|| panic!("`{}` has no catalogue band", cap.control));
                 assert!(lo < hi, "`{}` band is empty: {lo}..{hi}", cap.control);
             }
         }
@@ -470,10 +280,7 @@ mod tests {
     #[test]
     fn the_tables_are_the_known_controls_in_panel_order() {
         let names = |table: &[Capability]| table.iter().map(|c| c.control).collect::<Vec<_>>();
-        assert_eq!(
-            names(TONE),
-            ["exposure_ev", "contrast", "highlights", "shadows", "whites", "blacks"],
-        );
+        assert_eq!(names(TONE), ["exposure_ev", "contrast", "highlights", "shadows", "whites", "blacks"]);
         assert_eq!(names(PRESENCE), ["texture", "clarity", "dehaze", "vibrance", "saturation"]);
         assert_eq!(
             names(VIGNETTE),
@@ -517,10 +324,7 @@ mod tests {
             ],
         );
         assert_eq!(names(LENS_MANUAL), ["lens_vignette", "lens_vignette_mid", "lens_distortion"]);
-        assert_eq!(
-            names(LENS_PROFILE),
-            ["lens_profile_distortion_scale", "lens_profile_vignetting_scale"],
-        );
+        assert_eq!(names(LENS_PROFILE), ["lens_profile_distortion_scale", "lens_profile_vignetting_scale"]);
         assert_eq!(names(LENS_CA), ["ca_r", "ca_b"]);
         assert_eq!(
             names(LENS_DEFRINGE),
@@ -542,20 +346,43 @@ mod tests {
     }
 
     #[test]
-    fn every_id_appears_once_and_only_once() {
-        let mut ids: Vec<CapabilityId> = ALL.iter().flat_map(|t| t.iter().map(|c| c.id)).collect();
-        let before = ids.len();
-        ids.sort();
-        ids.dedup();
-        assert_eq!(ids.len(), before, "a capability id is in two tables");
+    fn every_control_appears_once_and_only_once() {
+        let mut controls: Vec<&str> = TABLES.iter().flat_map(|t| t.iter().map(|c| c.control)).collect();
+        let before = controls.len();
+        controls.sort();
+        controls.dedup();
+        assert_eq!(controls.len(), before, "a control is in two tables");
     }
 
     #[test]
-    fn the_table_kind_and_the_id_agree_about_companions() {
-        for table in ALL {
+    fn the_access_kind_and_the_slider_kind_agree_about_companions() {
+        for table in TABLES {
             for cap in *table {
-                let companion_kind = matches!(cap.kind, SliderKind::CompanionInt | SliderKind::CompanionFine);
-                assert_eq!(cap.id.is_companion(), companion_kind, "row `{}` disagrees with itself", cap.control);
+                let companion_kind = matches!(
+                    cap.kind,
+                    SliderKind::CompanionInt | SliderKind::CompanionFine
+                );
+                assert_eq!(
+                    cap.plain().is_none(),
+                    companion_kind,
+                    "row `{}` disagrees with itself",
+                    cap.control
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn every_row_has_a_label_and_a_hint_only_where_it_draws_one() {
+        for table in TABLES {
+            for cap in *table {
+                assert!(!autoshade::text::name(cap.label).is_empty(), "`{}` has no label", cap.control);
+                assert_eq!(
+                    cap.hint.is_some(),
+                    cap.kind == SliderKind::Hinted,
+                    "`{}` hint disagrees with its kind",
+                    cap.control
+                );
             }
         }
     }
@@ -563,36 +390,25 @@ mod tests {
     #[test]
     fn the_read_and_write_halves_round_trip_each_plain_field() {
         let mut recipe = EditRecipe::default();
-        for table in ALL {
+        for table in TABLES {
             for cap in *table {
-                if cap.id.is_companion() {
-                    continue;
-                }
-                set_value(&mut recipe, cap.id, 12.5);
-                assert_eq!(value(&recipe, cap.id), 12.5, "`{}` does not round-trip", cap.control);
+                let Some((get, set)) = cap.plain() else { continue };
+                set(&mut recipe, 12.5);
+                assert_eq!(get(&recipe), 12.5, "`{}` does not round-trip", cap.control);
                 let reset = cap.band_and_reset().unwrap().1;
-                set_value(&mut recipe, cap.id, reset);
-                assert_eq!(value(&recipe, cap.id), reset);
+                set(&mut recipe, reset);
+                assert_eq!(get(&recipe), reset);
             }
         }
     }
 
-    /// The two colour-grading rows are nested fields, not top-level recipe
-    /// controls, so this pins their catalogue answer explicitly: the band
-    /// `ColorGrade::clamp` enforces and the neutral the default recipe stores
-    /// (blending 50, not the panel's old literal 50 written by hand twice).
+    /// The two colours-grading rows are nested fields, not top-level recipe
+    /// controls: their catalogue answer is the band `ColorGrade::clamp`
+    /// enforces and the neutral the default recipe stores (blending 50).
     #[test]
     fn the_grading_rows_take_their_band_and_reset_from_the_catalogue() {
-        assert_eq!(
-            GRADE_GLOBALS[0].band_and_reset(),
-            Some(((0.0, 100.0), 50.0)),
-            "blending",
-        );
-        assert_eq!(
-            GRADE_GLOBALS[1].band_and_reset(),
-            Some(((-100.0, 100.0), 0.0)),
-            "balance",
-        );
+        assert_eq!(GRADE_GLOBALS[0].band_and_reset(), Some(((0.0, 100.0), 50.0)), "blending");
+        assert_eq!(GRADE_GLOBALS[1].band_and_reset(), Some(((-100.0, 100.0), 0.0)), "balance");
     }
 
     #[test]

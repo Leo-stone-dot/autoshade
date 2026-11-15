@@ -5,7 +5,7 @@ use crate::*;
 // The section ● predicate and the table it reads (R25 P0) — see
 // `develop_panel` and `dev_lens`.
 use autoshade::advisor::catalogue::{family_is_active, CONTROL_FAMILIES};
-use crate::logic::sections::{section_active, SectionId, SECTIONS};
+use crate::sections::{section_active, SECTIONS};
 
 
 impl AutoShadeApp {
@@ -372,43 +372,12 @@ impl AutoShadeApp {
         // already found four of them one field short. `family_is_active` reads
         // the same table the AI's tool plan is built from, so a control that
         // joins a family joins its dot.
-        // The section table (`logic::sections`) owns the display order, the
+        // The section table (`sections.rs`) owns the display order, the
         // family set each ● reads, and which sections are registered custom
         // widgets. This loop is the only place the panel enumerates them.
         for section in SECTIONS {
             let active = section_active(&self.doc.recipe, section);
-            changed |= match section.id {
-                SectionId::ToneWb => self.dev_tone_wb(ui),
-                SectionId::Presence => self.dev_presence(ui, active),
-                SectionId::Curves => self.dev_curves(ui, active),
-                SectionId::Hsl => self.dev_hsl(ui, active),
-                SectionId::Grading => self.dev_grading(ui, active),
-                SectionId::Calibration => self.dev_calibration(ui, active),
-                SectionId::Detail => self.dev_detail(ui, active),
-                SectionId::Effects => self.dev_effects(ui, active),
-                SectionId::LensBlur => {
-                    // A verb: it returns the actions its worker start needs and
-                    // the facade applies them (the section itself has no ●).
-                    let lens_actions = self.dev_lens_blur(ui);
-                    let touched = !lens_actions.is_empty();
-                    if touched {
-                        self.apply_actions(lens_actions);
-                    }
-                    touched
-                }
-                SectionId::Lens => self.dev_lens(ui),
-                SectionId::Transform => self.dev_transform(ui, active),
-                // Crop/straighten derives its own `framing` ● inside the section.
-                SectionId::Crop => self.dev_crop(ui),
-                SectionId::Masks => self.dev_masks(ui),
-                SectionId::Versions => self.dev_versions(ui),
-                SectionId::Stack => {
-                    self.dev_stack(ui);
-                    false
-                }
-                SectionId::Hdr => self.dev_hdr(ui, active),
-                SectionId::Export => self.dev_export(ui),
-            };
+            changed |= (section.draw)(self, ui, active);
         }
         });
 
@@ -812,7 +781,7 @@ impl AutoShadeApp {
         changed
     }
 
-    fn dev_tone_wb(&mut self, ui: &mut egui::Ui) -> bool {
+    pub(crate) fn dev_tone_wb(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
 
@@ -922,7 +891,7 @@ impl AutoShadeApp {
 
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
-    fn dev_presence(&mut self, ui: &mut egui::Ui, presence_active: bool) -> bool {
+    pub(crate) fn dev_presence(&mut self, ui: &mut egui::Ui, presence_active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
 
@@ -962,7 +931,7 @@ impl AutoShadeApp {
     /// works on the colours these seven leave behind. Lightroom writes all
     /// seven keys on nearly every sidecar, so a photo arriving from Lightroom
     /// usually lands here with values already in it.
-    fn dev_calibration(&mut self, ui: &mut egui::Ui, calibration_active: bool) -> bool {
+    pub(crate) fn dev_calibration(&mut self, ui: &mut egui::Ui, calibration_active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
         ui.add_space(SPACE_MD);
@@ -997,7 +966,7 @@ impl AutoShadeApp {
     /// are stored either way, and Lightroom's own sidecars keep them across a
     /// mode change), but nothing they do reaches a pixel while the mode is
     /// off. Greying them out instead would hide values the file really holds.
-    fn dev_hdr(&mut self, ui: &mut egui::Ui, hdr_active: bool) -> bool {
+    pub(crate) fn dev_hdr(&mut self, ui: &mut egui::Ui, hdr_active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
         ui.add_space(SPACE_MD);
@@ -1032,7 +1001,7 @@ impl AutoShadeApp {
 
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
-    fn dev_detail(&mut self, ui: &mut egui::Ui, detail_active: bool) -> bool {
+    pub(crate) fn dev_detail(&mut self, ui: &mut egui::Ui, detail_active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
 
@@ -1136,7 +1105,7 @@ impl AutoShadeApp {
     /// It returns nothing because it changes no recipe field — the merge
     /// writes a master and pushes a card, which is not an edit of the develop
     /// the panel is holding.
-    fn dev_stack(&mut self, ui: &mut egui::Ui) {
+    pub(crate) fn dev_stack(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
         let lang = self.lang;
         // The section's ● says this photo HAS a stacked card, which is the
         // only state this fold owns that outlives the click.
@@ -1182,6 +1151,7 @@ impl AutoShadeApp {
                     }
                 });
             });
+            false
     }
 
     /// 效果 — Lightroom's post-crop vignette and film grain.
@@ -1192,7 +1162,7 @@ impl AutoShadeApp {
     /// Style, Grain size and roughness) show the value the engine actually
     /// renders — Lightroom's own default while the recipe holds none — and a
     /// reset returns them to absent (`companion_slider_edit` + the command).
-    fn dev_effects(&mut self, ui: &mut egui::Ui, effects_active: bool) -> bool {
+    pub(crate) fn dev_effects(&mut self, ui: &mut egui::Ui, effects_active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
 
@@ -1217,7 +1187,7 @@ impl AutoShadeApp {
 
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
-    fn dev_lens(&mut self, ui: &mut egui::Ui) -> bool {
+    pub(crate) fn dev_lens(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
 
@@ -1381,7 +1351,7 @@ impl AutoShadeApp {
     /// (The Calibration panel used to share this heading. It renders since
     /// v1.5.0 — `dev_calibration` above — and was never in this map: R25
     /// listed seven `CameraCalibration*` keys Lightroom does not write.)
-    fn dev_transform(&mut self, ui: &mut egui::Ui, transform_active: bool) -> bool {
+    pub(crate) fn dev_transform(&mut self, ui: &mut egui::Ui, transform_active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
         ui.add_space(SPACE_MD);
@@ -1548,7 +1518,7 @@ impl AutoShadeApp {
 
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
-    fn dev_crop(&mut self, ui: &mut egui::Ui) -> bool {
+    pub(crate) fn dev_crop(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
 
@@ -1638,7 +1608,7 @@ impl AutoShadeApp {
 
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
-    fn dev_versions(&mut self, ui: &mut egui::Ui) -> bool {
+    pub(crate) fn dev_versions(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
         let lang = self.lang;
 
         // --- 版本: recipe snapshots ≈ LR virtual copies (gap batch G) --------
@@ -1988,7 +1958,7 @@ impl AutoShadeApp {
 
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
-    fn dev_export(&mut self, ui: &mut egui::Ui) -> bool {
+    pub(crate) fn dev_export(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
         let lang = self.lang;
 
         // --- 导出设置 (UX batch): moved out of the toolbar — touched once per

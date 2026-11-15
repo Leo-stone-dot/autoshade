@@ -4,14 +4,15 @@
 //! companion's explicit-zero write (a stored 0 means "the sidecar said
 //! nothing").
 
-use super::capability::{self, CapabilityId};
 use autoshade::recipe::EditRecipe;
 
 /// One edit the GUI asks the document to make.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub(crate) enum Command {
-    /// Write one scalar capability's value.
-    SetCapability { id: CapabilityId, value: f32 },
+    /// Write one scalar capability's value. The row carries the write (so a
+    /// new control is a table row, not a variant + arm); `id` names the
+    /// control for diagnostics and tests.
+    SetCapability { write: fn(&mut EditRecipe, f32), value: f32 },
     /// Write one COMPANION control: the value becomes explicit, or the control
     /// returns to absent when the value is its Lightroom default.
     SetCompanion { name: &'static str, value: f32 },
@@ -52,7 +53,7 @@ pub(crate) enum MaskCommand {
 /// web form are meant to call the same function.
 pub(crate) fn apply(recipe: &mut EditRecipe, command: Command) {
     match command {
-        Command::SetCapability { id, value } => capability::set_value(recipe, id, value),
+        Command::SetCapability { write, value, .. } => (write)(recipe, value),
         Command::Mask(MaskCommand::Delete { index }) => {
             if index < recipe.masks.len() {
                 recipe.masks.remove(index);
@@ -133,9 +134,13 @@ mod tests {
 
     #[test]
     fn a_set_capability_command_writes_the_named_field() {
+        use crate::logic::capability::TONE;
         let mut recipe = EditRecipe::default();
-        apply(&mut recipe, Command::SetCapability { id: CapabilityId::Exposure, value: 1.5 });
-        apply(&mut recipe, Command::SetCapability { id: CapabilityId::Contrast, value: -20.0 });
+        for (control, value) in [("exposure_ev", 1.5), ("contrast", -20.0)] {
+            let cap = TONE.iter().find(|c| c.control == control).expect("row listed");
+            let (_, write) = cap.plain().expect("a plain row");
+            apply(&mut recipe, Command::SetCapability { write, value });
+        }
         assert_eq!(recipe.exposure_ev, 1.5);
         assert_eq!(recipe.contrast, -20.0);
         assert_eq!(recipe.highlights, 0.0, "an unnamed field is untouched");
@@ -237,9 +242,10 @@ mod tests {
 
     #[test]
     fn every_companion_row_is_commandable() {
-        for table in [capability::VIGNETTE, capability::GRAIN, capability::SHARPEN, capability::NOISE_LUMA, capability::NOISE_COLOR, capability::LENS_PROFILE, capability::LENS_DEFRINGE] {
-            for row in table {
-                if row.kind != capability::SliderKind::CompanionInt && row.kind != capability::SliderKind::CompanionFine {
+        use crate::logic::capability::{SliderKind, TABLES};
+        for table in TABLES {
+            for row in *table {
+                if !matches!(row.kind, SliderKind::CompanionInt | SliderKind::CompanionFine) {
                     continue;
                 }
                 let mut recipe = EditRecipe::default();
@@ -250,17 +256,14 @@ mod tests {
     }
 
     #[test]
-    fn the_command_round_trips_through_the_capability_reader() {
-        for table in [capability::TONE, capability::TRANSFORM, capability::CAL_RED] {
-            for row in table {
-                if row.kind == capability::SliderKind::CompanionInt
-                    || row.kind == capability::SliderKind::CompanionFine
-                {
-                    continue;
-                }
+    fn every_plain_row_is_commandable_and_round_trips() {
+        use crate::logic::capability::TABLES;
+        for table in TABLES {
+            for row in *table {
+                let Some((get, write)) = row.plain() else { continue };
                 let mut recipe = EditRecipe::default();
-                apply(&mut recipe, Command::SetCapability { id: row.id, value: 7.25 });
-                assert_eq!(capability::value(&recipe, row.id), 7.25, "`{}` is not written", row.control);
+                apply(&mut recipe, Command::SetCapability { write, value: 7.25 });
+                assert_eq!(get(&recipe), 7.25, "`{}` is not written", row.control);
             }
         }
     }

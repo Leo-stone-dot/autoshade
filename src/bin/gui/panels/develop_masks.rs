@@ -8,7 +8,7 @@ use crate::*;
 impl AutoShadeApp {
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
-    pub(crate) fn dev_masks(&mut self, ui: &mut egui::Ui) -> bool {
+    pub(crate) fn dev_masks(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
 
