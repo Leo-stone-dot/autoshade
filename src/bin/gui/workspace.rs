@@ -9,6 +9,9 @@
 //! methods a single draw path needs (`paint_upload_parts`, `brush_parts`).
 
 use crate::*;
+use crate::export::export_dest_dir;
+use crate::panels::normal::NormalLine;
+use crate::panels::portrait::PortraitLine;
 
 pub(crate) struct WorkspaceView {
     status: String,
@@ -549,4 +552,184 @@ impl Default for WorkspaceView {
             portrait: Default::default(),
         }
     }
+}
+
+impl WorkspaceView {
+    /// Any canvas tool armed? (the once-hand-written OR list)
+    pub(crate) fn tool_armed(&self) -> bool {
+        self.crop().mode
+            || self.masks().paint_mode
+            || self.tools().clone_mode
+            || self.tools().wb_picking
+            || self.tools().range_picking.is_some()
+            || self.tools().point_color_picking
+            || self.masks().placing_mask.is_some()
+}
+
+    /// A modal layer is up — the quit confirm or the fit prompt — and owns
+    /// the keyboard and the pointer (D13).
+    pub(crate) fn modal_up(&self) -> bool {
+        self.ui().confirm_quit || self.fit().fit_prompt.is_some()
+}
+
+    /// The jpg the Save group delivers.
+    pub(crate) fn normal_export_opts(&self) -> autoshade::render::ExportOpts {
+        autoshade::render::ExportOpts { jpeg_quality: self.normal().quality.jpeg_quality(), ..Default::default() }
+}
+
+    /// This app's destination setting resolved to a directory (`None` = ask) —
+    /// [`export_dest_dir`] with the app's own state. Read by the single export,
+    /// the batch render and both on-screen echoes, so all four name ONE place.
+    pub(crate) fn export_dest_dir(&self) -> Option<PathBuf> {
+        export_dest_dir(self.exp().dest, self.exp().last_dir.as_deref())
+}
+
+    /// The delivery options the export UI currently dials in (gap batch F) —
+    /// shared by the single export, the one-off "Export to…" path and the
+    /// batch render.
+    pub(crate) fn export_opts(&self) -> autoshade::render::ExportOpts {
+        autoshade::render::ExportOpts {
+            long_edge: (self.exp().long_edge > 0).then_some(self.exp().long_edge),
+            sharpen: self.exp().sharpen.clamp(0.0, 100.0),
+            jpeg_quality: self.exp().quality.round().clamp(1.0, 100.0) as u8,
+            eight_bit: self.exp().format.eight_bit(),
+            color_space: match self.exp().space {
+                1 => autoshade::render::ExportColorSpace::DisplayP3,
+                2 => autoshade::render::ExportColorSpace::AdobeRgb,
+                _ => autoshade::render::ExportColorSpace::Srgb,
+            },
+        }
+}
+
+    /// The batch's folder when the destination setting asks (`None` =
+    /// cancelled). ONE destination setting for batch and single alike
+    /// (R22-7): the batch used to hardcode ./out while a single export could
+    /// be sent anywhere, so the same library came out in two different
+    /// folders. "Ask every time" asks ONCE for a folder — a per-photo dialog
+    /// across 500 frames is not a delivery flow.
+    ///
+    /// The chosen folder is NOT remembered here (R22 M1). A pick the
+    /// read-only-library guard refuses every photo in delivers nothing, and
+    /// remembering it made `ExportDest::LastUsed` point at that folder from
+    /// then on — a destination that can only ever refuse. The memory is
+    /// written where the files actually LAND (the `ExportOutcome::Batch` arm,
+    /// `ok > 0`), which is the same rule the single-export dialog follows one
+    /// level down (`export_to_chosen_path` records only when the render
+    /// started).
+    pub(crate) fn pick_batch_folder(&self) -> Option<PathBuf> {
+        let mut dlg = rfd::FileDialog::new();
+        if let Some(d) = self.exp().last_dir.clone().filter(|d| d.is_dir()) {
+            dlg = dlg.set_directory(d);
+        }
+        dlg.pick_folder()
+}
+
+    /// Same alpha threshold as export. Scan at most once per unknown change,
+    /// then both the adjust note and verb read the memo in O(1) every frame.
+    pub(crate) fn has_painted_mask(&self) -> bool {
+        if let Some(painted) = self.masks().mask_painted.get() {
+            return painted;
+        }
+        let painted = self.masks().mask_paint.as_ref().is_some_and(|m| {
+            #[cfg(test)]
+            self.overlay().mask_presence_scans.set(self.overlay().mask_presence_scans.get() + 1);
+            m.pixels().any(|p| p[3] > 10)
+        });
+        self.masks().mask_painted.set(Some(painted));
+        painted
+}
+
+    /// Whether `owner`'s brush is the armed canvas tool: the Stamp paints
+    /// through `clone_mode`, the other three through `paint_mode`, and a
+    /// live mask-brush session belongs to none of them.
+    pub(crate) fn brush_armed(&self, owner: BrushOwner) -> bool {
+        self.masks().mask_brush.is_none()
+            && self.masks().paint_owner == owner
+            && if owner == BrushOwner::Stamp { self.tools().clone_mode } else { self.masks().paint_mode }
+}
+
+    /// The one-click group's line, in the session language.
+    pub(crate) fn normal_line_text(&self, lang: Lang) -> String {
+        if self.normal().building {
+            return match self.normal().build_progress {
+                Some((done, total)) => trf(
+                    lang,
+                    K_NORMAL_READING_YOUR_REFERENCE_PHOTOS,
+                    &[("done", &done.to_string()), ("total", &total.to_string())],
+                ),
+                None => tr(lang, K_LOGIC_READING_YOUR_REFERENCE_PHOTOS).into(),
+            };
+        }
+        match &self.normal().line {
+            // A cancelled one-click leaves no worker behind to say so.
+            NormalLine::Working if self.tools().analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_LOOK).into(),
+            NormalLine::Idle | NormalLine::Working => tr(lang, K_NORMAL_PICK_A_LOOK_OR_MATCH_YOUR_OWN_REFERENCE_PHOTOS).into(),
+            NormalLine::Done => tr(lang, K_NORMAL_DONE_CTRL_Z_GOES_BACK).into(),
+            NormalLine::BuiltIn => tr(lang, K_NORMAL_NO_AI_KEY_SET_BUILT_IN_LOOK_USED).into(),
+            NormalLine::Failed(why) => why.clone(),
+        }
+}
+
+    /// 🤖 Remove blemishes: the Retouch panel's AI heal, held to the face
+    /// mask — only the spots whose centre is on the face are healed.
+        /// The frame's one place for "Keep skin natural": run after the panels
+    /// drew and the workers landed, so a slider, a paste and an AI landing
+    /// all meet it before the develop or the undo commit sees the recipe.
+    /// Only while the switch is on for this card (`keep_skin_on`).
+        /// Does "Keep skin natural" hold the open card's writes: the switch on
+    /// for this card.
+        /// Does it hold a write landing on `photo` (a paste): the open card's
+    /// switch for the open photo, a stashed photo's card's own, and on for a
+    /// photo not opened this session — the write replaces the edit opening
+    /// would decide it on.
+        /// Undo or redo put back an edit past the skin limits (made before the
+    /// switch was on): it is put back as it was, so the switch goes off for
+    /// the card — the next frame must not pull it back and record a new step
+    /// over the redo history.
+        /// The open card's switch as a history step records it (None: no photo).
+        /// Undo or redo puts back the switch the step was recorded with. The
+    /// values are not touched: the step's recipe already is what the switch
+    /// left it as.
+        /// The open card's key for the per-card switch.
+        /// Is "Keep skin natural" on for the open card? On unless the card was
+    /// read from disk past the limits or the user turned it off. No photo:
+    /// on.
+        /// The user's own flip of the switch. Turning it on is the explicit act
+    /// that may bring values back within the limits, and the status line
+    /// says how many it did.
+        /// The photo was just read from disk (its strip settled): every card is
+    /// decided afresh against the edit that was read — off where it already
+    /// goes past the limits, on (no entry) elsewhere.
+        /// Every card of the open photo whose edit goes past the limits: off.
+        /// A saved version was just read onto the open card: that card alone is
+    /// decided afresh, the same way.
+        /// A card forked from the open one takes over its switch — a fork is an
+    /// edit, not an opening.
+        /// A depth estimate started from the Background group landed: aim the
+    /// focus at the face (the skin colour range's sample point is the faces'
+    /// centre) and keep the person sharp — instead of the canvas pick the
+    /// Lens Blur section arms.
+        /// "Keep the person sharp": the blur protects the subject matte (on), or
+    /// nothing (off). `false` when there is no blur, or nothing to protect
+    /// with.
+        /// The first group's line, in the session language.
+    pub(crate) fn portrait_line_text(&self, lang: Lang) -> String {
+        match &self.portrait().line {
+            PortraitLine::Idle => tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_FIRST_THE_SKIN_EYES_AND_BACKGROU).into(),
+            PortraitLine::Finding => tr(lang, K_PORTRAIT_FINDING_THE_PEOPLE_AND_FACES).into(),
+            PortraitLine::Found { faces: 0, .. } => tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO).into(),
+            PortraitLine::Found { faces: 1, .. } => tr(lang, K_PORTRAIT_FOUND_1_FACE).into(),
+            PortraitLine::Found { faces, .. } => trf(lang, K_PORTRAIT_FOUND_FACES, &[("n", &faces.to_string())]),
+            PortraitLine::Failed(why) => why.clone(),
+            PortraitLine::Looking if self.tools().analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_PORTRAIT_LOOK).into(),
+            PortraitLine::Looking => tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_FIRST_THE_SKIN_EYES_AND_BACKGROU).into(),
+            PortraitLine::Looked => tr(lang, K_NORMAL_DONE_CTRL_Z_GOES_BACK).into(),
+        }
+}
+
+    /// The tip every brush paints with: the Feather and Flow dials beside
+    /// Brush size (both shared by every brush, as the radius is).
+    pub(crate) fn brush_tip(&self) -> BrushTip {
+        BrushTip { feather: self.masks().brush_feather, flow: self.masks().brush_flow }
+}
 }

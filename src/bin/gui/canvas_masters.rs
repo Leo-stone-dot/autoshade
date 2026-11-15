@@ -273,7 +273,7 @@ pub(crate) fn start_redevelop(&mut self) {
 /// until it lands ([`Msg::BaseRedeveloped`]). A baked source, or a card
 /// on its own pixels, has nothing to re-develop.
 pub(crate) fn ensure_source_part(&mut self) -> bool {
-    if !self.source_is_raw() || self.active_variant().is_some_and(|v| v.base.is_some()) {
+    if !self.source_is_raw() || self.editor.active_variant().is_some_and(|v| v.base.is_some()) {
         return true;
     }
     let want = autoshade::render::BasePart::of(&self.editor.doc().recipe);

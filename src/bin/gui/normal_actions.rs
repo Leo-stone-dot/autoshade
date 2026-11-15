@@ -25,7 +25,7 @@ impl AutoShadeApp {
         let old = self.workspace.status().clone();
         self.workspace.chrome_mut().toasts.retain(|t| t.text != old);
         let targets = self.workspace.gal().gallery.clone();
-        let export = self.normal_export_opts();
+        let export = self.workspace.normal_export_opts();
         self.start_batch_render_for(targets, "jpg".into(), export, dest, true);
         if self.workspace.busy() {
             self.workspace.normal_mut().delivering = true;
@@ -65,7 +65,7 @@ impl AutoShadeApp {
     /// Is the noise switch on: the card on screen is a ◈ card, or the
     /// switch's own AI denoise is running.
     pub(crate) fn normal_denoise_on(&self) -> bool {
-        self.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
+        self.editor.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
             || (self.workspace.busy()
                 && self.workspace.normal()
                     .denoise_pair
@@ -73,10 +73,6 @@ impl AutoShadeApp {
                     .is_some_and(|d| d.denoised.is_none() && self.editor.photo().src_path.as_ref() == Some(&d.photo)))
     }
 
-    /// The strip index of the card with `id` (an empty id matches nothing).
-    fn card_index(&self, id: &str) -> Option<usize> {
-        (!id.is_empty()).then(|| self.editor.doc().variants.iter().position(|v| v.id == id)).flatten()
-    }
 
     /// Put card `idx` under the canvas with the look on screen: the switch
     /// changes the grain, never the look the sliders made — nor the look's
@@ -123,11 +119,11 @@ impl AutoShadeApp {
         if self.workspace.busy() || on == self.normal_denoise_on() {
             return;
         }
-        let Some(active) = self.active_variant().map(|v| v.id.clone()) else { return };
+        let Some(active) = self.editor.active_variant().map(|v| v.id.clone()) else { return };
         let pair = self.workspace.normal().denoise_pair.clone().filter(|d| d.photo == photo);
         let lang = self.lang;
         if on {
-            let made = pair.filter(|d| d.plain == active).and_then(|d| d.denoised).and_then(|id| self.card_index(&id));
+            let made = pair.filter(|d| d.plain == active).and_then(|d| d.denoised).and_then(|id| self.editor.card_index(&id));
             if let Some(idx) = made {
                 self.show_card_keeping_look(idx);
                 self.workspace.set_status(tr(lang, K_ACTIONS_AI_DENOISE_ON).into());
@@ -144,7 +140,7 @@ impl AutoShadeApp {
         } else {
             let back = pair
                 .filter(|d| d.denoised.as_deref() == Some(active.as_str()))
-                .and_then(|d| self.card_index(&d.plain))
+                .and_then(|d| self.editor.card_index(&d.plain))
                 .or_else(|| self.editor.doc().variants.iter().position(|v| v.kind != VariantKind::Denoised));
             let Some(idx) = back else { return };
             // Remembered, so turning it on again shows this ◈ card.

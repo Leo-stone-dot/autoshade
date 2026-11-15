@@ -63,7 +63,7 @@ impl AutoShadeApp {
         // the disk state. The stash entry is consumed by that same restore,
         // so a same-path reopen becomes "reload, preserving unsaved work".
         if let Some(old) = self.editor.photo().src_path.clone() {
-            let origin = self.active_variant().and_then(|v| v.origin.clone());
+            let origin = self.editor.active_variant().and_then(|v| v.origin.clone());
             // Background variants count too (H4): their unsaved work has no
             // sidecar to survive in, and the strip used to collapse to the
             // active canvas alone on navigation. THIS photo's strip only:
@@ -86,7 +86,7 @@ impl AutoShadeApp {
                     })
                     .collect();
                 let active_pos = self.editor.doc().active.min(others.len());
-                let active = self.active_variant();
+                let active = self.editor.active_variant();
                 let recipe = self.editor.doc().recipe.clone();
                 let base = active.and_then(|v| v.base.clone());
                 let kind = active.map_or(VariantKind::Original, |v| v.kind);

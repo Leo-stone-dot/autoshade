@@ -93,13 +93,13 @@
         let two = "out/_fit_prompt_test.reimagine-2.png";
         let mut app = app_before_a_generation(Lang::En);
         land(&mut app, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
-        assert_eq!(app.active_variant().map(|v| v.kind), Some(VariantKind::Generated), "premise: the strip switched");
-        let first = app.active_variant().unwrap().id.clone();
+        assert_eq!(app.editor.active_variant().map(|v| v.kind), Some(VariantKind::Generated), "premise: the strip switched");
+        let first = app.editor.active_variant().unwrap().id.clone();
         let p = app.workspace.fit().fit_prompt.as_ref().expect("a reimagine landing asks");
         assert_eq!(p.target, first, "the question is about the card just made");
         app.workspace.fit_mut().fit_prompt.as_mut().unwrap().from = Some("dn".into());
         land(&mut app, &ctx, reimagined(two), two, RetouchKind::NewGenerated);
-        let second = app.active_variant().unwrap().id.clone();
+        let second = app.editor.active_variant().unwrap().id.clone();
         assert_ne!(first, second);
         let p = app.workspace.fit().fit_prompt.as_ref().expect("still one question");
         assert_eq!(p.target, second, "a newer generation takes the open question over");

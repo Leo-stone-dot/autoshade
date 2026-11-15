@@ -816,11 +816,11 @@
 
             }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.crop_mut() = CropState { mode: true, ..Default::default() }; *view.tools_mut() = ToolsState { clone_mode: true, ..Default::default() }; view } , ..Default::default() };
         app.arm_brush(BrushOwner::Fill);
-        assert!(app.workspace.masks().paint_mode && app.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
+        assert!(app.workspace.masks().paint_mode && app.workspace.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
         assert!(!app.workspace.crop().mode && !app.workspace.tools().clone_mode, "the other tools are disarmed");
         app.arm_brush(BrushOwner::Stamp);
         assert!(app.workspace.tools().clone_mode && !app.workspace.masks().paint_mode, "the Stamp paints through clone_mode");
-        assert!(app.brush_armed(BrushOwner::Stamp) && !app.brush_armed(BrushOwner::Fill));
+        assert!(app.workspace.brush_armed(BrushOwner::Stamp) && !app.workspace.brush_armed(BrushOwner::Fill));
         // Phase 2: a live session + the brush put away = a cancel, not an orphan.
         app.start_mask_brush(None);
         assert!(

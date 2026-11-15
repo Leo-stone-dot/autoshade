@@ -182,10 +182,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// Whether the last analysis left anything to read.
-    fn has_analysis_output(&self) -> bool {
-        self.editor.analysis().verdict.is_some() || !self.editor.analysis().rationale.is_empty()
-    }
 
     /// What one Analyze run wrote — the verdict, the rationale sentence and
     /// the deep-thinking working — drawn by both the Analysis fold's bounded
@@ -265,7 +261,7 @@ impl AutoShadeApp {
         if !self.workspace.ui().show_analysis_full {
             return;
         }
-        let mut open = self.has_analysis_output();
+        let mut open = self.editor.has_analysis_output();
         egui::Window::new(tr(self.lang, K_AI_AI_ANALYSIS_FULL_TEXT))
             // Fixed id: the title varies with the language, and egui keys
             // the window's position and size off the id.
@@ -307,7 +303,7 @@ impl AutoShadeApp {
             // sentence and the deep-thinking working scroll inside
             // ANALYSIS_BOX_MAX_H, and once they overflow it a verb opens the
             // whole text in a window of its own (`analysis_full_window`).
-            if self.has_analysis_output() {
+            if self.editor.has_analysis_output() {
                 let out = egui::Frame::group(ui.style())
                     .show(ui, |ui| {
                         egui::ScrollArea::vertical()
@@ -531,7 +527,7 @@ impl AutoShadeApp {
                     intent.base = Some(self.editor.doc().recipe.clone());
                     intent.pixels = self
                         .active_on_ai_pixels()
-                        .then(|| self.active_variant().and_then(|v| v.origin.clone()))
+                        .then(|| self.editor.active_variant().and_then(|v| v.origin.clone()))
                         .flatten();
                     self.apply_actions(vec![logic::Action::Look(intent)]);
                 }
@@ -957,7 +953,7 @@ impl AutoShadeApp {
                 // has — the line says which card to select instead of
                 // pretending nothing was generated.
                 let on_edited =
-                    self.active_variant().is_some_and(|v| v.kind == VariantKind::Edited);
+                    self.editor.active_variant().is_some_and(|v| v.kind == VariantKind::Edited);
                 let note = if on_edited {
                     tr(lang,
                         K_AI_REVERSE_FIT_READS_THE_AI_GENERATED_CARD_S_PIXELS)

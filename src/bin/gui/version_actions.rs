@@ -161,7 +161,7 @@ impl AutoShadeApp {
         // does: its develop over the AI pixels is what the snapshot holds
         // (stripped of calibration like every snapshot taken on AI pixels,
         // and re-stamped if it ever lands on the negative — R24-3).
-        if self.active_variant().is_some_and(|v| v.kind == VariantKind::Generated) {
+        if self.editor.active_variant().is_some_and(|v| v.kind == VariantKind::Generated) {
             let t = tr(
                 lang,
                 K_ACTIONS_A_PRISTINE_AI_GENERATED_CARD_HAS_NO_DEVELOP_TO_S,
@@ -173,8 +173,8 @@ impl AutoShadeApp {
         let Some(src) = self.editor.photo().src_path.clone() else { return };
         // Attribution for the record below, read before the lock closure
         // borrows `self`: which card this snapshot is a picture OF (R24-2).
-        let from_kind = self.active_variant().map(|v| v.kind.store_str().to_string());
-        let from_id = self.active_variant().and_then(|v| variant_id_field(&v.id));
+        let from_kind = self.editor.active_variant().map(|v| v.kind.store_str().to_string());
+        let from_id = self.editor.active_variant().and_then(|v| variant_id_field(&v.id));
         // ONE NoWait lock across claim → raster freeze → recipe write:
         // another process's delete_version sweeping the just-claimed slot
         // mid-snapshot is a real interleave — and this is a foreground

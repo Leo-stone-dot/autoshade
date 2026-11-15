@@ -16,8 +16,8 @@ impl AutoShadeApp {
     /// radius converts display px → canvas px by the current pixel scale.
     pub(crate) fn handle_paint(&mut self, resp: &egui::Response, xf: ViewXform) {
         let brush = self.workspace.masks().brush;
-        let tip = self.brush_tip();
-        let (dims, deg, dist) = self.geom_ctx();
+        let tip = self.workspace.brush_tip();
+        let (dims, deg, dist) = self.editor.geom_ctx();
         // Mask-brush session: strokes write the display canvas AND the
         // greyscale weight buffer; erase clears both.
         let erase = self.workspace.masks().mask_brush.is_some_and(|(_, e)| e);
@@ -143,7 +143,7 @@ impl AutoShadeApp {
             if resp.clicked()
                 && let Some(q) = resp.interact_pointer_pos()
             {
-                let (dims, deg, dist) = self.geom_ctx();
+                let (dims, deg, dist) = self.editor.geom_ctx();
                 let (nx, ny) = xf.to_norm(q);
                 self.workspace.tools_mut().clone_src = Some(view_norm_to_orig(nx, ny, dims, deg, &dist));
                 *self.workspace.status_mut() = tr(
@@ -156,7 +156,7 @@ impl AutoShadeApp {
             self.handle_paint(resp, xf);
         }
         if let Some((sx, sy)) = self.workspace.tools().clone_src {
-            let (dims, deg, dist) = self.geom_ctx();
+            let (dims, deg, dist) = self.editor.geom_ctx();
             let (vx, vy) = orig_norm_to_view(sx, sy, dims, deg, &dist);
             let q = xf.to_screen(vx, vy);
             let p = ui.painter_at(xf.rect);
@@ -316,11 +316,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// The tip every brush paints with: the Feather and Flow dials beside
-    /// Brush size (both shared by every brush, as the radius is).
-    pub(crate) fn brush_tip(&self) -> BrushTip {
-        BrushTip { feather: self.workspace.masks().brush_feather, flow: self.workspace.masks().brush_flow }
-    }
 
     /// Set the one brush radius, clamped to its range, and flash the ring.
     pub(crate) fn set_brush(&mut self, radius: f32, now: f64) {
@@ -394,7 +389,7 @@ impl AutoShadeApp {
     /// its own 「⎘ Enter stamp」 toggle and lays its row itself.
     pub(crate) fn brush_row(&mut self, ui: &mut egui::Ui, owner: BrushOwner) {
         let lang = self.lang;
-        let armed = self.brush_armed(owner);
+        let armed = self.workspace.brush_armed(owner);
         ui.horizontal(|ui| {
             let cell = columns(ui, 2);
             if toggle_in(ui, cell, armed, tr(lang, K_RETOUCH_PAINT_AREA))
@@ -650,7 +645,7 @@ impl AutoShadeApp {
                 // a source, plain drags paint the Stamp's own area), so the
                 // clear verb sits beside it, the radius follows while armed,
                 // and the stamp's one verb fills the row under them.
-                let armed = self.brush_armed(BrushOwner::Stamp);
+                let armed = self.workspace.brush_armed(BrushOwner::Stamp);
                 ui.horizontal(|ui| {
                     let cell = columns(ui, 2);
                     let label = if armed { tr(lang, K_DEVELOP_DONE) } else { tr(lang, K_RETOUCH_ENTER_STAMP) };

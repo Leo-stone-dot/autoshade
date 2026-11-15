@@ -166,7 +166,7 @@
                 active_pos: 0,
             },
         );
-        assert_eq!(app.open_dirty_variants(), 0, "this photo's strip is clean");
+        assert_eq!(app.editor.open_dirty_variants(), 0, "this photo's strip is clean");
         assert!(
             app.inactive_dirty_variants() > 0,
             "the quit surfaces still see the other photo's work"

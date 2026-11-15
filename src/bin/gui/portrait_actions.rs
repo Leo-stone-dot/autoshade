@@ -167,7 +167,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
         self.workspace.portrait_mut().line = PortraitLine::Found { faces: faces_n, failed: failed.clone() };
         self.workspace.overlay_mut().overlay_stale = true;
         self.editor.session_mut().dirty = true;
-        self.workspace.set_status(self.portrait_line_text(lang));
+        self.workspace.set_status(self.workspace.portrait_line_text(lang));
         if let Some(why) = failed {
             self.toast(ToastKind::Error, trf(lang, K_ACTIONS_PART_OF_THE_SEARCH_DID_NOT_WORK, &[("err", &why)]));
         }

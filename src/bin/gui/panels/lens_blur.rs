@@ -108,7 +108,7 @@ impl AutoShadeApp {
     /// photographer sees where the current focus sits before moving it.
     pub(crate) fn draw_lens_focus(&self, ui: &egui::Ui, xf: ViewXform) {
         let Some(lb) = self.editor.doc().recipe.lens_blur.as_ref() else { return };
-        let ((bw, bh), deg, dist) = self.geom_ctx();
+        let ((bw, bh), deg, dist) = self.editor.geom_ctx();
         let (vx, vy) = orig_norm_to_view(lb.focus[0], lb.focus[1], (bw, bh), deg, &dist);
         let c = xf.to_screen(vx, vy);
         let p = ui.painter();

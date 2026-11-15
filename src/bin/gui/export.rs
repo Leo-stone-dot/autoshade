@@ -283,7 +283,7 @@ impl AutoShadeApp {
     /// only smooth it further (2026-09-15).
     pub(crate) fn export_denoise_applies(&self) -> bool {
         self.workspace.exp().save_denoise
-            && !self.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
+            && !self.editor.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
     }
 
     /// One-line echo of the current delivery settings for the Export hover —
@@ -318,7 +318,7 @@ impl AutoShadeApp {
                 self.selected_denoise_strength(true) * 100.0
             ));
         }
-        parts.push(match self.export_dest_dir() {
+        parts.push(match self.workspace.export_dest_dir() {
             // Absolute, like every other place a target is named now: "./out"
             // is relative to whatever directory the app was launched from, and
             // that is exactly the thing users could not find.
@@ -349,17 +349,11 @@ impl AutoShadeApp {
         format!("{stem}.developed.{ext}")
     }
 
-    /// This app's destination setting resolved to a directory (`None` = ask) —
-    /// [`export_dest_dir`] with the app's own state. Read by the single export,
-    /// the batch render and both on-screen echoes, so all four name ONE place.
-    pub(crate) fn export_dest_dir(&self) -> Option<PathBuf> {
-        export_dest_dir(self.workspace.exp().dest, self.workspace.exp().last_dir.as_deref())
-    }
 
     /// What the Export button will do this click — resolved BEFORE anything is
     /// written, so "Ask every time" cannot fall through to a silent write.
     pub(crate) fn export_route(&self) -> ExportRoute {
-        match self.export_dest_dir() {
+        match self.workspace.export_dest_dir() {
             Some(dir) => ExportRoute::Render(dir.join(self.export_file_name())),
             None => ExportRoute::Ask,
         }
@@ -382,7 +376,7 @@ impl AutoShadeApp {
         // The Export fold's OWN dial (the Detail fold's 「AI Denoise now」 has
         // its own), captured at the click like every other export input.
         let denoise_strength = self.selected_denoise_strength(true);
-        let export = self.export_opts();
+        let export = self.workspace.export_opts();
         self.start_render_with(out, export, denoise.then_some(denoise_strength), self.workspace.exp().save_denoise, OutName::Guarded)
     }
 
@@ -552,22 +546,6 @@ impl AutoShadeApp {
         true
     }
 
-    /// The delivery options the export UI currently dials in (gap batch F) —
-    /// shared by the single export, the one-off "Export to…" path and the
-    /// batch render.
-    pub(crate) fn export_opts(&self) -> autoshade::render::ExportOpts {
-        autoshade::render::ExportOpts {
-            long_edge: (self.workspace.exp().long_edge > 0).then_some(self.workspace.exp().long_edge),
-            sharpen: self.workspace.exp().sharpen.clamp(0.0, 100.0),
-            jpeg_quality: self.workspace.exp().quality.round().clamp(1.0, 100.0) as u8,
-            eight_bit: self.workspace.exp().format.eight_bit(),
-            color_space: match self.workspace.exp().space {
-                1 => autoshade::render::ExportColorSpace::DisplayP3,
-                2 => autoshade::render::ExportColorSpace::AdobeRgb,
-                _ => autoshade::render::ExportColorSpace::Srgb,
-            },
-        }
-    }
 
     /// Batch-render every Ctrl+click-selected photo through its own saved
     /// recipe.json (central store, else legacy ./out; neutral develop when
@@ -589,33 +567,11 @@ impl AutoShadeApp {
             return;
         }
         let ext = self.workspace.exp().format.ext().to_string();
-        let export = self.export_opts();
-        let Some(dest) = self.export_dest_dir().or_else(|| self.pick_batch_folder()) else { return };
+        let export = self.workspace.export_opts();
+        let Some(dest) = self.workspace.export_dest_dir().or_else(|| self.workspace.pick_batch_folder()) else { return };
         self.start_batch_render_for(targets, ext, export, dest, false);
     }
 
-    /// The batch's folder when the destination setting asks (`None` =
-    /// cancelled). ONE destination setting for batch and single alike
-    /// (R22-7): the batch used to hardcode ./out while a single export could
-    /// be sent anywhere, so the same library came out in two different
-    /// folders. "Ask every time" asks ONCE for a folder — a per-photo dialog
-    /// across 500 frames is not a delivery flow.
-    ///
-    /// The chosen folder is NOT remembered here (R22 M1). A pick the
-    /// read-only-library guard refuses every photo in delivers nothing, and
-    /// remembering it made `ExportDest::LastUsed` point at that folder from
-    /// then on — a destination that can only ever refuse. The memory is
-    /// written where the files actually LAND (the `ExportOutcome::Batch` arm,
-    /// `ok > 0`), which is the same rule the single-export dialog follows one
-    /// level down (`export_to_chosen_path` records only when the render
-    /// started).
-    pub(crate) fn pick_batch_folder(&self) -> Option<PathBuf> {
-        let mut dlg = rfd::FileDialog::new();
-        if let Some(d) = self.workspace.exp().last_dir.clone().filter(|d| d.is_dir()) {
-            dlg = dlg.set_directory(d);
-        }
-        dlg.pick_folder()
-    }
 
     /// [`start_batch_render`](Self::start_batch_render) over `targets` into
     /// `dest`, in the container `ext` with `export`'s options — Normal's
@@ -675,8 +631,7 @@ impl AutoShadeApp {
             })
             .collect();
         if let Some(p) = self.editor.photo().src_path.clone() {
-            let pix = self
-                .active_variant()
+            let pix = self.editor.active_variant()
                 .and_then(|v| v.origin.clone())
                 .map(|o| (o, self.active_on_ai_pixels()));
             overrides.insert(p, (self.editor.doc().recipe.clone(), pix));
@@ -948,22 +903,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// Can this photo's sidecar be handed to Lightroom at all? RAW only, and
-    /// keyed to the ORIGINAL photo (`src_path`), never the active variant: the
-    /// projection belongs to the RAW no matter which rendition is on screen.
-    ///
-    /// Only a camera RAW has the sidecar convention — `store::
-    /// lightroom_sidecar` and `pipeline::write_xmp` draw the same line, and a
-    /// baked PNG/TIFF's neighbouring `.xmp` is another program's file, which
-    /// this must never offer to overwrite.
-    ///
-    /// Deliberately NOT gated on the projection existing: that would be a disk
-    /// stat per frame, and "save the develop first" is a better answer from the
-    /// click (the store's own NotFound message says exactly that) than a button
-    /// that is greyed out for a reason nothing explains.
-    pub(crate) fn can_export_xmp_beside(&self) -> bool {
-        self.editor.photo().src_path.as_deref().is_some_and(autoshade::decode::is_raw)
-    }
 
     /// SF8-A: hand the stored Lightroom sidecar over to Lightroom — copy this
     /// photo's `<stem>.xmp` projection out of the hashed develop folder and
@@ -1072,7 +1011,7 @@ impl AutoShadeApp {
         // record) — "clear my edits" must not silently destroy the OTHER
         // cards.
         if self.editor.doc().recipe.is_noop()
-            && self.active_variant().is_none_or(|v| v.origin.is_none())
+            && self.editor.active_variant().is_none_or(|v| v.origin.is_none())
             && self.current_strip_record().is_none()
         {
             // NoWait wrapper: clear_develop locks internally, but with Wait —
@@ -1211,7 +1150,7 @@ impl AutoShadeApp {
         // notes: the save either lands whole (the notes below describe
         // SEMANTICS — what a reopen restores — not write outcomes) or fails
         // whole, with every unsaved protection still armed.
-        let origin = self.active_variant().and_then(|v| v.origin.clone());
+        let origin = self.editor.active_variant().and_then(|v| v.origin.clone());
         let strip_rec = self.current_strip_record();
         let generated = self.active_on_ai_pixels();
         // A canvas on AI pixels is the STRIPPED form — no calibration, the

@@ -168,25 +168,11 @@ impl AutoShadeApp {
         self.workspace.overlay_mut().mask_dirty = true;
     }
 
-    /// Same alpha threshold as export. Scan at most once per unknown change,
-    /// then both the adjust note and verb read the memo in O(1) every frame.
-    pub(crate) fn has_painted_mask(&self) -> bool {
-        if let Some(painted) = self.workspace.masks().mask_painted.get() {
-            return painted;
-        }
-        let painted = self.workspace.masks().mask_paint.as_ref().is_some_and(|m| {
-            #[cfg(test)]
-            self.workspace.overlay().mask_presence_scans.set(self.workspace.overlay().mask_presence_scans.get() + 1);
-            m.pixels().any(|p| p[3] > 10)
-        });
-        self.workspace.masks().mask_painted.set(Some(painted));
-        painted
-    }
 
     /// PNG bytes of the EXPORT mask: painted → transparent (regenerate / heal
     /// here), unpainted → opaque. None if nothing is painted — mirrors the web.
     pub(crate) fn export_mask_png(&self) -> Option<Vec<u8>> {
-        if !self.has_painted_mask() {
+        if !self.workspace.has_painted_mask() {
             return None;
         }
         export_png_of(self.workspace.masks().mask_paint.as_ref()?)
@@ -274,14 +260,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// Whether `owner`'s brush is the armed canvas tool: the Stamp paints
-    /// through `clone_mode`, the other three through `paint_mode`, and a
-    /// live mask-brush session belongs to none of them.
-    pub(crate) fn brush_armed(&self, owner: BrushOwner) -> bool {
-        self.workspace.masks().mask_brush.is_none()
-            && self.workspace.masks().paint_owner == owner
-            && if owner == BrushOwner::Stamp { self.workspace.tools().clone_mode } else { self.workspace.masks().paint_mode }
-    }
 
     /// Arm `owner`'s brush: its area comes onto the canvas, every other
     /// canvas tool is swept (the one exclusion, `disarm_tools`), then the
@@ -311,7 +289,7 @@ impl AutoShadeApp {
     pub(crate) fn toggle_brush_key(&mut self) {
         if self.workspace.masks().mask_brush.is_some() {
             self.disarm_tools();
-        } else if self.brush_armed(self.workspace.masks().paint_owner) {
+        } else if self.workspace.brush_armed(self.workspace.masks().paint_owner) {
             self.disarm_brush();
         } else {
             self.arm_brush(self.workspace.masks().paint_owner);
@@ -332,7 +310,7 @@ impl AutoShadeApp {
     /// memoised per area exactly as `has_painted_mask` memoises the canvas'.
     pub(crate) fn area_painted(&self, owner: BrushOwner) -> bool {
         if owner == self.workspace.masks().paint_owner && self.workspace.masks().mask_brush.is_none() {
-            return self.has_painted_mask();
+            return self.workspace.has_painted_mask();
         }
         self.workspace.masks().paint_store[owner.slot()].as_ref().is_some_and(|a| {
             if let Some(p) = a.painted.get() {

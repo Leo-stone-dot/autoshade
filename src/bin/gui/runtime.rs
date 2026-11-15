@@ -357,7 +357,7 @@ impl AutoShadeApp {
                 // A landed one-click says its own plain sentence instead of the
                 // shared landing's (and in the toast that landing raised).
                 if matches!(line, LookLine::Done | LookLine::BuiltIn) {
-                    let plain = self.normal_line_text(self.lang).to_string();
+                    let plain = self.workspace.normal_line_text(self.lang).to_string();
                     self.reword_landing(plain);
                 }
             }

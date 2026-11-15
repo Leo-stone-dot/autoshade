@@ -11,8 +11,8 @@ impl AutoShadeApp {
     pub(crate) fn current_step(&self) -> UndoStep {
         UndoStep {
             recipe: self.editor.doc().recipe.clone(),
-            base: self.active_variant().and_then(|v| v.base.clone()),
-            origin: self.active_variant().and_then(|v| v.origin.clone()),
+            base: self.editor.active_variant().and_then(|v| v.base.clone()),
+            origin: self.editor.active_variant().and_then(|v| v.origin.clone()),
             keep_skin: self.skin_switch(),
         }
     }

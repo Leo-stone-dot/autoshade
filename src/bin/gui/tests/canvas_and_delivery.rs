@@ -465,7 +465,7 @@
      src_path: Some(raw.clone()),
      ..Default::default()
  }; editor } , ..Default::default() };
-        assert!(app.can_export_xmp_beside(), "a RAW can hand its sidecar over");
+        assert!(app.editor.can_export_xmp_beside(), "a RAW can hand its sidecar over");
 
         // First delivery: nothing in the way, so it lands with no confirmation.
         app.export_xmp_beside();
@@ -504,11 +504,11 @@
      ..Default::default()
  }; editor } , ..Default::default() };
         assert!(
-            !baked_app.can_export_xmp_beside(),
+            !baked_app.editor.can_export_xmp_beside(),
             "only a RAW has the Lightroom sidecar convention"
         );
         assert!(
-            !AutoShadeApp::default().can_export_xmp_beside(),
+            !AutoShadeApp::default().editor.can_export_xmp_beside(),
             "…and with no photo open there is nothing to hand over"
         );
 

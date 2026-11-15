@@ -21,7 +21,7 @@ impl AutoShadeApp {
         let n_masks_s = n_masks.to_string();
         card_fold(ui, egui::CollapsingHeader::new(section_title(
             &trf(lang, K_DEVELOP_LOCAL_MASKS, &[("n", &n_masks_s)]),
-            self.masks_section_active(),
+            self.editor.masks_section_active(),
         ))
         .id_salt("sec_local")
         .default_open(false)

@@ -128,62 +128,6 @@ impl AutoShadeApp {
         self.apply_actions(vec![logic::Action::Look(intent)]);
     }
 
-    /// 🤖 Remove blemishes: the Retouch panel's AI heal, held to the face
-    /// mask — only the spots whose centre is on the face are healed.
-        /// The frame's one place for "Keep skin natural": run after the panels
-    /// drew and the workers landed, so a slider, a paste and an AI landing
-    /// all meet it before the develop or the undo commit sees the recipe.
-    /// Only while the switch is on for this card (`keep_skin_on`).
-        /// Does "Keep skin natural" hold the open card's writes: the switch on
-    /// for this card.
-        /// Does it hold a write landing on `photo` (a paste): the open card's
-    /// switch for the open photo, a stashed photo's card's own, and on for a
-    /// photo not opened this session — the write replaces the edit opening
-    /// would decide it on.
-        /// Undo or redo put back an edit past the skin limits (made before the
-    /// switch was on): it is put back as it was, so the switch goes off for
-    /// the card — the next frame must not pull it back and record a new step
-    /// over the redo history.
-        /// The open card's switch as a history step records it (None: no photo).
-        /// Undo or redo puts back the switch the step was recorded with. The
-    /// values are not touched: the step's recipe already is what the switch
-    /// left it as.
-        /// The open card's key for the per-card switch.
-        /// Is "Keep skin natural" on for the open card? On unless the card was
-    /// read from disk past the limits or the user turned it off. No photo:
-    /// on.
-        /// The user's own flip of the switch. Turning it on is the explicit act
-    /// that may bring values back within the limits, and the status line
-    /// says how many it did.
-        /// The photo was just read from disk (its strip settled): every card is
-    /// decided afresh against the edit that was read — off where it already
-    /// goes past the limits, on (no entry) elsewhere.
-        /// Every card of the open photo whose edit goes past the limits: off.
-        /// A saved version was just read onto the open card: that card alone is
-    /// decided afresh, the same way.
-        /// A card forked from the open one takes over its switch — a fork is an
-    /// edit, not an opening.
-        /// A depth estimate started from the Background group landed: aim the
-    /// focus at the face (the skin colour range's sample point is the faces'
-    /// centre) and keep the person sharp — instead of the canvas pick the
-    /// Lens Blur section arms.
-        /// "Keep the person sharp": the blur protects the subject matte (on), or
-    /// nothing (off). `false` when there is no blur, or nothing to protect
-    /// with.
-        /// The first group's line, in the session language.
-    pub(crate) fn portrait_line_text(&self, lang: Lang) -> String {
-        match &self.workspace.portrait().line {
-            PortraitLine::Idle => tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_FIRST_THE_SKIN_EYES_AND_BACKGROU).into(),
-            PortraitLine::Finding => tr(lang, K_PORTRAIT_FINDING_THE_PEOPLE_AND_FACES).into(),
-            PortraitLine::Found { faces: 0, .. } => tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO).into(),
-            PortraitLine::Found { faces: 1, .. } => tr(lang, K_PORTRAIT_FOUND_1_FACE).into(),
-            PortraitLine::Found { faces, .. } => trf(lang, K_PORTRAIT_FOUND_FACES, &[("n", &faces.to_string())]),
-            PortraitLine::Failed(why) => why.clone(),
-            PortraitLine::Looking if self.workspace.tools().analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_PORTRAIT_LOOK).into(),
-            PortraitLine::Looking => tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_FIRST_THE_SKIN_EYES_AND_BACKGROU).into(),
-            PortraitLine::Looked => tr(lang, K_NORMAL_DONE_CTRL_Z_GOES_BACK).into(),
-        }
-    }
 
     /// Why the skin and eyes groups are greyed, or `None` when they work.
     pub(crate) fn portrait_face_gate(&self, lang: Lang) -> Option<&'static str> {
@@ -242,7 +186,7 @@ impl AutoShadeApp {
             GRADE_STRENGTH_DEFAULT,
             tr(lang, K_NORMAL_HOW_STRONG_THE_LOOK_IS_DOUBLE_CLICK_TO_RESET),
         );
-        let line = self.portrait_line_text(lang);
+        let line = self.workspace.portrait_line_text(lang);
         ui.horizontal_wrapped(|ui| {
             if self.workspace.portrait().line == PortraitLine::Finding || (self.workspace.portrait().line == PortraitLine::Looking && self.workspace.tools().analyze_inflight) {
                 ui.spinner();

@@ -19,7 +19,7 @@
         let mut app = AutoShadeApp::default();
         app.editor.doc_mut().recipe.masks = vec![parked("one"), parked("two")];
         assert!(
-            !app.masks_section_active(),
+            !app.editor.masks_section_active(),
             "two masks with every adjustment at neutral do nothing — no ●"
         );
         let seen = tall_frame(&mut app, |a, ui| {
@@ -36,7 +36,7 @@
         // One real adjustment on mask 2 ⇒ the row dot lights, so the header must.
         app.editor.doc_mut().recipe.masks[1].exposure_ev = 0.6;
         assert!(mask_active(&app.editor.doc().recipe.masks[1]), "premise: the row dot lights here");
-        assert!(app.masks_section_active(), "the header must agree with the row");
+        assert!(app.editor.masks_section_active(), "the header must agree with the row");
         let seen = tall_frame(&mut app, |a, ui| {
             a.develop_panel(ui);
         });
@@ -48,7 +48,7 @@
         app.editor.doc_mut().recipe.masks[1].enabled = false;
         assert!(!mask_active(&app.editor.doc().recipe.masks[1]), "premise: the row reads muted");
         assert!(
-            !app.masks_section_active(),
+            !app.editor.masks_section_active(),
             "a muted mask renders nothing, whatever its sliders say"
         );
     }
@@ -237,9 +237,9 @@
         let pick = |app: &mut AutoShadeApp, px: [f32; 3]| {
             app.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
         };
-        assert!(!app.tool_armed(), "premise: a fresh app has no tool armed");
+        assert!(!app.workspace.tool_armed(), "premise: a fresh app has no tool armed");
         app.workspace.tools_mut().point_color_picking = true;
-        assert!(app.tool_armed(), "an armed eyedropper is an armed canvas tool");
+        assert!(app.workspace.tool_armed(), "an armed eyedropper is an armed canvas tool");
         app.disarm_tools();
         assert!(!app.workspace.tools().point_color_picking, "Esc's disarm puts it down with the rest");
 

@@ -141,27 +141,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// The one-click group's line, in the session language.
-    pub(crate) fn normal_line_text(&self, lang: Lang) -> String {
-        if self.workspace.normal().building {
-            return match self.workspace.normal().build_progress {
-                Some((done, total)) => trf(
-                    lang,
-                    K_NORMAL_READING_YOUR_REFERENCE_PHOTOS,
-                    &[("done", &done.to_string()), ("total", &total.to_string())],
-                ),
-                None => tr(lang, K_LOGIC_READING_YOUR_REFERENCE_PHOTOS).into(),
-            };
-        }
-        match &self.workspace.normal().line {
-            // A cancelled one-click leaves no worker behind to say so.
-            NormalLine::Working if self.workspace.tools().analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_LOOK).into(),
-            NormalLine::Idle | NormalLine::Working => tr(lang, K_NORMAL_PICK_A_LOOK_OR_MATCH_YOUR_OWN_REFERENCE_PHOTOS).into(),
-            NormalLine::Done => tr(lang, K_NORMAL_DONE_CTRL_Z_GOES_BACK).into(),
-            NormalLine::BuiltIn => tr(lang, K_NORMAL_NO_AI_KEY_SET_BUILT_IN_LOOK_USED).into(),
-            NormalLine::Failed(why) => why.clone(),
-        }
-    }
 
     /// The sidebar: the four groups, behind the same mid-open gate as the
     /// shared panels (L15-2 — these controls write the open photo's recipe).
@@ -229,7 +208,7 @@ impl AutoShadeApp {
             GRADE_STRENGTH_DEFAULT,
             tr(lang, K_NORMAL_HOW_STRONG_THE_LOOK_IS_DOUBLE_CLICK_TO_RESET),
         );
-        let line = self.normal_line_text(lang);
+        let line = self.workspace.normal_line_text(lang);
         ui.horizontal_wrapped(|ui| {
             if self.workspace.normal().building || (self.workspace.normal().line == NormalLine::Working && self.workspace.tools().analyze_inflight) {
                 ui.spinner();
@@ -376,7 +355,7 @@ impl AutoShadeApp {
         // or a dialog — the one destination setting the workspace's Export
         // reads. (A folder inside the photo library is a valid destination; a
         // save only refuses to REPLACE an existing photo.)
-        let place = match (self.workspace.exp().dest, self.export_dest_dir()) {
+        let place = match (self.workspace.exp().dest, self.workspace.export_dest_dir()) {
             (_, None) => tr(lang, K_NORMAL_ASKS_WHERE_TO_SAVE_EACH_TIME).to_string(),
             (ExportDest::LastUsed, Some(d)) => {
                 trf(lang, K_NORMAL_SAVES_TO_THE_FOLDER_YOU_LAST_SAVED_TO, &[("folder", &crate::normal_actions::folder_name(&d))])
@@ -387,7 +366,7 @@ impl AutoShadeApp {
                 &[("folder", &crate::normal_actions::folder_name(&d))],
             ),
         };
-        let full = self.export_dest_dir().map(|d| abs_display(&d)).unwrap_or_default();
+        let full = self.workspace.export_dest_dir().map(|d| abs_display(&d)).unwrap_or_default();
         ui.label(egui::RichText::new(place).weak().small()).on_hover_text(full);
         let all = action_row(ui, ready && !self.workspace.gal().gallery.is_empty(), tr(lang, K_NORMAL_APPLY_THIS_LOOK_TO_EVERY_PHOTO_IN_THE_FOLDER))
             .on_hover_text(tr(lang, K_NORMAL_GIVES_EVERY_PHOTO_IN_THE_OPEN_FOLDER_THIS_LOOK_A))

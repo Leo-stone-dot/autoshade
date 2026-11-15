@@ -90,7 +90,7 @@ impl AutoShadeApp {
         // \ / Y = compare, [ ] = brush size, Tab = hide the side panels —
         // the keyboard grammar of every desktop photo editor.
         let transient_open = self.workspace.ui().show_settings || self.workspace.ui().show_shortcuts;
-        if !self.modal_up() && transient_open {
+        if !self.workspace.modal_up() && transient_open {
             let sheet_open = self.workspace.ui().show_shortcuts;
             let (esc, sheet_key) = ctx.input_mut(|i| {
                 (
@@ -113,7 +113,7 @@ impl AutoShadeApp {
                 }
             }
         }
-        if !self.modal_up() && !transient_open {
+        if !self.workspace.modal_up() && !transient_open {
             let (mut do_open, mut do_export, mut do_xmp) = (false, false, false);
             ctx.input_mut(|i| {
                 if i.consume_key(egui::Modifiers::COMMAND, egui::Key::O) { do_open = true; }
@@ -140,7 +140,7 @@ impl AutoShadeApp {
                 self.save_xmp();
             }
         }
-        if !self.modal_up() && !transient_open && ctx.memory(|m| m.focused()).is_none() {
+        if !self.workspace.modal_up() && !transient_open && ctx.memory(|m| m.focused()).is_none() {
             let (mut do_undo, mut do_redo) = (false, false);
             let (mut do_escape, mut do_overlay, mut do_clip) = (false, false, false);
             let (mut do_cheatsheet, mut do_crop, mut do_panels) = (false, false, false);
@@ -382,7 +382,7 @@ impl AutoShadeApp {
             // editor exit) — the transient windows own their Esc in the
             // pre-tier above; painted canvases/samples stay for resuming.
             if do_escape
-                && (self.tool_armed() || self.workspace.overlay().region_drag.is_some() || self.workspace.view().before)
+                && (self.workspace.tool_armed() || self.workspace.overlay().region_drag.is_some() || self.workspace.view().before)
             {
                 // disarm_tools also kills the transient gesture anchors — a
                 // grab or stroke surviving Esc used to hijack the next drag.
@@ -466,7 +466,7 @@ impl AutoShadeApp {
     /// One update() phase — body extracted verbatim from the eframe
     /// update loop (round-12 decomposition).
     fn upd_dropped_and_title(&mut self, ctx: &egui::Context) {
-        let dropped: Vec<PathBuf> = if self.modal_up() {
+        let dropped: Vec<PathBuf> = if self.workspace.modal_up() {
             Vec::new()
         } else {
             ctx.input(|i| i.raw.dropped_files.iter().filter_map(|f| f.path.clone()).collect())
@@ -1326,7 +1326,7 @@ impl AutoShadeApp {
         self.upd_sheets(ctx);
         // Gated like drop PROCESSING is: while a modal layer is up, drops are
         // deliberately discarded — promising "Drop to open" there was a lie.
-        if !self.modal_up() && ctx.input(|i| !i.raw.hovered_files.is_empty()) {
+        if !self.workspace.modal_up() && ctx.input(|i| !i.raw.hovered_files.is_empty()) {
             let painter = ctx.layer_painter(egui::LayerId::new(
                 egui::Order::Foreground,
                 egui::Id::new("drop_overlay"),

@@ -738,7 +738,7 @@
         assert!(!app.nav_stash_gate_dirty(), "the navigation-stash gate stays clean");
         assert!(!app.pending_save_gate_dirty(), "the PendingSave gate stays clean");
         assert_eq!(
-            app.open_dirty_variants(),
+            app.editor.open_dirty_variants(),
             0,
             "the saved-active card is now background and resolves through recipe.json"
         );
@@ -771,17 +771,17 @@
         let recipe = app.editor.doc().recipe.clone();
         app.editor.doc_mut().variants[active].recipe = recipe;
         app.editor.session_mut().hist.saved_recipe = app.editor.doc().recipe.clone();
-        app.editor.session_mut().hist.pixels_on_disk = app.active_variant().and_then(|v| v.origin.clone());
+        app.editor.session_mut().hist.pixels_on_disk = app.editor.active_variant().and_then(|v| v.origin.clone());
         app.editor.session_mut().hist.saved_strip = app.current_strip_record();
         assert!(!app.unsaved_marker_dirty(), "saving on card Y advances Y's baseline");
-        assert_eq!(app.open_dirty_variants(), 0, "the whole strip is clean after that save");
+        assert_eq!(app.editor.open_dirty_variants(), 0, "the whole strip is clean after that save");
 
         app.switch_variant(0, &ctx);
         assert!(!app.unsaved_marker_dirty(), "card X now resolves from saved_strip.others");
         assert!(!app.quit_guard_open_dirty(), "switching back does not arm close");
         assert!(!app.nav_stash_gate_dirty(), "switching back does not arm navigation");
         assert!(!app.pending_save_gate_dirty(), "switching back adds no PendingSave");
-        assert_eq!(app.open_dirty_variants(), 0, "both persisted cards still match");
+        assert_eq!(app.editor.open_dirty_variants(), 0, "both persisted cards still match");
     }
 
     #[test]
@@ -799,14 +799,14 @@
         pushed.editor.doc_mut().active = 2;
         pushed.editor.doc_mut().recipe = EditRecipe::default();
         assert!(pushed.unsaved_marker_dirty(), "a pushed active card has no baseline");
-        assert!(pushed.open_dirty_variants() > 0, "the pushed card is absent on disk");
+        assert!(pushed.editor.open_dirty_variants() > 0, "the pushed card is absent on disk");
         assert!(pushed.nav_stash_gate_dirty(), "navigation protects the pushed card");
         assert!(pushed.pending_save_gate_dirty(), "quit Save-all includes the pushed card");
 
         let mut deleted = persisted_two_card_fixture();
         deleted.editor.doc_mut().variants.remove(1);
         assert!(!deleted.unsaved_marker_dirty(), "the surviving active card itself is clean");
-        assert!(deleted.open_dirty_variants() > 0, "a persisted card was deleted live");
+        assert!(deleted.editor.open_dirty_variants() > 0, "a persisted card was deleted live");
         assert!(deleted.nav_stash_gate_dirty(), "navigation protects the deletion");
         assert!(deleted.pending_save_gate_dirty(), "quit Save-all persists the deletion");
         assert!(
@@ -851,7 +851,7 @@
         app.editor.doc_mut().variants[1].name = Some("new fitted name".into());
 
         assert!(!app.unsaved_marker_dirty(), "the canvas develop itself did not change");
-        assert!(app.open_dirty_variants() > 0, "the card name's only home changed");
+        assert!(app.editor.open_dirty_variants() > 0, "the card name's only home changed");
         assert!(app.nav_stash_gate_dirty(), "navigation protects the rename");
         assert!(app.pending_save_gate_dirty(), "Save-all includes the rename");
         assert!(
@@ -907,7 +907,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
 
             }; editor } , ..Default::default() };
         // Not persisted yet (no mirror): the background card IS unsaved work.
-        assert_eq!(app.open_dirty_variants(), 1, "premise: unsaved until the strip persists");
+        assert_eq!(app.editor.open_dirty_variants(), 1, "premise: unsaved until the strip persists");
         // The persisted record spells the master ABSOLUTIZED (read_variants
         // resolves to the dev dir / absolute), the live variant holds the
         // relative ./out spelling — same_master_opt must bridge them, or a
@@ -930,7 +930,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
             }],
         });
         assert_eq!(
-            app.open_dirty_variants(),
+            app.editor.open_dirty_variants(),
             0,
             "a background variant matching the persisted strip record is not unsaved work"
         );
@@ -1074,7 +1074,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         app.editor.doc_mut().active = 0;
         app.editor.doc_mut().variants.swap(0, 1);
         assert!(
-            app.open_dirty_variants() > 0,
+            app.editor.open_dirty_variants() > 0,
             "active-card identity drift reopens as a different strip"
         );
     }

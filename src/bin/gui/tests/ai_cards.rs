@@ -369,7 +369,7 @@
                 app.workspace.masks_mut().mask_paint = Some(image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, alpha])));
                 app.paint_mask_changed(None);
                 let strokes = alpha > 10;
-                assert_eq!(app.has_painted_mask(), strokes);
+                assert_eq!(app.workspace.has_painted_mask(), strokes);
                 assert_eq!(app.export_mask_png().is_some(), strokes);
                 let text = draw_adjust_panel(&mut app);
                 let painted = tr(lang, K_AI_PAINTED_AREA_ONLY);
@@ -452,7 +452,7 @@
             let (yes, no) = if painted { (region, whole) } else { (whole, region) };
             assert!(text.iter().any(|t| t == yes), "{why}: expected {yes}");
             assert!(!text.iter().any(|t| t == no), "{why}: stale {no}");
-            assert_eq!(app.has_painted_mask(), painted, "{why}");
+            assert_eq!(app.workspace.has_painted_mask(), painted, "{why}");
         }
         for drag in [false, true] {
             let base = Arc::new(image::DynamicImage::new_rgb8(1024, 768));
@@ -500,7 +500,7 @@
             assert!(app.export_area_png(BrushOwner::Adjust).is_none());
 
             stroke(&mut app, drag);
-            assert!(app.has_painted_mask());
+            assert!(app.workspace.has_painted_mask());
             let before_switch = app.workspace.overlay().mask_presence_scans.get();
             app.switch_variant(1, &ctx);
             assert_eq!(app.editor.doc().active, 1);
@@ -1315,7 +1315,7 @@
         for head in ["pub(crate) fn refresh_mask_overlay(", "pub(crate) fn handle_range_pick("] {
             let body = &src[src.find(head).unwrap_or_else(|| panic!("{head} moved"))..];
             let end = body[head.len()..].find("\n    pub(crate) fn ").expect("the next method") + head.len();
-            assert!(body[..end].contains("self.range_reference_recipe("), "{head} builds its own reference copy again");
+            assert!(body[..end].contains("self.editor.range_reference_recipe("), "{head} builds its own reference copy again");
         }
 
         // A retouch landing clears through `consumed_area`, never by hand.

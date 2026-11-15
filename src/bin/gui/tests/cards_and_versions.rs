@@ -176,7 +176,7 @@
                 format: ExportFormat::Png8,
                 ..Default::default()
             }; view } , ..Default::default() };
-        let o = app.export_opts();
+        let o = app.workspace.export_opts();
         assert_eq!(o.long_edge, Some(2560));
         assert!((o.sharpen - 35.0).abs() < 1e-6);
         assert_eq!(o.jpeg_quality, 88);
@@ -186,7 +186,7 @@
                 long_edge: 0,
                 ..Default::default()
             }; view } , ..Default::default() };
-        assert_eq!(flat.export_opts().long_edge, None, "0 = no resize");
+        assert_eq!(flat.workspace.export_opts().long_edge, None, "0 = no resize");
     }
 
     /// L16-11: the shortcut exclusivity gates, tested NEGATIVELY — deleting
@@ -845,12 +845,12 @@ rationale: "stale rationale".into(),
         // Unsaved-work accounting: the mirror still holds the pre-rename
         // record, so quitting has to warn.
         app.editor.session_mut().hist.saved_strip = app.current_strip_record();
-        assert_eq!(app.open_dirty_variants(), 0, "premise: the mirror is current");
+        assert_eq!(app.editor.open_dirty_variants(), 0, "premise: the mirror is current");
         app.editor.doc_mut().variants[2].name = Some("dawn".into());
-        assert!(app.open_dirty_variants() >= 1, "renaming the ACTIVE card is unsaved work");
+        assert!(app.editor.open_dirty_variants() >= 1, "renaming the ACTIVE card is unsaved work");
         app.editor.doc_mut().variants[2].name = Some("dusk".into());
         app.editor.doc_mut().variants[0].name = Some("negative".into());
-        assert!(app.open_dirty_variants() >= 1, "…and so is renaming a background card");
+        assert!(app.editor.open_dirty_variants() >= 1, "…and so is renaming a background card");
     }
 
     /// R24-3: the calibration rule has TWO directions and one owner. Onto a

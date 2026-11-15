@@ -52,8 +52,7 @@ match autoshade::store::with_develop_lock(
         // record over (`ActiveWrite::Strip`),
         // exactly like Ctrl+S, and advances the
         // mirror below on success.
-        let origin = self
-            .active_variant()
+        let origin = self.editor.active_variant()
             .and_then(|v| v.origin.clone());
         let generated = self.active_on_ai_pixels();
         let strip_rec = self.current_strip_record();

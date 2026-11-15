@@ -981,7 +981,7 @@ impl AutoShadeApp {
             return;
         }
         let (Some(photo), Some(pixels)) = (self.editor.photo().src_path.clone(), self.active_source_path()) else { return };
-        let card = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
+        let card = self.editor.active_variant().map(|v| v.id.clone()).unwrap_or_default();
         let mut recipe = self.editor.doc().recipe.clone();
         let run = self.ai_mask_runner();
         self.workspace.set_busy(true);
@@ -1019,7 +1019,7 @@ impl AutoShadeApp {
         (photo, card, resolved, res, faces): (PathBuf, String, EditRecipe, autoshade::pipeline::DevelopMasks, FaceOutcomes),
     ) {
         self.workspace.set_busy(false);
-        let here = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
+        let here = self.editor.active_variant().map(|v| v.id.clone()).unwrap_or_default();
         if self.editor.photo().src_path.as_ref() != Some(&photo) || here != card {
             return;
         }

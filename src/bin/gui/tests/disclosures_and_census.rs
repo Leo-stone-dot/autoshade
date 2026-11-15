@@ -478,7 +478,7 @@
         // …and they are LIVE, not parked: both carry a real exposure delta, so
         // the section earns its ●.
         assert!(
-            app.masks_section_active(),
+            app.editor.masks_section_active(),
             "an imported Lightroom mask with a real slider must light the section"
         );
     }

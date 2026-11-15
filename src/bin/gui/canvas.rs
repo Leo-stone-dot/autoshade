@@ -77,7 +77,7 @@ impl AutoShadeApp {
         // true of it.
         (canvas != delivered
             && canvas != self.workspace.genai().preview_edge
-            && self.active_variant().is_some_and(|v| v.base.is_some()))
+            && self.editor.active_variant().is_some_and(|v| v.base.is_some()))
         .then_some(canvas)
     }
 
@@ -128,7 +128,7 @@ impl AutoShadeApp {
         if let Some(p) = &self.workspace.fit().fit_ref {
             return Some(p.clone());
         }
-        let v = self.active_variant()?;
+        let v = self.editor.active_variant()?;
         // Deliberately NOT `on_ai_pixels()` (R24-1): this is a POLICY about
         // which raster the fit DEFAULTS to, not a claim about the card's
         // axis — an ✎ card sits on the same raster as its ✨ card, but its
@@ -157,31 +157,6 @@ impl AutoShadeApp {
         self.workspace.open_mut().before_start = start.start_only();
     }
 
-    /// Toggle the clipping layer WITHOUT a full redevelop: the overlay is a
-    /// pure function of the last developed pixels (retained from the last
-    /// accepted frame), so the J key / ▲ button / histogram triangles respond
-    /// instantly instead of paying a whole develop (100-300 ms at 2560/4096).
-    /// Falls back to a redevelop only when no frame is retained yet.
-    /// The pixel reference a Range Mask is judged against: this recipe cut
-    /// down to the masks BEFORE mask `i`, with every geometry field stripped.
-    ///
-    /// The PREFIX, not masks-cleared: the engine evaluates a range on the
-    /// pixel as it stands when THIS mask runs — masks stack sequentially, so
-    /// a later mask's range sees earlier masks' output (`render.rs`
-    /// `apply_masks`); a cleared reference judged mask 2's range on pixels
-    /// mask 0/1 had already moved (CX5-6). Geometry runs after develop, so
-    /// it is no part of the reference, and `develop_preview_framed` has no
-    /// geometry stage — left in, the fields only broke the cache key.
-    ///
-    /// ONE builder for the coverage overlay (`refresh_mask_overlay`) and the
-    /// range eyedropper (`handle_range_pick`), which SHARE the one-slot
-    /// `overlay_ref` cache compared by recipe equality. The two used to be
-    /// hand-copied, and the copy that forgot the manual CA pair missed the
-    /// cache on every click under a non-zero Red/cyan or Blue/yellow, paying
-    /// a full preview develop on the UI thread for a 5×5 read.
-    pub(crate) fn range_reference_recipe(&self, i: usize) -> EditRecipe {
-        crate::logic::range::reference_recipe(&self.editor.doc().recipe, i)
-    }
 
     /// (Re)build the translucent red coverage layer for the active mask. A
     /// coverage key prevents local effect sliders from rebuilding this full-
@@ -216,7 +191,7 @@ impl AutoShadeApp {
         // shared with the range eyedropper (`range_reference_recipe`, which
         // carries the reasoning). The geometry the coverage WARP still
         // depends on is keyed separately, in OverlayKey below.
-        let pre = self.range_reference_recipe(i);
+        let pre = self.editor.range_reference_recipe(i);
         let lp = &self.editor.doc().recipe.lens_profile;
         let key = OverlayKey {
             base: Arc::as_ptr(&base) as usize,
@@ -341,29 +316,6 @@ impl AutoShadeApp {
         self.workspace.overlay_mut().overlay_build_count += 1;
     }
 
-    /// The geometric mapping context every interaction boundary needs:
-    /// original preview pixel dims + the current straighten angle + the lens
-    /// geometry (in-camera profile + manual distortion amount).
-    pub(crate) fn geom_ctx(&self) -> ((f32, f32), f32, LensArg) {
-        let dims = self.editor.photo().base_preview
-            .as_ref()
-            .map(|b| {
-                let (w, h) = b.dimensions();
-                (w as f32, h as f32)
-            })
-            .unwrap_or((1.0, 1.0));
-        (
-            dims,
-            self.editor.doc().recipe.straighten_deg,
-            LensArg {
-                // COMPOSED (R25 B3): every interaction map downstream of this
-                // bundle must see the same profile the pixels went through,
-                // manual CA included.
-                profile: autoshade::render::geometry_profile(&self.editor.doc().recipe).into_owned(),
-                amount: self.editor.doc().recipe.lens_distortion,
-            },
-        )
-    }
 
     /// The visible full-frame uv window: committed crop (shown cropped, like
     /// Lightroom — except while the crop tool is open, which needs the full
@@ -519,7 +471,7 @@ impl AutoShadeApp {
         // An armed tool must be visible at NORMAL contrast — .weak().small()
         // is the passive-help style, and it was the only always-on indicator
         // when the arming control sat in a collapsed section.
-        let armed = !comparing && self.tool_armed();
+        let armed = !comparing && self.workspace.tool_armed();
         ui.horizontal(|ui| {
             if armed {
                 ui.label(egui::RichText::new(hint).color(self.workspace.ui().theme.colors().armed_hint).small());
@@ -646,7 +598,7 @@ impl AutoShadeApp {
                 self.workspace.view_mut().pan = q - egui::vec2((fx - 0.5) * 2.0 * nh, (fy - 0.5) * 2.0 * nh);
             }
         }
-        let tool_active = self.tool_armed();
+        let tool_active = self.workspace.tool_armed();
         // Double-click toggles fit ↔ 1:1 (preview pixels) — but never while a
         // canvas tool is armed: a quick second tap inside brush/crop/pick used
         // to teleport the view instead of reaching the tool. Targets only —
@@ -685,7 +637,7 @@ impl AutoShadeApp {
         let ctrl = ui.input(|i| i.modifiers.command);
         let over_knob = self.workspace.masks().mask_drag.is_some()
             || self.sel_target_geometry().is_some_and(|g| {
-                let (dims, deg, dist) = self.geom_ctx();
+                let (dims, deg, dist) = self.editor.geom_ctx();
                 // Probe BOTH positions: egui reports drag_started only
                 // after ~6 px of travel, so a fast flick's CURRENT pointer
                 // has already left the knob while its press origin is still
@@ -789,7 +741,7 @@ impl AutoShadeApp {
                 draw(egui::Rect::from_two_pos(s, e).intersect(rect));
             } else if let Some([l, t, rr, bb]) = self.workspace.overlay().region {
                 // Stored in the original frame → back into the transformed view.
-                let ((bw, bh), deg, dist) = self.geom_ctx();
+                let ((bw, bh), deg, dist) = self.editor.geom_ctx();
                 let a = orig_norm_to_view(l, t, (bw, bh), deg, &dist);
                 let b2 = orig_norm_to_view(rr, bb, (bw, bh), deg, &dist);
                 // from_two_pos, like the drag path above (L13-6): under a
@@ -817,7 +769,7 @@ impl AutoShadeApp {
                 Some(c) if c < m.components.len() => &m.components[c].geometry,
                 _ => &m.mask,
             };
-            let (dims, deg, dist) = self.geom_ctx();
+            let (dims, deg, dist) = self.editor.geom_ctx();
             let vg = geom_to_view(target, dims, deg, &dist);
             // THE shared predicate (Codex AL F1): the true outline must
             // warp whenever the pixels' green map does.
@@ -900,7 +852,7 @@ impl AutoShadeApp {
         if !self.base_corrected() {
             return (nx, ny);
         }
-        let (dims, _, dist) = self.geom_ctx();
+        let (dims, _, dist) = self.editor.geom_ctx();
         autoshade::render::lens_ungeom_norm(nx, ny, dims, &dist.profile, dist.amount)
     }
 
@@ -942,7 +894,7 @@ impl AutoShadeApp {
             return None;
         }
         let (nx, ny) = xf.to_norm(resp.interact_pointer_pos()?);
-        let ((bw, bh), deg, dist) = self.geom_ctx();
+        let ((bw, bh), deg, dist) = self.editor.geom_ctx();
         Some(view_norm_to_orig(nx, ny, (bw, bh), deg, &dist))
     }
 
@@ -982,7 +934,7 @@ impl AutoShadeApp {
             // thread — and a miss here pre-warms the overlay's next rebuild.
             // A masks-CLEARED reference judged mask 2's range on pixels mask
             // 0/1 had already moved (CX5-6).
-            let pre = self.range_reference_recipe(mi);
+            let pre = self.editor.range_reference_recipe(mi);
             if !matches!(&self.workspace.overlay().overlay_ref, Some((r, _)) if *r == pre) {
                 // The explicit no-downstream frame and film edge for the same
                 // reasons as the overlay build above, and they must MATCH it —
@@ -1076,7 +1028,7 @@ impl AutoShadeApp {
             self.workspace.masks_mut().mask_drag = None;
             return false;
         };
-        let (dims, deg, dist) = self.geom_ctx();
+        let (dims, deg, dist) = self.editor.geom_ctx();
         let view_geom = geom_to_view(&target_geom, dims, deg, &dist);
         let handles = mask_handle_points(&view_geom, xf);
         if handles.is_empty() {
@@ -1177,7 +1129,7 @@ impl AutoShadeApp {
                 // region_to_original): under rotation/distortion the two
                 // diagonal corners alone describe a different — sometimes
                 // near-degenerate — box than the rectangle the user drew.
-                let ((bw, bh), deg, dist) = self.geom_ctx();
+                let ((bw, bh), deg, dist) = self.editor.geom_ctx();
                 let map = |p: egui::Pos2| {
                     let (nx, ny) = xf.to_norm(p);
                     view_norm_to_orig(nx, ny, (bw, bh), deg, &dist)
@@ -1440,7 +1392,7 @@ impl AutoShadeApp {
         let Some((kind, target)) = self.workspace.masks().placing_mask else { return };
         // Mask geometry lives in the ORIGINAL frame (the engine composites
         // masks before the geometric remap) — map pointer positions out of the view.
-        let (dims, deg, dist) = self.geom_ctx();
+        let (dims, deg, dist) = self.editor.geom_ctx();
         // place_start holds VIEW-normalized coords (not original-frame): the
         // radial bbox below must map ALL FOUR view-space corners — under
         // rotation/distortion the two dragged diagonals alone can describe a

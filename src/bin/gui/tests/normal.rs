@@ -956,12 +956,12 @@
         let _scrub_out = Scrub(vec![out.clone()]);
         app.workspace.exp_mut().dest = ExportDest::LastUsed;
         app.workspace.exp_mut().last_dir = None;
-        assert_eq!(app.export_dest_dir(), None, "nothing saved yet: the save window asks");
+        assert_eq!(app.workspace.export_dest_dir(), None, "nothing saved yet: the save window asks");
         app.workspace.normal_mut().file_pick = Some(Some(out.join("picked.jpg")));
         app.start_normal_save();
         assert!(app.workspace.busy(), "the save runs: {}", app.workspace.status());
         let ctx = egui::Context::default();
         land_all(&mut app, &ctx);
         assert!(out.join("picked.jpg").is_file(), "{}", app.workspace.status());
-        assert_eq!(app.export_dest_dir().as_deref(), Some(out.as_path()), "the next save goes there without asking");
+        assert_eq!(app.workspace.export_dest_dir().as_deref(), Some(out.as_path()), "the next save goes there without asking");
     }

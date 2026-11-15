@@ -54,8 +54,7 @@ impl AutoShadeApp {
         {
             return;
         }
-        let Some(target) = self
-            .active_variant()
+        let Some(target) = self.editor.active_variant()
             .filter(|v| v.kind == VariantKind::Generated && v.origin.is_some())
             .map(|v| v.id.clone())
         else {
@@ -191,7 +190,7 @@ impl AutoShadeApp {
         }
         // The answer is about the card it asked about; the strip stands on it
         // (the scrim kept every other click away) unless a landing moved it.
-        if fit && self.active_variant().is_some_and(|v| v.id == prompt.target) {
+        if fit && self.editor.active_variant().is_some_and(|v| v.id == prompt.target) {
             self.workspace.fit_mut().fit_from = prompt.from;
             // A reference file picked in the fold earlier wins `fit_target`
             // over the active card — the fit would solve toward it, not
@@ -233,7 +232,7 @@ impl AutoShadeApp {
         // losing a sole live unsaved canvas (background work still lands
         // under the dialog — the scrim below blocks only pointer input).
         if !self.workspace.open().open_in_flight && let Some(p) = self.editor.photo().src_path.clone() {
-            let origin = self.active_variant().and_then(|v| v.origin.clone());
+            let origin = self.editor.active_variant().and_then(|v| v.origin.clone());
             // The live canvas outranks its own stash entry WHOLESALE: displace
             // it even when the canvas is clean (the user reverted) — the loop
             // below would otherwise write the stale stashed edits to disk.

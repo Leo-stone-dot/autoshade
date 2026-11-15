@@ -17,9 +17,9 @@ pub(crate) struct ActiveBaseline<'a> {
 
 /// The persisted develop of one saved card: only the halves the baseline
 /// guard compares. Identity matching happens in `logic::strip`.
-struct PersistedCard<'a> {
-    recipe: &'a EditRecipe,
-    origin: Option<&'a std::path::Path>,
+pub(crate) struct PersistedCard<'a> {
+    pub(crate) recipe: &'a EditRecipe,
+    pub(crate) origin: Option<&'a std::path::Path>,
 }
 
 impl AutoShadeApp {
@@ -319,7 +319,7 @@ impl AutoShadeApp {
     /// Match a live card to a persisted card. Stable IDs are authoritative
     /// when both sides carry one; an id-less legacy side falls back to kind +
     /// strip position, mirroring [`version_is_from`]'s ID-first rule.
-    fn persisted_identity_matches(
+    pub(crate) fn persisted_identity_matches(
         live: &Variant,
         live_position: usize,
         saved_kind: VariantKind,
@@ -336,75 +336,24 @@ impl AutoShadeApp {
         )
     }
 
-    fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {
-        let live = self.editor.doc().variants.get(live_position)?;
-        let rec = match &self.editor.session().hist.saved_strip {
-            Some(rec) => rec,
-            None => {
-                let trivial = self.editor.doc().variants.len() == 1
-                    && live_position == 0
-                    && crate::model::strip_is_trivial(
-                        live.kind,
-                        &live.id,
-                        live.name.as_deref(),
-                        0,
-                    );
-                return trivial.then_some(PersistedCard {
-                    recipe: &self.editor.session().hist.saved_recipe,
-                    origin: self.editor.session().hist.pixels_on_disk.as_deref(),
-                });
-            }
-        };
-
-        if let Some(kind) = VariantKind::from_store_str(&rec.active_kind)
-            && Self::persisted_identity_matches(
-                live,
-                live_position,
-                kind,
-                rec.active_pos,
-                rec.active_id.as_deref(),
-            )
-        {
-            return Some(PersistedCard {
-                recipe: &self.editor.session().hist.saved_recipe,
-                origin: self.editor.session().hist.pixels_on_disk.as_deref(),
-            });
-        }
-
-        rec.others.iter().enumerate().find_map(|(i, entry)| {
-            let position = if i < rec.active_pos { i } else { i + 1 };
-            let kind = VariantKind::from_store_str(&entry.kind)?;
-            Self::persisted_identity_matches(
-                live,
-                live_position,
-                kind,
-                position,
-                entry.id.as_deref(),
-            )
-            .then_some(PersistedCard {
-                recipe: &entry.recipe,
-                origin: entry.origin.as_deref(),
-            })
-        })
-    }
 
     /// The ONE owner for the persisted `(recipe, origin)` of the active card.
     /// A card created after the last save has no baseline and is therefore
     /// unsaved. With no strip record, only the trivial lone Original maps to
     /// `recipe.json` / `pixels.json`.
     pub(crate) fn active_baseline(&self) -> Option<ActiveBaseline<'_>> {
-        let saved = self.persisted_card_for(self.editor.doc().active)?;
+        let saved = self.editor.persisted_card_for(self.editor.doc().active)?;
         Some(ActiveBaseline { recipe: saved.recipe, origin: saved.origin })
     }
 
     fn active_canvas_dirty(&self) -> bool {
-        if self.editor.photo().src_path.is_none() || self.active_variant().is_none() {
+        if self.editor.photo().src_path.is_none() || self.editor.active_variant().is_none() {
             return false;
         }
         self.active_baseline().is_none_or(|saved| {
             dirty_vs(&self.editor.doc().recipe, saved.recipe)
                 || !same_master_opt(
-                    self.active_variant().and_then(|v| v.origin.as_deref()),
+                    self.editor.active_variant().and_then(|v| v.origin.as_deref()),
                     saved.origin,
                 )
         })
@@ -422,61 +371,15 @@ impl AutoShadeApp {
 
     /// Navigation-stash consumer: active canvas plus this photo's strip work.
     pub(crate) fn nav_stash_gate_dirty(&self) -> bool {
-        self.active_canvas_dirty() || self.open_dirty_variants() > 0
+        self.active_canvas_dirty() || self.editor.open_dirty_variants() > 0
     }
 
     /// Quit-dialog `PendingSave` consumer: the same open-photo state as the
     /// navigation stash, without counting other photos' stash entries.
     pub(crate) fn pending_save_gate_dirty(&self) -> bool {
-        self.active_canvas_dirty() || self.open_dirty_variants() > 0
+        self.active_canvas_dirty() || self.editor.open_dirty_variants() > 0
     }
 
-    /// How many persisted-card mismatches hold work that quitting would discard.
-    ///
-    /// Dirty means: a live card cannot be matched to the union of the saved
-    /// active card (`recipe.json` / `pixels.json`) and `variants.json.others`,
-    /// or a matched card differs in kind/name/develop, or a persisted card was
-    /// deleted. IDs match first; id-less records fall back to kind + position.
-    /// Which card is selected is navigation, not an edit. The OPEN photo's
-    /// strip only — the per-photo half of
-    /// [`Self::inactive_dirty_variants`]; the stash decision in `open_path`
-    /// keys on THIS (summing other photos' stashed variants into the gate
-    /// chain-stashed every clean photo the user merely visited).
-    ///
-    /// The pre-v0.22 rule compared each background variant against the
-    /// ACTIVE canvas's `saved_recipe`/`pixels_on_disk`. Those describe a
-    /// DIFFERENT variant, so any strip whose cards disagree in origin (every
-    /// generate→fit flow) counted dirty forever, no save could clear it, and
-    /// the quit dialog re-armed until 「Discard」.
-    pub(crate) fn open_dirty_variants(&self) -> usize {
-        let saved = self.editor.session().hist.saved_strip.as_ref().map(|rec| {
-            use crate::logic::strip::SavedCard;
-            let mut cards: Vec<SavedCard<'_>> = Vec::with_capacity(rec.others.len() + 1);
-            if let Some(kind) = VariantKind::from_store_str(&rec.active_kind) {
-                cards.push(SavedCard {
-                    kind,
-                    position: rec.active_pos,
-                    id: rec.active_id.as_deref(),
-                    name: rec.active_name.as_deref(),
-                    recipe: &self.editor.session().hist.saved_recipe,
-                    origin: self.editor.session().hist.pixels_on_disk.as_deref(),
-                });
-            }
-            cards.extend(rec.others.iter().enumerate().filter_map(|(i, entry)| {
-                let kind = VariantKind::from_store_str(&entry.kind)?;
-                Some(SavedCard {
-                    kind,
-                    position: if i < rec.active_pos { i } else { i + 1 },
-                    id: entry.id.as_deref(),
-                    name: entry.name.as_deref(),
-                    recipe: &entry.recipe,
-                    origin: entry.origin.as_deref(),
-                })
-            }));
-            cards
-        });
-        crate::logic::strip::open_dirty_count(&self.editor.doc().variants, self.editor.doc().active, saved.as_deref())
-    }
 
     pub(crate) fn inactive_dirty_variants(&self) -> usize {
         // Photos NAVIGATED AWAY FROM count too. Since batch 47 a photo is
@@ -487,7 +390,7 @@ impl AutoShadeApp {
         // not only those differing from their photo's on-disk record: that
         // comparison would cost a disk read per stash entry per check).
         let stashed: usize = self.workspace.open().nav_stash.values().map(|st| st.others.len()).sum();
-        self.open_dirty_variants() + stashed
+        self.editor.open_dirty_variants() + stashed
     }
 
     /// The live strip as a persistable [`store::VariantsRecord`]: `None` when
@@ -497,11 +400,11 @@ impl AutoShadeApp {
     /// a minted identity is no longer trivial: the record is the only home
     /// either of those has.
     pub(crate) fn current_strip_record(&self) -> Option<autoshade::store::VariantsRecord> {
-        let ak = self.active_variant().map_or(VariantKind::Original, |v| v.kind);
+        let ak = self.editor.active_variant().map_or(VariantKind::Original, |v| v.kind);
         if crate::model::strip_is_trivial(
             ak,
-            self.active_variant().map_or("", |v| v.id.as_str()),
-            self.active_variant().and_then(|v| v.name.as_deref()),
+            self.editor.active_variant().map_or("", |v| v.id.as_str()),
+            self.editor.active_variant().and_then(|v| v.name.as_deref()),
             self.editor.doc().variants.len().saturating_sub(1),
         ) {
             return None;
@@ -527,8 +430,8 @@ impl AutoShadeApp {
                     name: v.name.clone(),
                 })
                 .collect(),
-            active_id: self.active_variant().and_then(|v| crate::model::variant_id_field(&v.id)),
-            active_name: self.active_variant().and_then(|v| v.name.clone()),
+            active_id: self.editor.active_variant().and_then(|v| crate::model::variant_id_field(&v.id)),
+            active_name: self.editor.active_variant().and_then(|v| v.name.clone()),
         })
     }
 
@@ -554,10 +457,6 @@ impl AutoShadeApp {
         Ok(())
     }
 
-    /// The active variant, if a photo is open.
-    pub(crate) fn active_variant(&self) -> Option<&Variant> {
-        self.editor.doc().variants.get(self.editor.doc().active)
-    }
 
     /// The on-disk PIXEL SOURCE the active variant renders / retouches /
     /// exports FROM. Any variant whose pixels are baked into a ./out raster — a
@@ -569,7 +468,7 @@ impl AutoShadeApp {
     /// `src_path` — so what exports matches what's on screen (WYSIWYG), never
     /// the untouched negative underneath a generated / retouched rendition.
     pub(crate) fn active_source_path(&self) -> Option<PathBuf> {
-        match self.active_variant() {
+        match self.editor.active_variant() {
             Some(v) => v.origin.clone().or_else(|| self.editor.photo().src_path.clone()),
             None => self.editor.photo().src_path.clone(),
         }
@@ -584,7 +483,7 @@ impl AutoShadeApp {
     /// records. The one place the two kinds part — the ✨ card is immutable,
     /// the ✎ card is where its edits live — asks `== Generated` directly.
     pub(crate) fn active_on_ai_pixels(&self) -> bool {
-        self.active_variant().is_some_and(|v| v.kind.on_ai_pixels())
+        self.editor.active_variant().is_some_and(|v| v.kind.on_ai_pixels())
     }
 
     /// Uniform failure disclosure for a foreground persist compound — the
@@ -721,16 +620,6 @@ impl AutoShadeApp {
         false
     }
 
-    /// Any canvas tool armed? (the once-hand-written OR list)
-    pub(crate) fn tool_armed(&self) -> bool {
-        self.workspace.crop().mode
-            || self.workspace.masks().paint_mode
-            || self.workspace.tools().clone_mode
-            || self.workspace.tools().wb_picking
-            || self.workspace.tools().range_picking.is_some()
-            || self.workspace.tools().point_color_picking
-            || self.workspace.masks().placing_mask.is_some()
-    }
 
     /// Commit a pending mask-rename buffer to its own mask (the same
     /// seed-guard the panel's row-switch commit uses: only while that mask's
@@ -749,11 +638,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// A modal layer is up — the quit confirm or the fit prompt — and owns
-    /// the keyboard and the pointer (D13).
-    pub(crate) fn modal_up(&self) -> bool {
-        self.workspace.ui().confirm_quit || self.workspace.fit().fit_prompt.is_some()
-    }
 
     /// Add a recipe file the user picked (our own recipe.json, or a Lightroom
     /// .xmp sidecar) to the library.
@@ -813,10 +697,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// The jpg the Save group delivers.
-    pub(crate) fn normal_export_opts(&self) -> autoshade::render::ExportOpts {
-        autoshade::render::ExportOpts { jpeg_quality: self.workspace.normal().quality.jpeg_quality(), ..Default::default() }
-    }
 
     /// 「Save as jpg」: the single export of the card on screen (the ◈ card
     /// when the noise switch is on), as a jpg at the quality step, to the
@@ -829,14 +709,14 @@ impl AutoShadeApp {
             return;
         }
         let name = self.export_file_name_as("jpg");
-        let (out, how) = match self.export_dest_dir() {
+        let (out, how) = match self.workspace.export_dest_dir() {
             Some(dir) => (dir.join(name), OutName::Numbered),
             None => {
                 let Some(p) = self.pick_save_file(name) else { return };
                 (normalize_export_target(p, "jpg"), OutName::Chosen)
             }
         };
-        let export = self.normal_export_opts();
+        let export = self.workspace.normal_export_opts();
         // The folder picked in the save window is remembered when the render
         // starts — the workspace Export's rule (`export_to_chosen_path`), so
         // 「the folder you last saved to」 has somewhere to point.
@@ -889,14 +769,14 @@ impl AutoShadeApp {
     /// The destination setting's folder, or the folder dialog's answer when
     /// it asks (`None` = cancelled).
     fn apply_all_dest(&mut self) -> Option<PathBuf> {
-        if let Some(d) = self.export_dest_dir() {
+        if let Some(d) = self.workspace.export_dest_dir() {
             return Some(d);
         }
         #[cfg(test)]
         if let Some(pick) = self.workspace.normal_mut().folder_pick.take() {
             return pick;
         }
-        self.pick_batch_folder()
+        self.workspace.pick_batch_folder()
     }
 
     /// Move one mask a row up/down. Mask ORDER is render semantics (masks

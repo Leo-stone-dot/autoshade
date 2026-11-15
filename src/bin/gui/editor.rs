@@ -10,6 +10,7 @@
 //! when another photo opens and are never splintered across clients.
 
 use crate::*;
+use crate::actions::PersistedCard;
 
 pub(crate) struct Editor {
 
@@ -146,4 +147,201 @@ impl Default for Editor {
             session: Default::default(),
         }
     }
+}
+
+impl Editor {
+    pub(crate) fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {
+        let live = self.doc().variants.get(live_position)?;
+        let rec = match &self.session().hist.saved_strip {
+            Some(rec) => rec,
+            None => {
+                let trivial = self.doc().variants.len() == 1
+                    && live_position == 0
+                    && crate::model::strip_is_trivial(
+                        live.kind,
+                        &live.id,
+                        live.name.as_deref(),
+                        0,
+                    );
+                return trivial.then_some(PersistedCard {
+                    recipe: &self.session().hist.saved_recipe,
+                    origin: self.session().hist.pixels_on_disk.as_deref(),
+                });
+            }
+        };
+
+        if let Some(kind) = VariantKind::from_store_str(&rec.active_kind)
+            && AutoShadeApp::persisted_identity_matches(
+                live,
+                live_position,
+                kind,
+                rec.active_pos,
+                rec.active_id.as_deref(),
+            )
+        {
+            return Some(PersistedCard {
+                recipe: &self.session().hist.saved_recipe,
+                origin: self.session().hist.pixels_on_disk.as_deref(),
+            });
+        }
+
+        rec.others.iter().enumerate().find_map(|(i, entry)| {
+            let position = if i < rec.active_pos { i } else { i + 1 };
+            let kind = VariantKind::from_store_str(&entry.kind)?;
+            AutoShadeApp::persisted_identity_matches(
+                live,
+                live_position,
+                kind,
+                position,
+                entry.id.as_deref(),
+            )
+            .then_some(PersistedCard {
+                recipe: &entry.recipe,
+                origin: entry.origin.as_deref(),
+            })
+        })
+}
+
+    /// How many persisted-card mismatches hold work that quitting would discard.
+    ///
+    /// Dirty means: a live card cannot be matched to the union of the saved
+    /// active card (`recipe.json` / `pixels.json`) and `variants.json.others`,
+    /// or a matched card differs in kind/name/develop, or a persisted card was
+    /// deleted. IDs match first; id-less records fall back to kind + position.
+    /// Which card is selected is navigation, not an edit. The OPEN photo's
+    /// strip only — the per-photo half of
+    /// [`Self::inactive_dirty_variants`]; the stash decision in `open_path`
+    /// keys on THIS (summing other photos' stashed variants into the gate
+    /// chain-stashed every clean photo the user merely visited).
+    ///
+    /// The pre-v0.22 rule compared each background variant against the
+    /// ACTIVE canvas's `saved_recipe`/`pixels_on_disk`. Those describe a
+    /// DIFFERENT variant, so any strip whose cards disagree in origin (every
+    /// generate→fit flow) counted dirty forever, no save could clear it, and
+    /// the quit dialog re-armed until 「Discard」.
+    pub(crate) fn open_dirty_variants(&self) -> usize {
+        let saved = self.session().hist.saved_strip.as_ref().map(|rec| {
+            use crate::logic::strip::SavedCard;
+            let mut cards: Vec<SavedCard<'_>> = Vec::with_capacity(rec.others.len() + 1);
+            if let Some(kind) = VariantKind::from_store_str(&rec.active_kind) {
+                cards.push(SavedCard {
+                    kind,
+                    position: rec.active_pos,
+                    id: rec.active_id.as_deref(),
+                    name: rec.active_name.as_deref(),
+                    recipe: &self.session().hist.saved_recipe,
+                    origin: self.session().hist.pixels_on_disk.as_deref(),
+                });
+            }
+            cards.extend(rec.others.iter().enumerate().filter_map(|(i, entry)| {
+                let kind = VariantKind::from_store_str(&entry.kind)?;
+                Some(SavedCard {
+                    kind,
+                    position: if i < rec.active_pos { i } else { i + 1 },
+                    id: entry.id.as_deref(),
+                    name: entry.name.as_deref(),
+                    recipe: &entry.recipe,
+                    origin: entry.origin.as_deref(),
+                })
+            }));
+            cards
+        });
+        crate::logic::strip::open_dirty_count(&self.doc().variants, self.doc().active, saved.as_deref())
+}
+
+    /// The active variant, if a photo is open.
+    pub(crate) fn active_variant(&self) -> Option<&Variant> {
+        self.doc().variants.get(self.doc().active)
+}
+
+    /// Toggle the clipping layer WITHOUT a full redevelop: the overlay is a
+    /// pure function of the last developed pixels (retained from the last
+    /// accepted frame), so the J key / ▲ button / histogram triangles respond
+    /// instantly instead of paying a whole develop (100-300 ms at 2560/4096).
+    /// Falls back to a redevelop only when no frame is retained yet.
+    /// The pixel reference a Range Mask is judged against: this recipe cut
+    /// down to the masks BEFORE mask `i`, with every geometry field stripped.
+    ///
+    /// The PREFIX, not masks-cleared: the engine evaluates a range on the
+    /// pixel as it stands when THIS mask runs — masks stack sequentially, so
+    /// a later mask's range sees earlier masks' output (`render.rs`
+    /// `apply_masks`); a cleared reference judged mask 2's range on pixels
+    /// mask 0/1 had already moved (CX5-6). Geometry runs after develop, so
+    /// it is no part of the reference, and `develop_preview_framed` has no
+    /// geometry stage — left in, the fields only broke the cache key.
+    ///
+    /// ONE builder for the coverage overlay (`refresh_mask_overlay`) and the
+    /// range eyedropper (`handle_range_pick`), which SHARE the one-slot
+    /// `overlay_ref` cache compared by recipe equality. The two used to be
+    /// hand-copied, and the copy that forgot the manual CA pair missed the
+    /// cache on every click under a non-zero Red/cyan or Blue/yellow, paying
+    /// a full preview develop on the UI thread for a 5×5 read.
+    pub(crate) fn range_reference_recipe(&self, i: usize) -> EditRecipe {
+        crate::logic::range::reference_recipe(&self.doc().recipe, i)
+}
+
+    /// The geometric mapping context every interaction boundary needs:
+    /// original preview pixel dims + the current straighten angle + the lens
+    /// geometry (in-camera profile + manual distortion amount).
+    pub(crate) fn geom_ctx(&self) -> ((f32, f32), f32, LensArg) {
+        let dims = self.photo().base_preview
+            .as_ref()
+            .map(|b| {
+                let (w, h) = b.dimensions();
+                (w as f32, h as f32)
+            })
+            .unwrap_or((1.0, 1.0));
+        (
+            dims,
+            self.doc().recipe.straighten_deg,
+            LensArg {
+                // COMPOSED (R25 B3): every interaction map downstream of this
+                // bundle must see the same profile the pixels went through,
+                // manual CA included.
+                profile: autoshade::render::geometry_profile(&self.doc().recipe).into_owned(),
+                amount: self.doc().recipe.lens_distortion,
+            },
+        )
+}
+
+    /// Can this photo's sidecar be handed to Lightroom at all? RAW only, and
+    /// keyed to the ORIGINAL photo (`src_path`), never the active variant: the
+    /// projection belongs to the RAW no matter which rendition is on screen.
+    ///
+    /// Only a camera RAW has the sidecar convention — `store::
+    /// lightroom_sidecar` and `pipeline::write_xmp` draw the same line, and a
+    /// baked PNG/TIFF's neighbouring `.xmp` is another program's file, which
+    /// this must never offer to overwrite.
+    ///
+    /// Deliberately NOT gated on the projection existing: that would be a disk
+    /// stat per frame, and "save the develop first" is a better answer from the
+    /// click (the store's own NotFound message says exactly that) than a button
+    /// that is greyed out for a reason nothing explains.
+    pub(crate) fn can_export_xmp_beside(&self) -> bool {
+        self.photo().src_path.as_deref().is_some_and(autoshade::decode::is_raw)
+}
+
+    /// The strip index of the card with `id` (an empty id matches nothing).
+    pub(crate) fn card_index(&self, id: &str) -> Option<usize> {
+        (!id.is_empty()).then(|| self.doc().variants.iter().position(|v| v.id == id)).flatten()
+}
+
+    /// Whether the last analysis left anything to read.
+    pub(crate) fn has_analysis_output(&self) -> bool {
+        self.analysis().verdict.is_some() || !self.analysis().rationale.is_empty()
+}
+
+    /// Does the Local Masks header earn its ●? Exactly the rule the mask ROWS
+    /// below use — [`mask_active`], the engine's own non-neutrality test plus the
+    /// eye — applied over the list. The header used to carry `n_masks > 0`
+    /// instead (R22 #16), which lit the dot for a list of muted or parked masks
+    /// and said nothing the「Local Masks ({n})」count did not already say.
+    pub(crate) fn masks_section_active(&self) -> bool {
+        // R33 §G: the field is in this section and it MOVES PIXELS, so the
+        // section's dot has to see it. `renderable()` is the engine's own
+        // question, asked here for the same reason `mask_active` is — one
+        // rule, so the dot and the render cannot disagree.
+        self.doc().recipe.colour_field.as_ref().is_some_and(|f| f.renderable())
+            || self.doc().recipe.masks.iter().any(mask_active)
+}
 }

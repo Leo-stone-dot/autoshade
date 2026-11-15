@@ -1265,19 +1265,6 @@ impl AutoShadeApp {
         changed
     }
 
-    /// Does the Local Masks header earn its ●? Exactly the rule the mask ROWS
-    /// below use — [`mask_active`], the engine's own non-neutrality test plus the
-    /// eye — applied over the list. The header used to carry `n_masks > 0`
-    /// instead (R22 #16), which lit the dot for a list of muted or parked masks
-    /// and said nothing the「Local Masks ({n})」count did not already say.
-    pub(crate) fn masks_section_active(&self) -> bool {
-        // R33 §G: the field is in this section and it MOVES PIXELS, so the
-        // section's dot has to see it. `renderable()` is the engine's own
-        // question, asked here for the same reason `mask_active` is — one
-        // rule, so the dot and the render cannot disagree.
-        self.editor.doc().recipe.colour_field.as_ref().is_some_and(|f| f.renderable())
-            || self.editor.doc().recipe.masks.iter().any(mask_active)
-    }
 
 
 
@@ -1454,8 +1441,8 @@ impl AutoShadeApp {
                 // snapshot was taken from. The filter answers "show me only
                 // this card's history"; rows it hides are COUNTED below, so
                 // a shrinking list is never mistaken for lost versions.
-                let active_id = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
-                let active_kind = self.active_variant().map(|v| v.kind);
+                let active_id = self.editor.active_variant().map(|v| v.id.clone()).unwrap_or_default();
+                let active_kind = self.editor.active_variant().map(|v| v.kind);
                 if !self.workspace.cards().versions.is_empty() {
                     ui.checkbox(&mut self.workspace.cards_mut().versions_current_only, tr(lang, K_DEVELOP_ONLY_THIS_VARIANT))
                         .on_hover_text(tr(
@@ -1663,7 +1650,7 @@ impl AutoShadeApp {
                 // whichever directory the app was launched from, and "last used
                 // folder" says nothing about which folder that is.
                 ui.label(
-                    egui::RichText::new(match self.export_dest_dir() {
+                    egui::RichText::new(match self.workspace.export_dest_dir() {
                         Some(d) => abs_display(&d),
                         None => tr(lang, K_DEVELOP_A_SAVE_DIALOG_OPENS_ON_EVERY_EXPORT).to_string(),
                     })
@@ -1753,7 +1740,7 @@ impl AutoShadeApp {
                 // Lightroom only looks for it beside the photo. That left the
                 // hand-off as "browse into %LOCALAPPDATA% yourself".
                 ui.add_space(SPACE_LG);
-                let raw = self.can_export_xmp_beside();
+                let raw = self.editor.can_export_xmp_beside();
                 let label = if self.workspace.exp().xmp_beside_confirm {
                     tr(lang, K_DEVELOP_OVERWRITE_THE_XMP_ALREADY_THERE)
                 } else {

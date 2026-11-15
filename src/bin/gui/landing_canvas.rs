@@ -101,14 +101,14 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.workspace.open_mut().nav_stash.remove(&p);
                         }
                         let active_source =
-                            self.active_variant().is_none_or(|v| v.base.is_none());
+                            self.editor.active_variant().is_none_or(|v| v.base.is_none());
                         // ONE source of truth for "the worker brought the
                         // master this canvas renders": the branch below
                         // destructures the same `baked`, and a guard that
                         // could drift from it is how a canvas ends up at an
                         // edge nobody recorded.
                         let master_hit = baked.as_ref().is_some_and(|(_, borigin, _)| {
-                            self.active_variant().is_some_and(|v| {
+                            self.editor.active_variant().is_some_and(|v| {
                                 v.origin.as_deref().is_some_and(|o| same_master(o, borigin))
                             })
                         });
@@ -155,7 +155,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // the third arm, and `read_pixel_source` /
                             // the worker already name it on stderr.
                             let canvas_master =
-                                self.active_variant().and_then(|v| v.origin.clone());
+                                self.editor.active_variant().and_then(|v| v.origin.clone());
                             let t = if self.active_on_ai_pixels() {
                                 tr(
                                     lang,
@@ -1025,7 +1025,7 @@ pub(crate) fn on_base_redeveloped(
     };
     self.editor.photo_mut().source_preview = Some(img.clone());
     self.workspace.open_mut().source_part = part;
-    if self.active_variant().is_none_or(|v| v.base.is_none()) {
+    if self.editor.active_variant().is_none_or(|v| v.base.is_none()) {
         self.editor.photo_mut().base_preview = Some(img.clone());
         let start = self.editor.doc().recipe.start_only();
         self.set_before(ctx, &img, &start);
