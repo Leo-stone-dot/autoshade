@@ -2010,9 +2010,9 @@ impl AutoShadeApp {
                     let cell = columns(ui, 2);
                     // ✓ (geometric) — same finish-glyph as 「✓ Apply」; the
                     // emoji ✅ was the odd one out of the check family.
-                    let label = if self.crop_mode { tr(lang, "✓ Done") } else { tr(lang, "Enter crop") };
+                    let label = if self.crop.mode { tr(lang, "✓ Done") } else { tr(lang, "Enter crop") };
                     if action_in(ui, cell, true, label).clicked() {
-                        let on = !self.crop_mode;
+                        let on = !self.crop.mode;
                         self.disarm_tools();
                         self.set_crop_mode(on);
                     }
@@ -2026,13 +2026,13 @@ impl AutoShadeApp {
                 });
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(tr(lang, "Aspect")).weak().small());
-                    let prev_aspect = self.crop_aspect;
+                    let prev_aspect = self.crop.aspect;
                     egui::ComboBox::from_id_salt("crop_aspect")
-                        .selected_text(tr(lang, CROP_ASPECTS[self.crop_aspect].0))
+                        .selected_text(tr(lang, CROP_ASPECTS[self.crop.aspect].0))
                         .width(70.0)
                         .show_ui(ui, |ui| {
                             for (i, (name, _)) in CROP_ASPECTS.iter().enumerate() {
-                                ui.selectable_value(&mut self.crop_aspect, i, tr(lang, name));
+                                ui.selectable_value(&mut self.crop.aspect, i, tr(lang, name));
                             }
                         });
                     // LR applies a picked preset to the box IMMEDIATELY — the
@@ -2044,8 +2044,8 @@ impl AutoShadeApp {
                     // some later session's crop entry and rewrite the box as
                     // a surprise (Codex batch-38); tool-off keeps the old
                     // arm-for-the-next-drag meaning.
-                    if self.crop_aspect != prev_aspect && self.crop_mode {
-                        self.crop_aspect_pending = true;
+                    if self.crop.aspect != prev_aspect && self.crop.mode {
+                        self.crop.aspect_pending = true;
                     }
                 });
                 // Straighten: rotate + auto-crop (engine rotate_straighten);

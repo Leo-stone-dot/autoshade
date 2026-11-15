@@ -206,7 +206,7 @@
             ..Default::default()
         };
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
-        assert!(!app.crop_mode, "R is dead under the prompt");
+        assert!(!app.crop.mode, "R is dead under the prompt");
     }
 
     /// 「Don't ask again」 turns the pref off when the prompt closes, the pref

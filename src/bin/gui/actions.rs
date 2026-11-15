@@ -1767,7 +1767,7 @@ impl AutoShadeApp {
     /// tool reinterpreted a crop-relative pan as full-frame and the
     /// viewport landed outside the crop box at higher zoom.
     pub(crate) fn set_crop_mode(&mut self, on: bool) {
-        if self.crop_mode == on {
+        if self.crop.mode == on {
             return;
         }
         if let Some(c) = &self.recipe.crop {
@@ -1784,7 +1784,7 @@ impl AutoShadeApp {
             // view_uv re-clamps against zoom each frame; keep it sane here.
             self.view.pan = egui::vec2(self.view.pan.x.clamp(0.0, 1.0), self.view.pan.y.clamp(0.0, 1.0));
         }
-        self.crop_mode = on;
+        self.crop.mode = on;
     }
 
     /// Recipe snapshot path for version `n` — `v<n>.recipe.json` in the photo's
@@ -2349,14 +2349,14 @@ impl AutoShadeApp {
         self.lens_focus_picking = false;
         self.masks.placing_mask = None;
         self.masks.place_start = None;
-        self.crop_drag = None;
-        self.mask_drag = None;
+        self.crop.drag = None;
+        self.masks.mask_drag = None;
         self.masks.paint_last = None;
         self.end_mask_brush();
         // A preset change armed for the crop tool must die with it — the
         // flag survived Esc / Done / a hold-B detour and rewrote the box as
         // a surprise on the next crop entry (CX5-4).
-        self.crop_aspect_pending = false;
+        self.crop.aspect_pending = false;
     }
 
     /// End a live mask-brush session (the Esc teardown, extracted from
@@ -2410,7 +2410,7 @@ impl AutoShadeApp {
 
     /// Any canvas tool armed? (the once-hand-written OR list)
     pub(crate) fn tool_armed(&self) -> bool {
-        self.crop_mode
+        self.crop.mode
             || self.masks.paint_mode
             || self.clone_mode
             || self.wb_picking

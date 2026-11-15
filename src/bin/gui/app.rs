@@ -353,15 +353,11 @@ pub(crate) struct AutoShadeApp {
     // Last frame's controls-panel rect: ↑/↓ walk the library EXCEPT over
     // this panel, where the same keys nudge a hovered slider.
     // --- crop tool ---
-    pub(crate) crop_mode: bool,                       // the crop overlay is active on the After image
-    pub(crate) crop_aspect: usize,                    // index into CROP_ASPECTS
-    pub(crate) crop_aspect_pending: bool,             // preset changed — re-derive the box in handle_crop
-    pub(crate) crop_grid: u8,                         // crop guide: 0 thirds · 1 golden · 2 off (O cycles, LR)
+    /// The crop tool's state; see [`CropState`].
+    pub(crate) crop: CropState,
     // (handle, drag start, crop at start, straighten° at start). Handles:
     // 0-3 corners, 4 move-inside, 5-8 edge midpoints (T/B/L/R), 9 = drag
     // OUTSIDE the box → rotate-straighten (the LR gesture).
-    pub(crate) crop_drag: Option<(u8, egui::Pos2, [f32; 4], f32)>,
-    pub(crate) mask_drag: Option<(u8, (f32, f32))>, // on-image mask knob drag: (handle, last pos in ORIG norm)
     // --- manual local adjustments (masks) ---
     /// Which of the selected mask's COMPONENTS the canvas tools target:
     /// `None` = the base geometry. Reset whenever the mask selection moves.
@@ -679,7 +675,7 @@ impl AutoShadeApp {
             // [ / ] belong to the active brush tool; when none is armed the
             // keys stay unconsumed (free for egui / future bindings).
             let brush_tool = self.masks.paint_mode || self.clone_mode;
-            let crop_tool = self.crop_mode;
+            let crop_tool = self.crop.mode;
             // ↑/↓ walk the library ONLY while the pointer is off the controls
             // panel: over it, the same keys nudge a hovered slider — and this
             // handler runs FIRST each frame, so consuming here would eat the
@@ -804,14 +800,14 @@ impl AutoShadeApp {
             // R mirrors the crop button exactly (incl. the one-tool-at-a-time
             // disarms); no photo → nothing to crop.
             if do_crop && self.src_path.is_some() {
-                let on = !self.crop_mode;
+                let on = !self.crop.mode;
                 self.disarm_tools();
                 self.set_crop_mode(on);
             }
             // Enter commits the crop (LR, D13): the box is already live in
             // recipe.crop — committing is dropping the grab and disarming.
             if do_crop_commit {
-                self.crop_drag = None;
+                self.crop.drag = None;
                 self.set_crop_mode(false);
             }
             if crop_nudge != (0.0, 0.0)
@@ -839,7 +835,7 @@ impl AutoShadeApp {
                 }
             }
             if do_crop_grid {
-                self.crop_grid = (self.crop_grid + 1) % 3;
+                self.crop.grid = (self.crop.grid + 1) % 3;
             }
             // LR tool keys: each mirrors its own button exactly
             // (disarm-then-arm; a second press exits the tool).
@@ -1782,12 +1778,7 @@ impl Default for AutoShadeApp {
             histogram: None,
             last_title: String::new(),
             view: ViewState::default(),
-            crop_mode: false,
-            crop_aspect: 0,
-            crop_aspect_pending: false,
-            crop_grid: 0,
-            crop_drag: None,
-            mask_drag: None,
+            crop: CropState::default(),
             curve_channel: 0,
             curve_drag: None,
             #[cfg(test)]

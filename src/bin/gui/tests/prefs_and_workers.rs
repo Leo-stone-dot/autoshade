@@ -844,13 +844,13 @@
         // Stamp arms through clone_mode and takes the other brush down.
         let mut app = AutoShadeApp {
             base_preview: Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(32, 48))),
-            crop_mode: true,
+            crop: CropState { mode: true, ..Default::default() },
             clone_mode: true,
             ..Default::default()
         };
         app.arm_brush(BrushOwner::Fill);
         assert!(app.masks.paint_mode && app.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
-        assert!(!app.crop_mode && !app.clone_mode, "the other tools are disarmed");
+        assert!(!app.crop.mode && !app.clone_mode, "the other tools are disarmed");
         app.arm_brush(BrushOwner::Stamp);
         assert!(app.clone_mode && !app.masks.paint_mode, "the Stamp paints through clone_mode");
         assert!(app.brush_armed(BrushOwner::Stamp) && !app.brush_armed(BrushOwner::Fill));
