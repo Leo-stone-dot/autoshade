@@ -371,7 +371,7 @@ const newGrade = () => ({
   highlight_hue:0, highlight_sat:0, highlight_lum:0, global_hue:0, global_sat:0, global_lum:0,
   blending:50, balance:0
 });
-const DEFAULT_RECIPE = {
+let DEFAULT_RECIPE = {
   // No `version` here: the era stamp is PROVENANCE and the server authors it.
   // A loaded recipe's own stamp rides the Object.assign merges; a recipe
   // posted without one deserialises to the server's CURRENT era, which is
@@ -782,10 +782,14 @@ function syncSliders() {
 (async () => {
   try {
     const body = await (await fetch("/api/controls")).json();
-    const band = new Map((body.controls || []).map(c => [c.name, c.range]));
+    const band = new Map((body.controls || []).map(c => [c.name, c]));
     for (const s of SLIDERS) {
-      const r = band.get(s[0]);
-      if (r && r.length === 2) { s[2] = r[0]; s[3] = r[1]; }
+      const c = band.get(s[0]);
+      if (!c) continue;
+      if (c.range && c.range.length === 2) { s[2] = c.range[0]; s[3] = c.range[1]; }
+      // The reset value is the server's too: a companion's Lightroom default
+      // (grain size 25) is not the stored 0 that means "absent".
+      if (c.default != null) DEFAULT_RECIPE[s[0]] = c.default;
     }
   } catch (e) { /* keep the local defaults */ }
   const panel = document.querySelector(".panel.sliders");
