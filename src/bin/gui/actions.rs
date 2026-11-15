@@ -926,7 +926,14 @@ impl AutoShadeApp {
             if i + 1 >= self.doc.recipe.masks.len() { return }
             i + 1
         };
-        self.doc.recipe.masks.swap(i, j);
+        crate::logic::command::apply(
+            &mut self.doc.recipe,
+            crate::logic::command::Command::Mask(if up {
+                crate::logic::command::MaskCommand::MoveUp { index: i }
+            } else {
+                crate::logic::command::MaskCommand::MoveDown { index: i }
+            }),
+        );
         self.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
         self.overlay.overlay_stale = true;
         self.session.dirty = true;
@@ -949,7 +956,10 @@ impl AutoShadeApp {
         if !clone.name.is_empty() {
             clone.name = format!("{} 2", clone.name);
         }
-        self.doc.recipe.masks.insert(i + 1, clone);
+        crate::logic::command::apply(
+            &mut self.doc.recipe,
+            crate::logic::command::Command::InsertMask { after: i, mask: Box::new(clone) },
+        );
         self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
         self.masks.sel_mask = Some(i + 1);
         self.masks.sel_component = None;

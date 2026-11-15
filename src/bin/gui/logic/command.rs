@@ -8,7 +8,7 @@ use super::capability::{self, CapabilityId};
 use autoshade::recipe::EditRecipe;
 
 /// One edit the GUI asks the document to make.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Command {
     /// Write one scalar capability's value.
     SetCapability { id: CapabilityId, value: f32 },
@@ -17,11 +17,14 @@ pub(crate) enum Command {
     SetCompanion { name: &'static str, value: f32 },
     /// A local-adjustment list operation (the mask panel's verbs).
     Mask(MaskCommand),
+    /// Insert `mask` after slot `after` (the duplicate verb: the caller has
+    /// already detached the rasters and named the copy).
+    InsertMask { after: usize, mask: Box<autoshade::recipe::LocalAdjustment> },
 }
 
 /// The mask-list verbs a client can ask for. Selection remapping and the
 /// overlay invalidation stay with the caller: this layer owns the recipe list.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum MaskCommand {
     /// Drop the mask at `index` (out of range: nothing).
     Delete { index: usize },
@@ -29,6 +32,10 @@ pub(crate) enum MaskCommand {
     ToggleEnabled { index: usize },
     /// Move `from` to the final slot `to` (both pre-checked by the caller).
     Reorder { from: usize, to: usize },
+    /// Swap the mask with the one above it (the first row: nothing).
+    MoveUp { index: usize },
+    /// Swap the mask with the one below it (the last row: nothing).
+    MoveDown { index: usize },
 }
 
 /// Apply one command to the recipe. The GUI calls this now; the CLI and the
@@ -50,6 +57,23 @@ pub(crate) fn apply(recipe: &mut EditRecipe, command: Command) {
             if from < recipe.masks.len() && to < recipe.masks.len() {
                 let m = recipe.masks.remove(from);
                 recipe.masks.insert(to, m);
+            }
+        }
+        Command::Mask(MaskCommand::MoveUp { index }) => {
+            if index > 0 && index < recipe.masks.len() {
+                recipe.masks.swap(index, index - 1);
+            }
+        }
+        Command::Mask(MaskCommand::MoveDown { index }) => {
+            if index + 1 < recipe.masks.len() {
+                recipe.masks.swap(index, index + 1);
+            }
+        }
+        Command::InsertMask { after, mask } => {
+            // The recipe's own cap (64) is a domain invariant, so it is
+            // enforced HERE as well as by the panel's toast.
+            if recipe.masks.len() < 64 {
+                recipe.masks.insert((after + 1).min(recipe.masks.len()), *mask);
             }
         }
         Command::SetCompanion { name, value } => {
@@ -99,6 +123,34 @@ mod tests {
         apply(&mut recipe, Command::Mask(MaskCommand::ToggleEnabled { index: 9 }));
         apply(&mut recipe, Command::Mask(MaskCommand::Reorder { from: 9, to: 0 }));
         assert_eq!(recipe.masks.len(), 2);
+    }
+
+    #[test]
+    fn move_and_insert_guard_the_ends_and_the_mask_cap() {
+        use autoshade::recipe::LocalAdjustment;
+        let mut recipe = EditRecipe::default();
+        for name in ["a", "b", "c"] {
+            recipe.masks.push(LocalAdjustment { name: name.into(), ..Default::default() });
+        }
+        let names = |r: &EditRecipe| r.masks.iter().map(|m| m.name.trim().to_string()).collect::<Vec<_>>();
+        apply(&mut recipe, Command::Mask(MaskCommand::MoveDown { index: 0 }));
+        assert_eq!(names(&recipe), ["b", "a", "c"]);
+        apply(&mut recipe, Command::Mask(MaskCommand::MoveUp { index: 2 }));
+        assert_eq!(names(&recipe), ["b", "c", "a"]);
+        apply(&mut recipe, Command::Mask(MaskCommand::MoveUp { index: 0 }));
+        apply(&mut recipe, Command::Mask(MaskCommand::MoveDown { index: 2 }));
+        assert_eq!(names(&recipe), ["b", "c", "a"], "the ends do not move");
+        apply(
+            &mut recipe,
+            Command::InsertMask { after: 1, mask: Box::new(LocalAdjustment { name: "copy".into(), ..Default::default() }) },
+        );
+        assert_eq!(names(&recipe), ["b", "c", "copy", "a"]);
+        // The 64-mask cap is the domain's, not only the panel's toast.
+        while recipe.masks.len() < 64 {
+            recipe.masks.push(Default::default());
+        }
+        apply(&mut recipe, Command::InsertMask { after: 0, mask: Box::new(Default::default()) });
+        assert_eq!(recipe.masks.len(), 64);
     }
 
     #[test]
