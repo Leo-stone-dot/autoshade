@@ -7596,7 +7596,10 @@ transitions (active-variant sync, the switch/push card flush, history-stack
 moves, variant insertion) are methods on the aggregate that own their
 invariant. `WorkspaceView` ([`workspace.rs`](../src/bin/gui/workspace.rs)) owns
 what the renderer remembers and never persists (folds, tabs, windows, the
-gallery scan, tool arming, transient status). `AutoShadeApp` itself holds
+gallery scan, tool arming, transient status); its fields are private too, with
+value accessors for the scalars, `_mut` accessors and the `set_*` doors, and
+the two multi-field methods a draw path needs (`paint_upload_parts`,
+`brush_parts`). `AutoShadeApp` itself holds
 `Editor`, `WorkspaceView`, `Services`, the persisted AI prefs, the language and
 the test seams. The undo/redo history and the dirty flag are an
 `EditorSession` ([`session.rs`](../src/bin/gui/session.rs)): per-photo
