@@ -13,7 +13,6 @@
 //! or reach past the seam.
 
 pub(crate) mod ai;
-pub(crate) mod capability;
 pub(crate) mod command;
 pub(crate) mod cards;
 pub(crate) mod analysis_landing;
