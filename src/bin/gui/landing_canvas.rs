@@ -864,9 +864,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // against the last one's export — the exact
                         // "reference is not this frame" case the fit can
                         // now only warn about.
-                        self.fit_ref = None;
-                        self.fit_from = None; // …and so does a picked source card
-                        self.fit_prompt = None; // …and the question about one
+                        self.fit.fit_ref = None;
+                        self.fit.fit_from = None; // …and so does a picked source card
+                        self.fit.fit_prompt = None; // …and the question about one
                         // (rationale already restored alongside the recipe)
                         self.refresh_versions(); // version snapshots are per-photo
                         self.dirty = true; // render the (restored or neutral) after

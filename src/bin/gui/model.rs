@@ -483,6 +483,38 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The reverse-fit state: the persisted dials (zoned fit, the four-region
+/// expansion, the AI judge, deep think, reimagine retry, ask-after-generate)
+/// plus the reference path, its label and the prompt dialog. Five of the dials
+/// are also `Prefs` fields; the save/load code maps between them.
+pub(crate) struct FitState {
+    pub(crate) zoned_fit: bool,
+    pub(crate) zoned_four_regions: bool,
+    pub(crate) fit_ai_judge: bool,
+    pub(crate) fit_deep: bool,
+    pub(crate) reimagine_retry: bool,
+    pub(crate) ask_fit_after_generate: bool,
+    pub(crate) fit_ref: Option<PathBuf>,
+    pub(crate) fit_from: Option<String>,
+    pub(crate) fit_prompt: Option<FitPrompt>,
+}
+
+impl Default for FitState {
+    fn default() -> Self {
+        Self {
+            zoned_fit: true,
+            zoned_four_regions: false,
+            fit_ai_judge: false,
+            fit_deep: false,
+            reimagine_retry: false,
+            ask_fit_after_generate: true,
+            fit_ref: None,
+            fit_from: None,
+            fit_prompt: None,
+        }
+    }
+}
+
 /// The card strip's dialog/one-shot state: the snapshot numbers and their meta,
 /// the version name dialog and its filter, the variant name/delete dialogs and
 /// the one-shot keep-recipe flag a preview re-decode sets. The variant list

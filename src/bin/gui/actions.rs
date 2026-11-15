@@ -109,12 +109,12 @@ impl AutoShadeApp {
         app.exp.denoise_strength = prefs.denoise_strength.clamp(0.0, 1.0);
         app.exp.baked_denoise_strength = prefs.baked_denoise_strength.clamp(0.0, 1.0);
         app.exp.baked_save_denoise_strength = prefs.baked_save_denoise_strength.clamp(0.0, 1.0);
-        app.zoned_fit = prefs.zoned_fit;
-        app.zoned_four_regions = prefs.zoned_four_regions;
-        app.fit_ai_judge = prefs.fit_ai_judge;
-        app.fit_deep = prefs.fit_deep;
-        app.reimagine_retry = prefs.reimagine_retry;
-        app.ask_fit_after_generate = prefs.ask_fit_after_generate;
+        app.fit.zoned_fit = prefs.zoned_fit;
+        app.fit.zoned_four_regions = prefs.zoned_four_regions;
+        app.fit.fit_ai_judge = prefs.fit_ai_judge;
+        app.fit.fit_deep = prefs.fit_deep;
+        app.fit.reimagine_retry = prefs.reimagine_retry;
+        app.fit.ask_fit_after_generate = prefs.ask_fit_after_generate;
         app.adjust_quality = prefs.adjust_quality.min(2);
         app.view.mode = prefs.view_mode;
         app.exp.long_edge = prefs.exp_long_edge;
@@ -1531,7 +1531,7 @@ impl AutoShadeApp {
     /// card in the strip, a fit started on a ✨ card silently solved from the
     /// first denoised master.
     pub(crate) fn fit_source_index(&self) -> Option<usize> {
-        self.fit_from
+        self.fit.fit_from
             .as_deref()
             .and_then(|id| {
                 self.variants.iter().position(|v| !v.id.is_empty() && v.id == id && Self::is_fit_source(v))
@@ -2763,7 +2763,7 @@ impl AutoShadeApp {
     /// A modal layer is up — the quit confirm or the fit prompt — and owns
     /// the keyboard and the pointer (D13).
     pub(crate) fn modal_up(&self) -> bool {
-        self.confirm_quit || self.fit_prompt.is_some()
+        self.confirm_quit || self.fit.fit_prompt.is_some()
     }
 
     /// Raise the fit prompt after a whole-frame reimagine landed and the strip
@@ -2772,7 +2772,7 @@ impl AutoShadeApp {
     /// negative's preview [`Self::start_fit`] reads.
     pub(crate) fn offer_fit_prompt(&mut self, ctx: &egui::Context, divergence: f32) {
         if self.busy
-            || !self.ask_fit_after_generate
+            || !self.fit.ask_fit_after_generate
             || self.source_preview.is_none()
         {
             return;
@@ -2787,7 +2787,7 @@ impl AutoShadeApp {
         // One question at a time: a newer generation takes the open one over
         // — the strip already stands on its card — and keeps what the user
         // picked in it.
-        if let Some(p) = &mut self.fit_prompt {
+        if let Some(p) = &mut self.fit.fit_prompt {
             p.target = target;
             p.divergence = divergence;
             return;
@@ -2795,7 +2795,7 @@ impl AutoShadeApp {
         // The ▣ original first (the user's wording: 默认原图), not Automatic,
         // which solves from a ◈ / ▦ master whenever the strip holds one.
         let from = self.original_index().map(|i| self.variants[i].id.clone()).filter(|id| !id.is_empty());
-        self.fit_prompt = Some(FitPrompt { target, divergence, from, dont_ask: false });
+        self.fit.fit_prompt = Some(FitPrompt { target, divergence, from, dont_ask: false });
         // The layer's Enter waits for "no widget focused" — surrendered now,
         // as the quit layer does when it opens.
         if let Some(id) = ctx.memory(|m| m.focused()) {
@@ -2812,7 +2812,7 @@ impl AutoShadeApp {
     /// layer only states them.
     pub(crate) fn fit_prompt_layer(&mut self, ctx: &egui::Context) {
         let lang = self.lang;
-        let Some(mut prompt) = self.fit_prompt.take() else {
+        let Some(mut prompt) = self.fit.fit_prompt.take() else {
             return;
         };
         let (automatic, sources) = self.fit_source_menu();
@@ -2828,8 +2828,8 @@ impl AutoShadeApp {
             "Reverse-fit strength {pct}% · local areas {zoned} · AI review {review} — set in the AI panel's reverse-fit fold",
             &[
                 ("pct", &format!("{:.0}", self.aip.fit_strength * 100.0)),
-                ("zoned", on_off(self.zoned_fit)),
-                ("review", on_off(self.fit_ai_judge)),
+                ("zoned", on_off(self.fit.zoned_fit)),
+                ("review", on_off(self.fit.fit_ai_judge)),
             ],
         );
         let mut open = true;
@@ -2907,20 +2907,20 @@ impl AutoShadeApp {
             later = true;
         }
         if !(fit || later) {
-            self.fit_prompt = Some(prompt);
+            self.fit.fit_prompt = Some(prompt);
             return;
         }
         if prompt.dont_ask {
-            self.ask_fit_after_generate = false;
+            self.fit.ask_fit_after_generate = false;
         }
         // The answer is about the card it asked about; the strip stands on it
         // (the scrim kept every other click away) unless a landing moved it.
         if fit && self.active_variant().is_some_and(|v| v.id == prompt.target) {
-            self.fit_from = prompt.from;
+            self.fit.fit_from = prompt.from;
             // A reference file picked in the fold earlier wins `fit_target`
             // over the active card — the fit would solve toward it, not
             // toward the result the question named.
-            self.fit_ref = None;
+            self.fit.fit_ref = None;
             self.start_fit();
         }
     }
@@ -4165,17 +4165,17 @@ impl AutoShadeApp {
         // cannot disagree.
         let negative = self.fit_negative();
         let fit_strength = self.fit_strength();
-        let zoned = self.zoned_fit;
-        let zoned_regions = if self.zoned_four_regions {
+        let zoned = self.fit.zoned_fit;
+        let zoned_regions = if self.fit.zoned_four_regions {
             autoshade::fit_zoned::semantic::MAX_SEMANTIC_REGIONS
         } else {
             autoshade::fit_zoned::semantic::DEFAULT_SEMANTIC_REGIONS
         };
-        let ai_judge = self.fit_ai_judge;
+        let ai_judge = self.fit.fit_ai_judge;
         // The deep path IS the review, iterated — it cannot run without it,
         // and the checkbox is disabled accordingly, but the worker must not
         // depend on a UI gate for a spending decision.
-        let deep = self.fit_deep && ai_judge;
+        let deep = self.fit.fit_deep && ai_judge;
         let lang = self.lang;
         self.busy = true;
         let mut running = if zoned {

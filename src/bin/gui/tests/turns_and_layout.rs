@@ -465,7 +465,10 @@
             src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/_buttons.ARW", std::process::id()))),
             variants: vec![mk(VariantKind::Original), mk(VariantKind::Generated)],
             active: 1,
-            fit_ref: Some(std::env::temp_dir().join(format!("autoshade-library-{}/_buttons-reference.png", std::process::id()))),
+            fit: FitState {
+                fit_ref: Some(std::env::temp_dir().join(format!("autoshade-library-{}/_buttons-reference.png", std::process::id()))),
+                ..Default::default()
+            },
             ..Default::default()
         };
         app.base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));

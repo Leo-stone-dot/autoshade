@@ -7682,7 +7682,10 @@ at 109 fields. `model::CardsState` owns the card strip's dialog
 and one-shot state (snapshot numbers/meta, version and variant name dialogs,
 the current-only filter, the delete confirmation, the keep-recipe flag), one
 `cards` field; the variant list itself stays on the app as the open photo's
-core state. The app struct is at 103 fields.
+core state. The app struct is at 103 fields. `model::FitState` owns the reverse-fit dials and
+dialog state (zoned/four-region, AI judge, deep think, retry, ask-after-generate,
+reference path/label, prompt), one `fit` field; six of the dials are `Prefs`
+fields and the save/load code maps between them. The app struct is at 95 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

@@ -199,7 +199,7 @@
         // A stock app: ONE Original variant, nothing generated.
         let mut app = AutoShadeApp::default();
         assert_eq!(app.fit_target(), None, "premise: nothing to fit against yet");
-        app.fit_ref = Some(reference.clone());
+        app.fit.fit_ref = Some(reference.clone());
         assert_eq!(
             app.fit_target(),
             Some(reference.clone()),
@@ -221,7 +221,7 @@
         assert_eq!(app.fit_target(), Some(reference), "the chosen reference wins");
         // Clearing it hands the entry back to the generated variant — both
         // doors stay open, which is the whole shape of this change.
-        app.fit_ref = None;
+        app.fit.fit_ref = None;
         assert_eq!(app.fit_target(), Some(generated));
     }
 
@@ -241,7 +241,7 @@
         );
         // The chosen file is shown, so "what am I fitting against" is
         // answerable without opening a dialog again.
-        app.fit_ref = Some(std::env::temp_dir().join(format!("autoshade-exports-{}/P21-lightroom.tif", std::process::id())));
+        app.fit.fit_ref = Some(std::env::temp_dir().join(format!("autoshade-exports-{}/P21-lightroom.tif", std::process::id())));
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         assert!(
             seen.iter().any(|t| t.contains("P21-lightroom.tif")),
@@ -256,7 +256,7 @@
     /// ME (the default flipped on) goes red here.
     #[test]
     fn the_reimagine_fidelity_retry_is_off_in_both_defaults() {
-        assert!(!AutoShadeApp::default().reimagine_retry, "spending is opt-in");
+        assert!(!AutoShadeApp::default().fit.reimagine_retry, "spending is opt-in");
         assert!(
             !Prefs::default().reimagine_retry,
             "an older prefs file must decode to the same answer"
@@ -276,7 +276,7 @@
     /// reachable without the review it iterates.
     #[test]
     fn the_deep_reverse_fit_is_off_by_default_and_gated_on_the_review() {
-        assert!(!AutoShadeApp::default().fit_deep, "spending is opt-in");
+        assert!(!AutoShadeApp::default().fit.fit_deep, "spending is opt-in");
         assert!(
             !Prefs::default().fit_deep,
             "an older prefs file must decode to the same answer"
@@ -290,12 +290,12 @@
         // The gate is on the WIDGET, so the tooltip that explains the gate is
         // what a headless frame can witness; the enabled state itself is
         // egui's and is asserted through the same predicate the UI uses.
-        assert!(!app.fit_ai_judge, "premise: the review is off in a stock app");
-        app.fit_ai_judge = true;
-        app.fit_deep = true;
+        assert!(!app.fit.fit_ai_judge, "premise: the review is off in a stock app");
+        app.fit.fit_ai_judge = true;
+        app.fit.fit_deep = true;
         // The worker's own gate, which must not depend on the UI's: deep
         // without the review is not a configuration.
-        assert!(app.fit_deep && app.fit_ai_judge);
+        assert!(app.fit.fit_deep && app.fit.fit_ai_judge);
     }
 
     /// R23-2: the reference-PHOTO switch is off by default in BOTH defaults

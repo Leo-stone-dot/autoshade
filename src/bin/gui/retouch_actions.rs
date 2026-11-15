@@ -592,7 +592,7 @@ pub(crate) fn start_reimagine(&mut self) {
         // below the resolution the user asked for, behind a refusal whose own
         // remedy (save) Ctrl+S REFUSES for a generated variant.
         let edge = self.preview_edge.clamp(640, 8192);
-        let retry = self.reimagine_retry; // paid opt-in, captured at click time
+        let retry = self.fit.reimagine_retry; // paid opt-in, captured at click time
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
         let (epoch, flag) = self.arm_cancel();
