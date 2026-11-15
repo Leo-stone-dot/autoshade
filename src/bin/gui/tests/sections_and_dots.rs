@@ -247,7 +247,7 @@
         pick(&mut app, [0.5, 0.5, 0.5]);
         assert!(app.recipe.point_colors.is_empty(), "a grey spot is no swatch: {}", app.status);
         assert!(app.tools.point_color_picking, "…and the tool stays armed for the retry");
-        assert!(!app.dirty, "…and nothing was edited");
+        assert!(!app.session.dirty, "…and nothing was edited");
 
         pick(&mut app, [0.8, 0.3, 0.2]);
         assert_eq!(app.recipe.point_colors.len(), 1, "{}", app.status);
@@ -259,7 +259,7 @@
             );
         }
         assert!(!app.tools.point_color_picking, "a landed swatch disarms the tool");
-        assert!(app.dirty, "…and asks for a redevelop");
+        assert!(app.session.dirty, "…and asks for a redevelop");
 
         app.recipe.point_colors = vec![app.recipe.point_colors[0].clone(); MAX_POINT_COLORS];
         app.tools.point_color_picking = true;

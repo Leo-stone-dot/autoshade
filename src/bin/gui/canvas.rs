@@ -179,7 +179,7 @@ impl AutoShadeApp {
                         Some(ctx.load_texture("clip", clip, egui::TextureOptions::NEAREST));
                 }
             }
-            None => self.dirty = true, // nothing retained (fresh open) — worker builds it
+            None => self.session.dirty = true, // nothing retained (fresh open) — worker builds it
         }
     }
 
@@ -1160,7 +1160,7 @@ impl AutoShadeApp {
             }
             self.masks.mask_drag = Some((h, cur));
             // Masks are develop stages: the preview follows every drag frame.
-            self.dirty = true;
+            self.session.dirty = true;
             self.overlay.overlay_stale = true;
         }
         if resp.drag_stopped() {

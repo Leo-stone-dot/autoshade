@@ -54,7 +54,7 @@ impl AutoShadeApp {
                     logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
                     logic::portrait::PortraitAction::KeepPersonSharp(on) => {
                         if self.set_keep_person_sharp(on) {
-                            self.dirty = true;
+                            self.session.dirty = true;
                         }
                     }
                     logic::portrait::PortraitAction::SetKeepSkin(on) => self.set_keep_skin(on),
@@ -192,7 +192,7 @@ impl AutoShadeApp {
                     logic::pick::Picker::PointColor => self.tools.point_color_picking = false,
                 },
                 Effect::DisarmTools => self.disarm_tools(),
-                Effect::MarkDirty => self.dirty = true,
+                Effect::MarkDirty => self.session.dirty = true,
             }
         }
     }

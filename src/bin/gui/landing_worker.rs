@@ -284,7 +284,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                                 path: path.display().to_string(),
                                 ..Default::default()
                             });
-                            self.dirty = true;
+                            self.session.dirty = true;
                             self.commit_now();
                             drop(img);
                         }
@@ -382,7 +382,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // non-square reimagine origin) — and end a brush
                             // session armed on the replaced plate.
                             self.rebind_paint_canvas(mw, mh);
-                            self.dirty = true;
+                            self.session.dirty = true;
                             // The pixel swap must enter history THIS frame
                             // — a same-frame Ctrl+Z otherwise undoes an
                             // older recipe step over the new pixels.
@@ -444,7 +444,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // ● unsaved lit and lets nav_stash protect the fit —
                     // the ordinary unsaved-edit path takes over.
                     if out.persisted {
-                        self.hist.saved_recipe = out.recipe.clone();
+                        self.session.hist.saved_recipe = out.recipe.clone();
                         self.open.nav_stash.remove(
                             &self.src_path.clone().unwrap_or_default(),
                         );
@@ -454,7 +454,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // off it), cleared otherwise (a fit is
                         // source-based) — so the per-frame ● pixel
                         // comparison's disk mirror stays in step with it.
-                        self.hist.pixels_on_disk = out.negative.clone();
+                        self.session.hist.pixels_on_disk = out.negative.clone();
                     }
                     self.refresh_versions();
                     // The landing's words are the logic layer's
@@ -537,7 +537,7 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             if let Some((p, r)) = self.open.pasted_open.take()
                 && self.src_path.as_ref() == Some(&p)
             {
-                self.hist.saved_recipe = r;
+                self.session.hist.saved_recipe = r;
                 self.open.nav_stash.remove(&p);
             }
             // The counts and the sidecar disclosures are the logic layer's

@@ -176,7 +176,7 @@ impl AutoShadeApp {
             );
         }
         self.recipe = live;
-        self.dirty = true;
+        self.session.dirty = true;
         // A recipe placed on the pristine ✨ card is an edit like any other:
         // it lands on a new ✎ card (the immutability rule).
         self.fork_edited_card();

@@ -46,7 +46,6 @@ pub(crate) struct AutoShadeApp {
     /// a slider re-render (no fade) from a swap (fade).
     pub(crate) after_shows: Option<(PathBuf, usize)>,
     pub(crate) recipe: EditRecipe,
-    pub(crate) dirty: bool, // recipe changed → queue the latest preview state
     // --- asynchronous develop scheduler (single in-flight, latest wins) ---
     pub(crate) develop_inflight: bool,
     pub(crate) develop_count: u64, // accepted frames; regression counter (latest-wins)
@@ -136,7 +135,8 @@ pub(crate) struct AutoShadeApp {
     // one undoable step instead of a point of no return. Arc clones share the
     // allocation — only a retouch introduces a new raster into history.
     /// The undo history and the ● baseline; see [`HistoryState`].
-    pub(crate) hist: HistoryState,
+    /// The per-photo editing session (see [`EditorSession`]).
+    pub(crate) session: EditorSession,
     // --- unsaved-edit protection ---
     // What recipe.json last held: the develop of the card that was active at
     // the last save. `active_baseline` joins it with saved_strip so every card
@@ -610,8 +610,8 @@ impl AutoShadeApp {
             // unlock that would never come (no photo, no history). Only a
             // press that WOULD have acted earns a refusal; the rest stay the
             // silent no-ops the disabled buttons are.
-            let armed_undo = do_undo && self.src_path.is_some() && !self.hist.undo_stack.is_empty();
-            let armed_redo = do_redo && self.src_path.is_some() && !self.hist.redo_stack.is_empty();
+            let armed_undo = do_undo && self.src_path.is_some() && !self.session.hist.undo_stack.is_empty();
+            let armed_redo = do_redo && self.src_path.is_some() && !self.session.hist.redo_stack.is_empty();
             if self.busy {
                 if armed_undo || armed_redo {
                     let t = tr(
@@ -658,7 +658,7 @@ impl AutoShadeApp {
                 });
                 if self.recipe.crop != next {
                     self.recipe.crop = next;
-                    self.dirty = true; // histogram/clipping follow the crop
+                    self.session.dirty = true; // histogram/clipping follow the crop
                 }
             }
             if do_crop_grid {
@@ -968,21 +968,21 @@ impl AutoShadeApp {
                         start.stamp(&mut fresh);
                         self.recipe = fresh;
                         self.overlay.region = None;
-                        self.dirty = true;
+                        self.session.dirty = true;
                         // The old AI rationale/verdict describe the recipe Reset
                         // just discarded — showing them under neutral sliders lies.
                         self.resync_recipe_display();
                     }
                 });
                 group(ui, &[tr(lang, "↶ Undo"), tr(lang, "↷ Redo")], 0, |ui| {
-                    if action(ui, ready && !self.hist.undo_stack.is_empty(), tr(lang, "↶ Undo"))
+                    if action(ui, ready && !self.session.hist.undo_stack.is_empty(), tr(lang, "↶ Undo"))
                         .on_hover_text(tr(lang, "Ctrl+Z · undo the last edit"))
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
                         self.undo(&ctx);
                     }
-                    if action(ui, ready && !self.hist.redo_stack.is_empty(), tr(lang, "↷ Redo"))
+                    if action(ui, ready && !self.session.hist.redo_stack.is_empty(), tr(lang, "↷ Redo"))
                         .on_hover_text(tr(lang, "Ctrl+Y · redo the undone edit"))
                         .clicked()
                     {
@@ -1505,7 +1505,6 @@ impl Default for AutoShadeApp {
             canvas_fade: None,
             after_shows: None,
             recipe: EditRecipe::default(),
-            dirty: false,
             develop_inflight: false,
             develop_count: 0,
             status: "Open a photo, or open a folder to browse your library.".into(),
@@ -1531,7 +1530,7 @@ impl Default for AutoShadeApp {
             exp: ExportState::default(),
             // ./out — the CLI's and the batch renderer's own root; mirror
             // Prefs::default so a missing pref key means exactly this.
-            hist: HistoryState::default(),
+            session: EditorSession::default(),
             fit: FitState::default(),
             // Paid opt-in (a vision call per fit) — mirror Prefs::default.
             // Paid opt-in, and up to three vision calls — mirror Prefs::default.
@@ -1705,7 +1704,7 @@ impl AutoShadeApp {
             self.set_before(ctx, &b, &start);
         }
         // A held-still pointer still needs a repaint to receive the result.
-        if self.dirty && !self.develop_inflight {
+        if self.session.dirty && !self.develop_inflight {
             self.start_redevelop();
         }
         if self.develop_inflight {

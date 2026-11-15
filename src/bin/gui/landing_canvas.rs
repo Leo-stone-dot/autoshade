@@ -239,9 +239,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                             s.base = Some(bimg.clone());
                                         }
                                     };
-                                    repoint(&mut self.hist.committed);
-                                    self.hist.undo_stack.iter_mut().for_each(repoint);
-                                    self.hist.redo_stack.iter_mut().for_each(repoint);
+                                    repoint(&mut self.session.hist.committed);
+                                    self.session.hist.undo_stack.iter_mut().for_each(repoint);
+                                    self.session.hist.redo_stack.iter_mut().for_each(repoint);
                                 }
                                 let (bw, bh) = bimg.dimensions();
                                 // Canvas-curve Before, same rule as every
@@ -256,7 +256,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 self.base_preview = Some(bimg.clone());
                             }
                             self.chrome.last_rgb = None; // resolution changed under the frame
-                            self.dirty = true;
+                            self.session.dirty = true;
                             self.status = trf(
                                 lang,
                                 "Preview resolution {px}px — re-decoded",
@@ -439,7 +439,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // The saved develop is the ● baseline; a canvas
                         // stashed when the user navigated away THIS session
                         // outranks it — that stash is their newest work.
-                        self.hist.saved_recipe = recipe.clone();
+                        self.session.hist.saved_recipe = recipe.clone();
                         let mut from_stash = false;
                         // The stash (this session's newest work) outranks
                         // disk WHOLESALE — recipe and pixel identity both:
@@ -447,7 +447,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // was undone) must not resurrect disk pixels.
                         // Disk truth for the per-frame ● comparison —
                         // captured BEFORE the stash override below.
-                        self.hist.pixels_on_disk = baked.as_ref().map(|(_, o, _)| o.clone());
+                        self.session.hist.pixels_on_disk = baked.as_ref().map(|(_, o, _)| o.clone());
                         // A RECORDED master that arrived as None failed to
                         // decode/resolve in the worker (it only eprintln'd
                         // there) — a desktop-launched GUI would otherwise
@@ -723,9 +723,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // canvas against it lit ● on lens_profile
                                 // the instant a clean generated save
                                 // opened.
-                                self.hist.saved_recipe.strip_baked_start();
-                                self.hist.saved_recipe.as_shot_k = None;
-                                self.hist.saved_recipe.as_shot_tint = None;
+                                self.session.hist.saved_recipe.strip_baked_start();
+                                self.session.hist.saved_recipe.as_shot_k = None;
+                                self.session.hist.saved_recipe.as_shot_tint = None;
                             }
                             // Before under the canvas recipe's own curve:
                             // empty for a Generated master (stripped just
@@ -829,7 +829,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 ),
                             );
                         }
-                        self.hist.saved_strip = disk_strip;
+                        self.session.hist.saved_strip = disk_strip;
                         // The strip is settled: each card's "Keep skin
                         // natural" is decided against the edit just read
                         // (`panels/portrait.rs`) — opening never changes
@@ -869,7 +869,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.fit.fit_prompt = None; // …and the question about one
                         // (rationale already restored alongside the recipe)
                         self.refresh_versions(); // version snapshots are per-photo
-                        self.dirty = true; // render the (restored or neutral) after
+                        self.session.dirty = true; // render the (restored or neutral) after
                         self.status = if from_stash {
                             tr(
                                 lang,
@@ -1016,7 +1016,7 @@ pub(crate) fn on_base_redeveloped(
             // asking again on every frame would repeat a develop that
             // has already failed.
             self.open.source_part = part;
-            self.dirty = true;
+            self.session.dirty = true;
             return;
         }
     };
@@ -1038,6 +1038,6 @@ pub(crate) fn on_base_redeveloped(
         self.overlay.overlay_stale = true;
         self.chrome.last_rgb = None;
     }
-    self.dirty = true;
+    self.session.dirty = true;
 }
 }

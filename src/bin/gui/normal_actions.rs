@@ -89,7 +89,7 @@ impl AutoShadeApp {
         self.switch_variant(idx, &ctx);
         if self.active == idx {
             self.recipe = look;
-            self.dirty = true;
+            self.session.dirty = true;
             self.carry_look_history(history);
         }
     }
@@ -99,7 +99,7 @@ impl AutoShadeApp {
     /// look on screen is committed first, so it is the head.
     pub(crate) fn take_look_history(&mut self) -> (Vec<UndoStep>, Vec<UndoStep>) {
         self.commit_now();
-        (self.hist.undo_stack.clone(), self.hist.redo_stack.clone())
+        (self.session.hist.undo_stack.clone(), self.session.hist.redo_stack.clone())
     }
 
     /// …and back, on the card now on screen: every step keeps its look and
@@ -108,9 +108,9 @@ impl AutoShadeApp {
     pub(crate) fn carry_look_history(&mut self, (undo, redo): (Vec<UndoStep>, Vec<UndoStep>)) {
         let here = self.current_step();
         let onto = |s: UndoStep| UndoStep { recipe: s.recipe, base: here.base.clone(), origin: here.origin.clone(), keep_skin: s.keep_skin };
-        self.hist.undo_stack = undo.into_iter().map(onto).collect();
-        self.hist.redo_stack = redo.into_iter().map(onto).collect();
-        self.hist.committed = here;
+        self.session.hist.undo_stack = undo.into_iter().map(onto).collect();
+        self.session.hist.redo_stack = redo.into_iter().map(onto).collect();
+        self.session.hist.committed = here;
     }
 
     /// The noise switch. On: the Retouch panel's own AI denoise

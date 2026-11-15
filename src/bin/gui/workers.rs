@@ -123,7 +123,7 @@ impl AutoShadeApp {
                                 // The export repaired its own COPY: the canvas
                                 // is repaired too, or export and preview stay
                                 // divergent for the rest of the session.
-                                self.dirty = true;
+                                self.session.dirty = true;
                             }
                             let words =
                                 logic::export_landing::single_words(&p, relooked, warn.as_deref());

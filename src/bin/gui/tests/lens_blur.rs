@@ -15,7 +15,7 @@
         assert_eq!(lb.depth_map, depth.display().to_string());
         assert!(app.tools.lens_focus_picking, "a first estimate arms the focus pick");
         assert!(!app.tools.wb_picking, "one canvas tool at a time");
-        assert!(!app.busy && app.dirty);
+        assert!(!app.busy && app.session.dirty);
 
         let chosen = autoshade::render::LensBlur { focus: [0.2, 0.8], amount: 70.0, range: 30.0, ..lb };
         app.recipe.lens_blur = Some(chosen.clone());

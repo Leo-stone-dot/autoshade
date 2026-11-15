@@ -84,7 +84,7 @@ pub(crate) fn on_analyzed(
                     self.rationale_notes = rationale_notes;
                     self.verdict =
                         Some((verdict.decision.clone(), verdict.reasons.clone()));
-                    self.dirty = true;
+                    self.session.dirty = true;
                     self.busy = false;
                     // Persist like the CLI and the web do — the badge,
                     // batch render and reopening all read recipe.json, so

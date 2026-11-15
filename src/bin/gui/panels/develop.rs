@@ -463,7 +463,7 @@ impl AutoShadeApp {
 
         if changed {
             self.recipe.clamp();
-            self.dirty = true;
+            self.session.dirty = true;
         }
     }
 

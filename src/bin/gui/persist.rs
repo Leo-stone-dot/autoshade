@@ -1029,16 +1029,16 @@ impl AutoShadeApp {
         };
         let n = fill_ai_rasters(&mut self.recipe, &resolved);
         let nf = fill_face_intents(&mut self.recipe, &faces);
-        fill(&mut self.hist.saved_recipe);
-        fill(&mut self.hist.committed.recipe);
-        for s in self.hist.undo_stack.iter_mut().chain(self.hist.redo_stack.iter_mut()) {
+        fill(&mut self.session.hist.saved_recipe);
+        fill(&mut self.session.hist.committed.recipe);
+        for s in self.session.hist.undo_stack.iter_mut().chain(self.session.hist.redo_stack.iter_mut()) {
             fill(&mut s.recipe);
         }
         if let Some(v) = self.variants.get_mut(self.active) {
             fill(&mut v.recipe);
         }
         if n + nf > 0 || faces.iter().any(Option::is_none) {
-            self.dirty = true;
+            self.session.dirty = true;
             self.overlay.overlay_stale = true;
         }
         if let Some(why) = res.warning() {
