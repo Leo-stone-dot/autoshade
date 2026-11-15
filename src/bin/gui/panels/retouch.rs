@@ -107,10 +107,10 @@ impl AutoShadeApp {
                         if let Some(g) = gray.as_mut() {
                             stamp_line_gray(g, start, cur, r, gray_v, tip);
                         }
-                        grow(&mut self.mask_dirty_rect, start, cur, r);
+                        grow(&mut self.overlay.mask_dirty_rect, start, cur, r);
                     }
                 }
-                grow(&mut self.mask_dirty_rect, self.paint_last.unwrap_or(cur), cur, r);
+                grow(&mut self.overlay.mask_dirty_rect, self.paint_last.unwrap_or(cur), cur, r);
                 self.paint_last = Some(cur);
             }
         } else {

@@ -154,7 +154,7 @@ impl AutoShadeApp {
         self.paint_mask_changed(None);
         // The whole canvas changed, so a pending sub-rect from an earlier
         // stroke must not turn this into a partial GPU upload (see clear_mask).
-        self.mask_dirty_rect = None;
+        self.overlay.mask_dirty_rect = None;
         wanted.len()
     }
 
@@ -164,7 +164,7 @@ impl AutoShadeApp {
     /// leave it unknown. Texture uploads clear mask_dirty, never this memo.
     pub(crate) fn paint_mask_changed(&mut self, painted: Option<bool>) {
         self.mask_painted.set(painted);
-        self.mask_dirty = true;
+        self.overlay.mask_dirty = true;
     }
 
     /// Same alpha threshold as export. Scan at most once per unknown change,
@@ -175,7 +175,7 @@ impl AutoShadeApp {
         }
         let painted = self.mask_paint.as_ref().is_some_and(|m| {
             #[cfg(test)]
-            self.mask_presence_scans.set(self.mask_presence_scans.get() + 1);
+            self.overlay.mask_presence_scans.set(self.overlay.mask_presence_scans.get() + 1);
             m.pixels().any(|p| p[3] > 10)
         });
         self.mask_painted.set(Some(painted));
@@ -201,7 +201,7 @@ impl AutoShadeApp {
             // uncommitted stroke would make ensure_mask_tex's partial-upload
             // fast path re-upload only that rectangle, leaving previously
             // painted pixels alive in the GPU texture indefinitely.
-            self.mask_dirty_rect = None;
+            self.overlay.mask_dirty_rect = None;
         }
         // The display canvas and the greyscale weight buffer are a
         // DUAL-WRITE pair (the brush writes both; Apply bakes the GRAY) —
@@ -241,7 +241,7 @@ impl AutoShadeApp {
         self.mask_paint = Some(canvas);
         self.paint_mask_changed(painted);
         // The whole canvas changed (see clear_mask on the pending sub-rect).
-        self.mask_dirty_rect = None;
+        self.overlay.mask_dirty_rect = None;
         self.paint_last = None;
         self.paint_owner = owner;
     }
@@ -263,7 +263,7 @@ impl AutoShadeApp {
             let painted = a.painted.get();
             self.mask_paint = Some(a.canvas);
             self.paint_mask_changed(painted);
-            self.mask_dirty_rect = None;
+            self.overlay.mask_dirty_rect = None;
             self.paint_last = None;
         }
     }
@@ -333,7 +333,7 @@ impl AutoShadeApp {
                 return p;
             }
             #[cfg(test)]
-            self.mask_presence_scans.set(self.mask_presence_scans.get() + 1);
+            self.overlay.mask_presence_scans.set(self.overlay.mask_presence_scans.get() + 1);
             let p = a.canvas.pixels().any(|px| px[3] > 10);
             a.painted.set(Some(p));
             p
@@ -403,7 +403,7 @@ impl AutoShadeApp {
         }
         self.mask_paint = Some(canvas);
         self.paint_mask_changed(None);
-        self.mask_dirty_rect = None;
+        self.overlay.mask_dirty_rect = None;
         self.mask_brush_gray = Some(gray);
         self.mask_brush = Some((target, false));
         self.paint_mode = true;
@@ -482,7 +482,7 @@ impl AutoShadeApp {
                 }
                 self.sel_component = None;
                 self.dirty = true;
-                self.overlay_stale = true;
+                self.overlay.overlay_stale = true;
                 self.disarm_tools(); // ends the session and clears the canvas
             }
             Err(e) => {
@@ -540,7 +540,7 @@ impl AutoShadeApp {
                     *slot = p.to_string_lossy().into_owned();
                 }
                 self.dirty = true;
-                self.overlay_stale = true;
+                self.overlay.overlay_stale = true;
                 self.status =
                     tr(lang, "mask raster updated — its adjustments now apply to the edited area")
                         .into();

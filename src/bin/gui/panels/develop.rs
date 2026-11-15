@@ -1706,7 +1706,7 @@ impl AutoShadeApp {
                         }
                     });
                     if pch {
-                        self.overlay_stale = true;
+                        self.overlay.overlay_stale = true;
                         changed = true;
                     }
                     ui.add_space(SPACE_MD);
@@ -2322,14 +2322,14 @@ impl AutoShadeApp {
                             ));
                         }
                         if row.hovered() {
-                            self.hover_mask = Some(i);
+                            self.overlay.hover_mask = Some(i);
                         }
                         if row.clicked() {
                             self.sel_mask =
                                 if self.sel_mask == Some(i) { None } else { Some(i) };
                             // Component selection belongs to ONE mask's list.
                             self.sel_component = None;
-                            self.overlay_stale = true; // coverage follows the selection
+                            self.overlay.overlay_stale = true; // coverage follows the selection
                             // EVERY index-armed tool follows the selection —
                             // the colour sampler was fixed first, then the
                             // same class recurred for ↻ Redraw /
@@ -2387,14 +2387,14 @@ impl AutoShadeApp {
                 let m = self.recipe.masks.remove(from);
                 self.recipe.masks.insert(to, m);
                 self.remap_mask_indices(|s| Some(remap(s)));
-                self.overlay_stale = true;
+                self.overlay.overlay_stale = true;
                 changed = true;
             }
             if let Some(i) = toggle_eye {
                 // A recipe mutation like any slider: develop + overlay follow,
                 // and commit_if_settled makes it one undo step.
                 self.recipe.masks[i].enabled = !self.recipe.masks[i].enabled;
-                self.overlay_stale = true;
+                self.overlay.overlay_stale = true;
                 changed = true;
             }
             if let Some(i) = delete {
@@ -2408,7 +2408,7 @@ impl AutoShadeApp {
                         Some(s)
                     }
                 });
-                self.overlay_stale = true;
+                self.overlay.overlay_stale = true;
                 changed = true;
             }
             // R33 §G. The colour field, in the Masks section because that is
@@ -2625,7 +2625,7 @@ impl AutoShadeApp {
                     // control (was silently discarded: the toggle mutated the
                     // recipe but never re-rendered until an unrelated edit).
                     if ui.checkbox(&mut self.recipe.masks[i].inverted, tr(lang, "Invert")).changed() {
-                        self.overlay_stale = true;
+                        self.overlay.overlay_stale = true;
                         changed = true;
                     }
                     // ONE view switch, not a property of this row (R22 #16): it
@@ -2639,11 +2639,11 @@ impl AutoShadeApp {
                     // label now says what it is, in the same words the F1 sheet
                     // uses for the O key ("Toggle mask overlay").
                     if ui
-                        .checkbox(&mut self.show_mask_overlay, tr(lang, "Show mask overlay"))
+                        .checkbox(&mut self.overlay.show_mask_overlay, tr(lang, "Show mask overlay"))
                         .on_hover_text(tr(lang, "One view switch shared by every mask (shortcut O): shows the hovered-or-selected mask's actual coverage as a red semi-transparent overlay (geometry × range × strength)"))
                         .changed()
                     {
-                        self.overlay_stale = true;
+                        self.overlay.overlay_stale = true;
                     }
                 });
                 // Radial geometry: edge feather (shown 0..100, LR's track) +
@@ -2685,7 +2685,7 @@ impl AutoShadeApp {
                         0.0,
                     );
                     if geo_ch {
-                        self.overlay_stale = true;
+                        self.overlay.overlay_stale = true;
                         changed = true;
                     }
                 }
@@ -2870,11 +2870,11 @@ impl AutoShadeApp {
                                 });
                             if mode != comp.mode {
                                 self.recipe.masks[i].components[c].mode = mode;
-                                self.overlay_stale = true;
+                                self.overlay.overlay_stale = true;
                                 changed = true;
                             }
                             if ui.checkbox(&mut self.recipe.masks[i].components[c].inverted, tr(lang, "Invert")).changed() {
-                                self.overlay_stale = true;
+                                self.overlay.overlay_stale = true;
                                 changed = true;
                             }
                             if glyph(ui, true, "🗑").clicked() {
@@ -2889,7 +2889,7 @@ impl AutoShadeApp {
                             Some(s) if s > c => Some(s - 1),
                             other => other,
                         };
-                        self.overlay_stale = true;
+                        self.overlay.overlay_stale = true;
                         changed = true;
                     }
                     if n_comp > 0 {
@@ -3016,7 +3016,7 @@ impl AutoShadeApp {
                 // over-flagging is free. The tone sliders below are not
                 // coverage and deliberately stay out.
                 if changed {
-                    self.overlay_stale = true;
+                    self.overlay.overlay_stale = true;
                 }
                 // Lightroom's own three groups for a mask's adjustments (user
                 // decision 8 of the 17-feedback triage): Tone / Detail /

@@ -284,12 +284,11 @@ pub(crate) struct AutoShadeApp {
     // Decoded-base LRU (recent last): base pixels + the photo's base-look knots.
     pub(crate) base_cache: Vec<(BaseCacheKey, OpenedBase)>,
     // --- region box-select (local-edit target on the After image) ---
-    pub(crate) region: Option<[f32; 4]>,                      // normalized [left, top, right, bottom]
-    pub(crate) region_drag: Option<(egui::Pos2, egui::Pos2)>, // transient drag (start, current) in screen px
+    /// The coverage overlay and the AI region; see [`OverlayState`].
+    pub(crate) overlay: OverlayState,
     // What a lone click just cleared, kept for one double-click window: the
     // second release of a Fit↔1:1 double-click restores it — the pair's
     // FIRST release already ran the plain-click clear (M18).
-    pub(crate) region_restore: Option<([f32; 4], Instant)>,
     // --- retouch: mask painting + generative fill + heal ---
     pub(crate) paint_mode: bool,                      // brush-paint a mask (pauses box-select)
     pub(crate) brush: f32,                            // brush radius in After-image display px
@@ -304,22 +303,15 @@ pub(crate) struct AutoShadeApp {
     /// wait in `paint_store`, by `BrushOwner::slot` (None = blank).
     pub(crate) paint_owner: BrushOwner,
     pub(crate) paint_store: [Option<PaintArea>; BrushOwner::COUNT],
-    #[cfg(test)]
-    pub(crate) mask_presence_scans: std::cell::Cell<usize>,
-    pub(crate) mask_tex: Option<egui::TextureHandle>, // overlay texture
-    pub(crate) mask_dirty: bool,                      // re-upload the overlay
     // (straighten, distortion, (profile distortion, profile CA), (ca_r, ca_b)) at build.
     // The manual CA pair is part of the KEY, not just of the composed profile
     // it feeds: the two bools say whether CA is on, never how far, so moving
     // ca_r from +5 to +50 compared equal and the overlay kept the old warp
     // (the L13-9 defect, one field over).
-    pub(crate) mask_tex_xform: (f32, f32, (bool, bool), (f32, f32)),
     // Union of the brush segments painted since the last texture upload
     // (canvas px, [x0,y0,x1,y1] half-open). With no geometry active, only
     // this sub-rectangle is uploaded (set_partial) — brushing used to clone
     // + re-upload the WHOLE canvas on every pointer move.
-    pub(crate) mask_dirty_rect: Option<[u32; 4]>,
-    pub(crate) mask_tex_built: Instant, // last full rebuild — throttles mid-stroke geometry remaps
     pub(crate) paint_last: Option<(f32, f32)>,        // last brush point in mask px (line fill)
     /// A LOCAL-ADJUSTMENT brush session rides the same paint canvas as
     /// fill/heal: `(target, erase)` — target `None` = the strokes become a
@@ -349,16 +341,9 @@ pub(crate) struct AutoShadeApp {
     pub(crate) histogram: Option<Vec<[f32; 4]>>,      // live RGB+luma histogram of the After preview
     pub(crate) last_title: String,                    // window title cache (send only on change)
     // --- diagnostic view layers (UX batch) ---
-    pub(crate) show_mask_overlay: bool,               // translucent red coverage of the selected mask (O)
-    pub(crate) mask_overlay_tex: Option<egui::TextureHandle>,
-    pub(crate) overlay_stale: bool,                   // check/rebuild coverage next frame
-    pub(crate) overlay_key: Option<OverlayKey>,       // skips work when coverage is unchanged
-    pub(crate) hover_mask: Option<usize>,             // mask row under the cursor — previews its coverage
     // Cached masks-cleared develop the coverage's range weights are judged
     // on — reused while the global (non-mask) recipe is unchanged, so a
     // mask-slider drag rebuilds only the coverage map, not a second develop.
-    pub(crate) overlay_ref: Option<(EditRecipe, image::DynamicImage)>,
-    pub(crate) overlay_build_count: u64,              // actual coverage rebuilds (tests/diagnostics)
     pub(crate) show_clipping: bool,                   // clipping warnings: red blown / blue crushed (J)
     pub(crate) last_rgb: Option<image::RgbImage>,     // last accepted frame's pixels (instant clip toggle)
     pub(crate) clip_tex: Option<egui::TextureHandle>,
@@ -940,20 +925,20 @@ impl AutoShadeApp {
             // editor exit) — the transient windows own their Esc in the
             // pre-tier above; painted canvases/samples stay for resuming.
             if do_escape
-                && (self.tool_armed() || self.region_drag.is_some() || self.before_latch)
+                && (self.tool_armed() || self.overlay.region_drag.is_some() || self.before_latch)
             {
                 // disarm_tools also kills the transient gesture anchors — a
                 // grab or stroke surviving Esc used to hijack the next drag.
                 // The \-latched Before view exits here too: it locks every
                 // tool out, and Esc is the universal way back (M21).
                 self.disarm_tools();
-                self.region_drag = None;
+                self.overlay.region_drag = None;
                 self.before_latch = false;
                 self.status = tr(self.lang, "Exited the current tool (Esc)").into();
             }
             if do_overlay {
-                self.show_mask_overlay = !self.show_mask_overlay;
-                self.overlay_stale = true;
+                self.overlay.show_mask_overlay = !self.overlay.show_mask_overlay;
+                self.overlay.overlay_stale = true;
             }
             if do_clip {
                 // Instant: rebuilt from the retained frame, no redevelop (J).
@@ -1180,7 +1165,7 @@ impl AutoShadeApp {
                         let start: autoshade::pipeline::CanvasStart = start;
                         start.stamp(&mut fresh);
                         self.recipe = fresh;
-                        self.region = None;
+                        self.overlay.region = None;
                         self.dirty = true;
                         // The old AI rationale/verdict describe the recipe Reset
                         // just discarded — showing them under neutral sliders lies.
@@ -1805,9 +1790,7 @@ impl Default for AutoShadeApp {
             before_start: EditRecipe::default(),
             confirm_quit: false,
             mask_name_buf: None,
-            region: None,
-            region_drag: None,
-            region_restore: None,
+            overlay: OverlayState::default(),
             paint_mode: false,
             brush: 30.0,
             brush_resized_at: None,
@@ -1817,13 +1800,6 @@ impl Default for AutoShadeApp {
             mask_painted: std::cell::Cell::new(None),
             paint_owner: BrushOwner::Fill,
             paint_store: Default::default(),
-            #[cfg(test)]
-            mask_presence_scans: std::cell::Cell::new(0),
-            mask_tex: None,
-            mask_dirty_rect: None,
-            mask_tex_built: Instant::now(),
-            mask_dirty: false,
-            mask_tex_xform: (0.0, 0.0, (false, false), (0.0, 0.0)),
             paint_last: None,
             fill_prompt: String::new(),
             fill_quality: 0,
@@ -1943,13 +1919,6 @@ impl Default for AutoShadeApp {
             versions_current_only: false,
             variant_name_buf: None,
             variant_delete_confirm: None,
-            show_mask_overlay: true,
-            mask_overlay_tex: None,
-            overlay_stale: false,
-            overlay_key: None,
-            overlay_ref: None,
-            overlay_build_count: 0,
-            hover_mask: None,
             show_clipping: false,
             last_rgb: None,
             clip_tex: None,
@@ -2050,7 +2019,7 @@ impl AutoShadeApp {
         // Hover-to-preview is frame-scoped: take last frame's target; the mask
         // list re-sets it below if the cursor is still on a row. The diff is
         // checked right before the overlay refresh at the end of update().
-        let hover_prev = self.hover_mask.take();
+        let hover_prev = self.overlay.hover_mask.take();
         // The question a generation landing asks: BEFORE the shortcut tiers,
         // so its Esc / Enter are its own; never under the quit layer, which
         // outranks it.
@@ -2109,10 +2078,10 @@ impl AutoShadeApp {
         }
         // The mask coverage overlay follows develop / selection / toggle /
         // hover (a changed hover target includes "left the list entirely").
-        if self.hover_mask != hover_prev {
-            self.overlay_stale = true;
+        if self.overlay.hover_mask != hover_prev {
+            self.overlay.overlay_stale = true;
         }
-        if std::mem::take(&mut self.overlay_stale) {
+        if std::mem::take(&mut self.overlay.overlay_stale) {
             self.refresh_mask_overlay(ctx);
         }
 

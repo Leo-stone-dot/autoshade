@@ -165,7 +165,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
             self.portrait.found = Some((found.photo.clone(), faces_n));
         }
         self.portrait.line = PortraitLine::Found { faces: faces_n, failed: failed.clone() };
-        self.overlay_stale = true;
+        self.overlay.overlay_stale = true;
         self.dirty = true;
         self.status = self.portrait_line_text(lang);
         if let Some(why) = failed {

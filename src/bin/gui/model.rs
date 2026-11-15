@@ -483,6 +483,54 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The mask-coverage overlay and the box-selected AI region: the texture, its
+/// rebuild key/throttle, the dirty sub-rect, the shown switch, the hovered row
+/// and the cached range reference, plus the region gesture. Extracted from
+/// `AutoShadeApp` so canvas-overlay work does not add fields to the app struct.
+pub(crate) struct OverlayState {
+    pub(crate) region: Option<[f32; 4]>,
+    pub(crate) region_drag: Option<(egui::Pos2, egui::Pos2)>,
+    pub(crate) region_restore: Option<([f32; 4], Instant)>,
+    #[cfg(test)]
+    pub(crate) mask_presence_scans: std::cell::Cell<usize>,
+    pub(crate) mask_tex: Option<egui::TextureHandle>,
+    pub(crate) mask_dirty: bool,
+    pub(crate) mask_tex_xform: (f32, f32, (bool, bool), (f32, f32)),
+    pub(crate) mask_dirty_rect: Option<[u32; 4]>,
+    pub(crate) mask_tex_built: Instant,
+    pub(crate) show_mask_overlay: bool,
+    pub(crate) mask_overlay_tex: Option<egui::TextureHandle>,
+    pub(crate) overlay_stale: bool,
+    pub(crate) overlay_key: Option<OverlayKey>,
+    pub(crate) hover_mask: Option<usize>,
+    pub(crate) overlay_ref: Option<(EditRecipe, image::DynamicImage)>,
+    pub(crate) overlay_build_count: u64,
+}
+
+impl Default for OverlayState {
+    fn default() -> Self {
+        Self {
+            region: None,
+            region_drag: None,
+            region_restore: None,
+            #[cfg(test)]
+            mask_presence_scans: std::cell::Cell::new(0),
+            mask_tex: None,
+            mask_dirty: false,
+            mask_tex_xform: (0.0, 0.0, (false, false), (0.0, 0.0)),
+            mask_dirty_rect: None,
+            mask_tex_built: Instant::now(),
+            show_mask_overlay: true,
+            mask_overlay_tex: None,
+            overlay_stale: false,
+            overlay_key: None,
+            hover_mask: None,
+            overlay_ref: None,
+            overlay_build_count: 0,
+        }
+    }
+}
+
 /// The undo history and the ●-baseline mirror: the two stacks, the committed
 /// step, and the recipe/strip/pixel-link the store last holds for the open
 /// card. Extracted from `AutoShadeApp` so history features do not add fields

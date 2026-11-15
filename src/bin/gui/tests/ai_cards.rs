@@ -459,7 +459,7 @@
             for _ in 0..5 {
                 // A texture upload consumes this flag; it must not consume
                 // or invalidate the independent paint-presence memo.
-                app.mask_dirty = false;
+                app.overlay.mask_dirty = false;
                 text = draw_adjust_frame(app, ctx);
             }
             let region = "painted area only";
@@ -486,13 +486,13 @@
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             five_frames(&mut app, &ctx, false, "an empty brush reads the whole image");
-            assert!(app.mask_presence_scans.get() <= 1, "five empty frames may scan only once");
-            let empty_scans = app.mask_presence_scans.get();
+            assert!(app.overlay.mask_presence_scans.get() <= 1, "five empty frames may scan only once");
+            let empty_scans = app.overlay.mask_presence_scans.get();
 
             stroke(&mut app, drag);
             assert!(app.mask_paint.as_ref().unwrap().pixels().any(|p| p[3] > 10), "the real brush added paint");
             five_frames(&mut app, &ctx, true, "a brush stroke limits the adjust to the painted area");
-            assert_eq!(app.mask_presence_scans.get(), empty_scans, "adding paint needs no presence scan");
+            assert_eq!(app.overlay.mask_presence_scans.get(), empty_scans, "adding paint needs no presence scan");
             assert!(app.export_area_png(BrushOwner::Adjust).is_some());
 
             // 「Clear area」 is the fold's eraser (the retouch brushes have no
@@ -500,21 +500,21 @@
             app.clear_area(BrushOwner::Adjust);
             assert!(app.mask_paint.as_ref().unwrap().pixels().all(|p| p[3] <= 10), "clearing removed every stroke");
             five_frames(&mut app, &ctx, false, "clearing the area must return the adjust fold to whole image");
-            assert_eq!(app.mask_presence_scans.get(), empty_scans, "a cleared area needs no scan");
+            assert_eq!(app.overlay.mask_presence_scans.get(), empty_scans, "a cleared area needs no scan");
             assert!(app.export_area_png(BrushOwner::Adjust).is_none());
 
             stroke(&mut app, drag);
             assert!(app.has_painted_mask());
-            let before_switch = app.mask_presence_scans.get();
+            let before_switch = app.overlay.mask_presence_scans.get();
             app.switch_variant(1, &ctx);
             assert_eq!(app.active, 1);
             five_frames(&mut app, &ctx, false, "a fresh card starts with an empty brush");
-            assert_eq!(app.mask_presence_scans.get(), before_switch, "a fresh card needs zero scans");
+            assert_eq!(app.overlay.mask_presence_scans.get(), before_switch, "a fresh card needs zero scans");
 
             // The other plate-replacement door is also known empty.
             app.rebind_paint_canvas(1024, 768);
             five_frames(&mut app, &ctx, false, "a rebound canvas starts empty");
-            assert_eq!(app.mask_presence_scans.get(), before_switch, "rebinding needs zero scans");
+            assert_eq!(app.overlay.mask_presence_scans.get(), before_switch, "rebinding needs zero scans");
         }
     }
 
@@ -549,7 +549,7 @@
         walk_rs(&root, &mut sources);
         assert!(sources.len() >= 6, "expected the split GUI module tree");
         let replace = concat!("self.", "mask_paint = Some(");
-        let dirty = concat!("self.", "mask_dirty = true");
+        let dirty = concat!("self.", "overlay.mask_dirty = true");
         let mutations = [replace, dirty, concat!("self.", "mask_paint.as_mut()"), concat!("&mut self.", "mask_paint")];
         let mut found: std::collections::BTreeMap<String, usize> = Default::default();
         for path in sources {

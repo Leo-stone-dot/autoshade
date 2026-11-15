@@ -218,26 +218,26 @@ impl AutoShadeApp {
     /// reference recipe (earlier masks applied — the engine's own stacking
     /// rule) because their coverage genuinely depends on pixels.
     pub(crate) fn refresh_mask_overlay(&mut self, ctx: &egui::Context) {
-        if !self.show_mask_overlay {
-            self.mask_overlay_tex = None;
-            self.overlay_key = None;
+        if !self.overlay.show_mask_overlay {
+            self.overlay.mask_overlay_tex = None;
+            self.overlay.overlay_key = None;
             return;
         }
         // A handle, not a borrow of `self`: the range reference below asks
         // `self.film_short_edge()`, which caches into `self`.
         let Some(base) = self.base_preview.clone() else {
-            self.mask_overlay_tex = None;
-            self.overlay_key = None;
+            self.overlay.mask_overlay_tex = None;
+            self.overlay.overlay_key = None;
             return;
         };
         // A hovered row previews its coverage; otherwise use the selection.
         let target = self
-            .hover_mask
+            .overlay.hover_mask
             .filter(|&i| i < self.recipe.masks.len())
             .or_else(|| self.sel_mask.filter(|&i| i < self.recipe.masks.len()));
         let Some(i) = target else {
-            self.mask_overlay_tex = None;
-            self.overlay_key = None;
+            self.overlay.mask_overlay_tex = None;
+            self.overlay.overlay_key = None;
             return;
         };
         let mask = self.recipe.masks[i].clone();
@@ -263,7 +263,7 @@ impl AutoShadeApp {
             profile_ca_on: lp.ca_on && !lp.ca_r.is_empty() && !lp.ca_b.is_empty(),
             manual_ca: (self.recipe.ca_r, self.recipe.ca_b),
         };
-        if self.overlay_key.as_ref() == Some(&key) && self.mask_overlay_tex.is_some() {
+        if self.overlay.overlay_key.as_ref() == Some(&key) && self.overlay.mask_overlay_tex.is_some() {
             return;
         }
 
@@ -279,7 +279,7 @@ impl AutoShadeApp {
         // wrong overlay is worse than a slow one. Keyed multi-slot caching is
         // the fix and is recorded in the roadmap, not smuggled in here.
         let reference: &image::DynamicImage = if mask.range.is_some() {
-            if !matches!(&self.overlay_ref, Some((r, _)) if *r == pre) {
+            if !matches!(&self.overlay.overlay_ref, Some((r, _)) if *r == pre) {
                 // Rebuilding the masks-cleared reference is a full develop on
                 // the UI thread — the 100-300 ms class (2560/4096) the async
                 // preview path exists to hide. Mid-gesture (global-slider
@@ -287,7 +287,7 @@ impl AutoShadeApp {
                 // stale flag; the rebuild lands on the frame after the pointer
                 // settles. Geometry-only masks (the else arm) stay instant.
                 if ctx.input(|i| i.pointer.any_down()) {
-                    self.overlay_stale = true;
+                    self.overlay.overlay_stale = true;
                     return;
                 }
                 // No downstream geometry, explicitly: this reference exists to
@@ -306,9 +306,9 @@ impl AutoShadeApp {
                     film,
                     raw_source,
                 );
-                self.overlay_ref = Some((pre, img));
+                self.overlay.overlay_ref = Some((pre, img));
             }
-            &self.overlay_ref.as_ref().expect("range reference cached").1
+            &self.overlay.overlay_ref.as_ref().expect("range reference cached").1
         } else {
             base.as_ref()
         };
@@ -360,14 +360,14 @@ impl AutoShadeApp {
                 .copy_from_slice(&[255, 40, 40, (p[0] as u16 * 140 / 255) as u8]);
         }
         let colour = egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba);
-        if let Some(tex) = &mut self.mask_overlay_tex {
+        if let Some(tex) = &mut self.overlay.mask_overlay_tex {
             tex.set(colour, egui::TextureOptions::LINEAR);
         } else {
-            self.mask_overlay_tex =
+            self.overlay.mask_overlay_tex =
                 Some(ctx.load_texture("mask_overlay", colour, egui::TextureOptions::LINEAR));
         }
-        self.overlay_key = Some(key);
-        self.overlay_build_count += 1;
+        self.overlay.overlay_key = Some(key);
+        self.overlay.overlay_build_count += 1;
     }
 
     /// The geometric mapping context every interaction boundary needs:
@@ -645,7 +645,7 @@ impl AutoShadeApp {
             if let Some(t) = &self.clip_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
-            if let Some(t) = &self.mask_overlay_tex {
+            if let Some(t) = &self.overlay.mask_overlay_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
         }
@@ -696,10 +696,10 @@ impl AutoShadeApp {
             // plain-click path — a double-click means "toggle zoom", so put
             // it back. Bounded window: a much later double-click elsewhere
             // must not resurrect a long-cleared region (M18).
-            if let Some((r, t)) = self.region_restore.take()
+            if let Some((r, t)) = self.overlay.region_restore.take()
                 && t.elapsed() < Duration::from_millis(600)
             {
-                self.region = Some(r);
+                self.overlay.region = Some(r);
             }
         }
 
@@ -732,7 +732,7 @@ impl AutoShadeApp {
             && !tool_active
             && !ctrl
             && !over_knob
-            && self.region_drag.is_none();
+            && self.overlay.region_drag.is_none();
         let panning = resp.dragged_by(egui::PointerButton::Middle)
             || ((space || zoom_pan) && resp.dragged_by(egui::PointerButton::Primary));
         if panning {
@@ -781,7 +781,7 @@ impl AutoShadeApp {
         } else if self.clone_mode {
             self.handle_clone(ui, &resp, xf);
             self.ensure_mask_tex(ui.ctx());
-            if let Some(t) = &self.mask_tex {
+            if let Some(t) = &self.overlay.mask_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
             // Alt is the source pick, with its own crosshair.
@@ -791,7 +791,7 @@ impl AutoShadeApp {
         } else if self.paint_mode {
             self.handle_paint(&resp, xf);
             self.ensure_mask_tex(ui.ctx());
-            if let Some(t) = &self.mask_tex {
+            if let Some(t) = &self.overlay.mask_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
             self.draw_brush_cursor(ui, &resp, rect);
@@ -815,9 +815,9 @@ impl AutoShadeApp {
                 ui.painter().rect_filled(r, 0.0, fill);
                 ui.painter().rect_stroke(r, 0.0, stroke, egui::StrokeKind::Middle);
             };
-            if let Some((s, e)) = self.region_drag {
+            if let Some((s, e)) = self.overlay.region_drag {
                 draw(egui::Rect::from_two_pos(s, e).intersect(rect));
-            } else if let Some([l, t, rr, bb]) = self.region {
+            } else if let Some([l, t, rr, bb]) = self.overlay.region {
                 // Stored in the original frame → back into the transformed view.
                 let ((bw, bh), deg, dist) = self.geom_ctx();
                 let a = orig_norm_to_view(l, t, (bw, bh), deg, &dist);
@@ -1013,7 +1013,7 @@ impl AutoShadeApp {
             // A masks-CLEARED reference judged mask 2's range on pixels mask
             // 0/1 had already moved (CX5-6).
             let pre = self.range_reference_recipe(mi);
-            if !matches!(&self.overlay_ref, Some((r, _)) if *r == pre) {
+            if !matches!(&self.overlay.overlay_ref, Some((r, _)) if *r == pre) {
                 // The explicit no-downstream frame and film edge for the same
                 // reasons as the overlay build above, and they must MATCH it —
                 // they share cache.
@@ -1028,10 +1028,10 @@ impl AutoShadeApp {
                     film,
                     raw_source,
                 );
-                self.overlay_ref = Some((pre, img));
+                self.overlay.overlay_ref = Some((pre, img));
             }
             let (bx, by) = self.orig_to_base_norm((nx, ny));
-            let reference = &self.overlay_ref.as_ref().expect("range reference cached").1;
+            let reference = &self.overlay.overlay_ref.as_ref().expect("range reference cached").1;
             let Some(smp) = sample_5x5_mean(reference, bx, by) else { return };
             smp
         };
@@ -1099,7 +1099,7 @@ impl AutoShadeApp {
     /// priority (else its live rectangle would freeze mid-air whenever the
     /// pointer crossed a knob).
     pub(crate) fn handle_mask_edit(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) -> bool {
-        if self.region_drag.is_some() {
+        if self.overlay.region_drag.is_some() {
             return false;
         }
         let Some(target_geom) = self.sel_target_geometry().cloned() else {
@@ -1168,7 +1168,7 @@ impl AutoShadeApp {
             self.mask_drag = Some((h, cur));
             // Masks are develop stages: the preview follows every drag frame.
             self.dirty = true;
-            self.overlay_stale = true;
+            self.overlay.overlay_stale = true;
         }
         if resp.drag_stopped() {
             self.mask_drag = None; // commit_if_settled turns the drag into ONE undo step
@@ -1194,14 +1194,14 @@ impl AutoShadeApp {
                 // shaved that lead-in off every box (small fast selections
                 // could then die to the 0.02 minimum below).
                 let s = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
-                self.region_drag = Some((s, p));
+                self.overlay.region_drag = Some((s, p));
             }
         } else if resp.dragged() {
-            if let (Some(p), Some((s, _))) = (resp.interact_pointer_pos(), self.region_drag) {
-                self.region_drag = Some((s, p));
+            if let (Some(p), Some((s, _))) = (resp.interact_pointer_pos(), self.overlay.region_drag) {
+                self.overlay.region_drag = Some((s, p));
             }
         } else if resp.drag_stopped() {
-            if let Some((s, e)) = self.region_drag.take() {
+            if let Some((s, e)) = self.overlay.region_drag.take() {
                 // The region feeds the AI's mask prompt — ORIGINAL frame space.
                 // ALL FOUR corners map (the same policy as serve's
                 // region_to_original): under rotation/distortion the two
@@ -1230,7 +1230,7 @@ impl AutoShadeApp {
             // earlier in this same frame — so without this the restore was
             // taken straight back out and the double-click still ate the
             // region. The fix was inert until this line existed.
-            self.region_restore = self.region.take().map(|r| (r, Instant::now()));
+            self.overlay.region_restore = self.overlay.region.take().map(|r| (r, Instant::now()));
         }
         // (Drawing lives in after_view so the box shows under every tool —
         // this handler only owns the gesture.)
@@ -1588,7 +1588,7 @@ impl AutoShadeApp {
             self.run_effects(committed.effects);
             self.placing_mask = None;
             self.place_start = None;
-            self.overlay_stale = true;
+            self.overlay.overlay_stale = true;
         }
     }
 
@@ -1622,17 +1622,17 @@ impl AutoShadeApp {
         // manual CA pair in R25 B3, and it is compared in four places).
         const IDENTITY_XFORM: (f32, f32, (bool, bool), (f32, f32)) =
             (0.0, 0.0, (false, false), (0.0, 0.0));
-        let stale_xform = self.mask_tex.is_some() && self.mask_tex_xform != xform_now;
-        if self.mask_dirty || stale_xform {
+        let stale_xform = self.overlay.mask_tex.is_some() && self.overlay.mask_tex_xform != xform_now;
+        if self.overlay.mask_dirty || stale_xform {
             // Fast path (the common no-geometry case): the change since the
             // last upload is a known brush rect — upload ONLY that
             // sub-rectangle. Brushing used to clone and re-upload the WHOLE
             // canvas on every pointer move (at an 8192 working preview that
             // is a ~270 MB round trip per frame).
-            if xform_now == IDENTITY_XFORM && !stale_xform && self.mask_dirty {
-                let rect = self.mask_dirty_rect;
+            if xform_now == IDENTITY_XFORM && !stale_xform && self.overlay.mask_dirty {
+                let rect = self.overlay.mask_dirty_rect;
                 if let (Some(m), Some(tex), Some([x0, y0, x1, y1])) =
-                    (&self.mask_paint, &mut self.mask_tex, rect)
+                    (&self.mask_paint, &mut self.overlay.mask_tex, rect)
                     && tex.size() == [m.width() as usize, m.height() as usize]
                     && x1 > x0
                     && y1 > y0
@@ -1650,8 +1650,8 @@ impl AutoShadeApp {
                         egui::ColorImage::from_rgba_unmultiplied([w, h], &sub),
                         egui::TextureOptions::LINEAR,
                     );
-                    self.mask_dirty_rect = None;
-                    self.mask_dirty = false;
+                    self.overlay.mask_dirty_rect = None;
+                    self.overlay.mask_dirty = false;
                     return;
                 }
             }
@@ -1661,9 +1661,9 @@ impl AutoShadeApp {
             // pointer is no longer down).
             if !stale_xform
                 && xform_now != IDENTITY_XFORM
-                && self.mask_tex.is_some()
+                && self.overlay.mask_tex.is_some()
                 && ctx.input(|i| i.pointer.any_down())
-                && self.mask_tex_built.elapsed() < std::time::Duration::from_millis(120)
+                && self.overlay.mask_tex_built.elapsed() < std::time::Duration::from_millis(120)
             {
                 return; // mask_dirty stays armed; retried next frame
             }
@@ -1702,17 +1702,17 @@ impl AutoShadeApp {
                 // move, and a fresh texture per frame is the allocate/free
                 // churn finish_redevelop documents avoiding (set() re-uploads,
                 // size changes included).
-                if let Some(tex) = &mut self.mask_tex {
+                if let Some(tex) = &mut self.overlay.mask_tex {
                     tex.set(ci, egui::TextureOptions::LINEAR);
                 } else {
-                    self.mask_tex =
+                    self.overlay.mask_tex =
                         Some(ctx.load_texture("paintmask", ci, egui::TextureOptions::LINEAR));
                 }
-                self.mask_tex_xform = xform_now;
-                self.mask_tex_built = Instant::now();
+                self.overlay.mask_tex_xform = xform_now;
+                self.overlay.mask_tex_built = Instant::now();
             }
-            self.mask_dirty_rect = None; // full upload covered everything pending
-            self.mask_dirty = false;
+            self.overlay.mask_dirty_rect = None; // full upload covered everything pending
+            self.overlay.mask_dirty = false;
         }
     }
 }

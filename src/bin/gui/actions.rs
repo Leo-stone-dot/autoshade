@@ -1152,13 +1152,13 @@ impl AutoShadeApp {
             self.paint_mask_changed(Some(false));
             // Every tool's area is per card, like the canvas itself.
             self.paint_store = Default::default();
-            self.mask_tex = None;
-            self.mask_dirty = false;
+            self.overlay.mask_tex = None;
+            self.overlay.mask_dirty = false;
             self.paint_last = None;
         }
         self.reset_history(); // you can't undo across variants
-        self.region = None;
-        self.region_drag = None;
+        self.overlay.region = None;
+        self.overlay.region_drag = None;
         self.sel_mask = None;
         self.sel_component = None;
         // Same boundary rule as open_path: the rename buffer belongs to the
@@ -1168,8 +1168,8 @@ impl AutoShadeApp {
         // the user has just moved away from (R24-4).
         self.mask_name_buf = None;
         self.variant_delete_confirm = None;
-        self.overlay_ref = None;
-        self.overlay_stale = true;
+        self.overlay.overlay_ref = None;
+        self.overlay.overlay_stale = true;
         self.last_rgb = None; // the retained frame belongs to the OLD variant
         // …and so does the After texture (L11-2): its only writers are the
         // develop/retouch landings, so until the new variant's first frame
@@ -2569,8 +2569,8 @@ impl AutoShadeApp {
             self.base_preview = Some(base);
             self.rebind_paint_canvas(mw, mh);
         }
-        self.overlay_ref = None;
-        self.overlay_stale = true;
+        self.overlay.overlay_ref = None;
+        self.overlay.overlay_stale = true;
         self.last_rgb = None;
     }
 
@@ -2599,8 +2599,8 @@ impl AutoShadeApp {
         self.paint_mask_changed(Some(false));
         // The other tools' areas were in the old frame too.
         self.paint_store = Default::default();
-        self.mask_tex = None;
-        self.mask_dirty = false;
+        self.overlay.mask_tex = None;
+        self.overlay.mask_dirty = false;
         self.paint_last = None;
     }
 
@@ -2627,7 +2627,7 @@ impl AutoShadeApp {
             && !self.busy
             && !self.open_in_flight
             && !self.paint_mode
-            && self.region.is_none()
+            && self.overlay.region.is_none()
             && self.variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
             // A fill layer is pixels in the frame it was made in, like a
             // baked master (2026-10-01): the live card and every stored one.
@@ -2737,12 +2737,12 @@ impl AutoShadeApp {
             let (mw, mh) = b.dimensions();
             self.rebind_paint_canvas(mw, mh);
         }
-        self.overlay_ref = None;
-        self.overlay_stale = true;
+        self.overlay.overlay_ref = None;
+        self.overlay.overlay_stale = true;
         self.last_rgb = None;
-        self.mask_tex = None;
-        self.mask_overlay_tex = None;
-        self.overlay_key = None;
+        self.overlay.mask_tex = None;
+        self.overlay.mask_overlay_tex = None;
+        self.overlay.overlay_key = None;
         self.dirty = true;
     }
 
@@ -3914,7 +3914,7 @@ impl AutoShadeApp {
         };
         self.recipe.masks.swap(i, j);
         self.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
-        self.overlay_stale = true;
+        self.overlay.overlay_stale = true;
         self.dirty = true;
     }
 
@@ -3939,7 +3939,7 @@ impl AutoShadeApp {
         self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
         self.sel_mask = Some(i + 1);
         self.sel_component = None;
-        self.overlay_stale = true;
+        self.overlay.overlay_stale = true;
         // The remap maps an armed Redraw(i)/brush(i) to ITSELF (s > i is false
         // at s == i) while the selection jumps to the copy — armed on the
         // original, pointed at the duplicate. Selection moved ⇒ same rule.
