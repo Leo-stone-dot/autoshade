@@ -7706,7 +7706,9 @@ long edge), one `genai` field. A slice is done: the app struct went from 234 to
 47 fields (`app.rs` 2326 → 1916 lines), and what remains is the open photo's
 core state plus the scheduler and status line. The B pass splits `actions.rs` by domain; the variant
 strip's commands (load/switch/push/delete, fork/normalize, labels, row-action
-dispatch — 21 methods, 689 lines) now live in `variant_actions.rs`.
+dispatch — 21 methods, 689 lines) now live in `variant_actions.rs`. The snapshot commands (`version_path`,
+`remap_mask_indices`, the list refresh, `version_is_from`, the name batch,
+save/load/delete — 8 methods, 476 lines) live in `version_actions.rs`.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

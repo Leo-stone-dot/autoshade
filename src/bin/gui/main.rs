@@ -54,6 +54,7 @@ mod headings;
 mod theme;
 mod util;
 mod variant_actions;
+mod version_actions;
 mod actions;
 mod logic;
 mod app;
