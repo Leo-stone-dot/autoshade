@@ -8,47 +8,6 @@ use autoshade::advisor::catalogue::{family_is_active, CONTROL_FAMILIES};
 use crate::panels::grade_wheel::{grade_wheel, GRADE_VIEWS};
 
 
-/// The label of a capability row, translated. Every key stays a literal tr()
-/// call so the i18n audit keeps seeing each one; only the choice of key is
-/// driven by the table.
-fn capability_label(lang: Lang, id: crate::logic::capability::CapabilityId) -> &'static str {
-    use crate::logic::capability::CapabilityId as Cap;
-    match id {
-        Cap::Exposure => tr(lang, "Exposure"),
-        Cap::Contrast => tr(lang, "Contrast"),
-        Cap::Highlights => tr(lang, "Highlights"),
-        Cap::Shadows => tr(lang, "Shadows"),
-        Cap::Whites => tr(lang, "Whites"),
-        Cap::Blacks => tr(lang, "Blacks"),
-        Cap::Texture => tr(lang, "Texture"),
-        Cap::Clarity => tr(lang, "Clarity"),
-        Cap::Dehaze => tr(lang, "Dehaze"),
-        Cap::Vibrance => tr(lang, "Vibrance"),
-        Cap::Saturation => tr(lang, "Saturation"),
-    }
-}
-
-/// One capability table -> one slider per row, in table order. The band and the
-/// reset value come from the row (the band from the core catalogue), so the
-/// panel no longer spells either.
-fn capability_rows(
-    ui: &mut egui::Ui,
-    lang: Lang,
-    recipe: &mut autoshade::recipe::EditRecipe,
-    table: &[crate::logic::capability::Capability],
-) -> bool {
-    let mut changed = false;
-    for cap in table {
-        let Some((min, max)) = cap.range() else { continue };
-        let mut current = crate::logic::capability::value(recipe, cap.id);
-        if AutoShadeApp::slider(ui, lang, capability_label(lang, cap.id), &mut current, min, max, cap.reset) {
-            crate::logic::capability::set_value(recipe, cap.id, current);
-            changed = true;
-        }
-    }
-    changed
-}
-
 impl AutoShadeApp {
     /// One labelled slider; double-click resets to `default` (the Lightroom
     /// gesture), hover + ↑/↓ nudges by a domain-appropriate step (Shift ×10 —
@@ -1002,7 +961,7 @@ impl AutoShadeApp {
                 // The tone band is a capability table row each: the panel owns
                 // the fold and the white balance controls above; the fields,
                 // bands and resets live in `logic::capability::TONE`.
-                changed |= capability_rows(ui, lang, &mut self.recipe, crate::logic::capability::TONE);
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::TONE);
             });
         changed
     }
@@ -1028,7 +987,7 @@ impl AutoShadeApp {
                 // (R25 B2 put the global texture stage between clarity and
                 // saturation). The rows live in `logic::capability::PRESENCE`;
                 // rows and order are one table.
-                changed |= capability_rows(ui, lang, &mut self.recipe, crate::logic::capability::PRESENCE);
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::PRESENCE);
             });
         changed
     }
@@ -1346,16 +1305,7 @@ impl AutoShadeApp {
                 {
                     changed = true;
                 }
-                let r = &mut self.recipe;
-                changed |= Self::slider_fine(
-                    ui,
-                    lang,
-                    tr(lang, "Headroom (stops)"),
-                    &mut r.hdr_max_ev,
-                    0.0,
-                    8.0,
-                    0.0,
-                );
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::HDR_HEADROOM);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "SDR rendition")).weak().small());
                 ui.label(
@@ -1363,17 +1313,7 @@ impl AutoShadeApp {
                         .weak()
                         .small(),
                 );
-                for (label, v) in [
-                    (tr(lang, "Blend"), &mut r.sdr_blend),
-                    (tr(lang, "Brightness"), &mut r.sdr_brightness),
-                    (tr(lang, "Contrast"), &mut r.sdr_contrast),
-                    (tr(lang, "Highlights"), &mut r.sdr_highlights),
-                    (tr(lang, "Shadows"), &mut r.sdr_shadows),
-                    (tr(lang, "Whites"), &mut r.sdr_whites),
-                    (tr(lang, "Clarity"), &mut r.sdr_clarity),
-                ] {
-                    changed |= Self::slider(ui, lang, label, v, -100.0, 100.0, 0.0);
-                }
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::HDR_SDR);
             });
         changed
     }
@@ -1631,25 +1571,16 @@ impl AutoShadeApp {
             .id_salt("sec_effects")
             .default_open(false)
             , |ui| {
-                let r = &mut self.recipe;
                 ui.label(egui::RichText::new(tr(lang, "Post-crop vignetting")).weak().small());
-                changed |= Self::slider(ui, lang, tr(lang, "Vignette amount"), &mut r.post_crop_vignette, -100.0, 100.0, 0.0);
-                changed |= Self::companion_slider(ui, lang, tr(lang, "Midpoint"), r, "post_crop_vignette_mid", 0.0, 100.0, SliderFeel::Int);
-                changed |= Self::companion_slider(ui, lang, tr(lang, "Vignette feather"), r, "post_crop_vignette_feather", 0.0, 100.0, SliderFeel::Int);
-                changed |= Self::slider(ui, lang, tr(lang, "Vignette roundness"), &mut r.post_crop_vignette_round, -100.0, 100.0, 0.0);
-                // An operator INDEX (1/2/3), not a band: the ≥20-width rule in
-                // `slider_hinted` would give this 0.01 steps and two decimals,
-                // which is not a thing Adobe's Style can be. The track starts
-                // at 1 because 1/2/3 are all the operators there are — 0 is
-                // "the sidecar named none", which a reset (double-click) still
-                // reaches by landing on the companion default.
-                changed |= Self::companion_slider(ui, lang, tr(lang, "Vignette style"), r, "post_crop_vignette_style", 1.0, 3.0, SliderFeel::Int);
-                changed |= Self::slider(ui, lang, tr(lang, "Vignette highlights"), &mut r.post_crop_vignette_hl, 0.0, 100.0, 0.0);
+                // Two tables because the panel draws two captioned groups; the
+                // rows, their bands (the catalogue), their feels and their
+                // companion encoding live in `logic::capability`. The style row
+                // is an operator INDEX (1/2/3); the track starts at 1 because
+                // 0 means "the sidecar named none" and only a reset reaches it.
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::VIGNETTE);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "Grain")).weak().small());
-                changed |= Self::slider(ui, lang, tr(lang, "Grain amount"), &mut r.grain, 0.0, 100.0, 0.0);
-                changed |= Self::companion_slider(ui, lang, tr(lang, "Grain size"), r, "grain_size", 0.0, 100.0, SliderFeel::Int);
-                changed |= Self::companion_slider(ui, lang, tr(lang, "Grain roughness"), r, "grain_rough", 0.0, 100.0, SliderFeel::Int);
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::GRAIN);
             });
         changed
     }
@@ -2080,15 +2011,7 @@ impl AutoShadeApp {
                 // Straighten: rotate + auto-crop (engine rotate_straighten);
                 // the preview shows exactly the export geometry. Fine class:
                 // levelling needs 0.1°, not the wide-range integer snap.
-                changed |= Self::slider_fine(
-                    ui,
-                    lang,
-                    tr(lang, "Straighten (°)"),
-                    &mut self.recipe.straighten_deg,
-                    -45.0,
-                    45.0,
-                    0.0,
-                );
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::CROP);
                 explainer(ui, lang, tr(lang, "Once in (R): drag corner/edge handles to resize, drag inside to move, drag OUTSIDE the box (or the canvas border while the box is full-frame) to rotate-straighten; arrows nudge the box, Enter commits; preview, export and XMP all match. Straighten auto-crops the black corners."));
             });
         changed

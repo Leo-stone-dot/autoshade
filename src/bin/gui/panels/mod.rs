@@ -2,6 +2,7 @@
 
 pub(crate) mod ai;
 pub(crate) mod develop;
+pub(crate) mod develop_forms;
 pub(crate) mod grade_wheel;
 pub(crate) mod gallery;
 pub(crate) mod histogram;
