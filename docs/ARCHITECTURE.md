@@ -7542,10 +7542,9 @@ subsystem (mask list, the selected mask's controls, composed shapes, the
 range editor, the AI segmentation verbs) has its own module,
 [`panels/develop_masks.rs`](../src/bin/gui/panels/develop_masks.rs); the
 develop panel file keeps the form sections. A table row reports its change as a
-`logic::command::Command` (`SetCapability`), which the panel's
-`capability_rows` applies through `logic::command::apply`; companion rows
-still write their resolved encoding directly, since that command arm does not
-exist yet. The Lens Blur pilot
+`logic::command::Command` — `SetCapability` for a plain field, `SetCompanion`
+for the explicit-zero encoding — which the panel's `capability_rows` applies
+through `logic::command::apply`. The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
 share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
