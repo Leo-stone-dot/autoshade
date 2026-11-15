@@ -42,6 +42,7 @@ pub(crate) mod retouch;
 pub(crate) mod same;
 pub(crate) mod segmented;
 pub(crate) mod look;
+pub(crate) mod version;
 pub(crate) mod view;
 
 use std::path::PathBuf;

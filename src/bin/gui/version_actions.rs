@@ -121,16 +121,7 @@ impl AutoShadeApp {
         active_id: &str,
         active_kind: Option<VariantKind>,
     ) -> bool {
-        let Some(m) = m else { return false };
-        if let Some(id) = m.from_id.as_deref()
-            && !active_id.is_empty()
-        {
-            return id == active_id;
-        }
-        match (m.from_kind.as_deref(), active_kind) {
-            (Some(k), Some(ak)) => k == ak.store_str(),
-            _ => false,
-        }
+        crate::logic::version::is_from(m, active_id, active_kind.map(|k| k.store_str()))
     }
 
     /// Commit a pending version rename to ITS OWN photo and number — the
