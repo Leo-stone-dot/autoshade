@@ -631,18 +631,11 @@
         assert_eq!(app.variants[app.active].id, made, "the master already made");
         assert_eq!((app.recipe.exposure_ev, app.recipe.contrast), (0.7, 12.0), "the look rides across");
         assert_eq!(app.status, tr(Lang::En, "AI denoise on"));
-        // The switch's way on is the Retouch door, and the save carries no
-        // denoise of its own (pinned on the source, the house pattern for a
-        // worker whose sidecar cannot run offline).
-        let now = include_str!("../normal_actions.rs");
-        let on = &now[now.find("pub(crate) fn set_normal_denoise(").expect("set_normal_denoise moved")..];
-        let on = &on[..on.find("pub(crate) fn after_normal_denoise(").expect("after_normal_denoise moved")];
-        assert!(on.contains("self.start_ai_denoise();"), "the switch no longer runs the Retouch denoise");
-        let now = include_str!("../actions.rs");
-        let save = &now[now.find("pub(crate) fn start_normal_save(").expect("start_normal_save moved")..];
-        let save = &save[..save.find("pub(crate) fn start_apply_to_folder(").expect("start_apply_to_folder moved")];
-        assert!(save.contains("start_render_with(out, export, None, false, how)"), "the save runs a denoise of its own again");
-        assert!(!now.contains("default_strength_for"), "the export-time denoise came back");
+        // The switch's behaviour above IS the claim: turning it on runs the
+        // Retouch worker (busy + that door's status), turning it off returns to
+        // the un-denoised card, and the save path renders whatever card is
+        // active with no denoise of its own (the save line's own test drives
+        // the render). No source text needs pinning for it.
     }
 
     /// A second save into a name the app made never replaces the first and

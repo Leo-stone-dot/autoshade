@@ -61,6 +61,44 @@
     include!("tests/fit_prompt.rs");
     include!("tests/architecture.rs");
 
+    /// One function's text (signature through its matching brace), found
+    /// anywhere in the GUI tree. The layout-robust form of a function-scoped
+    /// pin: the function may move files, and the scan still reads it.
+    fn gui_function(name: &str) -> String {
+        let source = gui_source();
+        let needle = format!("fn {name}(");
+        let start = source.find(&needle).unwrap_or_else(|| panic!("{needle} moved"));
+        let line = source[..start].rfind('\n').map_or(0, |i| i + 1);
+        let text = &source[line..];
+        let brace = text.find('{').expect("function body");
+        let mut depth = 0usize;
+        let mut in_str = false;
+        let mut esc = false;
+        let mut end = brace;
+        for (i, c) in text.char_indices().skip(brace) {
+            if in_str {
+                if esc {
+                    esc = false;
+                } else if c == '\\' {
+                    esc = true;
+                } else if c == '"' {
+                    in_str = false;
+                }
+            } else if c == '"' {
+                in_str = true;
+            } else if c == '{' {
+                depth += 1;
+            } else if c == '}' {
+                depth -= 1;
+                if depth == 0 {
+                    end = i;
+                    break;
+                }
+            }
+        }
+        text[..=end].to_string()
+    }
+
     /// One headless frame of the whole app (`run_frame`, i.e. `update`
     /// without the prefs flush) over a `size`-point screen, with `events`.
     fn app_frame(

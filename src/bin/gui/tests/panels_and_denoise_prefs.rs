@@ -686,14 +686,14 @@
         );
         // …and each verb reads ITS fold's dial: no literal strength survives
         // in either worker, and neither reads the other's field.
-        let now = concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"));
+        let now = gui_function("start_ai_denoise");
         assert!(now.contains("let strength = self.selected_denoise_strength(false);"));
         assert!(now.contains("DenoiseOpts::from_config(&cfg, None, strength)"));
         assert!(!now.contains("save_denoise_strength"), "「AI Denoise now」 must not read the Export dial");
-        let export = include_str!("../export.rs");
+        let export = gui_function("start_render_to");
         assert!(export.contains("let denoise_strength = self.selected_denoise_strength(true);"));
         assert!(!export.contains("self.exp.denoise_strength"), "the export must not read the Detail dial");
-        for (name, src) in [("panels/retouch.rs", now), ("export.rs", export)] {
+        for (name, src) in [("start_ai_denoise", now), ("start_render_to", export)] {
             assert!(
                 !src.contains("None, 1.0)") && !src.contains("None, 0.5)"),
                 "{name}: a literal strength bypasses the dial"
@@ -812,7 +812,7 @@
         let decoded: Prefs = serde_json::from_str(&older).expect("an older prefs file loads");
         assert_eq!(decoded.fit_strength, autoshade::recipe::GradeStrength::DEFAULT);
         // …and the worker reads the fit's own dial, at both fit entry points.
-        let worker = concat!(include_str!("../actions.rs"), include_str!("../ai_start_actions.rs"));
+        let worker = gui_function("start_fit");
         assert!(
             worker.contains("let fit_strength = self.fit_strength();"),
             "the reverse-fit block must read its own dial through fit_strength()"
@@ -823,17 +823,17 @@
             "both fit entry points (zoned and global) must receive the fit's dial"
         );
         assert_eq!(
-            worker.matches("GradeStrength::new(self.aip.fit_strength)").count(),
+            gui_function("fit_strength").matches("GradeStrength::new(self.aip.fit_strength)").count(),
             1,
             "exactly one reading of the fit's dial: fit_strength() itself"
         );
         assert_eq!(
-            worker.matches("GradeStrength::new(self.aip.grade_strength)").count(),
+            gui_function("analysis_strength").matches("GradeStrength::new(self.aip.grade_strength)").count(),
             1,
             "exactly one reading of the Analysis dial: analysis_strength() itself"
         );
         assert!(
-            !worker.contains("fn panel_strength") && !worker.contains("self.panel_strength()"),
+            !gui_source().contains("fn panel_strength") && !gui_source().contains("self.panel_strength()"),
             "no shared reading is left (the name may survive in prose, never as code)"
         );
     }

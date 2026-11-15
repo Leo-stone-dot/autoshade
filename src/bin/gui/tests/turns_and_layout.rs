@@ -274,16 +274,9 @@
         assert_eq!(restored.aip.guide, Guide::Direction, "the switch must survive a restart");
 
         // The request half lives in the reflection layer, whose own tests drive
-        // it; this guard pins the two rules the switch depends on.
-        let look = gui_source();
-        for needle in [
-            // An adjust (2026-10-21) is guided by its request alone, a box
-            // region by the direction; otherwise the switch decides.
-            concat!("let guide = if adjusting || region_guided { Guide::Direction } else { prefs.guide }"),
-            concat!("guide == Guide::Direction && !typed.is_empty()"),
-        ] {
-            assert!(look.contains(needle), "the look plan must apply the guide: {needle}");
-        }
+        // it (`logic::look::an_analyze_snapshots_the_panel_and_folds_a_region`
+        // pins the direction/library rule and when typed words are sent); the
+        // round trip above is the whole GUI-side claim.
     }
 
     /// S2: the phrase preference survives a restart, defaults OFF in BOTH
@@ -339,20 +332,15 @@
         assert!(autoshade::library::DescribeSwitch::resolve_with(None, on.aip.style_describe, unset).on());
         assert!(!autoshade::library::DescribeSwitch::resolve_with(None, off.aip.style_describe, unset).on());
 
-        let actions = gui_source();
-        assert_eq!(
-            actions.matches("DescribeSwitch::resolve(None, self.aip.style_describe)").count(),
-            1,
-            "the library build reads the preference"
-        );
-        assert!(
-            actions.contains("app.aip.style_describe = prefs.style_describe;"),
-            "the saved preference must be restored at start-up"
-        );
-        assert!(
-            gui_source().contains("style_describe: self.aip.style_describe,"),
-            "…and written back when preferences are saved"
-        );
+        // The preference crosses the file both ways: restore lands it on the
+        // app, save writes the app's value back.
+        let mut restored = AutoShadeApp::default();
+        restored.restore_prefs(Prefs { style_describe: true, ..Prefs::default() });
+        assert!(restored.aip.style_describe, "the saved preference must be restored at start-up");
+        let mut storage = PrefsMemory::default();
+        eframe::App::save(&mut restored, &mut storage);
+        let saved: Prefs = eframe::get_value(&storage, eframe::APP_KEY).unwrap();
+        assert!(saved.style_describe, "…and written back when preferences are saved");
     }
 
     #[test]

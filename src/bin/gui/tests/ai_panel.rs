@@ -394,9 +394,9 @@
             1,
             "exactly one read of the request's switch"
         );
-        let runtime = include_str!("../runtime.rs");
+        let start = gui_function("start_look");
         assert_eq!(
-            runtime.matches("EmbeddingSwitch::resolve(None, self.aip.style_embed)").count(),
+            start.matches("EmbeddingSwitch::resolve(None, self.aip.style_embed)").count(),
             1,
             "the look start snapshots the preference into the request"
         );

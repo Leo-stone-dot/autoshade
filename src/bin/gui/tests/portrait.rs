@@ -93,10 +93,17 @@
             }
             // The hovers are drawn only under the pointer: read them from the
             // source, where every one is a literal handed to the translator.
-            let src = include_str!("../panels/portrait.rs");
-            let body = &src[src.find("fn portrait_panel(").unwrap()..];
+            let body = gui_function("portrait_panel");
             let call = format!("{}(lang, \"", "tr");
-            for lit in body.split(call.as_str()).skip(1).filter_map(|s| s.split('"').next()) {
+            // The translator takes keys as `&'static str`; the literals are
+            // small and this is a test, so leak them.
+            let lits: Vec<&'static str> = body
+                .split(call.as_str())
+                .skip(1)
+                .filter_map(|s| s.split('"').next())
+                .map(|s| Box::leak(s.to_string().into_boxed_str()) as &'static str)
+                .collect();
+            for lit in &lits {
                 let shown = say(lang, lit);
                 for w in words {
                     let hit = if w.is_ascii() && w != "API" { shown.to_lowercase().contains(w) } else { shown.contains(w) };
