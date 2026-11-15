@@ -7201,6 +7201,12 @@ the user's own browser*, and the guarantees are:
   transport (multipart, streaming, SSE framing) was deleted together with the
   paid image API; generative pixels now go through the local ComfyUI server.
 
+- **The develop form's bands are the server's.** `GET /api/controls` answers the
+  scalar `RECIPE_CONTROLS` bands — the same table `EditRecipe::clamp` is pinned
+  to — and the page overwrites its slider ranges from that answer on load,
+  keeping only its labels and steps locally. A failed fetch keeps the local
+  numbers, so the page still works when the endpoint is unreachable.
+
 - **Bounded work.** `EditRecipe::clamp` caps masks/curves/knots **and strings**
   (`rationale`, mask names, bitmap-mask paths), and the cap is enforced at
   **both** persistence boundaries — `pipeline::write_recipe` and

@@ -418,6 +418,7 @@ fn handle(mut request: Request, state: &AppState, image_token: &str) -> Result<(
         (false, "/api/recipe") => api_recipe(&request, state),
         (false, "/api/fresh-base") => api_fresh_base(&request, state),
         (false, "/api/library-info") => api_library_info(state),
+        (false, "/api/controls") => api_controls(),
         (true, "/api/library-build") => api_library_build(&mut request),
         (false, "/api/settings") => api_settings_get(state),
         (true, "/api/settings") => api_settings_post(&mut request, state),
@@ -1368,6 +1369,25 @@ fn fresh_base_payload(raw: &Path) -> String {
 /// Library info for the UI's info box: where things live, and whether a
 /// reference library is built, from which folder, with how many photos.
 /// Instant (reads the library file; no decode).
+/// The develop controls' machine-readable bands, from the SAME catalogue table
+/// (`advisor::catalogue::RECIPE_CONTROLS`) the advisor and the XMP writer read:
+/// the web form must not be able to state a range `EditRecipe::clamp` does not
+/// enforce. Its labels and steps stay in the page.
+fn controls_json() -> serde_json::Value {
+    let controls: Vec<serde_json::Value> = crate::advisor::catalogue::RECIPE_CONTROLS
+        .iter()
+        .filter_map(|c| {
+            c.range
+                .map(|(lo, hi)| json!({ "name": c.name, "range": [lo, hi] }))
+        })
+        .collect();
+    json!({ "controls": controls })
+}
+
+fn api_controls() -> Result<ResponseBox> {
+    Ok(json_response(&controls_json()))
+}
+
 fn api_library_info(state: &AppState) -> Result<ResponseBox> {
     let abs = |p: &str| {
         std::path::absolute(p).map(|x| x.display().to_string()).unwrap_or_else(|_| p.to_string())
@@ -3724,6 +3744,32 @@ fn precondition_failed(if_match: Option<&str>, current: Option<&str>) -> Option<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The controls endpoint states the SAME bands the engine's clamp enforces
+    /// (the catalogue is pinned to `EditRecipe::clamp` by its own test), so the
+    /// web form cannot invent a range.
+    #[test]
+    fn the_controls_endpoint_states_the_catalogue_bands() {
+        let v = controls_json();
+        let rows = v["controls"].as_array().expect("controls array");
+        assert!(!rows.is_empty(), "the endpoint must list the scalar controls");
+        let exposure = rows
+            .iter()
+            .find(|r| r["name"] == "exposure_ev")
+            .expect("exposure_ev is a listed control");
+        assert_eq!(exposure["range"], json!([-5.0, 5.0]), "the band is the clamp band");
+        for r in rows {
+            let range = r["range"].as_array().expect("range array");
+            assert_eq!(range.len(), 2, "every listed control carries one band");
+            assert!(range[0].as_f64() <= range[1].as_f64(), "band is ordered");
+        }
+        let mut names: Vec<&str> = rows.iter().filter_map(|r| r["name"].as_str()).collect();
+        let before = names.len();
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), before, "a control is listed once");
+    }
+
 
     /// R27 A2, tier 2 — the web page's `<input accept>` list against the
     /// formats the app actually opens.
