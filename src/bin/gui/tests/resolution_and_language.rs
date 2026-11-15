@@ -845,9 +845,9 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // process-wide, and a test that ran `install_fonts` first (any
         // window-drawing test) leaves Thai in it on a machine with Tahoma.
         app.disclose_undrawable_names_given(&[]);
-        let after_first = app.toasts.len();
+        let after_first = app.chrome.toasts.len();
         assert_eq!(after_first, 1, "one script, one toast");
         app.disclose_undrawable_names_given(&[]);
-        assert_eq!(app.toasts.len(), after_first, "the second open stays silent");
+        assert_eq!(app.chrome.toasts.len(), after_first, "the second open stays silent");
         assert!(app.disclosed_scripts.contains("thai"));
     }

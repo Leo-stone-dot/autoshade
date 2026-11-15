@@ -251,7 +251,7 @@ pub(crate) fn start_redevelop(&mut self) {
         }
     };
     let recipe = self.recipe.clone();
-    let show_clipping = self.show_clipping;
+    let show_clipping = self.chrome.show_clipping;
     let film = self.film_short_edge();
     self.develop_inflight = true;
     self.dirty = false;
@@ -384,7 +384,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         return;
     }
     self.develop_count += 1;
-    self.histogram = Some(frame.histogram);
+    self.chrome.histogram = Some(frame.histogram);
 
     // The ColorImage arrives worker-built (see PreviewDone.after) — the UI
     // thread only uploads. The raw RGB is retained so the clipping toggle
@@ -406,7 +406,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     // dispatch: pressing J changes no recipe field, so an in-flight frame
     // is still accepted — its stale decision used to blank the layer under
     // a lit ▲ (or resurrect a ghost layer after J-off).
-    let clip = if self.show_clipping {
+    let clip = if self.chrome.show_clipping {
         // Crop-blanked like the worker path — the J-mid-flight fallback
         // used to warn outside the crop while the worker's layer did not.
         Some(
@@ -417,17 +417,17 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     } else {
         None
     };
-    self.last_rgb = Some(frame.rgb);
+    self.chrome.last_rgb = Some(frame.rgb);
     match clip {
         Some(clip) => {
-            if let Some(tex) = &mut self.clip_tex {
+            if let Some(tex) = &mut self.chrome.clip_tex {
                 tex.set(clip, egui::TextureOptions::NEAREST);
             } else {
-                self.clip_tex =
+                self.chrome.clip_tex =
                     Some(ctx.load_texture("clip", clip, egui::TextureOptions::NEAREST));
             }
         }
-        None => self.clip_tex = None,
+        None => self.chrome.clip_tex = None,
     }
     if let Some(v) = self.variants.get_mut(self.active) {
         if let Some(tex) = &mut v.thumb {

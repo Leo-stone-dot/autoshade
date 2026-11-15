@@ -235,7 +235,7 @@
             app.status
         );
         assert!(
-            app.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
+            app.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
             "a refusal the user did not ask for is a toast, not just a status line"
         );
     }

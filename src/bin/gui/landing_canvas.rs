@@ -255,7 +255,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 self.overlay.overlay_stale = true;
                                 self.base_preview = Some(bimg.clone());
                             }
-                            self.last_rgb = None; // resolution changed under the frame
+                            self.chrome.last_rgb = None; // resolution changed under the frame
                             self.dirty = true;
                             self.status = trf(
                                 lang,
@@ -835,7 +835,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // (`panels/portrait.rs`) — opening never changes
                         // a value.
                         self.decide_keep_skin_for_photo();
-                        self.last_rgb = None; // retained frame was the old photo's
+                        self.chrome.last_rgb = None; // retained frame was the old photo's
                         self.reset_history(); // a new photo starts a fresh undo history
                         self.overlay.region = None; // and a fresh local-edit selection
                         self.overlay.region_drag = None;
@@ -1036,7 +1036,7 @@ pub(crate) fn on_base_redeveloped(
         self.rebind_paint_canvas(mw, mh);
         self.overlay.overlay_ref = None;
         self.overlay.overlay_stale = true;
-        self.last_rgb = None;
+        self.chrome.last_rgb = None;
     }
     self.dirty = true;
 }

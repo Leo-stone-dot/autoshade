@@ -566,7 +566,7 @@
         // The landing ARMS a fresh status read on a real worker thread, which
         // may already have answered inside this drain: in flight OR answered.
         assert!(app.ai.style_info_loading || app.ai.style_info.is_some(), "a build invalidates the cached status");
-        assert!(app.toasts.iter().any(|t| matches!(t.kind, ToastKind::Success)));
+        assert!(app.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Success)));
 
         // The phrase coverage is told when there is some, in both languages.
         for (lang, needle) in [(Lang::En, "with look phrases"), (Lang::Zh, "外观短语")] {
@@ -599,7 +599,7 @@
         app.poll_workers(&ctx);
         assert!(!app.ai.style_build_inflight);
         assert!(app.status.contains("access denied"), "{}", app.status);
-        assert!(app.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)));
+        assert!(app.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)));
         assert!(!app.aip.style_embed && app.aip.style_src_dir.is_none() && !app.ai.style_info_loading, "a failed build changes nothing");
 
         // Progress ticks land as counts, not as a worker-built sentence.

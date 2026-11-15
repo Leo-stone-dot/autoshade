@@ -23,7 +23,7 @@ impl AutoShadeApp {
         // The paste's own sentence is the workspace's; the render's status
         // replaces it below.
         let old = self.status.clone();
-        self.toasts.retain(|t| t.text != old);
+        self.chrome.toasts.retain(|t| t.text != old);
         let targets = self.gal.gallery.clone();
         let export = self.normal_export_opts();
         self.start_batch_render_for(targets, "jpg".into(), export, dest, true);

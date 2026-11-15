@@ -103,7 +103,7 @@
             ok.status
         );
         assert!(
-            !ok.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
+            !ok.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
             "the model the user ruled for is not a warning"
         );
         assert_eq!(ok.recipe.masks.len(), 1, "the mask still lands");
@@ -127,7 +127,7 @@
             degraded.status
         );
         let alarm = degraded
-            .toasts
+            .chrome.toasts
             .iter()
             .find(|t| matches!(t.kind, ToastKind::Error))
             .expect("a silent degradation is the bug this closes");
@@ -159,7 +159,7 @@
             silent.status
         );
         assert!(
-            !silent.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
+            !silent.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
             "unknown is not a fallback"
         );
     }
@@ -486,7 +486,7 @@
         // ✕, and its four sliders are laid beside the mixer's own.
         app.recipe.point_colors.push(autoshade::recipe::PointColor::sampled(0.9, 0.7, 0.5));
         // A histogram, so the readout's width can be pinned (2026-09-27).
-        app.histogram = Some(vec![[0.5; 4]; 256]);
+        app.chrome.histogram = Some(vec![[0.5; 4]; 256]);
         app.masks.sel_mask = Some(0);
         app.start_mask_brush(None);
         assert!(app.masks.mask_brush.is_some(), "{lang:?}: the brush session armed");

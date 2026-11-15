@@ -483,6 +483,35 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The status chrome around the workspace: the startup greeting, the toast
+/// queue, the histogram cache, the window-title cache and the clipping
+/// warnings (the shown flag, the last pixels and their texture). The status
+/// line itself stays on the app — it is a per-frame read for nearly every
+/// action.
+pub(crate) struct ChromeState {
+    pub(crate) startup_note: Option<String>,
+    pub(crate) toasts: Vec<Toast>,
+    pub(crate) histogram: Option<Vec<[f32; 4]>>,
+    pub(crate) last_title: String,
+    pub(crate) show_clipping: bool,
+    pub(crate) last_rgb: Option<image::RgbImage>,
+    pub(crate) clip_tex: Option<egui::TextureHandle>,
+}
+
+impl Default for ChromeState {
+    fn default() -> Self {
+        Self {
+            startup_note: None,
+            toasts: Vec::new(),
+            histogram: None,
+            last_title: String::new(),
+            show_clipping: false,
+            last_rgb: None,
+            clip_tex: None,
+        }
+    }
+}
+
 /// The named-recipe library panel: whether it is open, the loaded list and its
 /// read/filter/selection, the name field, the inline rename and delete-armed
 /// rows, and the preview pane's texture. Extracted from `AutoShadeApp` so

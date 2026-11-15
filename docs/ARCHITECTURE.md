@@ -7688,7 +7688,11 @@ reference path/label, prompt), one `fit` field; six of the dials are `Prefs`
 fields and the save/load code maps between them. The app struct is at 95 fields. `model::RecipeLibraryState` owns the named-recipe
 panel (open switch, loaded list and its read/filter/selection, name field,
 inline rename and delete-armed rows, preview texture), one `rlib` field; the app
-struct is at 87 fields.
+struct is at 87 fields. `model::ChromeState` owns the status chrome
+(startup greeting, toast queue, histogram cache, window-title cache, clipping
+warnings and their texture), one `chrome` field; the status line itself stays on
+the app as the per-frame read nearly every action needs. The app struct is at
+81 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
