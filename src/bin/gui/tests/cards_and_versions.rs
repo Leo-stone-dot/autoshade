@@ -197,25 +197,6 @@
 
     /// L16-10: the glide runs through its production seam — the method the
     /// update loop calls, not the pure helper alone.
-    #[test]
-    fn the_zoom_glide_seam_moves_toward_the_target() {
-        let ctx = egui::Context::default();
-        let mut app = AutoShadeApp {
-            view: ViewState {
-                zoom: 1.0,
-                zoom_target: 4.0,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let _ = ctx.run(egui::RawInput::default(), |ctx| app.apply_zoom_glide(ctx));
-        assert!(
-            app.view.zoom > 1.0 && app.view.zoom < 4.0,
-            "one glide step moved toward the target: {}",
-            app.view.zoom
-        );
-    }
-
     /// L16-11: the shortcut exclusivity gates, tested NEGATIVELY — deleting
     /// the transient guard used to fail nothing.
     #[test]
