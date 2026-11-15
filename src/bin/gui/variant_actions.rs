@@ -429,6 +429,8 @@ pub(crate) fn original_index(&self) -> Option<usize> {
 
 /// The card [`Self::negative_origin`] reads — its rule, spelled once so
 /// the reverse-fit fold can NAME the automatic choice (2026-09-30).
+/// Test-only view of [`crate::logic::cards::negative_index`].
+#[cfg(test)]
 pub(crate) fn negative_index(&self) -> Option<usize> {
     crate::logic::cards::negative_index(&self.variants, self.active)
 }
@@ -439,12 +441,6 @@ pub(crate) fn negative_path(&self) -> Option<PathBuf> {
     crate::logic::cards::negative_path(&self.variants, self.active, self.src_path.as_deref())
 }
 
-/// Can card `v` be the reverse-fit's source? The negative in any of its
-/// forms: the ▣ card (its in-place master, else the loaded file's own
-/// frame) or a remade ◈ / ▦ master.
-pub(crate) fn is_fit_source(v: &Variant) -> bool {
-    crate::logic::cards::is_fit_source(v)
-}
 
 
 /// [`Self::fit_source_index`]'s master on disk (`None` = the loaded
@@ -465,7 +461,7 @@ pub(crate) fn fit_negative(&self) -> Option<PathBuf> {
 /// How card `idx` reads in the reverse-fit's rows: its name and its place
 /// in the strip, so two cards of one kind stay apart.
 pub(crate) fn numbered_card_label(&self, idx: usize) -> String {
-    format!("{} #{}", self.variant_label(idx), idx + 1)
+    crate::logic::cards::numbered_label(&self.variant_label(idx), idx)
 }
 
 /// The reverse-fit's「From:」menu, spelled once for the two places that
@@ -474,11 +470,13 @@ pub(crate) fn numbered_card_label(&self, idx: usize) -> String {
 /// the card [`Self::negative_index`] picks, and every card
 /// [`Self::is_fit_source`] accepts, as `(id, label)` in strip order.
 pub(crate) fn fit_source_menu(&self) -> (String, Vec<(String, String)>) {
-    let cards = (0..self.variants.len())
-        .filter(|&i| Self::is_fit_source(&self.variants[i]))
+    let cards = crate::logic::cards::fit_source_cards(&self.variants)
+        .into_iter()
         .map(|i| (self.variants[i].id.clone(), self.numbered_card_label(i)))
         .collect();
-    let auto = self.negative_index().map(|i| self.numbered_card_label(i)).unwrap_or_default();
+    let auto = crate::logic::cards::automatic_fit_card(&self.variants, self.active)
+        .map(|i| self.numbered_card_label(i))
+        .unwrap_or_default();
     (trf(self.lang, "Automatic · {card}", &[("card", &auto)]), cards)
 }
 
