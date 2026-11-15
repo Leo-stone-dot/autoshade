@@ -37,6 +37,10 @@
         assert!(autoshade::store::has_pixel_source(src), "premise: a record survives");
         let ctx = egui::Context::default();
         let mut app = AutoShadeApp {
+            cards: CardsState {
+                keep_recipe: true,
+                ..Default::default()
+            },
             open: OpenState {
                 edge_before_flight: Some(1280),
                 open_same_path: true,
@@ -54,7 +58,6 @@
                 thumb: None,
             }],
             preview_edge: 4096,
-            keep_recipe: true,
             ..Default::default()
         };
         app.tx
@@ -85,6 +88,10 @@
         let present = dev.join("present-master.png");
         std::fs::write(&present, b"png").unwrap();
         let mut app = AutoShadeApp {
+            cards: CardsState {
+                keep_recipe: true,
+                ..Default::default()
+            },
             open: OpenState {
                 edge_before_flight: Some(1280),
                 open_same_path: true,
@@ -102,7 +109,6 @@
                 thumb: None,
             }],
             preview_edge: 4096,
-            keep_recipe: true,
             ..Default::default()
         };
         app.tx
@@ -314,13 +320,13 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         assert_eq!(app.variants.len(), 2, "the arming click deletes nothing");
         assert_eq!(app.active, 1, "…and does not re-anchor the strip either");
         assert_eq!(
-            app.variant_delete_confirm,
+            app.cards.variant_delete_confirm,
             Some(1),
             "the arming click names the card the next one deletes"
         );
         app.delete_variant(1, &ctx);
         assert_eq!(app.active, 0, "premise: the strip re-anchored");
-        assert_eq!(app.variant_delete_confirm, None, "the arm is spent");
+        assert_eq!(app.cards.variant_delete_confirm, None, "the arm is spent");
         assert!(
             app.status.contains("640px"),
             "the landing canvas's resolution is disclosed: {}",

@@ -7678,7 +7678,11 @@ flight, lens/as-shot, Before baseline, open window flags, discard request), one
 mirrored on the app (`guide`, the three strengths, the adherence dial and the
 library/deep-think switches), one `aip` field; `Prefs` keeps its serialized
 names and `restore_prefs`/save map between them explicitly. The app struct is
-at 109 fields.
+at 109 fields. `model::CardsState` owns the card strip's dialog
+and one-shot state (snapshot numbers/meta, version and variant name dialogs,
+the current-only filter, the delete confirmation, the keep-recipe flag), one
+`cards` field; the variant list itself stays on the app as the open photo's
+core state. The app struct is at 103 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

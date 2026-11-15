@@ -420,39 +420,34 @@ pub(crate) struct AutoShadeApp {
     /// photo's whole strip to variants.json, so the way-out re-check finds
     /// the state genuinely clean.)
     pub(crate) active: usize,                         // index into `variants` (always valid once a photo is open)
-    pub(crate) keep_recipe: bool,                     // one-shot: next Opened keeps recipe/variants (preview-res re-decode)
+    /// The card strip's dialog/one-shot state; see [`CardsState`].
+    pub(crate) cards: CardsState,
     // --- export pipeline (gap batch F + D2) ---
     // --- preview resolution (gap batch E) ---
     pub(crate) preview_edge: u32,                     // working-preview long edge: 1280 fluid / 2560 / 4096 detail
     // --- recipe versions (gap batch G): ./out/<stem>.v<N>.recipe.json ---
-    pub(crate) versions: Vec<u32>,                    // snapshot numbers found for the open photo (sorted)
     /// Advisory names + provenance for `versions`, keyed by number (R24-2).
     /// Refreshed with the list; a number with no entry is simply unnamed —
     /// `.version-meta.json` is not required to exist.
-    pub(crate) version_meta: HashMap<u32, autoshade::store::VersionMetaEntry>,
     /// A version rename in flight: (the photo it belongs to, the number, the
     /// name as seeded, the edit buffer). Keyed by the NUMBER — versions are
     /// never re-numbered and a deleted number is never re-issued, so unlike
     /// the mask buffer's row index this key cannot cross-commit onto some
     /// other row. The photo rides along so a commit at a boundary that has
     /// already re-pointed `src_path` still writes to the right develop.
-    pub(crate) version_name_buf: Option<(PathBuf, u32, String, String)>,
     /// Versions list filter: show only snapshots taken from the ACTIVE
     /// variant (R24-2). Session state, deliberately not persisted.
-    pub(crate) versions_current_only: bool,
     /// A VARIANT rename in flight (R24-3): (the photo, the card's id, the
     /// name as seeded, the edit buffer). Keyed by the card's own opaque id,
     /// not its strip index — a background push or delete renumbers indices
     /// while a box is open, and the version buffer's number key showed the
     /// way. Unlike the version half this commits into memory only: a card's
     /// name reaches disk with the strip record, at the next save.
-    pub(crate) variant_name_buf: Option<(PathBuf, String, String, String)>,
     /// The strip's ✕ is ARMED, not fired (R24-4): the index whose delete the
     /// next click confirms. A variant delete is immediate and irreversible —
     /// the undo stack is per-variant by contract (`reset_history`) and no
     /// tombstone can bring a card back — so it asks first, the same
     /// arm-then-act shape as `xmp_beside_confirm`.
-    pub(crate) variant_delete_confirm: Option<usize>,
     /// Normal's own sidebar state (`panels/normal.rs`).
     pub(crate) normal: crate::panels::normal::NormalState,
     /// The last line uv printed during the managed Python environment's
@@ -1672,14 +1667,8 @@ impl Default for AutoShadeApp {
             look: Default::default(),
             variants: Vec::new(),
             active: 0,
-            keep_recipe: false,
+            cards: CardsState::default(),
             preview_edge: PREVIEW_EDGE,
-            versions: Vec::new(),
-            version_meta: HashMap::new(),
-            version_name_buf: None,
-            versions_current_only: false,
-            variant_name_buf: None,
-            variant_delete_confirm: None,
             show_clipping: false,
             last_rgb: None,
             clip_tex: None,

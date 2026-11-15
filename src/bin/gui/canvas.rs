@@ -630,7 +630,7 @@ impl AutoShadeApp {
                         // reached — the same residue the busy refusal above
                         // is cured of.
                         self.open.edge_before_flight = Some(before);
-                        self.keep_recipe = true; // re-decode, keep the edit
+                        self.cards.keep_recipe = true; // re-decode, keep the edit
                         self.open_path(p);
                     }
                 }

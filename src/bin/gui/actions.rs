@@ -222,8 +222,8 @@ impl AutoShadeApp {
     pub(crate) fn quit_state(&self) -> crate::quit::QuitState {
         crate::quit::QuitState::from_app(self.busy, self.open.discard_requested, || {
             self.masks.mask_name_buf.is_some()
-                || self.version_name_buf.is_some()
-                || self.variant_name_buf.is_some()
+                || self.cards.version_name_buf.is_some()
+                || self.cards.variant_name_buf.is_some()
                 || !self.open.nav_stash.is_empty()
                 || self.quit_guard_open_dirty()
                 || self.inactive_dirty_variants() > 0
@@ -346,7 +346,7 @@ impl AutoShadeApp {
             // arms-then-calls gets the same protection instead of relying on
             // its own busy check. Said so, instead of claiming a live
             // scenario.
-            self.keep_recipe = false;
+            self.cards.keep_recipe = false;
             // Refusal must be visible (the switch_variant rule: a silent
             // no-op reads as a dead UI) — the EMPTY-STATE picker button has
             // no busy gate, so this arm IS user-reachable (L11-4).
@@ -369,11 +369,11 @@ impl AutoShadeApp {
         // box on the NEXT photo skipped the reseed and greeted it pre-filled
         // with the previous photo's text.
         self.masks.mask_name_buf = None;
-        self.version_name_buf = None;
-        self.variant_name_buf = None;
+        self.cards.version_name_buf = None;
+        self.cards.variant_name_buf = None;
         // An armed strip ✕ dies with the photo too — the index it named
         // belongs to a strip that is about to be replaced (R24-4).
-        self.variant_delete_confirm = None;
+        self.cards.variant_delete_confirm = None;
         // The mid-open window marker (see confirm_quit_layer): src_path is
         // re-pointed below while recipe/saved_recipe still describe the old
         // photo; cleared in BOTH Msg::Opened arms. `open_same_path` is the
@@ -459,7 +459,7 @@ impl AutoShadeApp {
         // rows visibly changed and the status line confirmed a delete, hiding
         // what had happened. "＋ Save as version" was the mirror image: it
         // wrote A's canvas into B's develop as B's next version.
-        self.versions.clear();
+        self.cards.versions.clear();
         // …and so does the armed "overwrite the .xmp beside the photo" confirm
         // (R22-8): it is a claim about THIS photo's neighbouring sidecar, and
         // carrying it across would let one click overwrite the NEXT photo's
@@ -1108,7 +1108,7 @@ impl AutoShadeApp {
             // apply_step gate beside it (whose own callers became
             // busy-gated later), and says so instead of claiming a live
             // scenario.
-            && (!self.open.open_in_flight || (self.open.open_same_path && self.keep_recipe))
+            && (!self.open.open_in_flight || (self.open.open_same_path && self.cards.keep_recipe))
             && let Some(p) = self.src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()
         {
@@ -1167,7 +1167,7 @@ impl AutoShadeApp {
         // a switch — but an armed ✕ does not: it named an index in the strip
         // the user has just moved away from (R24-4).
         self.masks.mask_name_buf = None;
-        self.variant_delete_confirm = None;
+        self.cards.variant_delete_confirm = None;
         self.overlay.overlay_ref = None;
         self.overlay.overlay_stale = true;
         self.last_rgb = None; // the retained frame belongs to the OLD variant
@@ -1302,8 +1302,8 @@ impl AutoShadeApp {
         // arms this index (the button relabels itself and the status says
         // what the second click will do), the second deletes. The arm dies
         // with any other strip move — `load_active` clears it.
-        if self.variant_delete_confirm != Some(idx) {
-            self.variant_delete_confirm = Some(idx);
+        if self.cards.variant_delete_confirm != Some(idx) {
+            self.cards.variant_delete_confirm = Some(idx);
             let lang = self.lang;
             let name = self.variant_label(idx);
             let t = trf(
@@ -1315,15 +1315,15 @@ impl AutoShadeApp {
             self.toast(ToastKind::Error, t);
             return;
         }
-        self.variant_delete_confirm = None;
+        self.cards.variant_delete_confirm = None;
         // A rename box aimed at the card being deleted dies WITH it — the
         // version rows' rule, on the strip's key.
         if self
-            .variant_name_buf
+            .cards.variant_name_buf
             .as_ref()
             .is_some_and(|(_, id, ..)| Some(id.as_str()) == self.variants.get(idx).map(|v| v.id.as_str()))
         {
-            self.variant_name_buf = None;
+            self.cards.variant_name_buf = None;
         }
         let active_removed = idx == self.active;
         self.variants.remove(idx);
@@ -1401,7 +1401,7 @@ impl AutoShadeApp {
         // The ✎ card is an edit of this one: it keeps its skin switch.
         self.inherit_keep_skin(&from, &to);
         // A ✕ armed on an index past the insertion now names the wrong card.
-        self.variant_delete_confirm = None;
+        self.cards.variant_delete_confirm = None;
         let lang = self.lang;
         self.toast(
             ToastKind::Success,
@@ -1669,7 +1669,7 @@ impl AutoShadeApp {
     /// reaches disk with the strip record at the next save, which is why
     /// `open_dirty_variants` counts a renamed card as unsaved work.
     pub(crate) fn commit_variant_name_buf(&mut self) {
-        let Some((photo, id, seed, buf)) = self.variant_name_buf.clone() else { return };
+        let Some((photo, id, seed, buf)) = self.cards.variant_name_buf.clone() else { return };
         if buf == seed {
             return;
         }
@@ -1677,7 +1677,7 @@ impl AutoShadeApp {
             // The card belongs to a photo that is no longer open (its strip
             // went with it), or to no identifiable card at all: drop the
             // buffer rather than paint the name onto whatever sits here now.
-            self.variant_name_buf = None;
+            self.cards.variant_name_buf = None;
             return;
         }
         // Capped HERE, on the way in, to the same byte limit the store applies
@@ -1696,7 +1696,7 @@ impl AutoShadeApp {
         // Re-seed rather than clear (the version rule): the box is very
         // likely still on screen, and a SECOND rename in it has to compare
         // against what was just committed, not against the original.
-        self.variant_name_buf = Some((photo, id, buf.clone(), buf));
+        self.cards.variant_name_buf = Some((photo, id, buf.clone(), buf));
     }
 
     /// Perform one deferred variant action — **the one owner** (R24-5).
@@ -1729,7 +1729,7 @@ impl AutoShadeApp {
                         .find(|v| v.id == id)
                         .and_then(|v| v.name.clone())
                         .unwrap_or_default();
-                    self.variant_name_buf = Some((photo, id, cur.clone(), cur));
+                    self.cards.variant_name_buf = Some((photo, id, cur.clone(), cur));
                 }
             }
             // The buttons are already disabled while busy; the second read is
@@ -1851,7 +1851,7 @@ impl AutoShadeApp {
     }
 
     /// Rescan the photo's develop dir for version snapshots (cached in
-    /// `self.versions`; called on photo open and after saving a version — NOT
+    /// `self.cards.versions`; called on photo open and after saving a version — NOT
     /// every frame). The advisory name/provenance sidecar is read in the same
     /// pass and RESTRICTED to numbers that are actually listed: a crash
     /// between a delete's sweep and its metadata drop can leave a record for
@@ -1859,8 +1859,8 @@ impl AutoShadeApp {
     /// a phantom row (it can never be re-attached either — the number is
     /// burned in the deleted-version registry).
     pub(crate) fn refresh_versions(&mut self) {
-        self.versions.clear();
-        self.version_meta.clear();
+        self.cards.versions.clear();
+        self.cards.version_meta.clear();
         let Some(src) = self.src_path.as_deref() else { return };
         // ONE store query for the photo's whole edit-state list (R24-4
         // `store::list_edits`), which joins the version family with its
@@ -1875,8 +1875,8 @@ impl AutoShadeApp {
             if let autoshade::store::EditStateKind::Version { n, from_kind, from_id, source } =
                 e.state
             {
-                self.versions.push(n);
-                self.version_meta.insert(
+                self.cards.versions.push(n);
+                self.cards.version_meta.insert(
                     n,
                     autoshade::store::VersionMetaEntry {
                         n,
@@ -1924,7 +1924,7 @@ impl AutoShadeApp {
     /// The write is advisory: a failure is disclosed and the buffer is left
     /// alone so the next boundary retries.
     pub(crate) fn commit_version_name_buf(&mut self) {
-        let Some((photo, n, seed, buf)) = self.version_name_buf.clone() else { return };
+        let Some((photo, n, seed, buf)) = self.cards.version_name_buf.clone() else { return };
         if buf == seed {
             return;
         }
@@ -1941,9 +1941,9 @@ impl AutoShadeApp {
                 // Re-seed rather than clear: the row is very likely still on
                 // screen, and a SECOND rename in the same row has to compare
                 // against what we just wrote, not the original.
-                self.version_name_buf = Some((photo.clone(), n, buf.clone(), buf));
+                self.cards.version_name_buf = Some((photo.clone(), n, buf.clone(), buf));
                 if self.src_path.as_deref() == Some(photo.as_path()) {
-                    self.version_meta
+                    self.cards.version_meta
                         .entry(n)
                         .or_insert_with(|| autoshade::store::VersionMetaEntry {
                             n,
@@ -2511,7 +2511,7 @@ impl AutoShadeApp {
         // this fn's only callers — so no live caller reaches here mid-flight
         // any more. The gate stays because ungating the keyboard would
         // resurrect every scenario above, and the test drives it directly.
-        if (!self.open.open_in_flight || (self.open.open_same_path && self.keep_recipe))
+        if (!self.open.open_in_flight || (self.open.open_same_path && self.cards.keep_recipe))
             && self.variants.get(self.active).is_none_or(|v| v.kind.is_source_based())
             && let Some(p) = self.src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()

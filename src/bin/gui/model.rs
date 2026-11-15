@@ -483,6 +483,34 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The card strip's dialog/one-shot state: the snapshot numbers and their meta,
+/// the version name dialog and its filter, the variant name/delete dialogs and
+/// the one-shot keep-recipe flag a preview re-decode sets. The variant list
+/// itself stays on the app (it is the open photo's core state).
+pub(crate) struct CardsState {
+    pub(crate) keep_recipe: bool,
+    pub(crate) versions: Vec<u32>,
+    pub(crate) version_meta: HashMap<u32, autoshade::store::VersionMetaEntry>,
+    pub(crate) version_name_buf: Option<(PathBuf, u32, String, String)>,
+    pub(crate) versions_current_only: bool,
+    pub(crate) variant_name_buf: Option<(PathBuf, String, String, String)>,
+    pub(crate) variant_delete_confirm: Option<usize>,
+}
+
+impl Default for CardsState {
+    fn default() -> Self {
+        Self {
+            keep_recipe: false,
+            versions: Vec::new(),
+            version_meta: HashMap::new(),
+            version_name_buf: None,
+            versions_current_only: false,
+            variant_name_buf: None,
+            variant_delete_confirm: None,
+        }
+    }
+}
+
 /// The persisted AI preferences, mirrored on the app so the panels read them
 /// without loading `Prefs`: the guide, the three strengths, the adherence dial
 /// and the library/deep-think switches. Field names are the app's; the `Prefs`

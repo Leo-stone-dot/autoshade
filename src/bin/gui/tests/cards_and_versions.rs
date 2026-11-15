@@ -540,12 +540,15 @@ rationale: "stale rationale".into(),
         let ctx = egui::Context::default();
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
         let mut app = AutoShadeApp {
+            cards: CardsState {
+                versions: vec![1, 2],
+                ..Default::default()
+            },
             variants: vec![
                 mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID),
                 mk(VariantKind::Generated, "card-gen"),
             ],
             active: 0,
-            versions: vec![1, 2],
             ..Default::default()
         };
         let _ = ctx.run(
@@ -612,12 +615,15 @@ rationale: "stale rationale".into(),
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let mut app = AutoShadeApp {
+                cards: CardsState {
+                    versions: vec![1],
+                    ..Default::default()
+                },
                 variants: vec![
                     mk(VariantKind::Original, crate::model::ORIGINAL_VARIANT_ID),
                     mk(VariantKind::Generated, "card-gen"),
                 ],
                 active,
-                versions: vec![1],
                 ..Default::default()
             };
             let mut widths = Vec::new();
@@ -733,7 +739,7 @@ rationale: "stale rationale".into(),
                 app.seams.strip_name_rect.is_some_and(|r| r.width() > 0.0),
                 "{kind:?}: the active card offers no name affordance"
             );
-            app.variant_name_buf =
+            app.cards.variant_name_buf =
                 Some((photo.clone(), "card-b".into(), String::new(), "dusk".into()));
             app.seams.strip_name_rect = None;
             let _ = ctx.run(input(), |ctx| {
@@ -775,7 +781,7 @@ rationale: "stale rationale".into(),
             ..Default::default()
         };
         // Typed on the Fitted card…
-        app.variant_name_buf =
+        app.cards.variant_name_buf =
             Some((photo.clone(), "card-fit".into(), String::new(), "dusk".into()));
         // …while an async completion inserts a card ahead of it.
         app.variants.insert(1, mk(VariantKind::Generated, "card-gen"));
@@ -960,6 +966,10 @@ rationale: "stale rationale".into(),
         std::fs::write(&src, b"raw").unwrap();
 
         let mut app = AutoShadeApp {
+            cards: CardsState {
+                versions: vec![1, 2],
+                ..Default::default()
+            },
             src_path: Some(src.clone()),
             variants: vec![crate::model::Variant {
                 kind: crate::model::VariantKind::Fitted,
@@ -970,10 +980,9 @@ rationale: "stale rationale".into(),
                 origin: None,
                 thumb: None,
             }],
-            versions: vec![1, 2],
             ..Default::default()
         };
-        app.version_meta.insert(
+        app.cards.version_meta.insert(
             1,
             autoshade::store::VersionMetaEntry {
                 n: 1,
@@ -983,7 +992,7 @@ rationale: "stale rationale".into(),
                 origin: Some(autoshade::store::VERSION_ORIGIN_USER.into()),
             },
         );
-        app.version_meta.insert(
+        app.cards.version_meta.insert(
             2,
             autoshade::store::VersionMetaEntry {
                 n: 2,
@@ -1033,7 +1042,7 @@ rationale: "stale rationale".into(),
         );
 
         // Filter ON: v2 has no recorded source, so it goes — and says so.
-        app.versions_current_only = true;
+        app.cards.versions_current_only = true;
         let seen = frame(&mut app);
         assert!(seen.iter().any(|t| t == "「偏暖」"), "this card's own version stays: {seen:?}");
         assert!(
@@ -1083,9 +1092,9 @@ rationale: "stale rationale".into(),
             ..Default::default()
         };
         app.refresh_versions();
-        assert_eq!(app.versions, vec![1]);
+        assert_eq!(app.cards.versions, vec![1]);
         // Typed, never blurred.
-        app.version_name_buf = Some((src.clone(), 1, String::new(), "偏暖".into()));
+        app.cards.version_name_buf = Some((src.clone(), 1, String::new(), "偏暖".into()));
         let ctx = egui::Context::default();
         app.switch_variant(1, &ctx);
         assert_eq!(
