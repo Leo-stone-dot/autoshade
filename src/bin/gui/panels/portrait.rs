@@ -172,14 +172,14 @@ impl AutoShadeApp {
     /// with.
         /// The first group's line, in the session language.
     pub(crate) fn portrait_line_text(&self, lang: Lang) -> String {
-        match &self.workspace.portrait.line {
+        match &self.workspace.portrait().line {
             PortraitLine::Idle => tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_FIRST_THE_SKIN_EYES_AND_BACKGROU).into(),
             PortraitLine::Finding => tr(lang, K_PORTRAIT_FINDING_THE_PEOPLE_AND_FACES).into(),
             PortraitLine::Found { faces: 0, .. } => tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO).into(),
             PortraitLine::Found { faces: 1, .. } => tr(lang, K_PORTRAIT_FOUND_1_FACE).into(),
             PortraitLine::Found { faces, .. } => trf(lang, K_PORTRAIT_FOUND_FACES, &[("n", &faces.to_string())]),
             PortraitLine::Failed(why) => why.clone(),
-            PortraitLine::Looking if self.workspace.tools.analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_PORTRAIT_LOOK).into(),
+            PortraitLine::Looking if self.workspace.tools().analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_PORTRAIT_LOOK).into(),
             PortraitLine::Looking => tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_FIRST_THE_SKIN_EYES_AND_BACKGROU).into(),
             PortraitLine::Looked => tr(lang, K_NORMAL_DONE_CTRL_Z_GOES_BACK).into(),
         }
@@ -190,7 +190,7 @@ impl AutoShadeApp {
         if self.editor.doc().recipe.masks.iter().any(|m| matches!(m.role, MaskRole::Face | MaskRole::Skin)) {
             return None;
         }
-        let searched = self.workspace.portrait.found.as_ref().is_some_and(|(p, n)| self.editor.photo().src_path.as_ref() == Some(p) && *n == 0);
+        let searched = self.workspace.portrait().found.as_ref().is_some_and(|(p, n)| self.editor.photo().src_path.as_ref() == Some(p) && *n == 0);
         Some(if searched { tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO) } else { tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP) })
     }
 
@@ -198,7 +198,7 @@ impl AutoShadeApp {
     /// mid-open gate as the shared panels.
     pub(crate) fn portrait_panel(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let editable = !self.workspace.open.open_in_flight;
+        let editable = !self.workspace.open().open_in_flight;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, K_PORTRAIT_PORTRAITS), false, |_| {});
         let mut changed = false;
@@ -226,7 +226,7 @@ impl AutoShadeApp {
     fn portrait_people(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
         Self::portrait_group(ui, tr(lang, K_PORTRAIT_PEOPLE_AND_BACKGROUND));
-        let ready = self.editor.photo().src_path.is_some() && self.editor.photo().base_preview.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight;
+        let ready = self.editor.photo().src_path.is_some() && self.editor.photo().base_preview.is_some() && !self.workspace.busy() && !self.workspace.tools().analyze_inflight;
         let mut find = false;
         let mut look = false;
         ui.horizontal(|ui| {
@@ -249,7 +249,7 @@ impl AutoShadeApp {
         );
         let line = self.portrait_line_text(lang);
         ui.horizontal_wrapped(|ui| {
-            if self.workspace.portrait.line == PortraitLine::Finding || (self.workspace.portrait.line == PortraitLine::Looking && self.workspace.tools.analyze_inflight) {
+            if self.workspace.portrait().line == PortraitLine::Finding || (self.workspace.portrait().line == PortraitLine::Looking && self.workspace.tools().analyze_inflight) {
                 ui.spinner();
             }
             ui.label(egui::RichText::new(line).small());
@@ -298,7 +298,7 @@ impl AutoShadeApp {
                 logic::portrait::PortraitAction::SetKeepSkin(on),
             )]);
         }
-        let can_heal = face_raster(&self.editor.doc().recipe).is_some() && !self.workspace.busy && self.editor.photo().src_path.is_some();
+        let can_heal = face_raster(&self.editor.doc().recipe).is_some() && !self.workspace.busy() && self.editor.photo().src_path.is_some();
         if action_row(ui, can_heal, tr(lang, K_PORTRAIT_REMOVE_BLEMISHES))
             .on_hover_text(tr(
                 lang,
@@ -348,12 +348,12 @@ impl AutoShadeApp {
         let mut changed = false;
         let subject = subject_raster(&self.editor.doc().recipe);
         if self.editor.doc().recipe.lens_blur.is_none() {
-            let can = !self.workspace.busy && self.editor.photo().base_preview.is_some() && self.editor.photo().src_path.is_some() && depth_helper_available();
+            let can = !self.workspace.busy() && self.editor.photo().base_preview.is_some() && self.editor.photo().src_path.is_some() && depth_helper_available();
             if action_row(ui, can, tr(lang, K_PORTRAIT_PREPARE_THE_BACKGROUND_BLUR))
                 .on_hover_text(tr(lang, K_PORTRAIT_MEASURES_HOW_FAR_AWAY_EVERY_PART_OF_THE_PHOTO_IS))
                 .clicked()
             {
-                self.workspace.portrait.blur_from_panel = true;
+                self.workspace.portrait_mut().blur_from_panel = true;
                 self.apply_actions(vec![logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth)]);
             }
         } else if let Some(lb) = self.editor.doc_mut().recipe.lens_blur.as_mut() {

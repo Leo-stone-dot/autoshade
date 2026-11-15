@@ -3,17 +3,19 @@
 //! windows, the gallery scan, tool arming, transient status.
 //!
 //! It lives in its own aggregate so the composition root is a wiring point
-//! rather than a drawer of view fields, and so a panel's state can be handed to
-//! it by a narrow projection instead of `&mut AutoShadeApp`.
+//! rather than a drawer of view fields. Its fields are private: reads go
+//! through the value/`&` accessors, writes through `_mut` accessors, the scalar
+//! and text doors (`set_status`, `set_busy`, …), and the two multi-field
+//! methods a single draw path needs (`paint_upload_parts`, `brush_parts`).
 
 use crate::*;
 
 pub(crate) struct WorkspaceView {
-    pub(crate) status: String,
-    pub(crate) busy: bool, // an analyze/export thread is running
+    status: String,
+    busy: bool, // an analyze/export thread is running
     // Consumed by the startup greeting or the restored folder's status.
     /// The status chrome (toasts, histogram, title, clipping); see [`ChromeState`].
-    pub(crate) chrome: ChromeState,
+    chrome: ChromeState,
     /// R23-3, feedback #5 ("the AI is too timid"): how COMMITTED the grade
     /// should be, 0..1. A SEPARATE axis from `style_strength` — that one asks
     /// how much like the user's own past edits, this one how hard to push — and
@@ -47,7 +49,7 @@ pub(crate) struct WorkspaceView {
     /// cached: it parses a file that can reach tens of MB, so it must never
     /// happen per frame. `None` = not read yet.
     /// The AI section's run/library/tab state; see [`AiState`].
-    pub(crate) ai: AiState,
+    ai: AiState,
     /// A status read is on a worker thread (keeps the first draw off the disk).
     /// A library BUILD is running. Its own flag, never the global `busy`:
     /// building measures every photo in a folder and takes minutes, and freezing
@@ -59,7 +61,7 @@ pub(crate) struct WorkspaceView {
     /// once with nothing to say which sweep the user was looking at.
     // Delivery format + depth (阶段4) — replaces the old save_jpeg bool.
     /// The Export panel's dials and delivery facts; see [`ExportState`].
-    pub(crate) exp: ExportState,
+    exp: ExportState,
     // --- unsaved-edit protection ---
     // What recipe.json last held: the develop of the card that was active at
     // the last save. `active_baseline` joins it with saved_strip so every card
@@ -76,7 +78,7 @@ pub(crate) struct WorkspaceView {
     /// instead (the pre-v0.22 rule) made any two-origin strip permanently
     /// "unsaved" — the quit dialog then re-armed forever.
     /// The open/photo-source state; see [`OpenState`].
-    pub(crate) open: OpenState,
+    open: OpenState,
     /// Master decodes in flight, keyed (photo, origin): repeat clicks into a
     /// still-decoding cold card must coalesce, not stack a fresh full-res
     /// decode thread per click.
@@ -117,7 +119,7 @@ pub(crate) struct WorkspaceView {
     // pending rename commit safely when the selection jumps rows (commit only
     // while masks[i].name still equals the seed — index shifts can't misfire).
     /// The painting tools and mask-edit state; see [`MaskEditState`].
-    pub(crate) masks: MaskEditState,
+    masks: MaskEditState,
     // Arrow-key navigation: gallery index to scroll into view next frame.
     // --- settings / denoise ---
     /// 「🤖 AI Denoise on export」's OWN strength (the Export fold's dial) and
@@ -127,7 +129,7 @@ pub(crate) struct WorkspaceView {
     /// RAW starts at the luminance-grain default; baked sources have
     /// separate saved choices, starting at SCUNet's unchanged 0.5.
     /// The reverse-fit dials and its dialog state; see [`FitState`].
-    pub(crate) fit: FitState,
+    fit: FitState,
     // R23-6 D: 反推 runs the visual judge BEFORE the persist and buys bounded
     // guided rounds off it. Paid and opt-in, like `fit_ai_judge`, and a
     // REVISION of the R20 decision that the fit's review is informational
@@ -155,17 +157,17 @@ pub(crate) struct WorkspaceView {
     // taking focus this frame — which would also kill every focused-none
     // shortcut. Cleared on the NEXT frame instead.
     /// The window shell (settings form, theme, open windows, probes); see [`ShellState`].
-    pub(crate) ui: ShellState,
+    ui: ShellState,
     // --- library / gallery ---
     /// The gallery's own state (scan, thumbnails, selection); see
     /// [`GalleryState`].
-    pub(crate) gal: GalleryState,
+    gal: GalleryState,
     /// Decode attempts that FAILED, per gallery index. Bounds the retry: see
     /// `request_thumb`. Not a cache — it holds no pixels, only a count.
     // Decoded-base LRU (recent last): base pixels + the photo's base-look knots.
     // --- region box-select (local-edit target on the After image) ---
     /// The coverage overlay and the AI region; see [`OverlayState`].
-    pub(crate) overlay: OverlayState,
+    overlay: OverlayState,
     // What a lone click just cleared, kept for one double-click window: the
     // second release of a Fit↔1:1 double-click restores it — the pair's
     // FIRST release already ran the plain-click clear (M18).
@@ -193,7 +195,7 @@ pub(crate) struct WorkspaceView {
     /// an existing raster through the canvas' 8-bit alpha and back would
     /// drift soft edges by a rounding step per edit cycle.
     /// The generative tools and the recipe clipboard; see [`GenerativeState`].
-    pub(crate) genai: GenerativeState,
+    genai: GenerativeState,
     /// What to change on the SELECTED card's develop (2026-10-21): the request
     /// 「AI adjust the selected variant」 sends with the card's render and
     /// recipe. Its own field — the Direction box guides a fresh analysis.
@@ -206,7 +208,7 @@ pub(crate) struct WorkspaceView {
     // sent from the creation closure are dropped before the loop runs.
     // --- zoom / pan (per-photo, reset on open) ---
     /// The canvas view state; see [`ViewState`].
-    pub(crate) view: ViewState,
+    view: ViewState,
     // The zoom that puts one texel on one PHYSICAL pixel — computed where
     // vis_px/disp/ppp exist (canvas after_view, each frame) so the `1` key
     // can act at frame start, before layout. 1.0 until a first frame lands.
@@ -220,7 +222,7 @@ pub(crate) struct WorkspaceView {
     // this panel, where the same keys nudge a hovered slider.
     // --- crop tool ---
     /// The crop tool's state; see [`CropState`].
-    pub(crate) crop: CropState,
+    crop: CropState,
     // (handle, drag start, crop at start, straighten° at start). Handles:
     // 0-3 corners, 4 move-inside, 5-8 edge midpoints (T/B/L/R), 9 = drag
     // OUTSIDE the box → rotate-straighten (the LR gesture).
@@ -229,23 +231,23 @@ pub(crate) struct WorkspaceView {
     /// `None` = the base geometry. Reset whenever the mask selection moves.
     /// The combine mode the panel's "add shape" buttons will arm next.
     // --- tone-curve editor ---
-    pub(crate) curve_channel: usize,                  // CURVE_CHANNELS index: 0=master 1=R 2=G 3=B
+    curve_channel: usize,                  // CURVE_CHANNELS index: 0=master 1=R 2=G 3=B
     // The control point being dragged, WITH the curve set it belongs to
     // (R25 P6: the global curves and a selected mask's can both be on screen
     // in one frame — see `CurveTarget`). Active channel is `curve_channel`.
-    pub(crate) curve_drag: Option<(CurveTarget, usize)>,
+    curve_drag: Option<(CurveTarget, usize)>,
     // --- batch recipe copy / paste ---
     // WHICH photo the clipboard came from: pasting back onto that photo may
     // keep its bitmap masks (the rasters are its own); every other target
     // gets them stripped.
     // --- recipe library (named develops, this file's siblings under <store>/recipes) ---
     /// The named-recipe library panel; see [`RecipeLibraryState`].
-    pub(crate) rlib: RecipeLibraryState,
+    rlib: RecipeLibraryState,
     /// The selected library recipe developed on the open photo (the window's
     /// preview pane); rebuilt when the selection, the photo or the file changes.
     // --- WB eyedropper ---
     /// The canvas tools and AI/generation flight flags; see [`ToolsState`].
-    pub(crate) tools: ToolsState,
+    tools: ToolsState,
     // --- colour-range sample (Range Mask) ---
     // --- Point Color eyedropper (v1.5.0) ---
     // --- AI lens blur (2026-10-13) ---
@@ -285,7 +287,7 @@ pub(crate) struct WorkspaceView {
     /// photo's whole strip to variants.json, so the way-out re-check finds
     /// the state genuinely clean.)
     /// The card strip's dialog/one-shot state; see [`CardsState`].
-    pub(crate) cards: CardsState,
+    cards: CardsState,
     // --- export pipeline (gap batch F + D2) ---
     // --- preview resolution (gap batch E) ---
     // --- recipe versions (gap batch G): ./out/<stem>.v<N>.recipe.json ---
@@ -312,13 +314,213 @@ pub(crate) struct WorkspaceView {
     /// tombstone can bring a card back — so it asks first, the same
     /// arm-then-act shape as `xmp_beside_confirm`.
     /// Normal's own sidebar state (`panels/normal.rs`).
-    pub(crate) normal: crate::panels::normal::NormalState,
+    normal: crate::panels::normal::NormalState,
     /// The last line uv printed during the managed Python environment's
     /// install (`panels/settings.rs`).
     /// What the sidecar interpreter was found to be at startup
     /// (`python_env::inspect`); `None` until the first check.
     /// The Portraits panel's own state (`panels/portrait.rs`).
-    pub(crate) portrait: crate::panels::portrait::PortraitState,
+    portrait: crate::panels::portrait::PortraitState,
+}
+
+impl WorkspaceView {
+    pub(crate) fn status(&self) -> String {
+        self.status.clone()
+    }
+
+    pub(crate) fn status_mut(&mut self) -> &mut String {
+        &mut self.status
+    }
+
+    pub(crate) fn busy(&self) -> bool {
+        self.busy
+    }
+
+    pub(crate) fn chrome(&self) -> &ChromeState {
+        &self.chrome
+    }
+
+    pub(crate) fn chrome_mut(&mut self) -> &mut ChromeState {
+        &mut self.chrome
+    }
+
+    pub(crate) fn ai(&self) -> &AiState {
+        &self.ai
+    }
+
+    pub(crate) fn ai_mut(&mut self) -> &mut AiState {
+        &mut self.ai
+    }
+
+    #[cfg(test)]
+    pub(crate) fn busy_mut(&mut self) -> &mut bool {
+        &mut self.busy
+    }
+
+    #[cfg(test)]
+    pub(crate) fn curve_channel_mut(&mut self) -> &mut usize {
+        &mut self.curve_channel
+    }
+
+    pub(crate) fn exp(&self) -> &ExportState {
+        &self.exp
+    }
+
+    pub(crate) fn exp_mut(&mut self) -> &mut ExportState {
+        &mut self.exp
+    }
+
+    pub(crate) fn open(&self) -> &OpenState {
+        &self.open
+    }
+
+    pub(crate) fn open_mut(&mut self) -> &mut OpenState {
+        &mut self.open
+    }
+
+    pub(crate) fn masks(&self) -> &MaskEditState {
+        &self.masks
+    }
+
+    pub(crate) fn masks_mut(&mut self) -> &mut MaskEditState {
+        &mut self.masks
+    }
+
+    pub(crate) fn fit(&self) -> &FitState {
+        &self.fit
+    }
+
+    pub(crate) fn fit_mut(&mut self) -> &mut FitState {
+        &mut self.fit
+    }
+
+    pub(crate) fn ui(&self) -> &ShellState {
+        &self.ui
+    }
+
+    pub(crate) fn ui_mut(&mut self) -> &mut ShellState {
+        &mut self.ui
+    }
+
+    pub(crate) fn gal(&self) -> &GalleryState {
+        &self.gal
+    }
+
+    pub(crate) fn gal_mut(&mut self) -> &mut GalleryState {
+        &mut self.gal
+    }
+
+    pub(crate) fn overlay(&self) -> &OverlayState {
+        &self.overlay
+    }
+
+    pub(crate) fn overlay_mut(&mut self) -> &mut OverlayState {
+        &mut self.overlay
+    }
+
+    pub(crate) fn genai(&self) -> &GenerativeState {
+        &self.genai
+    }
+
+    pub(crate) fn genai_mut(&mut self) -> &mut GenerativeState {
+        &mut self.genai
+    }
+
+    pub(crate) fn view(&self) -> &ViewState {
+        &self.view
+    }
+
+    pub(crate) fn view_mut(&mut self) -> &mut ViewState {
+        &mut self.view
+    }
+
+    pub(crate) fn crop(&self) -> &CropState {
+        &self.crop
+    }
+
+    pub(crate) fn crop_mut(&mut self) -> &mut CropState {
+        &mut self.crop
+    }
+
+    pub(crate) fn curve_channel(&self) -> usize {
+        self.curve_channel
+    }
+
+    pub(crate) fn curve_drag(&self) -> Option<(CurveTarget, usize)> {
+        self.curve_drag
+    }
+
+    pub(crate) fn rlib(&self) -> &RecipeLibraryState {
+        &self.rlib
+    }
+
+    pub(crate) fn rlib_mut(&mut self) -> &mut RecipeLibraryState {
+        &mut self.rlib
+    }
+
+    pub(crate) fn tools(&self) -> &ToolsState {
+        &self.tools
+    }
+
+    pub(crate) fn tools_mut(&mut self) -> &mut ToolsState {
+        &mut self.tools
+    }
+
+    pub(crate) fn cards(&self) -> &CardsState {
+        &self.cards
+    }
+
+    pub(crate) fn cards_mut(&mut self) -> &mut CardsState {
+        &mut self.cards
+    }
+
+    pub(crate) fn normal(&self) -> &crate::panels::normal::NormalState {
+        &self.normal
+    }
+
+    pub(crate) fn normal_mut(&mut self) -> &mut crate::panels::normal::NormalState {
+        &mut self.normal
+    }
+
+    pub(crate) fn portrait(&self) -> &crate::panels::portrait::PortraitState {
+        &self.portrait
+    }
+
+    pub(crate) fn portrait_mut(&mut self) -> &mut crate::panels::portrait::PortraitState {
+        &mut self.portrait
+    }
+
+
+    /// Write the status bar's text (the two doors below are the only writers)
+    pub(crate) fn set_status(&mut self, status: String) {
+        self.status = status;
+    }
+
+    pub(crate) fn set_busy(&mut self, busy: bool) {
+        self.busy = busy;
+    }
+
+    pub(crate) fn set_curve_channel(&mut self, channel: usize) {
+        self.curve_channel = channel;
+    }
+
+    pub(crate) fn set_curve_drag(&mut self, drag: Option<(CurveTarget, usize)>) {
+        self.curve_drag = drag;
+    }
+
+    /// The paint canvas and the overlay texture it uploads into: one borrow
+    /// because a partial upload READS the pixels and WRITES the texture.
+    pub(crate) fn paint_upload_parts(
+        &self,
+    ) -> (Option<&image::RgbaImage>, Option<&egui::TextureHandle>, Option<[u32; 4]>) {
+        (self.masks.mask_paint.as_ref(), self.overlay.mask_tex.as_ref(), self.overlay.mask_dirty_rect)
+    }
+
+    /// The brush path's two owners in one borrow: the mask canvas and its
+    /// fields, and the overlay's pending dirty rect, are written together.
+    pub(crate) fn brush_parts(&mut self) -> (&mut MaskEditState, &mut OverlayState) {
+        (&mut self.masks, &mut self.overlay)
+    }
 }
 
 impl Default for WorkspaceView {

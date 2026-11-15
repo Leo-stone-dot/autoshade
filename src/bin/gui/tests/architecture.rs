@@ -76,9 +76,9 @@
             "Msg::",
             "ToastKind",
             ".as_mut()",
-            "self.workspace.status =",
+            "self.workspace.status() =",
             "self.toast(",
-            "self.workspace.busy =",
+            "self.workspace.busy() =",
             "self.editor.session().dirty =",
         ];
         // `lens_blur.rs` — the pilot: it must not start the depth worker, open
@@ -96,8 +96,8 @@
         for needle in common.into_iter().chain([
             "open_gallery_index",
             "request_thumb(",
-            "self.workspace.gal.thumbs.retain",
-            "self.workspace.gal.thumb_requested",
+            "self.workspace.gal().thumbs.retain",
+            "self.workspace.gal().thumb_requested",
             "multi_sel.insert",
             "multi_sel.remove",
             "multi_sel.clear",

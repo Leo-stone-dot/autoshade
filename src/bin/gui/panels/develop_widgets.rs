@@ -101,8 +101,8 @@ impl AutoShadeApp {
                         ui.label(egui::RichText::new(tr(lang, K_DEVELOP_B_W_MIX)).weak().small());
                     } else {
                         for (i, name) in ["Hue", "Saturation", "Luminance"].iter().enumerate() {
-                            if ui.selectable_label(self.workspace.ai.hsl_tab == i, tr(lang, name)).clicked() {
-                                self.workspace.ai.hsl_tab = i;
+                            if ui.selectable_label(self.workspace.ai().hsl_tab == i, tr(lang, name)).clicked() {
+                                self.workspace.ai_mut().hsl_tab = i;
                             }
                         }
                     }
@@ -122,7 +122,7 @@ impl AutoShadeApp {
                         changed = true;
                     }
                 });
-                let tab = self.workspace.ai.hsl_tab;
+                let tab = self.workspace.ai().hsl_tab;
                 for (b, name) in HSL_BANDS.iter().enumerate() {
                     // ONE row shape for both mixers: same band, same swatch,
                     // same ±100 track — only the number behind it changes.
@@ -172,7 +172,7 @@ impl AutoShadeApp {
                 // One cell of the grid beside the caption (2026-09-27).
                 let cell = columns(ui, 2);
                 ui.label(egui::RichText::new(tr(lang, K_DEVELOP_POINT_COLOR)).weak().small());
-                let label = if self.workspace.tools.point_color_picking {
+                let label = if self.workspace.tools().point_color_picking {
                     tr(lang, K_DEVELOP_CLICK_IN_IMAGE)
                 } else {
                     tr(lang, K_DEVELOP_PICK_A_COLOR)
@@ -192,12 +192,11 @@ impl AutoShadeApp {
                     ))
                     .clicked()
                 {
-                    let on = !self.workspace.tools.point_color_picking;
+                    let on = !self.workspace.tools().point_color_picking;
                     self.disarm_tools();
-                    self.workspace.tools.point_color_picking = on;
+                    self.workspace.tools_mut().point_color_picking = on;
                     if on {
-                        self.workspace.status =
-                            tr(lang, K_DEVELOP_POINT_COLOR_EYEDROPPER_CLICK_THE_COLOUR_TO_ADJUS).into();
+                        self.workspace.set_status(tr(lang, K_DEVELOP_POINT_COLOR_EYEDROPPER_CLICK_THE_COLOUR_TO_ADJUS).into());
                     }
                 }
             });
@@ -271,8 +270,8 @@ impl AutoShadeApp {
                     let gap = ui.spacing().item_spacing.x;
                     let w = ((ui.available_width().min(FIELD_W_MAX) - row_h(ui) - 2.0 * gap) / 2.0).floor();
                     for (i, name) in GRADE_VIEWS.iter().enumerate() {
-                        if toggle_in(ui, egui::vec2(w, row_h(ui)), self.workspace.ai.grade_region == i, tr(lang, name)).clicked() {
-                            self.workspace.ai.grade_region = i;
+                        if toggle_in(ui, egui::vec2(w, row_h(ui)), self.workspace.ai().grade_region == i, tr(lang, name)).clicked() {
+                            self.workspace.ai_mut().grade_region = i;
                         }
                     }
                     // R38: a glyph square — the same reset in every mixer row.
@@ -294,7 +293,7 @@ impl AutoShadeApp {
                     c
                 };
                 let avail = ui.available_width();
-                if self.workspace.ai.grade_region == 0 {
+                if self.workspace.ai().grade_region == 0 {
                     // Midtones on top, centred; shadows and highlights under it.
                     let half = ((avail - ui.spacing().item_spacing.x) / 2.0).floor();
                     ui.horizontal(|ui| {

@@ -42,7 +42,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut actions = Vec::new();
         let has_helper = depth_helper_available();
-        let can_run = !self.workspace.busy && self.editor.photo().base_preview.is_some() && self.editor.photo().src_path.is_some() && has_helper;
+        let can_run = !self.workspace.busy() && self.editor.photo().base_preview.is_some() && self.editor.photo().src_path.is_some() && has_helper;
         let has_blur = self.editor.doc().recipe.lens_blur.is_some();
         let verb = if has_blur { tr(lang, K_LENS_RE_ESTIMATE_DEPTH) } else { tr(lang, K_LENS_ESTIMATE_DEPTH) };
         let tip = if has_helper {
@@ -60,7 +60,7 @@ impl AutoShadeApp {
             ui.label(egui::RichText::new(hint).weak().small());
             return actions;
         };
-        let picking = self.workspace.tools.lens_focus_picking;
+        let picking = self.workspace.tools().lens_focus_picking;
         ui.horizontal(|ui| {
             let mute = tr(lang, K_LENS_SHOW_MUTE_THE_LENS_BLUR_WITHOUT_LOSING_ITS_SETTI);
             if glyph_toggle(ui, enabled, "👁").on_hover_text(mute).clicked() {

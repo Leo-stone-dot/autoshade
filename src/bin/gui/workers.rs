@@ -81,7 +81,8 @@ impl AutoShadeApp {
                     // current epoch may touch this result. A looked-for verb
                     // also puts back what its fresh look replaced, BEFORE the
                     // shared landing writes.
-                    let claim = logic::look::claim(&mut self.workspace.tools.look, epoch, self.workspace.tools.gen_epoch, &boxed);
+                    let gen_epoch = self.workspace.tools().gen_epoch;
+                    let claim = logic::look::claim(&mut self.workspace.tools_mut().look, epoch, gen_epoch, &boxed);
                     if let Some(claim) = &claim
                         && let Ok((recipe, _, _)) = &mut *boxed
                     {
@@ -96,16 +97,16 @@ impl AutoShadeApp {
                     }
                 }
                 Msg::OneClickBuildProgress { done, total } => {
-                    self.workspace.normal.build_progress = Some((done, total));
+                    self.workspace.normal_mut().build_progress = Some((done, total));
                 }
                 Msg::OneClickBuilt(res) => self.on_one_click_built(lang, res),
-                Msg::PythonEnvLine(line) => self.workspace.ui.python_env_line = Some(line),
+                Msg::PythonEnvLine(line) => self.workspace.ui_mut().python_env_line = Some(line),
                 Msg::PythonEnvReady(res) => self.on_python_env_ready(lang, res),
                 Msg::PortraitFound(found) => self.on_portrait_found(lang, *found),
                 Msg::Exported(Ok(outcome)) => {
                     // Normal's Save group words its own landing (`normal.rs`).
                     let plain = self.normal_delivery_words(lang, &outcome);
-                    self.workspace.exp.batch_progress = None; // the bar belongs to ONE batch run
+                    self.workspace.exp_mut().batch_progress = None; // the bar belongs to ONE batch run
                     match outcome {
                         ExportOutcome::Single { out, relooked, warn } => {
                             // ABSOLUTE (R22-7): the deliverable exists NOW, and
@@ -137,7 +138,7 @@ impl AutoShadeApp {
                                         "{line} · {}",
                                         crate::i18n::text(lang, &warn)
                                     );
-                                    self.workspace.status = t.clone();
+                                    self.workspace.set_status(t.clone());
                                     self.toast(ToastKind::Error, t);
                                 }
                                 None => self.done(line),
@@ -151,7 +152,7 @@ impl AutoShadeApp {
                             // lands nothing and must not be remembered. `ok > 0`
                             // is the proof that at least one file is there.
                             if ok > 0 {
-                                self.workspace.exp.last_dir = Some(dest.clone());
+                                self.workspace.exp_mut().last_dir = Some(dest.clone());
                             }
                             let words = logic::export_landing::batch_words(
                                 ok,
@@ -182,34 +183,34 @@ impl AutoShadeApp {
                     }
                 }
                 Msg::Exported(Err(e)) => {
-                    self.workspace.exp.batch_progress = None;
-                    self.workspace.normal.delivering = false;
+                    self.workspace.exp_mut().batch_progress = None;
+                    self.workspace.normal_mut().delivering = false;
                     self.fail(tr(lang, K_GUI_EXPORT_FAILED), e);
                 }
                 Msg::BatchProgress { done, total } => {
-                    self.workspace.exp.batch_progress = Some((done, total));
+                    self.workspace.exp_mut().batch_progress = Some((done, total));
                     // No destination here: the tick fires once per photo and the
                     // root was already named when the batch started (and is
                     // named again at the landing). Repeating it 500 times only
                     // pushed the counts out of a truncated status line — and
                     // the old hardcoded "./out" became a lie the moment the
                     // destination became a setting (R22-7).
-                    self.workspace.status = trf(
+                    *self.workspace.status_mut() = trf(
                         lang,
                         K_GUI_BATCH_RENDERING,
                         &[("done", &done.to_string()), ("total", &total.to_string())],
                     );
                 }
                 Msg::StyleInfo(info) => {
-                    self.workspace.ai.style_info_loading = false;
-                    self.workspace.ai.style_info = Some(*info);
+                    self.workspace.ai_mut().style_info_loading = false;
+                    self.workspace.ai_mut().style_info = Some(*info);
                 }
                 Msg::StyleBuildProgress { stage, done, total } => {
-                    self.workspace.ai.style_build_progress = Some((stage, done, total));
+                    self.workspace.ai_mut().style_build_progress = Some((stage, done, total));
                     // The panel's own line renders these counts; the status bar
                     // gets them too, because a minutes-long job must be visible
                     // from wherever the user is looking.
-                    self.workspace.status = trf(
+                    *self.workspace.status_mut() = trf(
                         lang,
                         K_GUI_BUILDING_THE_STYLE_LIBRARY_PHOTOS,
                         &[
@@ -239,8 +240,8 @@ impl AutoShadeApp {
                     // gated: after Cancel + an immediate re-run, the abandoned
                     // worker's heartbeats must not overwrite the new task's
                     // status line.
-                    if self.workspace.busy && self.workspace.tools.gen_cancel.is_some() && epoch == self.workspace.tools.gen_epoch {
-                        self.workspace.status = m;
+                    if self.workspace.busy() && self.workspace.tools().gen_cancel.is_some() && epoch == self.workspace.tools().gen_epoch {
+                        self.workspace.set_status(m);
                     }
                 }
                 Msg::Retouched(epoch, boxed) => {
@@ -254,7 +255,7 @@ impl AutoShadeApp {
                 Msg::Styled(boxed) => match *boxed {
                     Ok((prompt, note)) => {
                         // Into the Reimagine prompt: ready to restyle OTHER photos.
-                        self.workspace.genai.reimagine_prompt = prompt;
+                        self.workspace.genai_mut().reimagine_prompt = prompt;
                         let s = match &note {
                             StyleNote::SavedCopy => tr(
                                 lang,
@@ -281,7 +282,7 @@ impl AutoShadeApp {
                 Msg::Pasted(res) => {
                     // Normal's 「apply to every photo」 renders once the paste
                     // has landed whole (`normal.rs`).
-                    let then_render = self.workspace.normal
+                    let then_render = self.workspace.normal_mut()
                         .apply_all
                         .take()
                         .map(|dest| (dest, res.as_ref().is_ok_and(|o| o.errs.is_empty())));
@@ -291,7 +292,7 @@ impl AutoShadeApp {
                     }
                 }
                 Msg::LegacyImported(res) => {
-                    self.workspace.gal.edited_badge.clear(); // imported sidecars light ● badges
+                    self.workspace.gal_mut().edited_badge.clear(); // imported sidecars light ● badges
                     match res {
                         Ok((n, dir)) => self.done(trf(
                             lang,
@@ -318,19 +319,19 @@ impl AutoShadeApp {
     /// had not happened yet, and the first batch of workers ran with no
     /// completion pump armed.
     pub(crate) fn pump_repaint_gate(&mut self, ctx: &egui::Context) {
-        if self.workspace.busy
-            || self.workspace.gal.thumb_inflight > 0
-            || self.workspace.ui.settings.image_models.fetching
-            || self.workspace.ui.settings.analysis_models.fetching
-            || !self.workspace.open.master_loads.is_empty()
+        if self.workspace.busy()
+            || self.workspace.gal().thumb_inflight > 0
+            || self.workspace.ui().settings.image_models.fetching
+            || self.workspace.ui().settings.analysis_models.fetching
+            || !self.workspace.open().master_loads.is_empty()
             // R23-2: the style-library build is NOT busy-gated (it runs for
             // minutes and the app stays usable), so without it here the
             // "building…" state would only repaint when a progress tick
             // happens to arrive — a single slow 60 MP decode would freeze the
             // counter for as long as it takes. Same reason the two model
             // fetches are on this list.
-            || self.workspace.ai.style_build_inflight
-            || self.workspace.ai.style_info_loading
+            || self.workspace.ai().style_build_inflight
+            || self.workspace.ai().style_info_loading
         {
             ctx.request_repaint_after(Duration::from_millis(100));
         }

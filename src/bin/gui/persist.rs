@@ -977,15 +977,15 @@ impl AutoShadeApp {
     /// without an alpha (a Lightroom sidecar's), on a worker — the segmenter
     /// is a sidecar run, seconds of GPU the first time, cached after.
     pub(crate) fn start_ai_mask_resolve(&mut self, lang: Lang) {
-        if self.workspace.busy || self.workspace.open.open_in_flight || unresolved_develop_masks(&self.editor.doc().recipe) == 0 {
+        if self.workspace.busy() || self.workspace.open().open_in_flight || unresolved_develop_masks(&self.editor.doc().recipe) == 0 {
             return;
         }
         let (Some(photo), Some(pixels)) = (self.editor.photo().src_path.clone(), self.active_source_path()) else { return };
         let card = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
         let mut recipe = self.editor.doc().recipe.clone();
         let run = self.ai_mask_runner();
-        self.workspace.busy = true;
-        self.workspace.status = if unresolved_ai_masks(&recipe) > 0 {
+        self.workspace.set_busy(true);
+        *self.workspace.status_mut() = if unresolved_ai_masks(&recipe) > 0 {
             tr(lang, K_PERSIST_RE_DERIVING_THE_AI_MASKS_FROM_LIGHTROOM_ON_THIS)
         } else {
             tr(lang, K_PERSIST_FINDING_THE_FACES_THE_FIRST_RUN_DOWNLOADS_THE_MO)
@@ -1018,7 +1018,7 @@ impl AutoShadeApp {
         lang: Lang,
         (photo, card, resolved, res, faces): (PathBuf, String, EditRecipe, autoshade::pipeline::DevelopMasks, FaceOutcomes),
     ) {
-        self.workspace.busy = false;
+        self.workspace.set_busy(false);
         let here = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
         if self.editor.photo().src_path.as_ref() != Some(&photo) || here != card {
             return;
@@ -1040,11 +1040,11 @@ impl AutoShadeApp {
         }
         if n + nf > 0 || faces.iter().any(Option::is_none) {
             self.editor.session_mut().dirty = true;
-            self.workspace.overlay.overlay_stale = true;
+            self.workspace.overlay_mut().overlay_stale = true;
         }
         if let Some(why) = res.warning() {
             let t = trf(lang, K_LANDING_SOME_MASKS_COULD_NOT_BE_DRAWN_SO_THEY_ARE_NOT_AP, &[("why", &why)]);
-            self.workspace.status = t.clone();
+            self.workspace.set_status(t.clone());
             self.toast(ToastKind::Error, t);
         } else {
             let mut said: Vec<String> = Vec::new();

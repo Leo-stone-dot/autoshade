@@ -545,7 +545,7 @@
         // presses; pass 3 releases → egui reports the click (which pass
         // reports the change depends on egui's drag-vs-click bookkeeping,
         // so the two are OR-ed).
-        let mut app = AutoShadeApp { workspace: WorkspaceView { curve_channel: 2, ..Default::default() }, ..Default::default() };
+        let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.curve_channel_mut() = 2; view } , ..Default::default() };
         let ctx = egui::Context::default();
         let run_pass = |app: &mut AutoShadeApp, events: Vec<egui::Event>| -> bool {
             let mut changed = false;
@@ -655,9 +655,9 @@
                 ..Default::default()
 
 
-            }; editor } , workspace: WorkspaceView { masks: MaskEditState {
+            }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.masks_mut() = MaskEditState {
                 sel_mask: Some(0),
                 ..Default::default()
-            }, ..Default::default() }, ..AutoShadeApp::default() };
+            }; view } , ..AutoShadeApp::default() };
         (app, scrub)
     }

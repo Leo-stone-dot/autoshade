@@ -22,21 +22,21 @@ impl AutoShadeApp {
         }
         // The paste's own sentence is the workspace's; the render's status
         // replaces it below.
-        let old = self.workspace.status.clone();
-        self.workspace.chrome.toasts.retain(|t| t.text != old);
-        let targets = self.workspace.gal.gallery.clone();
+        let old = self.workspace.status().clone();
+        self.workspace.chrome_mut().toasts.retain(|t| t.text != old);
+        let targets = self.workspace.gal().gallery.clone();
         let export = self.normal_export_opts();
         self.start_batch_render_for(targets, "jpg".into(), export, dest, true);
-        if self.workspace.busy {
-            self.workspace.normal.delivering = true;
-            self.workspace.status = tr(lang, K_ACTIONS_SAVING_EVERY_PHOTO_IN_THE_FOLDER).into();
+        if self.workspace.busy() {
+            self.workspace.normal_mut().delivering = true;
+            self.workspace.set_status(tr(lang, K_ACTIONS_SAVING_EVERY_PHOTO_IN_THE_FOLDER).into());
         }
     }
 
     /// The Save group's landing in plain words — `None` when no Save-group
     /// delivery is running, or a batch had failures (their error stands).
     pub(crate) fn normal_delivery_words(&mut self, lang: Lang, outcome: &ExportOutcome) -> Option<String> {
-        if !std::mem::take(&mut self.workspace.normal.delivering) {
+        if !std::mem::take(&mut self.workspace.normal_mut().delivering) {
             return None;
         }
         match outcome {
@@ -66,8 +66,8 @@ impl AutoShadeApp {
     /// switch's own AI denoise is running.
     pub(crate) fn normal_denoise_on(&self) -> bool {
         self.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
-            || (self.workspace.busy
-                && self.workspace.normal
+            || (self.workspace.busy()
+                && self.workspace.normal()
                     .denoise_pair
                     .as_ref()
                     .is_some_and(|d| d.denoised.is_none() && self.editor.photo().src_path.as_ref() == Some(&d.photo)))
@@ -120,26 +120,26 @@ impl AutoShadeApp {
     /// make it).
     pub(crate) fn set_normal_denoise(&mut self, on: bool) {
         let Some(photo) = self.editor.photo().src_path.clone() else { return };
-        if self.workspace.busy || on == self.normal_denoise_on() {
+        if self.workspace.busy() || on == self.normal_denoise_on() {
             return;
         }
         let Some(active) = self.active_variant().map(|v| v.id.clone()) else { return };
-        let pair = self.workspace.normal.denoise_pair.clone().filter(|d| d.photo == photo);
+        let pair = self.workspace.normal().denoise_pair.clone().filter(|d| d.photo == photo);
         let lang = self.lang;
         if on {
             let made = pair.filter(|d| d.plain == active).and_then(|d| d.denoised).and_then(|id| self.card_index(&id));
             if let Some(idx) = made {
                 self.show_card_keeping_look(idx);
-                self.workspace.status = tr(lang, K_ACTIONS_AI_DENOISE_ON).into();
+                self.workspace.set_status(tr(lang, K_ACTIONS_AI_DENOISE_ON).into());
                 return;
             }
-            self.workspace.normal.denoise_pair = Some(DenoisePair { photo, plain: active, denoised: None });
+            self.workspace.normal_mut().denoise_pair = Some(DenoisePair { photo, plain: active, denoised: None });
             self.start_ai_denoise();
-            if self.workspace.busy {
-                self.workspace.status = tr(lang, K_ACTIONS_REMOVING_THE_GRAIN_THIS_TAKES_A_MOMENT).into();
+            if self.workspace.busy() {
+                self.workspace.set_status(tr(lang, K_ACTIONS_REMOVING_THE_GRAIN_THIS_TAKES_A_MOMENT).into());
             } else {
                 // Refused before it ran: its own line stands.
-                self.workspace.normal.denoise_pair = None;
+                self.workspace.normal_mut().denoise_pair = None;
             }
         } else {
             let back = pair
@@ -148,16 +148,16 @@ impl AutoShadeApp {
                 .or_else(|| self.editor.doc().variants.iter().position(|v| v.kind != VariantKind::Denoised));
             let Some(idx) = back else { return };
             // Remembered, so turning it on again shows this ◈ card.
-            self.workspace.normal.denoise_pair = Some(DenoisePair { photo, plain: self.editor.doc().variants[idx].id.clone(), denoised: Some(active) });
+            self.workspace.normal_mut().denoise_pair = Some(DenoisePair { photo, plain: self.editor.doc().variants[idx].id.clone(), denoised: Some(active) });
             self.show_card_keeping_look(idx);
-            self.workspace.status = tr(lang, K_ACTIONS_AI_DENOISE_OFF).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_AI_DENOISE_OFF).into());
         }
     }
 
     /// Before a retouch lands (`Msg::Retouched`): the look's undo history,
     /// when the landing may be the noise switch's own ◈ card.
     pub(crate) fn normal_denoise_history(&mut self) -> Option<(Vec<UndoStep>, Vec<UndoStep>)> {
-        self.workspace.normal
+        self.workspace.normal()
             .denoise_pair
             .as_ref()
             .is_some_and(|d| d.denoised.is_none() && self.editor.photo().src_path.as_ref() == Some(&d.photo))
@@ -168,7 +168,7 @@ impl AutoShadeApp {
     /// switch's AI denoise, remember its ◈ card, carry the look's undo
     /// history onto it, and say so plainly.
     pub(crate) fn after_normal_denoise(&mut self, lang: Lang, history: Option<(Vec<UndoStep>, Vec<UndoStep>)>) {
-        let Some(d) = self.workspace.normal.denoise_pair.as_mut() else { return };
+        let Some(d) = self.workspace.normal_mut().denoise_pair.as_mut() else { return };
         if d.denoised.is_some() || self.editor.photo().src_path.as_ref() != Some(&d.photo) {
             return;
         }

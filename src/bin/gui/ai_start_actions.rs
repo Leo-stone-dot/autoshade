@@ -14,8 +14,8 @@ impl AutoShadeApp {
     /// compute is abandon-only (its late result is discarded by epoch).
     pub(crate) fn arm_cancel(&mut self) -> (u64, Arc<std::sync::atomic::AtomicBool>) {
         let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        self.workspace.tools.gen_cancel = Some(flag.clone());
-        (self.workspace.tools.gen_epoch, flag)
+        self.workspace.tools_mut().gen_cancel = Some(flag.clone());
+        (self.workspace.tools().gen_epoch, flag)
     }
 
     /// The status-bar ✕: stop the running retouch/generative task. The UI
@@ -23,11 +23,11 @@ impl AutoShadeApp {
     /// late result arrives under a stale epoch — discarded, never applied.
     pub(crate) fn cancel_generative(&mut self) {
         // The cancelled analysis' late result has no claim to win.
-        logic::look::cancel(&mut self.workspace.tools.look);
-        if let Some(flag) = self.workspace.tools.gen_cancel.take() {
+        logic::look::cancel(&mut self.workspace.tools_mut().look);
+        if let Some(flag) = self.workspace.tools_mut().gen_cancel.take() {
             flag.store(true, std::sync::atomic::Ordering::Relaxed);
-            self.workspace.tools.gen_epoch = self.workspace.tools.gen_epoch.wrapping_add(1);
-            self.workspace.busy = false;
+            self.workspace.tools_mut().gen_epoch = self.workspace.tools().gen_epoch.wrapping_add(1);
+            self.workspace.set_busy(false);
             // Honest about BOTH shapes. A generative worker polls the flag
             // between stream events and really does stop; `produce_recipe`
             // takes no flag at all, so an Analyze keeps running — and keeps
@@ -35,7 +35,7 @@ impl AutoShadeApp {
             // checkpoint that does not exist for the path the user is most
             // likely cancelling is the kind of false status this project
             // treats as a defect.
-            self.workspace.status = tr(
+            *self.workspace.status_mut() = tr(
                 self.lang,
                 K_ACTIONS_CANCELLED_THE_APP_IS_FREE_AGAIN_AND_THE_LATE_RES,
             )
@@ -48,8 +48,8 @@ impl AutoShadeApp {
     /// start), not once the user said not to ask, and not without the
     /// negative's preview [`Self::start_fit`] reads.
     pub(crate) fn offer_fit_prompt(&mut self, ctx: &egui::Context, divergence: f32) {
-        if self.workspace.busy
-            || !self.workspace.fit.ask_fit_after_generate
+        if self.workspace.busy()
+            || !self.workspace.fit().ask_fit_after_generate
             || self.editor.photo().source_preview.is_none()
         {
             return;
@@ -64,7 +64,7 @@ impl AutoShadeApp {
         // One question at a time: a newer generation takes the open one over
         // — the strip already stands on its card — and keeps what the user
         // picked in it.
-        if let Some(p) = &mut self.workspace.fit.fit_prompt {
+        if let Some(p) = &mut self.workspace.fit_mut().fit_prompt {
             p.target = target;
             p.divergence = divergence;
             return;
@@ -72,7 +72,7 @@ impl AutoShadeApp {
         // The ▣ original first (the user's wording: 默认原图), not Automatic,
         // which solves from a ◈ / ▦ master whenever the strip holds one.
         let from = self.original_index().map(|i| self.editor.doc().variants[i].id.clone()).filter(|id| !id.is_empty());
-        self.workspace.fit.fit_prompt = Some(FitPrompt { target, divergence, from, dont_ask: false });
+        self.workspace.fit_mut().fit_prompt = Some(FitPrompt { target, divergence, from, dont_ask: false });
         // The layer's Enter waits for "no widget focused" — surrendered now,
         // as the quit layer does when it opens.
         if let Some(id) = ctx.memory(|m| m.focused()) {
@@ -89,7 +89,7 @@ impl AutoShadeApp {
     /// layer only states them.
     pub(crate) fn fit_prompt_layer(&mut self, ctx: &egui::Context) {
         let lang = self.lang;
-        let Some(mut prompt) = self.workspace.fit.fit_prompt.take() else {
+        let Some(mut prompt) = self.workspace.fit_mut().fit_prompt.take() else {
             return;
         };
         let (automatic, sources) = self.fit_source_menu();
@@ -104,8 +104,8 @@ impl AutoShadeApp {
             K_ACTIONS_REVERSE_FIT_STRENGTH_LOCAL_AREAS_AI_REVIEW_SET_I,
             &[
                 ("pct", &format!("{:.0}", self.aip.fit_strength * 100.0)),
-                ("zoned", on_off(self.workspace.fit.zoned_fit)),
-                ("review", on_off(self.workspace.fit.fit_ai_judge)),
+                ("zoned", on_off(self.workspace.fit().zoned_fit)),
+                ("review", on_off(self.workspace.fit().fit_ai_judge)),
             ],
         );
         let mut open = true;
@@ -183,20 +183,20 @@ impl AutoShadeApp {
             later = true;
         }
         if !(fit || later) {
-            self.workspace.fit.fit_prompt = Some(prompt);
+            self.workspace.fit_mut().fit_prompt = Some(prompt);
             return;
         }
         if prompt.dont_ask {
-            self.workspace.fit.ask_fit_after_generate = false;
+            self.workspace.fit_mut().ask_fit_after_generate = false;
         }
         // The answer is about the card it asked about; the strip stands on it
         // (the scrim kept every other click away) unless a landing moved it.
         if fit && self.active_variant().is_some_and(|v| v.id == prompt.target) {
-            self.workspace.fit.fit_from = prompt.from;
+            self.workspace.fit_mut().fit_from = prompt.from;
             // A reference file picked in the fold earlier wins `fit_target`
             // over the active card — the fit would solve toward it, not
             // toward the result the question named.
-            self.workspace.fit.fit_ref = None;
+            self.workspace.fit_mut().fit_ref = None;
             self.start_fit();
         }
     }
@@ -213,7 +213,7 @@ impl AutoShadeApp {
         // master link exactly like Ctrl+S would. (The bool is the
         // `pixels.json` flag — `VariantKind::on_ai_pixels`, the axis the
         // flag records: a ✨ card and its ✎ cards sit on the same raster.)
-        let mut pending: Vec<PendingSave> = self.workspace.open.nav_stash
+        let mut pending: Vec<PendingSave> = self.workspace.open().nav_stash
             .iter()
             .map(|(p, st)| PendingSave {
                 photo: p.clone(),
@@ -232,7 +232,7 @@ impl AutoShadeApp {
         // `pending`, and the empty-pending branch below then CLOSED the app,
         // losing a sole live unsaved canvas (background work still lands
         // under the dialog — the scrim below blocks only pointer input).
-        if !self.workspace.open.open_in_flight && let Some(p) = self.editor.photo().src_path.clone() {
+        if !self.workspace.open().open_in_flight && let Some(p) = self.editor.photo().src_path.clone() {
             let origin = self.active_variant().and_then(|v| v.origin.clone());
             // The live canvas outranks its own stash entry WHOLESALE: displace
             // it even when the canvas is clean (the user reverted) — the loop
@@ -260,7 +260,7 @@ impl AutoShadeApp {
         let orphan_variants = self.inactive_dirty_variants();
         if pending.is_empty() && orphan_variants == 0 {
             // Saved (or discarded) since the guard fired — nothing to protect.
-            self.workspace.ui.confirm_quit = false;
+            self.workspace.ui_mut().confirm_quit = false;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
         }
@@ -589,9 +589,9 @@ impl AutoShadeApp {
             }
             match failed {
                 None => {
-                    self.workspace.open.nav_stash.clear();
+                    self.workspace.open_mut().nav_stash.clear();
                     self.editor.session_mut().hist.saved_recipe = self.editor.doc().recipe.clone();
-                    self.workspace.ui.confirm_quit = false;
+                    self.workspace.ui_mut().confirm_quit = false;
                     // The close guard re-checks on the way out. Everything
                     // above just persisted, so the re-check passes — but if
                     // anything is STILL dirty (logic drift, a future writer
@@ -617,7 +617,7 @@ impl AutoShadeApp {
                             K_ACTIONS_SAVED_WITH_WARNINGS_THE_WINDOW_STAYS_OPEN_SO_THE,
                             &[("detail", &quit_warns.join(" · "))],
                         );
-                        self.workspace.status = t.clone();
+                        self.workspace.set_status(t.clone());
                         self.toast(ToastKind::Error, t);
                     } else {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -626,23 +626,23 @@ impl AutoShadeApp {
                 Some(e) => {
                     // Stay open: a failed save on quit must never quietly quit.
                     let t = trf(lang, K_ACTIONS_SAVE_FAILED, &[("err", &e)]);
-                    self.workspace.status = t.clone();
+                    self.workspace.set_status(t.clone());
                     self.toast(ToastKind::Error, t);
-                    self.workspace.ui.confirm_quit = false;
+                    self.workspace.ui_mut().confirm_quit = false;
                 }
             }
         } else if discard_quit {
-            self.workspace.open.nav_stash.clear();
+            self.workspace.open_mut().nav_stash.clear();
             self.editor.session_mut().hist.saved_recipe = self.editor.doc().recipe.clone();
             // The answer to the guard's question, recorded: these two lines
             // clean the ACTIVE canvas, but a background variant's edits have
             // nowhere to be saved, so nothing can make them "clean" — only
             // the user's decision can end the question.
-            self.workspace.open.discard_requested = true;
-            self.workspace.ui.confirm_quit = false;
+            self.workspace.open_mut().discard_requested = true;
+            self.workspace.ui_mut().confirm_quit = false;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         } else if cancel || !open {
-            self.workspace.ui.confirm_quit = false;
+            self.workspace.ui_mut().confirm_quit = false;
         }
     }
 
@@ -650,21 +650,21 @@ impl AutoShadeApp {
     /// ./out folder (Settings button). Worker-side: one read_dir per photo
     /// over a possibly huge folder is I/O the UI thread must not pay.
     pub(crate) fn start_import_legacy(&mut self, dir: PathBuf) {
-        if self.workspace.busy {
+        if self.workspace.busy() {
             return;
         }
         let lang = self.lang;
-        let photos = self.workspace.gal.gallery.clone();
+        let photos = self.workspace.gal().gallery.clone();
         if photos.is_empty() {
-            self.workspace.status = tr(
+            *self.workspace.status_mut() = tr(
                 lang,
                 K_ACTIONS_OPEN_A_FOLDER_FIRST_IMPORT_MIGRATES_THE_PHOTOS_C,
             )
             .into();
             return;
         }
-        self.workspace.busy = true;
-        self.workspace.status = trf(
+        self.workspace.set_busy(true);
+        *self.workspace.status_mut() = trf(
             lang,
             K_ACTIONS_IMPORTING_DEVELOPS_FROM,
             &[("path", &dir.display().to_string())],
@@ -690,10 +690,10 @@ impl AutoShadeApp {
     /// process rebuilding the shared library mid-session is the one staleness
     /// this accepts — the alternative is a stat per frame forever).
     pub(crate) fn start_style_info(&mut self) {
-        if self.workspace.ai.style_info_loading {
+        if self.workspace.ai().style_info_loading {
             return;
         }
-        self.workspace.ai.style_info_loading = true;
+        self.workspace.ai_mut().style_info_loading = true;
         self.spawn_worker(
             || Msg::StyleInfo(Box::new(autoshade::library::summary())),
             // A read that PANICS must still clear the flag, or the status line
@@ -712,12 +712,12 @@ impl AutoShadeApp {
     /// library is published atomically (`Library::save`), so a killed process
     /// leaves the previous library intact.
     pub(crate) fn start_style_build(&mut self, dir: PathBuf) {
-        if self.workspace.ai.style_build_inflight {
+        if self.workspace.ai().style_build_inflight {
             return;
         }
-        self.workspace.ai.style_build_inflight = true;
-        self.workspace.ai.style_build_progress = None;
-        self.workspace.status = trf(
+        self.workspace.ai_mut().style_build_inflight = true;
+        self.workspace.ai_mut().style_build_progress = None;
+        *self.workspace.status_mut() = trf(
             self.lang,
             K_ACTIONS_BUILDING_THE_REFERENCE_LIBRARY_FROM_THE_FIRST_BU,
             &[("path", &abs_display(&dir))],
@@ -768,10 +768,10 @@ impl AutoShadeApp {
     ) -> u64 {
         #[cfg(test)]
         {
-            self.workspace.normal.last_request = Some((req, guidance.clone(), library));
+            self.workspace.normal_mut().last_request = Some((req, guidance.clone(), library));
         }
         #[cfg(test)]
-        let runner = self.workspace.normal.runner;
+        let runner = self.workspace.normal().runner;
         // Every other network starter arms this; Analyze — the one a stalled
         // endpoint holds the longest — did not, so a hung stream left no ✕
         // and only killing the process recovered. Abandon semantics (like the
@@ -779,7 +779,7 @@ impl AutoShadeApp {
         // ✕ frees the UI immediately, the call dies at its stall/progress
         // deadline, and the stale-epoch result is discarded on arrival.
         let (epoch, _flag) = self.arm_cancel();
-        self.workspace.tools.analyze_inflight = true;
+        self.workspace.tools_mut().analyze_inflight = true;
         self.spawn_worker(
             move || {
                 // Test seam: a headless test stands in for the paid chain.
@@ -829,7 +829,7 @@ impl AutoShadeApp {
         else {
             return;
         };
-        if self.workspace.busy {
+        if self.workspace.busy() {
             return;
         }
         let src_path = self.editor.photo().src_path.clone();
@@ -839,19 +839,19 @@ impl AutoShadeApp {
         // cannot disagree.
         let negative = self.fit_negative();
         let fit_strength = self.fit_strength();
-        let zoned = self.workspace.fit.zoned_fit;
-        let zoned_regions = if self.workspace.fit.zoned_four_regions {
+        let zoned = self.workspace.fit().zoned_fit;
+        let zoned_regions = if self.workspace.fit().zoned_four_regions {
             autoshade::fit_zoned::semantic::MAX_SEMANTIC_REGIONS
         } else {
             autoshade::fit_zoned::semantic::DEFAULT_SEMANTIC_REGIONS
         };
-        let ai_judge = self.workspace.fit.fit_ai_judge;
+        let ai_judge = self.workspace.fit().fit_ai_judge;
         // The deep path IS the review, iterated — it cannot run without it,
         // and the checkbox is disabled accordingly, but the worker must not
         // depend on a UI gate for a spending decision.
-        let deep = self.workspace.fit.fit_deep && ai_judge;
+        let deep = self.workspace.fit().fit_deep && ai_judge;
         let lang = self.lang;
-        self.workspace.busy = true;
+        self.workspace.set_busy(true);
         let mut running = if zoned {
             tr(lang, K_ACTIONS_REVERSE_FITTING_GLOBAL_SEMANTIC_RANGES_SPATIAL_T).to_string()
         } else {
@@ -864,7 +864,7 @@ impl AutoShadeApp {
             // busy line must own that extra wait up front.
             running.push_str(tr(lang, K_ACTIONS_THEN_AI_REVIEW_VISION_CALL));
         }
-        self.workspace.status = running;
+        self.workspace.set_status(running);
         self.spawn_worker(
             move || {
                 // Full-frame commit budget (budget.rs); the reference's own

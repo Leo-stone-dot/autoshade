@@ -238,19 +238,19 @@
             app.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
         };
         assert!(!app.tool_armed(), "premise: a fresh app has no tool armed");
-        app.workspace.tools.point_color_picking = true;
+        app.workspace.tools_mut().point_color_picking = true;
         assert!(app.tool_armed(), "an armed eyedropper is an armed canvas tool");
         app.disarm_tools();
-        assert!(!app.workspace.tools.point_color_picking, "Esc's disarm puts it down with the rest");
+        assert!(!app.workspace.tools().point_color_picking, "Esc's disarm puts it down with the rest");
 
-        app.workspace.tools.point_color_picking = true;
+        app.workspace.tools_mut().point_color_picking = true;
         pick(&mut app, [0.5, 0.5, 0.5]);
-        assert!(app.editor.doc().recipe.point_colors.is_empty(), "a grey spot is no swatch: {}", app.workspace.status);
-        assert!(app.workspace.tools.point_color_picking, "…and the tool stays armed for the retry");
+        assert!(app.editor.doc().recipe.point_colors.is_empty(), "a grey spot is no swatch: {}", app.workspace.status());
+        assert!(app.workspace.tools().point_color_picking, "…and the tool stays armed for the retry");
         assert!(!app.editor.session().dirty, "…and nothing was edited");
 
         pick(&mut app, [0.8, 0.3, 0.2]);
-        assert_eq!(app.editor.doc().recipe.point_colors.len(), 1, "{}", app.workspace.status);
+        assert_eq!(app.editor.doc().recipe.point_colors.len(), 1, "{}", app.workspace.status());
         let chip = autoshade::render::point_color_rgb(&app.editor.doc().recipe.point_colors[0]);
         for (c, want) in chip.iter().zip([0.8, 0.3, 0.2]) {
             assert!(
@@ -258,18 +258,18 @@
                 "the swatch is keyed to the colour clicked: {chip:?}"
             );
         }
-        assert!(!app.workspace.tools.point_color_picking, "a landed swatch disarms the tool");
+        assert!(!app.workspace.tools().point_color_picking, "a landed swatch disarms the tool");
         assert!(app.editor.session().dirty, "…and asks for a redevelop");
 
         app.editor.doc_mut().recipe.point_colors = vec![app.editor.doc().recipe.point_colors[0].clone(); MAX_POINT_COLORS];
-        app.workspace.tools.point_color_picking = true;
+        app.workspace.tools_mut().point_color_picking = true;
         pick(&mut app, [0.2, 0.3, 0.8]);
         assert_eq!(app.editor.doc().recipe.point_colors.len(), MAX_POINT_COLORS, "a full list takes no more");
-        assert!(!app.workspace.tools.point_color_picking, "…and the refusal disarms");
+        assert!(!app.workspace.tools().point_color_picking, "…and the refusal disarms");
         assert!(
-            app.workspace.status.contains(&MAX_POINT_COLORS.to_string()),
+            app.workspace.status().contains(&MAX_POINT_COLORS.to_string()),
             "…naming the limit: {}",
-            app.workspace.status
+            app.workspace.status()
         );
     }
 
@@ -1066,7 +1066,7 @@
     #[test]
     fn the_export_header_carries_no_dot_whatever_the_delivery_settings() {
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
-            let mut app = AutoShadeApp { workspace: WorkspaceView { exp: ExportState {
+            let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.exp_mut() = ExportState {
                     format: ExportFormat::Jpeg,
                     quality: 100.0,
                     long_edge: 2048,
@@ -1075,7 +1075,7 @@
                     dest: ExportDest::Ask,
                     save_denoise: true,
                     ..Default::default()
-                }, ..Default::default() }, lang, ..Default::default() };
+                }; view } , lang, ..Default::default() };
             let title = tr(lang, K_APP_EXPORT);
             let lit = format!("{title}  ●");
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
@@ -1098,22 +1098,22 @@
         for i in 0..4 {
             app.toast(ToastKind::Success, format!("saved {i}"));
         }
-        assert_eq!(app.workspace.chrome.toasts.len(), 5, "the ring is exactly full");
+        assert_eq!(app.workspace.chrome().toasts.len(), 5, "the ring is exactly full");
         // Ctrl+S three more times on the same photo: byte-identical disclosure.
         for _ in 0..3 {
             app.toast(ToastKind::Error, loss);
         }
         assert_eq!(
-            app.workspace.chrome.toasts.len(), 5,
+            app.workspace.chrome().toasts.len(), 5,
             "three refreshes must not grow the ring — stacking would have evicted \
              the four successes one by one"
         );
         assert_eq!(
-            app.workspace.chrome.toasts.iter().filter(|t| t.text == loss).count(), 1,
+            app.workspace.chrome().toasts.iter().filter(|t| t.text == loss).count(), 1,
             "one live copy of one disclosure"
         );
         assert_eq!(
-            app.workspace.chrome.toasts.last().expect("non-empty").text, loss,
+            app.workspace.chrome().toasts.last().expect("non-empty").text, loss,
             "the refresh moves it to the BACK, so the ring evicts it LAST — \
              refreshing in place left the error first in line for eviction"
         );
@@ -1121,7 +1121,7 @@
         // different toast (different colour, different TTL).
         app.toast(ToastKind::Success, loss);
         assert_eq!(
-            app.workspace.chrome.toasts.iter().filter(|t| t.text == loss).count(), 2,
+            app.workspace.chrome().toasts.iter().filter(|t| t.text == loss).count(), 2,
             "dedup keys on (text, kind), not text alone"
         );
     }

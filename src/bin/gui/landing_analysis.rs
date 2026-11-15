@@ -23,8 +23,8 @@ pub(crate) fn on_analyzed(
 ) {
                 // Cleared whatever the epoch: the wire is free either way,
                 // and this is what re-arms the Analyze button.
-                self.workspace.tools.analyze_inflight = false;
-                if epoch != self.workspace.tools.gen_epoch {
+                self.workspace.tools_mut().analyze_inflight = false;
+                if epoch != self.workspace.tools().gen_epoch {
                     // A cancelled Analyze's late result: the user already
                     // moved on. The Ok arm below also PERSISTS (backup +
                     // recipe.json + XMP) — a stale install would not just
@@ -32,7 +32,7 @@ pub(crate) fn on_analyzed(
                     // develop. Discard entirely (Err is just as silent).
                     return; // was `continue` — the match was the loop's last statement
                 }
-                self.workspace.tools.gen_cancel = None;
+                self.workspace.tools_mut().gen_cancel = None;
                 match *boxed {
                 Ok((recipe, verdict, rationale_notes)) => {
                     // Sliders stay live while Analyze runs (10-30 s):
@@ -85,13 +85,13 @@ pub(crate) fn on_analyzed(
                     self.editor.analysis_mut().verdict =
                         Some((verdict.decision.clone(), verdict.reasons.clone()));
                     self.editor.session_mut().dirty = true;
-                    self.workspace.busy = false;
+                    self.workspace.set_busy(false);
                     // Persist like the CLI and the web do — the badge,
                     // batch render and reopening all read recipe.json, so
                     // an unpersisted analyze silently diverges from every
                     // one of them. An existing explicit save is snapshotted
                     // to v<N> first, never destroyed.
-                    self.workspace.status = if !accepted {
+                    *self.workspace.status_mut() = if !accepted {
                         // The verifier itself judged this result not
                         // ready, and a non-Accept verdict may not
                         // auto-save (user decision). The result stays on

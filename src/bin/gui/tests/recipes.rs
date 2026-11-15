@@ -85,7 +85,7 @@ fn the_open_develop_is_saved_as_a_plain_portable_recipe() {
         ..Default::default()
     });
     let mut app = app_with(&photo, recipe);
-    app.workspace.rlib.recipe_name_buf = name.clone();
+    app.workspace.rlib_mut().recipe_name_buf = name.clone();
     app.save_current_recipe();
 
     let text = std::fs::read_to_string(&path).expect("the entry exists on disk");
@@ -93,15 +93,15 @@ fn the_open_develop_is_saved_as_a_plain_portable_recipe() {
     assert_eq!(back.exposure_ev, 0.42);
     assert!(back.crop.is_none(), "crop belongs to the source photo");
     assert!(back.masks.is_empty(), "a bitmap mask's raster belongs to the source photo");
-    assert_eq!(app.workspace.rlib.recipe_sel.as_deref(), Some(name.as_str()), "the new entry is selected");
+    assert_eq!(app.workspace.rlib().recipe_sel.as_deref(), Some(name.as_str()), "the new entry is selected");
     assert!(
-        app.workspace.rlib.recipes.iter().any(|r| r.name == name),
+        app.workspace.rlib().recipes.iter().any(|r| r.name == name),
         "the list was re-read from disk"
     );
     assert!(
-        app.workspace.status.contains("Saved recipe") && app.workspace.status.contains("left out"),
+        app.workspace.status().contains("Saved recipe") && app.workspace.status().contains("left out"),
         "the loss is disclosed: {}",
-        app.workspace.status
+        app.workspace.status()
     );
 }
 
@@ -114,20 +114,20 @@ fn a_taken_or_illegal_name_is_refused_and_nothing_is_written() {
     let path = recipe_library::entry_path(&name);
     let _scrub = Scrub(vec![path.clone(), recipe_library::entry_path(stem)]);
     let mut app = app_with(&PathBuf::from("D:/library/_gui_recipe_taken.ARW"), EditRecipe { exposure_ev: 0.5, ..Default::default() });
-    app.workspace.rlib.recipe_name_buf = name.clone();
+    app.workspace.rlib_mut().recipe_name_buf = name.clone();
     app.save_current_recipe();
     let first = std::fs::read_to_string(&path).unwrap();
 
     // The field clears after a save: type the same name again to ask for it.
     app.editor.doc_mut().recipe.exposure_ev = -2.0;
-    app.workspace.rlib.recipe_name_buf = name.clone();
+    app.workspace.rlib_mut().recipe_name_buf = name.clone();
     app.save_current_recipe();
-    assert!(app.workspace.status.contains("already exists"), "{}", app.workspace.status);
+    assert!(app.workspace.status().contains("already exists"), "{}", app.workspace.status());
     assert_eq!(std::fs::read_to_string(&path).unwrap(), first, "the first entry survived");
 
-    app.workspace.rlib.recipe_name_buf = "a/b".into();
+    app.workspace.rlib_mut().recipe_name_buf = "a/b".into();
     app.save_current_recipe();
-    assert!(app.workspace.status.contains("cannot contain"), "{}", app.workspace.status);
+    assert!(app.workspace.status().contains("cannot contain"), "{}", app.workspace.status());
     assert_eq!(std::fs::read_to_string(&path).unwrap(), first);
 }
 
@@ -151,7 +151,7 @@ fn applying_a_recipe_to_the_canvas_is_an_unsaved_edit() {
     assert_eq!(app.editor.doc().recipe.contrast, 21.0);
     assert!(app.editor.session().dirty, "the canvas is an unsaved edit");
     assert!(!autoshade::store::recipe_target(&photo).exists(), "nothing was written to the store");
-    assert!(app.workspace.status.contains("Applied recipe"), "{}", app.workspace.status);
+    assert!(app.workspace.status().contains("Applied recipe"), "{}", app.workspace.status());
 }
 
 /// MUTATION THIS CATCHES: apply to the selection without writing each
@@ -173,12 +173,12 @@ fn applying_to_the_selection_writes_each_targets_develop() {
     recipe_library::create(&name, &EditRecipe { exposure_ev: 0.66, ..Default::default() }).unwrap();
 
     let mut app = app_with(&a, EditRecipe::default());
-    app.workspace.gal.gallery = vec![a.clone(), b.clone()];
-    app.workspace.gal.multi_sel = [0usize, 1usize].into_iter().collect();
+    app.workspace.gal_mut().gallery = vec![a.clone(), b.clone()];
+    app.workspace.gal_mut().multi_sel = [0usize, 1usize].into_iter().collect();
     app.apply_recipe_to_selection(&name);
     let ctx = egui::Context::default();
     let start = std::time::Instant::now();
-    while app.workspace.busy {
+    while app.workspace.busy() {
         assert!(start.elapsed() < std::time::Duration::from_secs(20), "the paste never landed");
         std::thread::sleep(std::time::Duration::from_millis(20));
         app.poll_workers(&ctx);
@@ -206,7 +206,7 @@ fn rename_moves_the_file_and_update_keeps_the_name() {
     let mut app = app_with(&photo, EditRecipe { contrast: 5.0, ..Default::default() });
     let _ = to;
     recipe_library::create(&from, &EditRecipe { contrast: 5.0, ..Default::default() }).unwrap();
-    app.workspace.rlib.recipes_loaded = true;
+    app.workspace.rlib_mut().recipes_loaded = true;
     app.refresh_recipes();
 
     app.editor.doc_mut().recipe.contrast = 44.0;
@@ -218,7 +218,7 @@ fn rename_moves_the_file_and_update_keeps_the_name() {
     app.rename_recipe(&from, &to);
     assert!(!recipe_library::entry_path(&from).exists(), "the old file is gone");
     assert!(recipe_library::entry_path(&to).is_file(), "the file moved");
-    assert_eq!(app.workspace.rlib.recipe_sel.as_deref(), Some(to.as_str()));
+    assert_eq!(app.workspace.rlib().recipe_sel.as_deref(), Some(to.as_str()));
     assert_eq!(recipe_library::read(&to).unwrap().contrast, 44.0, "the content moved with it");
 }
 
@@ -231,13 +231,13 @@ fn deleting_an_entry_removes_its_file_and_the_row() {
     let mut app = app_with(&PathBuf::from("D:/library/_gui_recipe_del.ARW"), EditRecipe::default());
     recipe_library::create(&name, &EditRecipe::default()).unwrap();
     app.refresh_recipes();
-    app.workspace.rlib.recipe_sel = Some(name.clone());
+    app.workspace.rlib_mut().recipe_sel = Some(name.clone());
 
     app.delete_recipe(&name);
     assert!(!recipe_library::entry_path(&name).exists(), "the file is gone");
-    assert!(app.workspace.rlib.recipe_sel.is_none(), "the selection followed it");
-    assert!(app.workspace.rlib.recipes.iter().all(|r| r.name != name), "the row is gone");
-    assert!(app.workspace.status.contains("Deleted recipe"), "{}", app.workspace.status);
+    assert!(app.workspace.rlib().recipe_sel.is_none(), "the selection followed it");
+    assert!(app.workspace.rlib().recipes.iter().all(|r| r.name != name), "the row is gone");
+    assert!(app.workspace.status().contains("Deleted recipe"), "{}", app.workspace.status());
 }
 
 /// The window draws the rows it read from disk, and the filter narrows them.
@@ -251,14 +251,14 @@ fn the_window_lists_the_library_and_filters_it() {
     recipe_library::create(&alpha, &EditRecipe::default()).unwrap();
     recipe_library::create(&beta, &EditRecipe { exposure_ev: 0.3, ..Default::default() }).unwrap();
     let mut app = app_with(&PathBuf::from("D:/library/_gui_recipe_list.ARW"), EditRecipe::default());
-    app.workspace.rlib.show_recipes = true;
+    app.workspace.rlib_mut().show_recipes = true;
 
     let seen = window_texts(&mut app);
     assert!(seen.iter().any(|t| t.contains(&alpha)), "the saved row: {seen:?}");
     assert!(seen.iter().any(|t| t.contains(&beta)), "the imported row: {seen:?}");
     assert!(seen.iter().any(|t| t.contains("Save")), "the save verb: {seen:?}");
 
-    app.workspace.rlib.recipes_filter = "Alpha".into();
+    app.workspace.rlib_mut().recipes_filter = "Alpha".into();
     let seen = window_texts(&mut app);
     assert!(seen.iter().any(|t| t.contains(&alpha)), "{seen:?}");
     assert!(!seen.iter().any(|t| t.contains(&beta)), "the filter hid it: {seen:?}");
@@ -286,8 +286,8 @@ fn the_selected_recipe_shows_the_settings_it_changes() {
     .unwrap();
     recipe_library::create(&beta, &EditRecipe::default()).unwrap();
     let mut app = app_with(&PathBuf::from("D:/library/_gui_recipe_facts.ARW"), EditRecipe::default());
-    app.workspace.rlib.show_recipes = true;
-    app.workspace.rlib.recipe_sel = Some(alpha.clone());
+    app.workspace.rlib_mut().show_recipes = true;
+    app.workspace.rlib_mut().recipe_sel = Some(alpha.clone());
     let seen = window_texts(&mut app);
     assert!(seen.iter().any(|t| t.contains("Exposure")), "{seen:?}");
     assert!(seen.iter().any(|t| t.contains("+0.50")), "{seen:?}");
@@ -295,7 +295,7 @@ fn the_selected_recipe_shows_the_settings_it_changes() {
     assert!(seen.iter().any(|t| t.contains("Masks")), "{seen:?}");
     assert!(!seen.iter().any(|t| t.contains("Dehaze")), "a neutral control is not listed: {seen:?}");
 
-    app.workspace.rlib.recipe_sel = Some(beta.clone());
+    app.workspace.rlib_mut().recipe_sel = Some(beta.clone());
     let seen = window_texts(&mut app);
     assert!(
         seen.iter().any(|t| t.contains("No edits")),
@@ -319,16 +319,16 @@ fn the_selected_recipe_is_previewed_on_the_open_photo() {
     app.editor.photo_mut().base_preview = Some(std::sync::Arc::new(image::DynamicImage::ImageRgb8(
         image::RgbImage::from_pixel(120, 80, image::Rgb([90, 110, 130])),
     )));
-    app.workspace.rlib.show_recipes = true;
-    app.workspace.rlib.recipe_sel = Some(name.clone());
+    app.workspace.rlib_mut().show_recipes = true;
+    app.workspace.rlib_mut().recipe_sel = Some(name.clone());
     let _ = window_texts(&mut app);
-    let first = app.workspace.rlib.recipe_preview.as_ref().expect("the preview pane rendered the entry").key.clone();
+    let first = app.workspace.rlib().recipe_preview.as_ref().expect("the preview pane rendered the entry").key.clone();
     assert!(first.contains(&name), "{first}");
 
     // Re-selecting another entry rebuilds it (the key names the file).
-    app.workspace.rlib.recipe_sel = None;
+    app.workspace.rlib_mut().recipe_sel = None;
     let _ = window_texts(&mut app);
-    assert!(app.workspace.rlib.recipe_preview.is_some(), "the cached preview survives a dropped selection");
+    assert!(app.workspace.rlib().recipe_preview.is_some(), "the cached preview survives a dropped selection");
 }
 
 /// The window without a photo still manages the library (list, rename, delete);
@@ -339,7 +339,7 @@ fn the_window_works_without_a_photo_open() {
     let _scrub = Scrub(vec![recipe_library::entry_path(&name)]);
     recipe_library::create(&name, &EditRecipe::default()).unwrap();
     let mut app = AutoShadeApp { lang: Lang::En, ..Default::default() };
-    app.workspace.rlib.show_recipes = true;
+    app.workspace.rlib_mut().show_recipes = true;
     let seen = window_texts(&mut app);
     assert!(seen.iter().any(|t| t.contains(&name)), "{seen:?}");
     assert!(seen.iter().any(|t| t.contains("Recipe library")), "{seen:?}");

@@ -57,13 +57,13 @@ impl AutoShadeApp {
             // apply_step gate beside it (whose own callers became
             // busy-gated later), and says so instead of claiming a live
             // scenario.
-            && (!self.workspace.open.open_in_flight || (self.workspace.open.open_same_path && self.workspace.cards.keep_recipe))
+            && (!self.workspace.open().open_in_flight || (self.workspace.open().open_same_path && self.workspace.cards().keep_recipe))
             && let Some(p) = self.editor.photo().src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.editor.doc_mut().recipe).is_some()
         {
             // The strip entry follows the healed canvas (the Ctrl+S rule),
             // and the user is told BY TOAST: the dominant callers
-            // (switch_variant, push_variant) overwrite self.workspace.status in the
+            // (switch_variant, push_variant) overwrite self.workspace.status() in the
             // same frame, so a status write here died before a single paint
             // — the exact defect the load_version site documented.
             self.editor.sync_active_recipe();
@@ -95,29 +95,29 @@ impl AutoShadeApp {
             self.editor.photo_mut().base_preview = Some(base);
             // A fresh transparent paint mask sized to THIS base (a generated
             // raster and the source neutral can differ in dimensions).
-            self.workspace.masks.mask_paint = Some(image::RgbaImage::new(mw, mh));
+            self.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(mw, mh));
             self.paint_mask_changed(Some(false));
             // Every tool's area is per card, like the canvas itself.
-            self.workspace.masks.paint_store = Default::default();
-            self.workspace.overlay.mask_tex = None;
-            self.workspace.overlay.mask_dirty = false;
-            self.workspace.masks.paint_last = None;
+            self.workspace.masks_mut().paint_store = Default::default();
+            self.workspace.overlay_mut().mask_tex = None;
+            self.workspace.overlay_mut().mask_dirty = false;
+            self.workspace.masks_mut().paint_last = None;
         }
         self.reset_history(); // you can't undo across variants
-        self.workspace.overlay.region = None;
-        self.workspace.overlay.region_drag = None;
-        self.workspace.masks.sel_mask = None;
-        self.workspace.masks.sel_component = None;
+        self.workspace.overlay_mut().region = None;
+        self.workspace.overlay_mut().region_drag = None;
+        self.workspace.masks_mut().sel_mask = None;
+        self.workspace.masks_mut().sel_component = None;
         // Same boundary rule as open_path: the rename buffer belongs to the
         // variant it was typed on (M15). The strip's own rename box is keyed
         // by CARD ID, not by what is on screen, so it deliberately survives
         // a switch — but an armed ✕ does not: it named an index in the strip
         // the user has just moved away from (R24-4).
-        self.workspace.masks.mask_name_buf = None;
-        self.workspace.cards.variant_delete_confirm = None;
-        self.workspace.overlay.overlay_ref = None;
-        self.workspace.overlay.overlay_stale = true;
-        self.workspace.chrome.last_rgb = None; // the retained frame belongs to the OLD variant
+        self.workspace.masks_mut().mask_name_buf = None;
+        self.workspace.cards_mut().variant_delete_confirm = None;
+        self.workspace.overlay_mut().overlay_ref = None;
+        self.workspace.overlay_mut().overlay_stale = true;
+        self.workspace.chrome_mut().last_rgb = None; // the retained frame belongs to the OLD variant
         // …and so does the After texture (L11-2): its only writers are the
         // develop/retouch landings, so until the new variant's first frame
         // lands the canvas showed the OLD variant's pixels under the NEW
@@ -125,13 +125,13 @@ impl AutoShadeApp {
         // "Preparing preview…" placeholder takes over.
         self.editor.plates_mut().after_tex = None;
         self.disarm_tools();
-        self.workspace.tools.clone_src = None; // unlike a mere disarm, a variant switch drops the sample
-        self.workspace.view.zoom = 1.0;
-        self.workspace.view.zoom_target = 1.0; // instant — a swap must not glide from the old view
+        self.workspace.tools_mut().clone_src = None; // unlike a mere disarm, a variant switch drops the sample
+        self.workspace.view_mut().zoom = 1.0;
+        self.workspace.view_mut().zoom_target = 1.0; // instant — a swap must not glide from the old view
         // The `1` key reads LAST frame's cached 1:1 solve; stale across a
         // switch it jumped the new canvas to the old variant's ratio (L11-5).
-        self.workspace.view.one_to_one = 1.0;
-        self.workspace.view.pan = egui::vec2(0.5, 0.5);
+        self.workspace.view_mut().one_to_one = 1.0;
+        self.workspace.view_mut().pan = egui::vec2(0.5, 0.5);
         self.editor.analysis_mut().verdict = None;
         self.editor.session_mut().dirty = true; // re-develop the newly active variant
 }
@@ -143,7 +143,7 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     if idx == self.editor.doc().active || idx >= self.editor.doc().variants.len() {
         return;
     }
-    if self.workspace.busy {
+    if self.workspace.busy() {
         // Refusal must be visible — the card stays clickable and a silent
         // no-op reads as a dead UI.
         let t = tr(self.lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
@@ -172,7 +172,7 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     // followed it.
     // (Both arms, like every canvas door — see `set_canvas_status`; this
     // one names the variant, so it writes its own pair.)
-    self.workspace.status = match self.baked_canvas_edge() {
+    *self.workspace.status_mut() = match self.baked_canvas_edge() {
         None => trf(
             lang,
             K_ACTIONS_SWITCHED_TO_VARIANT_VARIANTS_ARE_INDEPENDENT_SWI,
@@ -213,7 +213,7 @@ pub(crate) fn push_variant(&mut self, v: Variant, ctx: &egui::Context) {
 /// COMPLETION time, so re-anchoring `active` mid-flight would bake its result
 /// onto the wrong variant.
 pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
-    if self.workspace.busy {
+    if self.workspace.busy() {
         let t = tr(self.lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
         self.toast(ToastKind::Error, t);
         return;
@@ -232,8 +232,8 @@ pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
     // arms this index (the button relabels itself and the status says
     // what the second click will do), the second deletes. The arm dies
     // with any other strip move — `load_active` clears it.
-    if self.workspace.cards.variant_delete_confirm != Some(idx) {
-        self.workspace.cards.variant_delete_confirm = Some(idx);
+    if self.workspace.cards().variant_delete_confirm != Some(idx) {
+        self.workspace.cards_mut().variant_delete_confirm = Some(idx);
         let lang = self.lang;
         let name = self.variant_label(idx);
         let t = trf(
@@ -241,18 +241,18 @@ pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
             K_ACTIONS_DELETE_VARIANT_CLICK_AGAIN_TO_CONFIRM_A_DELETED,
             &[("name", &name)],
         );
-        self.workspace.status = t.clone();
+        self.workspace.set_status(t.clone());
         self.toast(ToastKind::Error, t);
         return;
     }
-    self.workspace.cards.variant_delete_confirm = None;
+    self.workspace.cards_mut().variant_delete_confirm = None;
     // A rename box aimed at the card being deleted dies WITH it — the
     // version rows' rule, on the strip's key.
-    if self.workspace.cards.variant_name_buf
+    if self.workspace.cards().variant_name_buf
         .as_ref()
         .is_some_and(|(_, id, ..)| Some(id.as_str()) == self.editor.doc().variants.get(idx).map(|v| v.id.as_str()))
     {
-        self.workspace.cards.variant_name_buf = None;
+        self.workspace.cards_mut().variant_name_buf = None;
     }
     let active_removed = idx == self.editor.doc().active;
     self.editor.doc_mut().variants.remove(idx);
@@ -329,7 +329,7 @@ pub(crate) fn fork_from_generated(&mut self) -> bool {
     // The ✎ card is an edit of this one: it keeps its skin switch.
     self.inherit_keep_skin(&from, &to);
     // A ✕ armed on an index past the insertion now names the wrong card.
-    self.workspace.cards.variant_delete_confirm = None;
+    self.workspace.cards_mut().variant_delete_confirm = None;
     let lang = self.lang;
     self.toast(
         ToastKind::Success,
@@ -434,7 +434,7 @@ pub(crate) fn negative_origin(&self) -> Option<PathBuf> {
 }
 
 pub(crate) fn fit_negative(&self) -> Option<PathBuf> {
-    crate::logic::cards::fit_negative(&self.editor.doc().variants, self.editor.doc().active, self.workspace.fit.fit_from.as_deref())
+    crate::logic::cards::fit_negative(&self.editor.doc().variants, self.editor.doc().active, self.workspace.fit().fit_from.as_deref())
 }
 
 /// How card `idx` reads in the reverse-fit's rows: its name and its place
@@ -482,7 +482,7 @@ pub(crate) fn fit_source_menu(&self) -> (String, Vec<(String, String)>) {
 /// 「＋ Save as version」's.
 pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     let lang = self.lang;
-    if self.workspace.busy {
+    if self.workspace.busy() {
         let t = tr(lang, K_ACTIONS_BUSY_VARIANTS_UNLOCK_WHEN_THE_CURRENT_TASK_FINIS);
         self.toast(ToastKind::Error, t);
         return;
@@ -503,7 +503,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
                 K_DEVELOP_A_GENERATED_VARIANT_S_LOOK_LIVES_IN_ITS_PIXELS_T,
             )
         };
-        self.workspace.status = t.into();
+        self.workspace.set_status(t.into());
         self.toast(ToastKind::Error, t);
         return;
     }
@@ -512,7 +512,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
             lang,
             K_ACTIONS_THIS_PHOTO_S_STRIP_HOLDS_NO_ORIGINAL_CARD_TO_APP,
         );
-        self.workspace.status = t.into();
+        self.workspace.set_status(t.into());
         self.toast(ToastKind::Error, t);
         return;
     };
@@ -545,7 +545,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     self.resync_recipe_display();
     self.editor.session_mut().dirty = true;
     self.commit_now();
-    self.workspace.status = trf(
+    *self.workspace.status_mut() = trf(
         lang,
         K_ACTIONS_COPIED_ONTO_THE_ORIGINAL_CARD_ITS_PIXELS_ARE_UNT,
         &[("name", &name)],
@@ -562,7 +562,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
 /// reaches disk with the strip record at the next save, which is why
 /// `open_dirty_variants` counts a renamed card as unsaved work.
 pub(crate) fn commit_variant_name_buf(&mut self) {
-    let Some((photo, id, seed, buf)) = self.workspace.cards.variant_name_buf.clone() else { return };
+    let Some((photo, id, seed, buf)) = self.workspace.cards().variant_name_buf.clone() else { return };
     if buf == seed {
         return;
     }
@@ -570,7 +570,7 @@ pub(crate) fn commit_variant_name_buf(&mut self) {
         // The card belongs to a photo that is no longer open (its strip
         // went with it), or to no identifiable card at all: drop the
         // buffer rather than paint the name onto whatever sits here now.
-        self.workspace.cards.variant_name_buf = None;
+        self.workspace.cards_mut().variant_name_buf = None;
         return;
     }
     // Capped HERE, on the way in, to the same byte limit the store applies
@@ -589,7 +589,7 @@ pub(crate) fn commit_variant_name_buf(&mut self) {
     // Re-seed rather than clear (the version rule): the box is very
     // likely still on screen, and a SECOND rename in it has to compare
     // against what was just committed, not against the original.
-    self.workspace.cards.variant_name_buf = Some((photo, id, buf.clone(), buf));
+    self.workspace.cards_mut().variant_name_buf = Some((photo, id, buf.clone(), buf));
 }
 
 /// Perform one deferred variant action — **the one owner** (R24-5).
@@ -621,7 +621,7 @@ pub(crate) fn dispatch_variant_action(&mut self, act: VariantAction, ctx: &egui:
                     .find(|v| v.id == id)
                     .and_then(|v| v.name.clone())
                     .unwrap_or_default();
-                self.workspace.cards.variant_name_buf = Some((photo, id, cur.clone(), cur));
+                self.workspace.cards_mut().variant_name_buf = Some((photo, id, cur.clone(), cur));
             }
         }
         // The buttons are already disabled while busy; the second read is
@@ -629,7 +629,7 @@ pub(crate) fn dispatch_variant_action(&mut self, act: VariantAction, ctx: &egui:
         // one bool. (`save_version` is the only arm that writes a file
         // straight from the live canvas.)
         VariantAction::SaveVersion => {
-            if !self.workspace.busy {
+            if !self.workspace.busy() {
                 self.save_version();
             }
         }

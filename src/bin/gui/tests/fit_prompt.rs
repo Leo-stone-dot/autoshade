@@ -48,7 +48,7 @@
 
     /// A finished worker landing through the one door every retouch takes.
     fn land(app: &mut AutoShadeApp, ctx: &egui::Context, note: RetouchNote, out: &str, kind: RetouchKind) {
-        app.on_retouched(ctx, app.lang, app.workspace.tools.gen_epoch, Ok((
+        app.on_retouched(ctx, app.lang, app.workspace.tools().gen_epoch, Ok((
             image::DynamicImage::new_rgb8(4, 4),
             note,
             PathBuf::from(out),
@@ -95,20 +95,20 @@
         land(&mut app, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
         assert_eq!(app.active_variant().map(|v| v.kind), Some(VariantKind::Generated), "premise: the strip switched");
         let first = app.active_variant().unwrap().id.clone();
-        let p = app.workspace.fit.fit_prompt.as_ref().expect("a reimagine landing asks");
+        let p = app.workspace.fit().fit_prompt.as_ref().expect("a reimagine landing asks");
         assert_eq!(p.target, first, "the question is about the card just made");
-        app.workspace.fit.fit_prompt.as_mut().unwrap().from = Some("dn".into());
+        app.workspace.fit_mut().fit_prompt.as_mut().unwrap().from = Some("dn".into());
         land(&mut app, &ctx, reimagined(two), two, RetouchKind::NewGenerated);
         let second = app.active_variant().unwrap().id.clone();
         assert_ne!(first, second);
-        let p = app.workspace.fit.fit_prompt.as_ref().expect("still one question");
+        let p = app.workspace.fit().fit_prompt.as_ref().expect("still one question");
         assert_eq!(p.target, second, "a newer generation takes the open question over");
         assert_eq!(p.from.as_deref(), Some("dn"), "and keeps the source the user picked in it");
 
         let quiet = |note: RetouchNote, kind: RetouchKind, why: &str| {
             let mut app = app_before_a_generation(Lang::En);
             land(&mut app, &ctx, note, "out/_fit_prompt_test.other.png", kind);
-            assert!(app.workspace.fit.fit_prompt.is_none(), "{why} must not ask");
+            assert!(app.workspace.fit().fit_prompt.is_none(), "{why} must not ask");
         };
         quiet(RetouchNote::Filled(PathBuf::from("out/_fit_prompt_test.fill.png")), RetouchKind::Layer, "a fill layer");
         quiet(
@@ -130,13 +130,13 @@
         // job is the only quiet case left below.
         let mut app = app_before_a_generation(Lang::En);
         land(&mut app, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
-        assert!(app.workspace.fit.fit_prompt.is_some(), "the workspace keeps the fold, so it asks");
+        assert!(app.workspace.fit().fit_prompt.is_some(), "the workspace keeps the fold, so it asks");
         let mut app = app_before_a_generation(Lang::En);
         land(&mut app, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
-        app.workspace.fit.fit_prompt = None;
-        app.workspace.busy = true;
+        app.workspace.fit_mut().fit_prompt = None;
+        app.workspace.set_busy(true);
         app.offer_fit_prompt(&ctx, 0.1);
-        assert!(app.workspace.fit.fit_prompt.is_none(), "never over a running job");
+        assert!(app.workspace.fit().fit_prompt.is_none(), "never over a running job");
     }
 
     /// The prompt's「From:」is the panel's menu — one builder, both callers —
@@ -153,7 +153,7 @@
             let mut app = app_before_a_generation(lang);
             land(&mut app, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
             assert_eq!(app.negative_index(), Some(1), "premise: Automatic would pick the ◈ master");
-            let p = app.workspace.fit.fit_prompt.as_ref().unwrap();
+            let p = app.workspace.fit().fit_prompt.as_ref().unwrap();
             assert_eq!(p.from.as_deref(), Some(ORIGINAL_VARIANT_ID), "{lang:?}: the default is the ▣ original");
             let (automatic, cards) = app.fit_source_menu();
             let ids: Vec<&str> = cards.iter().map(|(id, _)| id.as_str()).collect();
@@ -175,46 +175,46 @@
         let mut app = app_before_a_generation(Lang::En);
         land(&mut app, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
         prompt_frame(&mut app, &ctx, &[egui::Key::Escape]);
-        assert!(app.workspace.fit.fit_prompt.is_none(), "Esc closes the question");
-        assert_eq!(app.workspace.fit.fit_from, None, "and leaves the fold's source alone");
-        assert!(!app.workspace.busy, "and starts nothing");
-        assert!(app.workspace.fit.ask_fit_after_generate, "a plain 「Not now」 keeps asking");
+        assert!(app.workspace.fit().fit_prompt.is_none(), "Esc closes the question");
+        assert_eq!(app.workspace.fit().fit_from, None, "and leaves the fold's source alone");
+        assert!(!app.workspace.busy(), "and starts nothing");
+        assert!(app.workspace.fit().ask_fit_after_generate, "a plain 「Not now」 keeps asking");
 
         land(&mut app, &ctx, reimagined(two), two, RetouchKind::NewGenerated);
-        app.workspace.fit.fit_ref = Some(PathBuf::from("library/_fit_prompt_test.reference.jpg"));
+        app.workspace.fit_mut().fit_ref = Some(PathBuf::from("library/_fit_prompt_test.reference.jpg"));
         prompt_frame(&mut app, &ctx, &[egui::Key::Enter]);
-        assert!(app.workspace.fit.fit_prompt.is_none(), "the prompt closes before the fit runs");
-        assert_eq!(app.workspace.fit.fit_from.as_deref(), Some(ORIGINAL_VARIANT_ID), "the fit solves from the ▣ original");
-        assert_eq!(app.workspace.fit.fit_ref, None, "the fit targets the generated card, not an older reference");
-        assert!(app.workspace.busy, "the fit started");
-        assert_eq!(app.workspace.status, tr(Lang::En, K_ACTIONS_REVERSE_FITTING_GLOBAL_SEMANTIC_RANGES_SPATIAL_T));
+        assert!(app.workspace.fit().fit_prompt.is_none(), "the prompt closes before the fit runs");
+        assert_eq!(app.workspace.fit().fit_from.as_deref(), Some(ORIGINAL_VARIANT_ID), "the fit solves from the ▣ original");
+        assert_eq!(app.workspace.fit().fit_ref, None, "the fit targets the generated card, not an older reference");
+        assert!(app.workspace.busy(), "the fit started");
+        assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_REVERSE_FITTING_GLOBAL_SEMANTIC_RANGES_SPATIAL_T));
     }
 
 
     #[test]
     fn the_ask_pref_turns_the_prompt_off_and_round_trips() {
-        assert!(AutoShadeApp::default().workspace.fit.ask_fit_after_generate && Prefs::default().ask_fit_after_generate);
+        assert!(AutoShadeApp::default().workspace.fit().ask_fit_after_generate && Prefs::default().ask_fit_after_generate);
         let ctx = egui::Context::default();
         let one = "out/_fit_prompt_test.reimagine.png";
         let two = "out/_fit_prompt_test.reimagine-2.png";
         let mut app = app_before_a_generation(Lang::En);
         land(&mut app, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
-        app.workspace.fit.fit_prompt.as_mut().unwrap().dont_ask = true;
+        app.workspace.fit_mut().fit_prompt.as_mut().unwrap().dont_ask = true;
         prompt_frame(&mut app, &ctx, &[egui::Key::Escape]);
-        assert!(!app.workspace.fit.ask_fit_after_generate, "the box is applied as the prompt closes");
+        assert!(!app.workspace.fit().ask_fit_after_generate, "the box is applied as the prompt closes");
         land(&mut app, &ctx, reimagined(two), two, RetouchKind::NewGenerated);
-        assert!(app.workspace.fit.fit_prompt.is_none(), "the pref off: no question");
+        assert!(app.workspace.fit().fit_prompt.is_none(), "the pref off: no question");
 
         for ask in [false, true] {
             let mut storage = PrefsMemory::default();
-            let mut app = AutoShadeApp { workspace: WorkspaceView { fit: FitState { ask_fit_after_generate: ask, ..Default::default() }, ..Default::default() }, ..Default::default() };
+            let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.fit_mut() = FitState { ask_fit_after_generate: ask, ..Default::default() }; view } , ..Default::default() };
             eframe::App::save(&mut app, &mut storage);
             let text = eframe::Storage::get_string(&storage, eframe::APP_KEY).unwrap();
             assert!(text.contains(&format!("ask_fit_after_generate:{ask}")), "{text}");
             let prefs: Prefs = eframe::get_value(&storage, eframe::APP_KEY).unwrap();
             let mut back = AutoShadeApp::default();
             back.restore_prefs(prefs);
-            assert_eq!(back.workspace.fit.ask_fit_after_generate, ask);
+            assert_eq!(back.workspace.fit().ask_fit_after_generate, ask);
         }
         let mut storage = PrefsMemory::default();
         eframe::Storage::set_string(&mut storage, eframe::APP_KEY, "()".into());

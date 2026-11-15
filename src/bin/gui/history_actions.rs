@@ -72,21 +72,21 @@ impl AutoShadeApp {
         // crop/rotate drag would re-apply its stale start angle over the
         // freshly restored recipe on the very next drag frame.
         self.disarm_tools();
-        self.workspace.masks.mask_name_buf = None; // stale (index, text) must not cross-commit
+        self.workspace.masks_mut().mask_name_buf = None; // stale (index, text) must not cross-commit
         // A curve-point drag in flight when the recipe is swapped (Ctrl+Z
         // mid-drag) kept mutating point i of the RESTORED curve on the next
         // drag frame (M17).
-        self.workspace.curve_drag = None;
+        self.workspace.set_curve_drag(None);
         // A wholesale recipe swap can shrink the mask list — an out-of-range
         // selection must not linger (every consumer bounds-checks, but the
         // panel would silently deselect anyway; do it deterministically).
         // Same-index-different-mask after undo is a known cosmetic residue —
         // mask identity isn't tracked across history steps.
-        self.workspace.masks.sel_mask = self.workspace.masks.sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len());
+        self.workspace.masks_mut().sel_mask = self.workspace.masks().sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len());
         // The component selection rides on the mask's OWN list, which the
         // swap can also reshape — same deterministic bound.
-        self.workspace.masks.sel_component = self.workspace.masks.sel_component.filter(|&c| {
-            self.workspace.masks.sel_mask
+        self.workspace.masks_mut().sel_component = self.workspace.masks().sel_component.filter(|&c| {
+            self.workspace.masks().sel_mask
                 .and_then(|i| self.editor.doc().recipe.masks.get(i))
                 .is_some_and(|m| c < m.components.len())
         });
@@ -134,7 +134,7 @@ impl AutoShadeApp {
         // this fn's only callers — so no live caller reaches here mid-flight
         // any more. The gate stays because ungating the keyboard would
         // resurrect every scenario above, and the test drives it directly.
-        if (!self.workspace.open.open_in_flight || (self.workspace.open.open_same_path && self.workspace.cards.keep_recipe))
+        if (!self.workspace.open().open_in_flight || (self.workspace.open().open_same_path && self.workspace.cards().keep_recipe))
             && self.editor.doc().variants.get(self.editor.doc().active).is_none_or(|v| v.kind.is_source_based())
             && let Some(p) = self.editor.photo().src_path.clone()
             && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.editor.doc_mut().recipe).is_some()
@@ -190,9 +190,9 @@ impl AutoShadeApp {
             self.editor.photo_mut().base_preview = Some(base);
             self.rebind_paint_canvas(mw, mh);
         }
-        self.workspace.overlay.overlay_ref = None;
-        self.workspace.overlay.overlay_stale = true;
-        self.workspace.chrome.last_rgb = None;
+        self.workspace.overlay_mut().overlay_ref = None;
+        self.workspace.overlay_mut().overlay_stale = true;
+        self.workspace.chrome_mut().last_rgb = None;
     }
 
     /// The base plate under the canvas was REPLACED (a preview-resolution
@@ -216,13 +216,13 @@ impl AutoShadeApp {
             );
             self.toast(ToastKind::Error, t.to_string());
         }
-        self.workspace.masks.mask_paint = Some(image::RgbaImage::new(w, h));
+        self.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(w, h));
         self.paint_mask_changed(Some(false));
         // The other tools' areas were in the old frame too.
-        self.workspace.masks.paint_store = Default::default();
-        self.workspace.overlay.mask_tex = None;
-        self.workspace.overlay.mask_dirty = false;
-        self.workspace.masks.paint_last = None;
+        self.workspace.masks_mut().paint_store = Default::default();
+        self.workspace.overlay_mut().mask_tex = None;
+        self.workspace.overlay_mut().mask_dirty = false;
+        self.workspace.masks_mut().paint_last = None;
     }
 
     /// May the photographer turn this photo right now? (Drives both the
@@ -245,10 +245,10 @@ impl AutoShadeApp {
     pub(crate) fn can_rotate(&self) -> bool {
         self.editor.photo().src_path.is_some()
             && self.editor.photo().base_preview.is_some()
-            && !self.workspace.busy
-            && !self.workspace.open.open_in_flight
-            && !self.workspace.masks.paint_mode
-            && self.workspace.overlay.region.is_none()
+            && !self.workspace.busy()
+            && !self.workspace.open().open_in_flight
+            && !self.workspace.masks().paint_mode
+            && self.workspace.overlay().region.is_none()
             && self.editor.doc().variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
             // A fill layer is pixels in the frame it was made in, like a
             // baked master (2026-10-01): the live card and every stored one.
@@ -358,12 +358,12 @@ impl AutoShadeApp {
             let (mw, mh) = b.dimensions();
             self.rebind_paint_canvas(mw, mh);
         }
-        self.workspace.overlay.overlay_ref = None;
-        self.workspace.overlay.overlay_stale = true;
-        self.workspace.chrome.last_rgb = None;
-        self.workspace.overlay.mask_tex = None;
-        self.workspace.overlay.mask_overlay_tex = None;
-        self.workspace.overlay.overlay_key = None;
+        self.workspace.overlay_mut().overlay_ref = None;
+        self.workspace.overlay_mut().overlay_stale = true;
+        self.workspace.chrome_mut().last_rgb = None;
+        self.workspace.overlay_mut().mask_tex = None;
+        self.workspace.overlay_mut().mask_overlay_tex = None;
+        self.workspace.overlay_mut().overlay_key = None;
         self.editor.session_mut().dirty = true;
     }
 

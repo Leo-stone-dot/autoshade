@@ -135,16 +135,16 @@ impl AutoShadeApp {
     /// Put a plain sentence in place of the status a shared landing just
     /// wrote — and in its toast, when it raised one.
     pub(crate) fn reword_landing(&mut self, plain: String) {
-        let old = std::mem::replace(&mut self.workspace.status, plain.clone());
-        if let Some(t) = self.workspace.chrome.toasts.iter_mut().rev().find(|t| t.text == old) {
+        let old = std::mem::replace(self.workspace.status_mut(), plain.clone());
+        if let Some(t) = self.workspace.chrome_mut().toasts.iter_mut().rev().find(|t| t.text == old.as_str()) {
             t.text = plain;
         }
     }
 
     /// The one-click group's line, in the session language.
     pub(crate) fn normal_line_text(&self, lang: Lang) -> String {
-        if self.workspace.normal.building {
-            return match self.workspace.normal.build_progress {
+        if self.workspace.normal().building {
+            return match self.workspace.normal().build_progress {
                 Some((done, total)) => trf(
                     lang,
                     K_NORMAL_READING_YOUR_REFERENCE_PHOTOS,
@@ -153,9 +153,9 @@ impl AutoShadeApp {
                 None => tr(lang, K_LOGIC_READING_YOUR_REFERENCE_PHOTOS).into(),
             };
         }
-        match &self.workspace.normal.line {
+        match &self.workspace.normal().line {
             // A cancelled one-click leaves no worker behind to say so.
-            NormalLine::Working if self.workspace.tools.analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_LOOK).into(),
+            NormalLine::Working if self.workspace.tools().analyze_inflight => tr(lang, K_LOGIC_MAKING_THE_LOOK).into(),
             NormalLine::Idle | NormalLine::Working => tr(lang, K_NORMAL_PICK_A_LOOK_OR_MATCH_YOUR_OWN_REFERENCE_PHOTOS).into(),
             NormalLine::Done => tr(lang, K_NORMAL_DONE_CTRL_Z_GOES_BACK).into(),
             NormalLine::BuiltIn => tr(lang, K_NORMAL_NO_AI_KEY_SET_BUILT_IN_LOOK_USED).into(),
@@ -166,10 +166,10 @@ impl AutoShadeApp {
     /// The sidebar: the four groups, behind the same mid-open gate as the
     /// shared panels (L15-2 — these controls write the open photo's recipe).
     pub(crate) fn normal_panel(&mut self, ui: &mut egui::Ui) {
-        if self.workspace.normal.key_present.is_none() {
-            self.workspace.normal.key_present = Some(autoshade::config::Config::load().openai_api_key.is_some());
+        if self.workspace.normal().key_present.is_none() {
+            self.workspace.normal_mut().key_present = Some(autoshade::config::Config::load().openai_api_key.is_some());
         }
-        let editable = !self.workspace.open.open_in_flight;
+        let editable = !self.workspace.open().open_in_flight;
         ui.add_enabled_ui(editable, |ui| {
             self.normal_one_click(ui);
             self.normal_fine_tune(ui);
@@ -183,7 +183,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, K_NORMAL_ONE_CLICK_LOOK), false, |_| {});
-        let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy && !self.workspace.tools.analyze_inflight && !self.workspace.normal.building;
+        let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy() && !self.workspace.tools().analyze_inflight && !self.workspace.normal().building;
         let names: [&str; 6] = [
             tr(lang, K_NORMAL_NATURAL),
             tr(lang, K_NORMAL_BRIGHT_CLEAN),
@@ -216,7 +216,7 @@ impl AutoShadeApp {
                 K_NORMAL_PICK_A_FOLDER_OF_PHOTOS_WHOSE_LOOK_YOU_LIKE_THEY,
             ))
             .clicked();
-        if let Some(dir) = &self.workspace.normal.ref_dir {
+        if let Some(dir) = &self.workspace.normal().ref_dir {
             let name = dir.file_name().map_or_else(|| abs_display(dir), |n| n.to_string_lossy().into_owned());
             ui.label(egui::RichText::new(trf(lang, K_NORMAL_CHOSEN, &[("name", &name)])).weak().small());
         }
@@ -231,12 +231,12 @@ impl AutoShadeApp {
         );
         let line = self.normal_line_text(lang);
         ui.horizontal_wrapped(|ui| {
-            if self.workspace.normal.building || (self.workspace.normal.line == NormalLine::Working && self.workspace.tools.analyze_inflight) {
+            if self.workspace.normal().building || (self.workspace.normal().line == NormalLine::Working && self.workspace.tools().analyze_inflight) {
                 ui.spinner();
             }
             ui.label(egui::RichText::new(line).small());
         });
-        if self.workspace.normal.key_present == Some(false) {
+        if self.workspace.normal().key_present == Some(false) {
             ui.label(
                 egui::RichText::new(tr(lang, K_NORMAL_TO_MAKE_LOOKS_WITH_AI_ADD_A_SERVICE_KEY_IN_SETTI))
                     .weak()
@@ -283,7 +283,7 @@ impl AutoShadeApp {
             changed = true;
         }
         changed |= Self::slider(ui, lang, tr(lang, K_NORMAL_VIVIDNESS), &mut r.saturation, -100.0, 100.0, 0.0);
-        let back = self.workspace.normal
+        let back = self.workspace.normal()
             .result
             .as_ref()
             .filter(|(p, f)| self.editor.photo().src_path.as_ref() == Some(p) && *f != FineTune::of(&self.editor.doc().recipe))
@@ -308,19 +308,19 @@ impl AutoShadeApp {
         panel_heading(ui, tr(lang, K_NORMAL_NOISE), false, |_| {});
         // A run that ended without its card (failed, cancelled) leaves no
         // pair behind.
-        if !self.workspace.busy && self.workspace.normal.denoise_pair.as_ref().is_some_and(|d| d.denoised.is_none()) {
-            self.workspace.normal.denoise_pair = None;
+        if !self.workspace.busy() && self.workspace.normal().denoise_pair.as_ref().is_some_and(|d| d.denoised.is_none()) {
+            self.workspace.normal_mut().denoise_pair = None;
         }
         let helper = denoise_helper_available();
         let mut on = self.normal_denoise_on();
         let toggled = ui
-            .add_enabled(helper && !self.workspace.busy, egui::Checkbox::new(&mut on, tr(lang, K_NORMAL_AI_DENOISE)))
+            .add_enabled(helper && !self.workspace.busy(), egui::Checkbox::new(&mut on, tr(lang, K_NORMAL_AI_DENOISE)))
             .on_hover_text(tr(lang, K_NORMAL_CLEANS_THE_GRAIN_OUT_OF_THE_PHOTO_AND_THE_PREVIE))
             .changed();
-        if helper && self.workspace.normal.denoise_ready.is_none() {
+        if helper && self.workspace.normal().denoise_ready.is_none() {
             let cfg = autoshade::config::Config::load();
             let weight = std::path::Path::new(&cfg.weights_dir).join(format!("scunet_{}.pth", cfg.denoise_model));
-            self.workspace.normal.denoise_ready = Some(weight.is_file());
+            self.workspace.normal_mut().denoise_ready = Some(weight.is_file());
         }
         if toggled {
             self.apply_actions(vec![logic::Action::Normal(
@@ -340,7 +340,7 @@ impl AutoShadeApp {
         }
         // The switch is the Retouch panel's denoise: the preview shows it.
         let mut lines = vec![tr(lang, K_NORMAL_IT_TAKES_A_MOMENT_THE_PREVIEW_THEN_SHOWS_THE_RES).to_string()];
-        if self.workspace.normal.denoise_ready != Some(true) && !self.denoise_uses_raw() {
+        if self.workspace.normal().denoise_ready != Some(true) && !self.denoise_uses_raw() {
             lines.push(trf(
                 lang,
                 K_NORMAL_THE_FIRST_TIME_THE_NOISE_MODEL_IS_DOWNLOADED_ABO,
@@ -356,7 +356,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, K_NORMAL_SAVE), false, |_| {});
-        let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy;
+        let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy();
         let mut save = false;
         ui.horizontal(|ui| {
             let cell = columns(ui, 2);
@@ -364,11 +364,11 @@ impl AutoShadeApp {
                 .on_hover_text(tr(lang, K_NORMAL_SAVES_THE_PHOTO_WITH_THIS_LOOK_AS_A_JPG_THE_ORIG))
                 .clicked();
             egui::ComboBox::from_id_salt("normal_quality")
-                .selected_text(format!("{} · {}", tr(lang, K_NORMAL_QUALITY), self.workspace.normal.quality.label(lang)))
+                .selected_text(format!("{} · {}", tr(lang, K_NORMAL_QUALITY), self.workspace.normal().quality.label(lang)))
                 .width(cell.x)
                 .show_ui(ui, |ui| {
                     for q in SaveQuality::ALL {
-                        ui.selectable_value(&mut self.workspace.normal.quality, q, q.label(lang));
+                        ui.selectable_value(&mut self.workspace.normal_mut().quality, q, q.label(lang));
                     }
                 });
         });
@@ -376,7 +376,7 @@ impl AutoShadeApp {
         // or a dialog — the one destination setting the workspace's Export
         // reads. (A folder inside the photo library is a valid destination; a
         // save only refuses to REPLACE an existing photo.)
-        let place = match (self.workspace.exp.dest, self.export_dest_dir()) {
+        let place = match (self.workspace.exp().dest, self.export_dest_dir()) {
             (_, None) => tr(lang, K_NORMAL_ASKS_WHERE_TO_SAVE_EACH_TIME).to_string(),
             (ExportDest::LastUsed, Some(d)) => {
                 trf(lang, K_NORMAL_SAVES_TO_THE_FOLDER_YOU_LAST_SAVED_TO, &[("folder", &crate::normal_actions::folder_name(&d))])
@@ -389,7 +389,7 @@ impl AutoShadeApp {
         };
         let full = self.export_dest_dir().map(|d| abs_display(&d)).unwrap_or_default();
         ui.label(egui::RichText::new(place).weak().small()).on_hover_text(full);
-        let all = action_row(ui, ready && !self.workspace.gal.gallery.is_empty(), tr(lang, K_NORMAL_APPLY_THIS_LOOK_TO_EVERY_PHOTO_IN_THE_FOLDER))
+        let all = action_row(ui, ready && !self.workspace.gal().gallery.is_empty(), tr(lang, K_NORMAL_APPLY_THIS_LOOK_TO_EVERY_PHOTO_IN_THE_FOLDER))
             .on_hover_text(tr(lang, K_NORMAL_GIVES_EVERY_PHOTO_IN_THE_OPEN_FOLDER_THIS_LOOK_A))
             .on_disabled_hover_text(tr(lang, K_NORMAL_OPEN_A_FOLDER_FIRST_THE_LIBRARY_ON_THE_LEFT))
             .clicked();

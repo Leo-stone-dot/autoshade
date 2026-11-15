@@ -10,9 +10,9 @@ impl AutoShadeApp {
     /// every test green; this method IS the behaviour now, and update() is
     /// one call.
     pub(crate) fn apply_zoom_glide(&mut self, ctx: &egui::Context) {
-        if self.workspace.view.zoom != self.workspace.view.zoom_target {
+        if self.workspace.view().zoom != self.workspace.view().zoom_target {
             let dt = ctx.input(|i| i.stable_dt);
-            self.workspace.view.zoom = glide_step(self.workspace.view.zoom, self.workspace.view.zoom_target, dt);
+            self.workspace.view_mut().zoom = glide_step(self.workspace.view().zoom, self.workspace.view().zoom_target, dt);
             ctx.request_repaint(); // keep stepping while in flight
         }
     }
@@ -34,7 +34,7 @@ impl AutoShadeApp {
         self.editor.photo().base_preview
             .as_ref()
             .map(|b| b.width().max(b.height()))
-            .unwrap_or(self.workspace.genai.preview_edge)
+            .unwrap_or(self.workspace.genai().preview_edge)
             .clamp(640, 8192)
     }
 
@@ -65,7 +65,7 @@ impl AutoShadeApp {
         let delivered = self.editor.photo().source_preview
             .as_ref()
             .map(|s| s.width().max(s.height()))
-            .unwrap_or(self.workspace.genai.preview_edge)
+            .unwrap_or(self.workspace.genai().preview_edge)
             .clamp(640, 8192);
         let canvas = self.canvas_edge();
         // The baked-raster gate is DEFENCE IN DEPTH, not load-bearing: a
@@ -76,7 +76,7 @@ impl AutoShadeApp {
         // otherwise be announced with a word — "bake" — that would not be
         // true of it.
         (canvas != delivered
-            && canvas != self.workspace.genai.preview_edge
+            && canvas != self.workspace.genai().preview_edge
             && self.active_variant().is_some_and(|v| v.base.is_some()))
         .then_some(canvas)
     }
@@ -93,7 +93,7 @@ impl AutoShadeApp {
     /// also end it, so every door writes on every path.
     pub(crate) fn set_canvas_status(&mut self, plain: &'static str) {
         let lang = self.lang;
-        self.workspace.status = match self.baked_canvas_edge() {
+        *self.workspace.status_mut() = match self.baked_canvas_edge() {
             Some(px) => trf(
                 lang,
                 K_CANVAS_THE_CANVAS_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE_EDIT,
@@ -125,7 +125,7 @@ impl AutoShadeApp {
     /// read as an axiom of the method rather than a consequence of the only
     /// target the desktop app could offer.
     pub(crate) fn fit_target(&self) -> Option<PathBuf> {
-        if let Some(p) = &self.workspace.fit.fit_ref {
+        if let Some(p) = &self.workspace.fit().fit_ref {
             return Some(p.clone());
         }
         let v = self.active_variant()?;
@@ -154,7 +154,7 @@ impl AutoShadeApp {
             to_color_image(&autoshade::render::develop_preview(base, &start.start_only()))
         };
         self.editor.plates_mut().before_tex = Some(ctx.load_texture("before", img, egui::TextureOptions::LINEAR));
-        self.workspace.open.before_start = start.start_only();
+        self.workspace.open_mut().before_start = start.start_only();
     }
 
     /// Toggle the clipping layer WITHOUT a full redevelop: the overlay is a
@@ -163,18 +163,18 @@ impl AutoShadeApp {
     /// instantly instead of paying a whole develop (100-300 ms at 2560/4096).
     /// Falls back to a redevelop only when no frame is retained yet.
     pub(crate) fn toggle_clipping(&mut self, ctx: &egui::Context) {
-        self.workspace.chrome.show_clipping = !self.workspace.chrome.show_clipping;
-        if !self.workspace.chrome.show_clipping {
-            self.workspace.chrome.clip_tex = None; // OFF is just dropping the layer
+        self.workspace.chrome_mut().show_clipping = !self.workspace.chrome().show_clipping;
+        if !self.workspace.chrome().show_clipping {
+            self.workspace.chrome_mut().clip_tex = None; // OFF is just dropping the layer
             return;
         }
-        match &self.workspace.chrome.last_rgb {
+        match &self.workspace.chrome().last_rgb {
             Some(rgb) => {
                 let clip = clipping_overlay_for(rgb, self.editor.doc().recipe.crop);
-                if let Some(tex) = &mut self.workspace.chrome.clip_tex {
+                if let Some(tex) = &mut self.workspace.chrome_mut().clip_tex {
                     tex.set(clip, egui::TextureOptions::NEAREST);
                 } else {
-                    self.workspace.chrome.clip_tex =
+                    self.workspace.chrome_mut().clip_tex =
                         Some(ctx.load_texture("clip", clip, egui::TextureOptions::NEAREST));
                 }
             }
@@ -210,25 +210,25 @@ impl AutoShadeApp {
     /// reference recipe (earlier masks applied — the engine's own stacking
     /// rule) because their coverage genuinely depends on pixels.
     pub(crate) fn refresh_mask_overlay(&mut self, ctx: &egui::Context) {
-        if !self.workspace.overlay.show_mask_overlay {
-            self.workspace.overlay.mask_overlay_tex = None;
-            self.workspace.overlay.overlay_key = None;
+        if !self.workspace.overlay().show_mask_overlay {
+            self.workspace.overlay_mut().mask_overlay_tex = None;
+            self.workspace.overlay_mut().overlay_key = None;
             return;
         }
         // A handle, not a borrow of `self`: the range reference below asks
         // `self.film_short_edge()`, which caches into `self`.
         let Some(base) = self.editor.photo().base_preview.clone() else {
-            self.workspace.overlay.mask_overlay_tex = None;
-            self.workspace.overlay.overlay_key = None;
+            self.workspace.overlay_mut().mask_overlay_tex = None;
+            self.workspace.overlay_mut().overlay_key = None;
             return;
         };
         // A hovered row previews its coverage; otherwise use the selection.
-        let target = self.workspace.overlay.hover_mask
+        let target = self.workspace.overlay().hover_mask
             .filter(|&i| i < self.editor.doc().recipe.masks.len())
-            .or_else(|| self.workspace.masks.sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len()));
+            .or_else(|| self.workspace.masks().sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len()));
         let Some(i) = target else {
-            self.workspace.overlay.mask_overlay_tex = None;
-            self.workspace.overlay.overlay_key = None;
+            self.workspace.overlay_mut().mask_overlay_tex = None;
+            self.workspace.overlay_mut().overlay_key = None;
             return;
         };
         let mask = self.editor.doc().recipe.masks[i].clone();
@@ -254,7 +254,7 @@ impl AutoShadeApp {
             profile_ca_on: lp.ca_on && !lp.ca_r.is_empty() && !lp.ca_b.is_empty(),
             manual_ca: (self.editor.doc().recipe.ca_r, self.editor.doc().recipe.ca_b),
         };
-        if self.workspace.overlay.overlay_key.as_ref() == Some(&key) && self.workspace.overlay.mask_overlay_tex.is_some() {
+        if self.workspace.overlay().overlay_key.as_ref() == Some(&key) && self.workspace.overlay().mask_overlay_tex.is_some() {
             return;
         }
 
@@ -270,7 +270,7 @@ impl AutoShadeApp {
         // wrong overlay is worse than a slow one. Keyed multi-slot caching is
         // the fix and is recorded in the roadmap, not smuggled in here.
         let reference: &image::DynamicImage = if mask.range.is_some() {
-            if !matches!(&self.workspace.overlay.overlay_ref, Some((r, _)) if *r == pre) {
+            if !matches!(&self.workspace.overlay().overlay_ref, Some((r, _)) if *r == pre) {
                 // Rebuilding the masks-cleared reference is a full develop on
                 // the UI thread — the 100-300 ms class (2560/4096) the async
                 // preview path exists to hide. Mid-gesture (global-slider
@@ -278,7 +278,7 @@ impl AutoShadeApp {
                 // stale flag; the rebuild lands on the frame after the pointer
                 // settles. Geometry-only masks (the else arm) stay instant.
                 if ctx.input(|i| i.pointer.any_down()) {
-                    self.workspace.overlay.overlay_stale = true;
+                    self.workspace.overlay_mut().overlay_stale = true;
                     return;
                 }
                 // No downstream geometry, explicitly: this reference exists to
@@ -297,9 +297,9 @@ impl AutoShadeApp {
                     film,
                     raw_source,
                 );
-                self.workspace.overlay.overlay_ref = Some((pre, img));
+                self.workspace.overlay_mut().overlay_ref = Some((pre, img));
             }
-            &self.workspace.overlay.overlay_ref.as_ref().expect("range reference cached").1
+            &self.workspace.overlay().overlay_ref.as_ref().expect("range reference cached").1
         } else {
             base.as_ref()
         };
@@ -351,14 +351,14 @@ impl AutoShadeApp {
                 .copy_from_slice(&[255, 40, 40, (p[0] as u16 * 140 / 255) as u8]);
         }
         let colour = egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba);
-        if let Some(tex) = &mut self.workspace.overlay.mask_overlay_tex {
+        if let Some(tex) = &mut self.workspace.overlay_mut().mask_overlay_tex {
             tex.set(colour, egui::TextureOptions::LINEAR);
         } else {
-            self.workspace.overlay.mask_overlay_tex =
+            self.workspace.overlay_mut().mask_overlay_tex =
                 Some(ctx.load_texture("mask_overlay", colour, egui::TextureOptions::LINEAR));
         }
-        self.workspace.overlay.overlay_key = Some(key);
-        self.workspace.overlay.overlay_build_count += 1;
+        self.workspace.overlay_mut().overlay_key = Some(key);
+        self.workspace.overlay_mut().overlay_build_count += 1;
     }
 
     /// The geometric mapping context every interaction boundary needs:
@@ -390,26 +390,26 @@ impl AutoShadeApp {
     /// frame) narrowed by zoom/pan. `pan` is stored in crop-window coords and
     /// re-clamped here so edge panning never accumulates out of range.
     pub(crate) fn view_uv(&mut self) -> egui::Rect {
-        let win = match (&self.editor.doc().recipe.crop, self.workspace.crop.mode) {
+        let win = match (&self.editor.doc().recipe.crop, self.workspace.crop().mode) {
             (Some(c), false) => egui::Rect::from_min_max(
                 egui::pos2(c.left.min(c.right), c.top.min(c.bottom)),
                 egui::pos2(c.right.max(c.left), c.bottom.max(c.top)),
             ),
             _ => egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
         };
-        let half = 0.5 / self.workspace.view.zoom.clamp(1.0, 12.0);
-        self.workspace.view.pan = egui::vec2(
-            self.workspace.view.pan.x.clamp(half, 1.0 - half),
-            self.workspace.view.pan.y.clamp(half, 1.0 - half),
+        let half = 0.5 / self.workspace.view().zoom.clamp(1.0, 12.0);
+        self.workspace.view_mut().pan = egui::vec2(
+            self.workspace.view().pan.x.clamp(half, 1.0 - half),
+            self.workspace.view().pan.y.clamp(half, 1.0 - half),
         );
         egui::Rect::from_min_max(
             egui::pos2(
-                win.min.x + (self.workspace.view.pan.x - half) * win.width(),
-                win.min.y + (self.workspace.view.pan.y - half) * win.height(),
+                win.min.x + (self.workspace.view().pan.x - half) * win.width(),
+                win.min.y + (self.workspace.view().pan.y - half) * win.height(),
             ),
             egui::pos2(
-                win.min.x + (self.workspace.view.pan.x + half) * win.width(),
-                win.min.y + (self.workspace.view.pan.y + half) * win.height(),
+                win.min.x + (self.workspace.view().pan.x + half) * win.width(),
+                win.min.y + (self.workspace.view().pan.y + half) * win.height(),
             ),
         )
     }
@@ -478,7 +478,7 @@ impl AutoShadeApp {
             vis_px,
             max_w,
             avail_y,
-            if self.workspace.view.zoom > 1.0 { f32::INFINITY } else { 4.0 },
+            if self.workspace.view().zoom > 1.0 { f32::INFINITY } else { 4.0 },
         );
         // PHYSICAL pixels per image pixel: disp is measured in egui logical
         // points — without pixels_per_point a "100%" readout on a 2× display
@@ -493,40 +493,40 @@ impl AutoShadeApp {
         // vis on small images, so that form varied with live zoom (Codex
         // 阶段5 F2). Pane-bound displays give the identical value; a photo
         // already coarser than 1:1 at fit clamps to 1 (fit is closest).
-        let w_tex = vis_px * self.workspace.view.zoom;
+        let w_tex = vis_px * self.workspace.view().zoom;
         let disp_fit = fit_in(w_tex, max_w, avail_y);
-        self.workspace.view.one_to_one = (w_tex.x / (disp_fit.x * ppp)).clamp(1.0, 12.0);
+        self.workspace.view_mut().one_to_one = (w_tex.x / (disp_fit.x * ppp)).clamp(1.0, 12.0);
 
         // Caption row: mode hint left, zoom readout + Fit / 1:1 right. Every
         // armed-tool hint names its exit (Esc), and the placement hint speaks
         // the armed KIND's language instead of calling a radial a gradient.
         let hint = if comparing {
-            if self.workspace.view.before {
+            if self.workspace.view().before {
                 // The latch came from \ — "release B" was a lie there (M21).
                 tr(lang, K_CANVAS_BEFORE_SOURCE_PRESS_AGAIN_OR_ESC_TO_RETURN_TO_ED)
             } else {
                 tr(lang, K_CANVAS_BEFORE_SOURCE_RELEASE_B_TO_RETURN_TO_EDITING)
             }
-        } else if self.workspace.crop.mode {
+        } else if self.workspace.crop().mode {
             tr(lang, K_CANVAS_CROP_DRAG_CORNERS_EDGES_TO_RESIZE_INSIDE_TO_MOVE)
-        } else if let Some((kind, _)) = self.workspace.masks.placing_mask {
+        } else if let Some((kind, _)) = self.workspace.masks().placing_mask {
             match kind {
                 MaskKind::Linear => tr(lang, K_CANVAS_LINEAR_GRADIENT_DRAG_FROM_THE_FULLY_APPLIED_SIDE),
                 MaskKind::Radial => tr(lang, K_CANVAS_RADIAL_GRADIENT_DRAG_TO_DRAW_AN_ELLIPTICAL_AREA),
             }
-        } else if self.workspace.tools.wb_picking {
+        } else if self.workspace.tools().wb_picking {
             tr(lang, K_CANVAS_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA)
-        } else if self.workspace.tools.range_picking.is_some() {
+        } else if self.workspace.tools().range_picking.is_some() {
             tr(lang, K_CANVAS_COLOR_RANGE_CLICK_THE_COLOR_TO_PICK_IN_THE_IMAGE)
-        } else if self.workspace.tools.point_color_picking {
+        } else if self.workspace.tools().point_color_picking {
             tr(lang, K_CANVAS_POINT_COLOR_EYEDROPPER_CLICK_THE_COLOUR_TO_ADJUS)
-        } else if self.workspace.tools.clone_mode {
+        } else if self.workspace.tools().clone_mode {
             tr(lang, K_CANVAS_STAMP_ALT_CLICK_TO_SET_THE_SOURCE_DRAG_TO_BRUSH)
-        } else if self.workspace.masks.paint_mode {
-            if self.workspace.masks.mask_brush.is_some() {
+        } else if self.workspace.masks().paint_mode {
+            if self.workspace.masks().mask_brush.is_some() {
                 tr(lang, K_CANVAS_MASK_BRUSH_PAINT_TO_SELECT_ERASE_REMOVES_APPLY_B)
             } else {
-                match self.workspace.masks.paint_owner {
+                match self.workspace.masks().paint_owner {
                     BrushOwner::Fill => tr(lang, K_CANVAS_BRUSH_PAINT_THE_AREA_TO_REMOVE_OR_FILL_ESC_TO_EX),
                     BrushOwner::Heal => tr(lang, K_CANVAS_BRUSH_PAINT_THE_AREA_TO_HEAL_ESC_TO_EXIT),
                     BrushOwner::Stamp => tr(lang, K_CANVAS_BRUSH_PAINT_THE_AREA_TO_CLONE_OVER_ESC_TO_EXIT),
@@ -542,7 +542,7 @@ impl AutoShadeApp {
         let armed = !comparing && self.tool_armed();
         ui.horizontal(|ui| {
             if armed {
-                ui.label(egui::RichText::new(hint).color(self.workspace.ui.theme.colors().armed_hint).small());
+                ui.label(egui::RichText::new(hint).color(self.workspace.ui().theme.colors().armed_hint).small());
             } else {
                 ui.label(egui::RichText::new(hint).weak().small());
             }
@@ -553,16 +553,16 @@ impl AutoShadeApp {
                     // ppp: 1:1 means one texel per PHYSICAL pixel — the value
                     // computed above, shared with the `1` key. Target only:
                     // the update() glide carries `zoom` there.
-                    self.workspace.view.zoom_target = self.workspace.view.one_to_one;
+                    self.workspace.view_mut().zoom_target = self.workspace.view().one_to_one;
                 }
                 // "Fit" is natural language, unlike its "1:1" sibling — it
                 // must route through `tr` like every user-facing literal
                 // (the i18n module contract; the audit now flags bypasses).
                 if action(ui, true, tr(lang, K_CANVAS_FIT)).on_hover_text(tr(lang, K_CANVAS_FIT_THE_WHOLE_IMAGE_TO_THE_CANVAS_DOUBLE_CLICK_T)).clicked() {
-                    self.workspace.view.zoom_target = 1.0; // glides; the pan clamp eases the rest
-                    self.workspace.view.pan = egui::vec2(0.5, 0.5);
+                    self.workspace.view_mut().zoom_target = 1.0; // glides; the pan clamp eases the rest
+                    self.workspace.view_mut().pan = egui::vec2(0.5, 0.5);
                 }
-                if glyph_toggle(ui, self.workspace.chrome.show_clipping, "▲")
+                if glyph_toggle(ui, self.workspace.chrome().show_clipping, "▲")
                     .on_hover_text(tr(lang, K_CANVAS_CLIPPING_WARNING_J_RED_HIGHLIGHT_CLIP_BLUE_SHADO))
                     .clicked()
                 {
@@ -573,23 +573,23 @@ impl AutoShadeApp {
                 // --- preview resolution (gap batch E): 1:1 that actually
                 // resolves detail. Switching re-decodes the current photo with
                 // the recipe KEPT (the keep_recipe path from batch B).
-                let before = self.workspace.genai.preview_edge;
-                ui.add_enabled_ui(!self.workspace.busy, |ui| {
+                let before = self.workspace.genai().preview_edge;
+                ui.add_enabled_ui(!self.workspace.busy(), |ui| {
                     egui::ComboBox::from_id_salt("preview_edge")
-                        .selected_text(format!("{}px", self.workspace.genai.preview_edge))
+                        .selected_text(format!("{}px", self.workspace.genai().preview_edge))
                         .width(64.0)
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.workspace.genai.preview_edge, 1280, tr(lang, K_CANVAS_1280PX_FLUID));
-                            ui.selectable_value(&mut self.workspace.genai.preview_edge, 2560, "2560px");
-                            ui.selectable_value(&mut self.workspace.genai.preview_edge, 4096, tr(lang, K_CANVAS_4096PX_INSPECT));
+                            ui.selectable_value(&mut self.workspace.genai_mut().preview_edge, 1280, tr(lang, K_CANVAS_1280PX_FLUID));
+                            ui.selectable_value(&mut self.workspace.genai_mut().preview_edge, 2560, "2560px");
+                            ui.selectable_value(&mut self.workspace.genai_mut().preview_edge, 4096, tr(lang, K_CANVAS_4096PX_INSPECT));
                         })
                         .response
                         .on_hover_text(tr(lang, K_CANVAS_WORKING_PREVIEW_RESOLUTION_1280_IS_SMOOTHEST_ON));
                 });
-                if self.workspace.genai.preview_edge != before
+                if self.workspace.genai().preview_edge != before
                     && let Some(p) = self.editor.photo().src_path.clone()
                 {
-                    if self.workspace.busy {
+                    if self.workspace.busy() {
                         // An already-open popup outlives the disabled combo
                         // (its own egui Area), so this is reachable while
                         // busy — and the combo has ALREADY mutated
@@ -600,7 +600,7 @@ impl AutoShadeApp {
                         // every bake site. The switch reverts with the
                         // refusal, and the status says so instead of
                         // dropping it silently.
-                        self.workspace.genai.preview_edge = before;
+                        self.workspace.genai_mut().preview_edge = before;
                         // BY TOAST (the switch_variant / Ctrl+S refusal
                         // rule): this runs during the draw phase, and a
                         // status line dies under the very next worker
@@ -619,8 +619,8 @@ impl AutoShadeApp {
                         // every bake site) a resolution the preview never
                         // reached — the same residue the busy refusal above
                         // is cured of.
-                        self.workspace.open.edge_before_flight = Some(before);
-                        self.workspace.cards.keep_recipe = true; // re-decode, keep the edit
+                        self.workspace.open_mut().edge_before_flight = Some(before);
+                        self.workspace.cards_mut().keep_recipe = true; // re-decode, keep the edit
                         self.open_path(p);
                     }
                 }
@@ -632,10 +632,10 @@ impl AutoShadeApp {
         // Diagnostic layers, uv-synced with the image (hidden while comparing):
         // clipping warnings, then the selected mask's coverage on top.
         if !comparing {
-            if let Some(t) = &self.workspace.chrome.clip_tex {
+            if let Some(t) = &self.workspace.chrome().clip_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
-            if let Some(t) = &self.workspace.overlay.mask_overlay_tex {
+            if let Some(t) = &self.workspace.overlay().mask_overlay_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
         }
@@ -647,23 +647,23 @@ impl AutoShadeApp {
             if scroll.abs() > 0.1
                 && let Some(p) = resp.hover_pos()
             {
-                let half = 0.5 / self.workspace.view.zoom;
+                let half = 0.5 / self.workspace.view().zoom;
                 let (fx, fy) = (
                     ((p.x - rect.min.x) / rect.width().max(1.0)).clamp(0.0, 1.0),
                     ((p.y - rect.min.y) / rect.height().max(1.0)).clamp(0.0, 1.0),
                 );
                 // Cursor's point in crop-window coords, kept stationary across the zoom.
                 let q = egui::vec2(
-                    self.workspace.view.pan.x - half + fx * 2.0 * half,
-                    self.workspace.view.pan.y - half + fy * 2.0 * half,
+                    self.workspace.view().pan.x - half + fx * 2.0 * half,
+                    self.workspace.view().pan.y - half + fy * 2.0 * half,
                 );
                 // Scroll stays INSTANT (it is already incremental, and the
                 // cursor-anchored pan re-solve needs the immediate zoom) —
                 // the target follows so no stale glide fights the wheel.
-                self.workspace.view.zoom = (self.workspace.view.zoom * (scroll * 0.003).exp()).clamp(1.0, 12.0);
-                self.workspace.view.zoom_target = self.workspace.view.zoom;
-                let nh = 0.5 / self.workspace.view.zoom;
-                self.workspace.view.pan = q - egui::vec2((fx - 0.5) * 2.0 * nh, (fy - 0.5) * 2.0 * nh);
+                self.workspace.view_mut().zoom = (self.workspace.view().zoom * (scroll * 0.003).exp()).clamp(1.0, 12.0);
+                self.workspace.view_mut().zoom_target = self.workspace.view().zoom;
+                let nh = 0.5 / self.workspace.view().zoom;
+                self.workspace.view_mut().pan = q - egui::vec2((fx - 0.5) * 2.0 * nh, (fy - 0.5) * 2.0 * nh);
             }
         }
         let tool_active = self.tool_armed();
@@ -672,24 +672,24 @@ impl AutoShadeApp {
         // to teleport the view instead of reaching the tool. Targets only —
         // the update() glide replaces the old teleport with a ~120 ms ease.
         if resp.double_clicked() && !tool_active {
-            if self.workspace.view.zoom_target > 1.01 {
-                self.workspace.view.zoom_target = 1.0;
-                self.workspace.view.pan = egui::vec2(0.5, 0.5);
+            if self.workspace.view().zoom_target > 1.01 {
+                self.workspace.view_mut().zoom_target = 1.0;
+                self.workspace.view_mut().pan = egui::vec2(0.5, 0.5);
             } else {
                 // Same physical-pixel 1:1 target as the button above — the
                 // zoom-invariant form computed at the top of this fn (the
                 // old `vis_px.x / (disp.x*ppp)` was only right at zoom≈1,
                 // which the pre-glide branch guard used to guarantee).
-                self.workspace.view.zoom_target = self.workspace.view.one_to_one;
+                self.workspace.view_mut().zoom_target = self.workspace.view().one_to_one;
             }
             // The pair's FIRST release cleared the AI region through the
             // plain-click path — a double-click means "toggle zoom", so put
             // it back. Bounded window: a much later double-click elsewhere
             // must not resurrect a long-cleared region (M18).
-            if let Some((r, t)) = self.workspace.overlay.region_restore.take()
+            if let Some((r, t)) = self.workspace.overlay_mut().region_restore.take()
                 && t.elapsed() < Duration::from_millis(600)
             {
-                self.workspace.overlay.region = Some(r);
+                self.workspace.overlay_mut().region = Some(r);
             }
         }
 
@@ -703,7 +703,7 @@ impl AutoShadeApp {
         let space = ui.ctx().memory(|m| m.focused()).is_none()
             && ui.input(|i| i.key_down(egui::Key::Space));
         let ctrl = ui.input(|i| i.modifiers.command);
-        let over_knob = self.workspace.masks.mask_drag.is_some()
+        let over_knob = self.workspace.masks().mask_drag.is_some()
             || self.sel_target_geometry().is_some_and(|g| {
                 let (dims, deg, dist) = self.geom_ctx();
                 // Probe BOTH positions: egui reports drag_started only
@@ -718,17 +718,17 @@ impl AutoShadeApp {
                 resp.hover_pos().is_some_and(hits)
                     || ui.input(|i| i.pointer.press_origin()).is_some_and(hits)
             });
-        let zoom_pan = self.workspace.view.zoom > 1.001
+        let zoom_pan = self.workspace.view().zoom > 1.001
             && !tool_active
             && !ctrl
             && !over_knob
-            && self.workspace.overlay.region_drag.is_none();
+            && self.workspace.overlay().region_drag.is_none();
         let panning = resp.dragged_by(egui::PointerButton::Middle)
             || ((space || zoom_pan) && resp.dragged_by(egui::PointerButton::Primary));
         if panning {
             let d = resp.drag_delta();
-            let ext = 1.0 / self.workspace.view.zoom; // visible extent in crop-window coords
-            self.workspace.view.pan -= egui::vec2(
+            let ext = 1.0 / self.workspace.view().zoom; // visible extent in crop-window coords
+            self.workspace.view_mut().pan -= egui::vec2(
                 d.x / rect.width().max(1.0) * ext,
                 d.y / rect.height().max(1.0) * ext,
             );
@@ -743,7 +743,7 @@ impl AutoShadeApp {
         } else if (space || zoom_pan) && resp.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
         } else if resp.hovered()
-            && (self.workspace.masks.paint_mode || self.workspace.masks.placing_mask.is_some() || self.workspace.crop.mode)
+            && (self.workspace.masks().paint_mode || self.workspace.masks().placing_mask.is_some() || self.workspace.crop().mode)
         {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
         }
@@ -753,35 +753,35 @@ impl AutoShadeApp {
         }
 
         // --- tool dispatch (one active interaction at a time) -----------------
-        if self.workspace.crop.mode {
+        if self.workspace.crop().mode {
             self.handle_crop(ui, &resp, xf, tex_size);
-        } else if self.workspace.masks.placing_mask.is_some() {
+        } else if self.workspace.masks().placing_mask.is_some() {
             self.handle_place_mask(ui, &resp, xf);
-        } else if self.workspace.tools.wb_picking {
+        } else if self.workspace.tools().wb_picking {
             self.handle_wb_pick(ui, &resp, xf);
-        } else if self.workspace.tools.range_picking.is_some() {
+        } else if self.workspace.tools().range_picking.is_some() {
             self.handle_range_pick(ui, &resp, xf);
-        } else if self.workspace.tools.point_color_picking {
+        } else if self.workspace.tools().point_color_picking {
             self.handle_point_color_pick(ui, &resp, xf);
-        } else if self.workspace.tools.lens_focus_picking {
+        } else if self.workspace.tools().lens_focus_picking {
             self.draw_lens_focus(ui, xf);
             if let Some(action) = self.handle_lens_focus_pick(ui, &resp, xf) {
                 self.apply_actions(vec![action]);
             }
-        } else if self.workspace.tools.clone_mode {
+        } else if self.workspace.tools().clone_mode {
             self.handle_clone(ui, &resp, xf);
             self.ensure_mask_tex(ui.ctx());
-            if let Some(t) = &self.workspace.overlay.mask_tex {
+            if let Some(t) = &self.workspace.overlay().mask_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
             // Alt is the source pick, with its own crosshair.
             if !ui.input(|i| i.modifiers.alt) {
                 self.draw_brush_cursor(ui, &resp, rect);
             }
-        } else if self.workspace.masks.paint_mode {
+        } else if self.workspace.masks().paint_mode {
             self.handle_paint(&resp, xf);
             self.ensure_mask_tex(ui.ctx());
-            if let Some(t) = &self.workspace.overlay.mask_tex {
+            if let Some(t) = &self.workspace.overlay().mask_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
             self.draw_brush_cursor(ui, &resp, rect);
@@ -805,9 +805,9 @@ impl AutoShadeApp {
                 ui.painter().rect_filled(r, 0.0, fill);
                 ui.painter().rect_stroke(r, 0.0, stroke, egui::StrokeKind::Middle);
             };
-            if let Some((s, e)) = self.workspace.overlay.region_drag {
+            if let Some((s, e)) = self.workspace.overlay().region_drag {
                 draw(egui::Rect::from_two_pos(s, e).intersect(rect));
-            } else if let Some([l, t, rr, bb]) = self.workspace.overlay.region {
+            } else if let Some([l, t, rr, bb]) = self.workspace.overlay().region {
                 // Stored in the original frame → back into the transformed view.
                 let ((bw, bh), deg, dist) = self.geom_ctx();
                 let a = orig_norm_to_view(l, t, (bw, bh), deg, &dist);
@@ -829,11 +829,11 @@ impl AutoShadeApp {
         // When one of the mask's COMPONENTS is selected, the outline and
         // knobs target THAT shape — the same geometry the edit handler
         // mutates (sel_target_geometry).
-        if !self.workspace.crop.mode
-            && self.workspace.masks.placing_mask.is_none()
-            && let Some(m) = self.workspace.masks.sel_mask.and_then(|i| self.editor.doc().recipe.masks.get(i))
+        if !self.workspace.crop().mode
+            && self.workspace.masks().placing_mask.is_none()
+            && let Some(m) = self.workspace.masks().sel_mask.and_then(|i| self.editor.doc().recipe.masks.get(i))
         {
-            let target = match self.workspace.masks.sel_component {
+            let target = match self.workspace.masks().sel_component {
                 Some(c) if c < m.components.len() => &m.components[c].geometry,
                 _ => &m.mask,
             };
@@ -987,8 +987,8 @@ impl AutoShadeApp {
     /// read; a miss pays one preview-sized develop ≈ one slider tick.
     pub(crate) fn handle_range_pick(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
         let Some((nx, ny)) = self.clicked_orig_norm(ui, resp, xf) else { return };
-        let Some(mi) = self.workspace.tools.range_picking.filter(|&i| i < self.editor.doc().recipe.masks.len()) else {
-            self.workspace.tools.range_picking = None; // stale index (mask deleted mid-pick)
+        let Some(mi) = self.workspace.tools().range_picking.filter(|&i| i < self.editor.doc().recipe.masks.len()) else {
+            self.workspace.tools_mut().range_picking = None; // stale index (mask deleted mid-pick)
             return;
         };
         let smp = {
@@ -1003,7 +1003,7 @@ impl AutoShadeApp {
             // A masks-CLEARED reference judged mask 2's range on pixels mask
             // 0/1 had already moved (CX5-6).
             let pre = self.range_reference_recipe(mi);
-            if !matches!(&self.workspace.overlay.overlay_ref, Some((r, _)) if *r == pre) {
+            if !matches!(&self.workspace.overlay().overlay_ref, Some((r, _)) if *r == pre) {
                 // The explicit no-downstream frame and film edge for the same
                 // reasons as the overlay build above, and they must MATCH it —
                 // they share cache.
@@ -1018,10 +1018,10 @@ impl AutoShadeApp {
                     film,
                     raw_source,
                 );
-                self.workspace.overlay.overlay_ref = Some((pre, img));
+                self.workspace.overlay_mut().overlay_ref = Some((pre, img));
             }
             let (bx, by) = self.orig_to_base_norm((nx, ny));
-            let reference = &self.workspace.overlay.overlay_ref.as_ref().expect("range reference cached").1;
+            let reference = &self.workspace.overlay().overlay_ref.as_ref().expect("range reference cached").1;
             let Some(smp) = sample_5x5_mean(reference, bx, by) else { return };
             smp
         };
@@ -1071,9 +1071,9 @@ impl AutoShadeApp {
     /// selected COMPONENT when one is selected (and still in bounds), else
     /// the selected mask's base geometry.
     pub(crate) fn sel_target_geometry(&self) -> Option<&MaskGeometry> {
-        let i = self.workspace.masks.sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len())?;
+        let i = self.workspace.masks().sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len())?;
         let m = &self.editor.doc().recipe.masks[i];
-        match self.workspace.masks.sel_component {
+        match self.workspace.masks().sel_component {
             Some(c) if c < m.components.len() => Some(&m.components[c].geometry),
             _ => Some(&m.mask),
         }
@@ -1089,25 +1089,25 @@ impl AutoShadeApp {
     /// priority (else its live rectangle would freeze mid-air whenever the
     /// pointer crossed a knob).
     pub(crate) fn handle_mask_edit(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) -> bool {
-        if self.workspace.overlay.region_drag.is_some() {
+        if self.workspace.overlay().region_drag.is_some() {
             return false;
         }
         let Some(target_geom) = self.sel_target_geometry().cloned() else {
-            self.workspace.masks.mask_drag = None;
+            self.workspace.masks_mut().mask_drag = None;
             return false;
         };
         let (dims, deg, dist) = self.geom_ctx();
         let view_geom = geom_to_view(&target_geom, dims, deg, &dist);
         let handles = mask_handle_points(&view_geom, xf);
         if handles.is_empty() {
-            self.workspace.masks.mask_drag = None; // bitmap: nothing parametric to drag
+            self.workspace.masks_mut().mask_drag = None; // bitmap: nothing parametric to drag
             return false;
         }
         // A stranded grab (Esc / hold-B / pan swallowed the drag_stopped frame)
         // must not turn the NEXT unrelated drag into a mask reshape: no drag in
         // flight ⇒ no grab.
         if !resp.dragged() && !resp.drag_started() {
-            self.workspace.masks.mask_drag = None;
+            self.workspace.masks_mut().mask_drag = None;
         }
         // Nearest handle wins, ties broken toward the edge/end knobs — the
         // centre-move knob is emitted first and used to shadow them whenever a
@@ -1136,39 +1136,39 @@ impl AutoShadeApp {
             // the lead-in motion (a short drag left the edge unmoved).
             let origin = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
             if let Some(h) = pick(origin) {
-                self.workspace.masks.mask_drag = Some((h, orig_at(origin)));
+                self.workspace.masks_mut().mask_drag = Some((h, orig_at(origin)));
             }
         }
         if resp.dragged()
-            && let (Some((h, last)), Some(p)) = (self.workspace.masks.mask_drag, resp.interact_pointer_pos())
+            && let (Some((h, last)), Some(p)) = (self.workspace.masks().mask_drag, resp.interact_pointer_pos())
         {
             let cur = orig_at(p);
             // The knob's geometry is the logic layer's (`logic/mask_edit`).
-            if let Some(mask) = self.workspace.masks.sel_mask {
+            if let Some(mask) = self.workspace.masks().sel_mask {
                 self.apply_actions(vec![logic::Action::MaskEdit(
                     logic::mask_edit::MaskEditAction::Drag {
                         mask,
-                        component: self.workspace.masks.sel_component,
+                        component: self.workspace.masks().sel_component,
                         handle: h,
                         last,
                         cur,
                     },
                 )]);
             }
-            self.workspace.masks.mask_drag = Some((h, cur));
+            self.workspace.masks_mut().mask_drag = Some((h, cur));
             // Masks are develop stages: the preview follows every drag frame.
             self.editor.session_mut().dirty = true;
-            self.workspace.overlay.overlay_stale = true;
+            self.workspace.overlay_mut().overlay_stale = true;
         }
         if resp.drag_stopped() {
-            self.workspace.masks.mask_drag = None; // commit_if_settled turns the drag into ONE undo step
+            self.workspace.masks_mut().mask_drag = None; // commit_if_settled turns the drag into ONE undo step
         }
-        if self.workspace.masks.mask_drag.is_some() {
+        if self.workspace.masks().mask_drag.is_some() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
         } else if hover_h.is_some() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
         }
-        self.workspace.masks.mask_drag.is_some() || hover_h.is_some()
+        self.workspace.masks().mask_drag.is_some() || hover_h.is_some()
     }
 
     /// Box-select on the After image: drag a rectangle to target a local edit;
@@ -1184,14 +1184,14 @@ impl AutoShadeApp {
                 // shaved that lead-in off every box (small fast selections
                 // could then die to the 0.02 minimum below).
                 let s = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
-                self.workspace.overlay.region_drag = Some((s, p));
+                self.workspace.overlay_mut().region_drag = Some((s, p));
             }
         } else if resp.dragged() {
-            if let (Some(p), Some((s, _))) = (resp.interact_pointer_pos(), self.workspace.overlay.region_drag) {
-                self.workspace.overlay.region_drag = Some((s, p));
+            if let (Some(p), Some((s, _))) = (resp.interact_pointer_pos(), self.workspace.overlay().region_drag) {
+                self.workspace.overlay_mut().region_drag = Some((s, p));
             }
         } else if resp.drag_stopped() {
-            if let Some((s, e)) = self.workspace.overlay.region_drag.take() {
+            if let Some((s, e)) = self.workspace.overlay_mut().region_drag.take() {
                 // The region feeds the AI's mask prompt — ORIGINAL frame space.
                 // ALL FOUR corners map (the same policy as serve's
                 // region_to_original): under rotation/distortion the two
@@ -1220,7 +1220,7 @@ impl AutoShadeApp {
             // earlier in this same frame — so without this the restore was
             // taken straight back out and the double-click still ate the
             // region. The fix was inert until this line existed.
-            self.workspace.overlay.region_restore = self.workspace.overlay.region.take().map(|r| (r, Instant::now()));
+            self.workspace.overlay_mut().region_restore = self.workspace.overlay_mut().region.take().map(|r| (r, Instant::now()));
         }
         // (Drawing lives in after_view so the box shows under every tool —
         // this handler only owns the gesture.)
@@ -1245,13 +1245,13 @@ impl AutoShadeApp {
         // frame's dims (recorded residual, CX5-5 — recomputing inscribed
         // dims here would duplicate the engine's geometry; the next
         // interaction re-derives correctly).
-        let aspect = CROP_ASPECTS[self.workspace.crop.aspect.min(CROP_ASPECTS.len() - 1)]
+        let aspect = CROP_ASPECTS[self.workspace.crop().aspect.min(CROP_ASPECTS.len() - 1)]
             .1
             .map(|r| if r == 0.0 { tex_size.x / tex_size.y.max(1.0) } else { r });
         // A preset picked in the panel re-derives the box NOW (LR applies the
         // aspect immediately, D13): largest same-centre fit at the new
         // ratio, shrunk to stay in frame. "Free" keeps the box untouched.
-        if std::mem::take(&mut self.workspace.crop.aspect_pending) {
+        if std::mem::take(&mut self.workspace.crop_mut().aspect_pending) {
             // The box is the logic layer's geometry (`logic::crop`); this view
             // keeps the pick, the handles and the overlay.
             let current = self.editor.doc().recipe.crop.map(|c| [c.left, c.top, c.right, c.bottom]);
@@ -1316,7 +1316,7 @@ impl AutoShadeApp {
         // A stranded grab (Esc mid-drag, or leaving/re-entering crop mode)
         // must not resume against a stale anchor: no drag in flight ⇒ no grab.
         if !resp.dragged() && !resp.drag_started() {
-            self.workspace.crop.drag = None;
+            self.workspace.crop_mut().drag = None;
         }
         if resp.drag_started()
             && let Some(p) = resp.interact_pointer_pos()
@@ -1328,12 +1328,12 @@ impl AutoShadeApp {
             // pick follow a small residual instead of the user's gesture).
             let origin = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
             if let Some(h) = pick_handle(&cur, origin) {
-                self.workspace.crop.drag = Some((h, origin, cur, self.editor.doc().recipe.straighten_deg));
+                self.workspace.crop_mut().drag = Some((h, origin, cur, self.editor.doc().recipe.straighten_deg));
             }
         }
         if resp.dragged()
             && let (Some((h, start, orig, deg0)), Some(p)) =
-                (self.workspace.crop.drag, resp.interact_pointer_pos())
+                (self.workspace.crop().drag, resp.interact_pointer_pos())
         {
             if h == 9 {
                 // Rotate-straighten: drag outside the box (LR). Angle around
@@ -1360,7 +1360,7 @@ impl AutoShadeApp {
             }
         }
         if resp.drag_stopped() {
-            self.workspace.crop.drag = None;
+            self.workspace.crop_mut().drag = None;
         }
 
         // Cursor affordance: name the resize direction of the handle under
@@ -1372,7 +1372,7 @@ impl AutoShadeApp {
             .crop
             .map(|c| [c.left, c.top, c.right, c.bottom])
             .unwrap_or([0.0, 0.0, 1.0, 1.0]);
-        let hover_handle = self.workspace.crop.drag
+        let hover_handle = self.workspace.crop().drag
             .map(|(h, ..)| h)
             .or_else(|| resp.hover_pos().and_then(|p| pick_handle(&c, p)));
         if let Some(h) = hover_handle {
@@ -1409,7 +1409,7 @@ impl AutoShadeApp {
             }
         }
         // O cycles the guide while cropping (LR): thirds → golden → off.
-        let guide: &[f32] = match self.workspace.crop.grid {
+        let guide: &[f32] = match self.workspace.crop().grid {
             0 => &[1.0 / 3.0, 2.0 / 3.0],
             1 => &[0.381_966, 0.618_034], // 1−1/φ and 1/φ
             _ => &[],
@@ -1457,7 +1457,7 @@ impl AutoShadeApp {
     /// bounding box of a radial. Commits into `recipe.masks` — the SAME field
     /// the AI writes, so render + XMP need nothing new.
     pub(crate) fn handle_place_mask(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
-        let Some((kind, target)) = self.workspace.masks.placing_mask else { return };
+        let Some((kind, target)) = self.workspace.masks().placing_mask else { return };
         // Mask geometry lives in the ORIGINAL frame (the engine composites
         // masks before the geometric remap) — map pointer positions out of the view.
         let (dims, deg, dist) = self.geom_ctx();
@@ -1472,9 +1472,9 @@ impl AutoShadeApp {
             // Anchor at the PRESS ORIGIN: drag_started fires ~6 px in, and
             // that lead-in shortened every gradient / shifted tiny radials.
             let start = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
-            self.workspace.masks.place_start = Some(xf.to_norm(start));
+            self.workspace.masks_mut().place_start = Some(xf.to_norm(start));
         }
-        let Some(sv) = self.workspace.masks.place_start else { return };
+        let Some(sv) = self.workspace.masks().place_start else { return };
         let Some(p) = resp.interact_pointer_pos() else { return };
         let mut ev = xf.to_norm(p);
         // LR: Shift locks a linear gradient to horizontal / vertical.
@@ -1564,18 +1564,18 @@ impl AutoShadeApp {
             match committed.selection {
                 logic::mask_place::Selection::Keep => {}
                 logic::mask_place::Selection::Mask(i) => {
-                    self.workspace.masks.sel_mask = Some(i);
-                    self.workspace.masks.sel_component = None;
+                    self.workspace.masks_mut().sel_mask = Some(i);
+                    self.workspace.masks_mut().sel_component = None;
                 }
                 logic::mask_place::Selection::Component(i, c) => {
-                    self.workspace.masks.sel_mask = Some(i);
-                    self.workspace.masks.sel_component = Some(c);
+                    self.workspace.masks_mut().sel_mask = Some(i);
+                    self.workspace.masks_mut().sel_component = Some(c);
                 }
             }
             self.run_effects(committed.effects);
-            self.workspace.masks.placing_mask = None;
-            self.workspace.masks.place_start = None;
-            self.workspace.overlay.overlay_stale = true;
+            self.workspace.masks_mut().placing_mask = None;
+            self.workspace.masks_mut().place_start = None;
+            self.workspace.overlay_mut().overlay_stale = true;
         }
     }
 
@@ -1609,36 +1609,46 @@ impl AutoShadeApp {
         // manual CA pair in R25 B3, and it is compared in four places).
         const IDENTITY_XFORM: (f32, f32, (bool, bool), (f32, f32)) =
             (0.0, 0.0, (false, false), (0.0, 0.0));
-        let stale_xform = self.workspace.overlay.mask_tex.is_some() && self.workspace.overlay.mask_tex_xform != xform_now;
-        if self.workspace.overlay.mask_dirty || stale_xform {
+        let stale_xform = self.workspace.overlay().mask_tex.is_some() && self.workspace.overlay().mask_tex_xform != xform_now;
+        if self.workspace.overlay().mask_dirty || stale_xform {
             // Fast path (the common no-geometry case): the change since the
             // last upload is a known brush rect — upload ONLY that
             // sub-rectangle. Brushing used to clone and re-upload the WHOLE
             // canvas on every pointer move (at an 8192 working preview that
             // is a ~270 MB round trip per frame).
-            if xform_now == IDENTITY_XFORM && !stale_xform && self.workspace.overlay.mask_dirty {
-                let rect = self.workspace.overlay.mask_dirty_rect;
-                if let (Some(m), Some(tex), Some([x0, y0, x1, y1])) =
-                    (&self.workspace.masks.mask_paint, &mut self.workspace.overlay.mask_tex, rect)
-                    && tex.size() == [m.width() as usize, m.height() as usize]
-                    && x1 > x0
-                    && y1 > y0
-                    && x1 <= m.width()
-                    && y1 <= m.height()
-                {
-                    let (w, h) = ((x1 - x0) as usize, (y1 - y0) as usize);
-                    let mut sub = Vec::with_capacity(w * h * 4);
-                    for y in y0..y1 {
-                        let start = ((y * m.width() + x0) * 4) as usize;
-                        sub.extend_from_slice(&m.as_raw()[start..start + w * 4]);
+            if xform_now == IDENTITY_XFORM && !stale_xform && self.workspace.overlay().mask_dirty {
+                let upload = {
+                    let (m, tex, rect) = self.workspace.paint_upload_parts();
+                    match (m, tex, rect) {
+                        (Some(m), Some(tex), Some([x0, y0, x1, y1]))
+                            if tex.size() == [m.width() as usize, m.height() as usize]
+                                && x1 > x0
+                                && y1 > y0
+                                && x1 <= m.width()
+                                && y1 <= m.height() =>
+                        {
+                            let (w, h) = ((x1 - x0) as usize, (y1 - y0) as usize);
+                            let mut sub = Vec::with_capacity(w * h * 4);
+                            for y in y0..y1 {
+                                let start = ((y * m.width() + x0) * 4) as usize;
+                                sub.extend_from_slice(&m.as_raw()[start..start + w * 4]);
+                            }
+                            Some((x0, y0, w, h, sub))
+                        }
+                        _ => None,
                     }
-                    tex.set_partial(
-                        [x0 as usize, y0 as usize],
-                        egui::ColorImage::from_rgba_unmultiplied([w, h], &sub),
-                        egui::TextureOptions::LINEAR,
-                    );
-                    self.workspace.overlay.mask_dirty_rect = None;
-                    self.workspace.overlay.mask_dirty = false;
+                };
+                if let Some((x0, y0, w, h, sub)) = upload {
+                    let overlay = self.workspace.overlay_mut();
+                    if let Some(tex) = overlay.mask_tex.as_mut() {
+                        tex.set_partial(
+                            [x0 as usize, y0 as usize],
+                            egui::ColorImage::from_rgba_unmultiplied([w, h], &sub),
+                            egui::TextureOptions::LINEAR,
+                        );
+                    }
+                    overlay.mask_dirty_rect = None;
+                    overlay.mask_dirty = false;
                     return;
                 }
             }
@@ -1648,13 +1658,13 @@ impl AutoShadeApp {
             // pointer is no longer down).
             if !stale_xform
                 && xform_now != IDENTITY_XFORM
-                && self.workspace.overlay.mask_tex.is_some()
+                && self.workspace.overlay().mask_tex.is_some()
                 && ctx.input(|i| i.pointer.any_down())
-                && self.workspace.overlay.mask_tex_built.elapsed() < std::time::Duration::from_millis(120)
+                && self.workspace.overlay().mask_tex_built.elapsed() < std::time::Duration::from_millis(120)
             {
                 return; // mask_dirty stays armed; retried next frame
             }
-            if let Some(m) = &self.workspace.masks.mask_paint {
+            if let Some(m) = &self.workspace.masks().mask_paint {
                 let ci = if xform_now != IDENTITY_XFORM {
                     // Alpha-preserving RGBA twins: the RGB16 photo paths
                     // flatten transparency to opaque, which turned the whole
@@ -1689,17 +1699,17 @@ impl AutoShadeApp {
                 // move, and a fresh texture per frame is the allocate/free
                 // churn finish_redevelop documents avoiding (set() re-uploads,
                 // size changes included).
-                if let Some(tex) = &mut self.workspace.overlay.mask_tex {
+                if let Some(tex) = &mut self.workspace.overlay_mut().mask_tex {
                     tex.set(ci, egui::TextureOptions::LINEAR);
                 } else {
-                    self.workspace.overlay.mask_tex =
+                    self.workspace.overlay_mut().mask_tex =
                         Some(ctx.load_texture("paintmask", ci, egui::TextureOptions::LINEAR));
                 }
-                self.workspace.overlay.mask_tex_xform = xform_now;
-                self.workspace.overlay.mask_tex_built = Instant::now();
+                self.workspace.overlay_mut().mask_tex_xform = xform_now;
+                self.workspace.overlay_mut().mask_tex_built = Instant::now();
             }
-            self.workspace.overlay.mask_dirty_rect = None; // full upload covered everything pending
-            self.workspace.overlay.mask_dirty = false;
+            self.workspace.overlay_mut().mask_dirty_rect = None; // full upload covered everything pending
+            self.workspace.overlay_mut().mask_dirty = false;
         }
     }
 }

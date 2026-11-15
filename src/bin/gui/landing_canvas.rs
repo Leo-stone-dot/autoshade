@@ -14,12 +14,12 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                 // FACT agrees the flight was same-path: a stale request
                 // must never graft the outgoing photo's whole canvas,
                 // strip and history onto an incoming photo.
-                let keep = std::mem::take(&mut self.workspace.cards.keep_recipe) && self.workspace.open.open_same_path;
-                let edge_revert = self.workspace.open.edge_before_flight.take();
-                self.workspace.open.open_in_flight = false; // both arms: the transition ended
+                let keep = std::mem::take(&mut self.workspace.cards_mut().keep_recipe) && self.workspace.open().open_same_path;
+                let edge_revert = self.workspace.open_mut().edge_before_flight.take();
+                self.workspace.open_mut().open_in_flight = false; // both arms: the transition ended
                 match *boxed {
                 Ok((base, (start, part), lens, as_shot, baked, src_ident, baked_note)) => {
-                    self.workspace.busy = false;
+                    self.workspace.set_busy(false);
                     // Surfaced BEFORE anything else can early-return
                     // (L11-3): the worker degraded to the un-retouched
                     // source, and stderr is invisible in the windowed
@@ -76,9 +76,9 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // edge) while the repair memo pins its FIRST answer
                     // for persistence determinism — the two agree within
                     // the estimator's documented tolerance.
-                    self.workspace.open.photo_start = start.clone();
-                    self.workspace.open.photo_lens = lens.clone();
-                    self.workspace.open.photo_as_shot = as_shot;
+                    self.workspace.open_mut().photo_start = start.clone();
+                    self.workspace.open_mut().photo_lens = lens.clone();
+                    self.workspace.open_mut().photo_as_shot = as_shot;
                     if keep {
                         // Preview-resolution re-decode: the SOURCE pixels just
                         // changed resolution — keep the whole variant set,
@@ -98,7 +98,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // (Both outcomes below keep the canvas in place, so
                         // this is unconditional.)
                         if let Some(p) = self.editor.photo().src_path.clone() {
-                            self.workspace.open.nav_stash.remove(&p);
+                            self.workspace.open_mut().nav_stash.remove(&p);
                         }
                         let active_source =
                             self.active_variant().is_none_or(|v| v.base.is_none());
@@ -129,7 +129,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // canvas and edge cannot disagree in either
                             // direction (a later switch after saving
                             // re-decodes the master properly).
-                            self.workspace.genai.preview_edge = e;
+                            self.workspace.genai_mut().preview_edge = e;
                             // The remedy is read off THIS CANVAS, never
                             // off the photo's record: a stale broken
                             // record (an ./out cleanup) plus a NEW unsaved
@@ -179,12 +179,12 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // announcing itself forever is the same lie one
                             // door along, on the surface that does not
                             // expire.
-                            self.workspace.status = t.to_string();
+                            self.workspace.set_status(t.to_string());
                             self.toast(ToastKind::Error, t);
                         } else {
                             self.editor.photo_mut().source_preview = Some(base.clone());
-                            self.workspace.open.source_part = part.clone();
-                            self.workspace.open.source_part_inflight = None;
+                            self.workspace.open_mut().source_part = part.clone();
+                            self.workspace.open_mut().source_part_inflight = None;
                             // Fresh decode = the EXIF display frame,
                             // i.e. turn 0 (`render_to_image` is given
                             // a NEUTRAL recipe). Declaring it here is
@@ -199,8 +199,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // The range-mask reference develop was computed
                                 // from the OLD base — recipe-only keying would
                                 // serve it stale against these new pixels.
-                                self.workspace.overlay.overlay_ref = None;
-                                self.workspace.overlay.overlay_stale = true;
+                                self.workspace.overlay_mut().overlay_ref = None;
+                                self.workspace.overlay_mut().overlay_stale = true;
                                 self.editor.photo_mut().base_preview = Some(base);
                             } else if master_hit
                                 && let Some((bimg, _, _)) = &baked
@@ -250,16 +250,16 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 let start = self.editor.doc().recipe.start_only();
                                 self.set_before(ctx, bimg, &start);
                                 self.rebind_paint_canvas(bw, bh);
-                                self.workspace.overlay.overlay_ref = None;
-                                self.workspace.overlay.overlay_stale = true;
+                                self.workspace.overlay_mut().overlay_ref = None;
+                                self.workspace.overlay_mut().overlay_stale = true;
                                 self.editor.photo_mut().base_preview = Some(bimg.clone());
                             }
-                            self.workspace.chrome.last_rgb = None; // resolution changed under the frame
+                            self.workspace.chrome_mut().last_rgb = None; // resolution changed under the frame
                             self.editor.session_mut().dirty = true;
-                            self.workspace.status = trf(
+                            *self.workspace.status_mut() = trf(
                                 lang,
                                 K_CANVAS_PREVIEW_RESOLUTION_PX_RE_DECODED,
-                                &[("px", &self.workspace.genai.preview_edge.to_string())],
+                                &[("px", &self.workspace.genai().preview_edge.to_string())],
                             );
                         }
                     } else {
@@ -273,8 +273,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // below — the Before pane carries the canvas
                         // recipe's own base_curve.
                         self.editor.photo_mut().source_preview = Some(base.clone());
-                        self.workspace.open.source_part = part.clone();
-                        self.workspace.open.source_part_inflight = None;
+                        self.workspace.open_mut().source_part = part.clone();
+                        self.workspace.open_mut().source_part_inflight = None;
                             // Fresh decode = the EXIF display frame,
                             // i.e. turn 0 (`render_to_image` is given
                             // a NEUTRAL recipe). Declaring it here is
@@ -364,7 +364,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         let skip_repair = baked.as_ref().is_some_and(|(_, _, g)| *g)
                             || self.editor.photo().src_path
                                 .as_ref()
-                                .is_some_and(|p| self.workspace.open.nav_stash.contains_key(p));
+                                .is_some_and(|p| self.workspace.open().nav_stash.contains_key(p));
                         let ResolvedSaved {
                             mut recipe,
                             restored,
@@ -378,7 +378,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.editor.photo().src_path.as_deref(),
                         );
                         if unresolved {
-                            self.workspace.open.open_unresolved = true;
+                            self.workspace.open_mut().open_unresolved = true;
                         }
                         // A6 disclosure: numeric settings in the restored
                         // XMP that do not parse imported as SILENT
@@ -492,7 +492,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         let mut active_id = ORIGINAL_VARIANT_ID.to_string();
                         let mut active_name: Option<String> = None;
                         if let Some(st) =
-                            self.editor.photo().src_path.as_ref().and_then(|p| self.workspace.open.nav_stash.remove(p))
+                            self.editor.photo().src_path.as_ref().and_then(|p| self.workspace.open_mut().nav_stash.remove(p))
                         {
                             recipe = st.recipe;
                             active_kind = st.kind;
@@ -674,7 +674,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // would have baked the old photo's strokes into this
                         // photo's mask list).
                         self.rebind_paint_canvas(mw, mh);
-                        self.workspace.masks.paint_mode = false;
+                        self.workspace.masks_mut().paint_mode = false;
                         if let Some((bimg, borigin, generated)) = pixels {
                             // Restore the baked pixel master (persisted
                             // pixels.json, or this session's stash): the
@@ -832,28 +832,28 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // (`panels/portrait.rs`) — opening never changes
                         // a value.
                         self.decide_keep_skin_for_photo();
-                        self.workspace.chrome.last_rgb = None; // retained frame was the old photo's
+                        self.workspace.chrome_mut().last_rgb = None; // retained frame was the old photo's
                         self.reset_history(); // a new photo starts a fresh undo history
-                        self.workspace.overlay.region = None; // and a fresh local-edit selection
-                        self.workspace.overlay.region_drag = None;
+                        self.workspace.overlay_mut().region = None; // and a fresh local-edit selection
+                        self.workspace.overlay_mut().region_drag = None;
                         // View + tool state is per-photo.
-                        self.workspace.view.zoom = 1.0;
-                        self.workspace.view.zoom_target = 1.0; // instant — no glide across photos
-                        self.workspace.view.pan = egui::vec2(0.5, 0.5);
+                        self.workspace.view_mut().zoom = 1.0;
+                        self.workspace.view_mut().zoom_target = 1.0; // instant — no glide across photos
+                        self.workspace.view_mut().pan = egui::vec2(0.5, 0.5);
                         self.disarm_tools();
                         // The \-latch is per-photo transient state:
                         // carried across an open, the new photo arrived
                         // with every tool locked out (M21).
-                        self.workspace.view.before = false;
-                        self.workspace.masks.sel_mask = None;
-                        self.workspace.masks.sel_component = None;
-                        self.workspace.overlay.overlay_ref = None; // the reference develop belongs to ONE base
-                        self.workspace.overlay.overlay_stale = true;
-                        self.workspace.curve_drag = None; // curve_channel is a UI pref, keep it
-                        self.workspace.tools.wb_picking = false;
-                        self.workspace.tools.range_picking = None;
-                        self.workspace.tools.clone_mode = false;
-                        self.workspace.tools.clone_src = None;
+                        self.workspace.view_mut().before = false;
+                        self.workspace.masks_mut().sel_mask = None;
+                        self.workspace.masks_mut().sel_component = None;
+                        self.workspace.overlay_mut().overlay_ref = None; // the reference develop belongs to ONE base
+                        self.workspace.overlay_mut().overlay_stale = true;
+                        self.workspace.set_curve_drag(None); // curve_channel is a UI pref, keep it
+                        self.workspace.tools_mut().wb_picking = false;
+                        self.workspace.tools_mut().range_picking = None;
+                        self.workspace.tools_mut().clone_mode = false;
+                        self.workspace.tools_mut().clone_src = None;
                         self.editor.analysis_mut().verdict = None;
                         // R23-6 B: the chosen reverse-fit reference names
                         // a rendition of THE PREVIOUS photo. Carried
@@ -861,13 +861,13 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // against the last one's export — the exact
                         // "reference is not this frame" case the fit can
                         // now only warn about.
-                        self.workspace.fit.fit_ref = None;
-                        self.workspace.fit.fit_from = None; // …and so does a picked source card
-                        self.workspace.fit.fit_prompt = None; // …and the question about one
+                        self.workspace.fit_mut().fit_ref = None;
+                        self.workspace.fit_mut().fit_from = None; // …and so does a picked source card
+                        self.workspace.fit_mut().fit_prompt = None; // …and the question about one
                         // (rationale already restored alongside the recipe)
                         self.refresh_versions(); // version snapshots are per-photo
                         self.editor.session_mut().dirty = true; // render the (restored or neutral) after
-                        self.workspace.status = if from_stash {
+                        *self.workspace.status_mut() = if from_stash {
                             tr(
                                 lang,
                                 K_CANVAS_READY_RESTORED_THIS_SESSION_S_UNSAVED_EDITS_NOT,
@@ -896,7 +896,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 K_CANVAS_RESTORED_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE,
                                 &[("px", &px.to_string())],
                             );
-                            self.workspace.status.push_str(&extra);
+                            self.workspace.status_mut().push_str(&extra);
                         }
                         if let Some(note) = open_note {
                             // Sidecar anomalies must be seen, not scrolled
@@ -921,11 +921,11 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.editor.doc_mut().active = 0;
                         self.editor.photo_mut().base_preview = None;
                         self.editor.photo_mut().source_preview = None;
-                        self.workspace.open.source_part = Default::default();
-                        self.workspace.open.source_part_inflight = None;
+                        self.workspace.open_mut().source_part = Default::default();
+                        self.workspace.open_mut().source_part_inflight = None;
                         self.editor.plates_mut().before_tex = None;
                         self.editor.plates_mut().after_tex = None;
-                        self.workspace.gal.selected = None;
+                        self.workspace.gal_mut().selected = None;
                         // …and its HISTORY, which this arm used to leave
                         // standing: the steps hold the dead photo's
                         // rasters and its recipe, so an undo here restored
@@ -944,7 +944,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // Left behind, an undo-to-clean before the next
                         // navigation resurrected these pre-undo edits on
                         // the way back (CX4-4).
-                        self.workspace.open.nav_stash.remove(&p);
+                        self.workspace.open_mut().nav_stash.remove(&p);
                         // ...and the switch never materialized: the
                         // canvas kept the OLD edge, so preview_edge
                         // reverts with it (the busy-refusal rule) —
@@ -952,7 +952,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // resolution and fed it to every bake site under
                         // an old-edge canvas.
                         if let Some(e) = edge_revert {
-                            self.workspace.genai.preview_edge = e;
+                            self.workspace.genai_mut().preview_edge = e;
                         }
                     }
                 }
@@ -962,8 +962,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
 pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usize, img: anyhow::Result<image::DynamicImage>) {
                 // Ignore thumbnails from a previous folder generation (their
                 // inflight count was already discarded when the folder changed).
-                if generation == self.workspace.gal.gallery_gen {
-                    self.workspace.gal.thumb_inflight = self.workspace.gal.thumb_inflight.saturating_sub(1);
+                if generation == self.workspace.gal().gallery_gen {
+                    self.workspace.gal_mut().thumb_inflight = self.workspace.gal().thumb_inflight.saturating_sub(1);
                     match img {
                         Ok(im) => {
                             let tex = ctx.load_texture(
@@ -971,7 +971,7 @@ pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usi
                                 to_color_image(&im),
                                 egui::TextureOptions::LINEAR,
                             );
-                            self.workspace.gal.thumbs.insert(idx, tex);
+                            self.workspace.gal_mut().thumbs.insert(idx, tex);
                         }
                         Err(_) => {
                             // Count the failure and release the queue slot:
@@ -980,8 +980,8 @@ pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usi
                             // share) still recovers on a later frame while
                             // an undecodable file stops for good instead of
                             // respawning decode threads every frame.
-                            *self.workspace.gal.thumb_fail.entry(idx).or_insert(0) += 1;
-                            self.workspace.gal.thumb_requested.remove(&idx);
+                            *self.workspace.gal_mut().thumb_fail.entry(idx).or_insert(0) += 1;
+                            self.workspace.gal_mut().thumb_requested.remove(&idx);
                         }
                     }
                 }
@@ -994,8 +994,8 @@ pub(crate) fn on_base_redeveloped(
     part: autoshade::render::BasePart,
     img: anyhow::Result<Arc<image::DynamicImage>>,
 ) {
-    if self.workspace.open.source_part_inflight.as_ref() == Some(&part) {
-        self.workspace.open.source_part_inflight = None;
+    if self.workspace.open().source_part_inflight.as_ref() == Some(&part) {
+        self.workspace.open_mut().source_part_inflight = None;
     }
     if self.editor.photo().src_path.as_deref() != Some(path.as_path()) {
         return;
@@ -1012,7 +1012,7 @@ pub(crate) fn on_base_redeveloped(
             // Said once, then the canvas shows over the base there is:
             // asking again on every frame would repeat a develop that
             // has already failed.
-            self.workspace.open.source_part = part;
+            self.workspace.open_mut().source_part = part;
             self.editor.session_mut().dirty = true;
             return;
         }
@@ -1024,16 +1024,16 @@ pub(crate) fn on_base_redeveloped(
         Arc::new(autoshade::render::turn_image((*img).clone(), turns))
     };
     self.editor.photo_mut().source_preview = Some(img.clone());
-    self.workspace.open.source_part = part;
+    self.workspace.open_mut().source_part = part;
     if self.active_variant().is_none_or(|v| v.base.is_none()) {
         self.editor.photo_mut().base_preview = Some(img.clone());
         let start = self.editor.doc().recipe.start_only();
         self.set_before(ctx, &img, &start);
         let (mw, mh) = img.dimensions();
         self.rebind_paint_canvas(mw, mh);
-        self.workspace.overlay.overlay_ref = None;
-        self.workspace.overlay.overlay_stale = true;
-        self.workspace.chrome.last_rgb = None;
+        self.workspace.overlay_mut().overlay_ref = None;
+        self.workspace.overlay_mut().overlay_stale = true;
+        self.workspace.chrome_mut().last_rgb = None;
     }
     self.editor.session_mut().dirty = true;
 }

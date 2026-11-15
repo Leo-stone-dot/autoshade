@@ -101,7 +101,7 @@
         app.editor.session_mut().hist.saved_recipe = app.editor.doc().recipe.clone();
         let old = std::path::PathBuf::from("out/_rename_old.arw");
         app.editor.photo_mut().src_path = Some(old.clone());
-        app.workspace.masks.mask_name_buf = Some((0, "sky".into(), "sky gradient".into()));
+        app.workspace.masks_mut().mask_name_buf = Some((0, "sky".into(), "sky gradient".into()));
 
         app.open_path(std::path::PathBuf::from("out/_rename_new.arw"));
         assert_eq!(
@@ -112,7 +112,7 @@
             dirty_vs(&app.editor.doc().recipe, &app.editor.session().hist.saved_recipe),
             "the flushed rename must read as unsaved (the close guard's gate)"
         );
-        let stash = app.workspace.open.nav_stash.get(&old).expect("a dirty canvas must be stashed");
+        let stash = app.workspace.open().nav_stash.get(&old).expect("a dirty canvas must be stashed");
         assert_eq!(
             stash.recipe.masks[0].name, "sky gradient",
             "the stash carries the TYPED name, not the pre-focus one"
@@ -123,7 +123,7 @@
         // 2026-09-13 a generated card no longer refuses — it saves like any
         // other — so the empty-path return is the disk-free door).
         app.editor.photo_mut().src_path = None;
-        app.workspace.masks.mask_name_buf = Some((0, "sky gradient".into(), "sky gradient 2".into()));
+        app.workspace.masks_mut().mask_name_buf = Some((0, "sky gradient".into(), "sky gradient 2".into()));
         app.save_xmp();
         assert_eq!(
             app.editor.doc().recipe.masks[0].name, "sky gradient 2",
@@ -146,7 +146,7 @@
         let clean = std::env::temp_dir().join(format!("autoshade-chain-{}/clean.ARW", std::process::id()));
         app.editor.photo_mut().src_path = Some(clean.clone());
         // ANOTHER photo's stash holds a dirty background variant.
-        app.workspace.open.nav_stash.insert(
+        app.workspace.open_mut().nav_stash.insert(
             std::env::temp_dir().join(format!("autoshade-chain-{}/other.ARW", std::process::id())),
             StashEntry {
                 id: String::new(),
@@ -173,7 +173,7 @@
         );
         app.open_path(std::env::temp_dir().join(format!("autoshade-chain-{}/next.ARW", std::process::id())));
         assert!(
-            !app.workspace.open.nav_stash.contains_key(&clean),
+            !app.workspace.open().nav_stash.contains_key(&clean),
             "a clean photo must not be stashed for another photo's background work"
         );
 
@@ -210,7 +210,7 @@
         // Navigate away — the stash snapshot is written synchronously.
         app.open_path(std::env::temp_dir().join(format!("autoshade-h4-{}/__autoshade_h4_b__.ARW", std::process::id())));
         {
-            let st = app.workspace.open.nav_stash.get(&old).expect("background work must stash the strip");
+            let st = app.workspace.open().nav_stash.get(&old).expect("background work must stash the strip");
             assert_eq!(st.others.len(), 1);
             assert!(matches!(st.others[0].kind, VariantKind::Edited));
         }
@@ -218,12 +218,12 @@
         // interleave with the synthetic return below.
         for _ in 0..200 {
             app.poll_workers(&ctx);
-            if !app.workspace.busy {
+            if !app.workspace.busy() {
                 break;
             }
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        assert!(!app.workspace.busy, "the failed decode of the nav target must land");
+        assert!(!app.workspace.busy(), "the failed decode of the nav target must land");
         // Return: simulate the Opened result for the original photo.
         app.editor.photo_mut().src_path = Some(old.clone());
         let base = Arc::new(image::DynamicImage::new_rgb8(8, 6));
@@ -271,8 +271,8 @@
         let ctx = egui::Context::default();
 
         app.refresh_mask_overlay(&ctx);
-        assert_eq!(app.workspace.overlay.overlay_build_count, 1, "first coverage build");
-        assert!(app.workspace.overlay.mask_overlay_tex.is_some());
+        assert_eq!(app.workspace.overlay().overlay_build_count, 1, "first coverage build");
+        assert!(app.workspace.overlay().mask_overlay_tex.is_some());
 
         // Local effect sliders: no rebuild.
         app.editor.doc_mut().recipe.masks[0].exposure_ev = -2.0;
@@ -281,17 +281,17 @@
         app.refresh_mask_overlay(&ctx);
         app.editor.doc_mut().recipe.masks[0].color_gains = Some([1.6, 0.8, 0.5]);
         app.refresh_mask_overlay(&ctx);
-        assert_eq!(app.workspace.overlay.overlay_build_count, 1, "local effect sliders must not rebuild coverage");
+        assert_eq!(app.workspace.overlay().overlay_build_count, 1, "local effect sliders must not rebuild coverage");
 
         // Amount is coverage-relevant: rebuild.
         app.editor.doc_mut().recipe.masks[0].amount = 0.5;
         app.refresh_mask_overlay(&ctx);
-        assert_eq!(app.workspace.overlay.overlay_build_count, 2, "amount change rebuilds coverage");
+        assert_eq!(app.workspace.overlay().overlay_build_count, 2, "amount change rebuilds coverage");
 
         // Inversion is coverage-relevant: rebuild.
         app.editor.doc_mut().recipe.masks[0].inverted = true;
         app.refresh_mask_overlay(&ctx);
-        assert_eq!(app.workspace.overlay.overlay_build_count, 3, "inversion rebuilds coverage");
+        assert_eq!(app.workspace.overlay().overlay_build_count, 3, "inversion rebuilds coverage");
 
     }
 
@@ -758,11 +758,11 @@
         assert_eq!(app.editor.doc().recipe.saturation, 0.0);
         assert!(app.editor.doc().recipe.base_curve.is_empty(), "calibration stripped on AI pixels");
         assert!(app.editor.session().hist.saved_recipe.is_noop(), "the ● baseline agrees");
-        assert!(!app.unsaved_marker_dirty(), "a clean open: {}", app.workspace.status);
+        assert!(!app.unsaved_marker_dirty(), "a clean open: {}", app.workspace.status());
         assert!(
-            !app.workspace.status.contains("(XMP)"),
+            !app.workspace.status().contains("(XMP)"),
             "nothing was restored from the projection: {}",
-            app.workspace.status
+            app.workspace.status()
         );
         assert_eq!(app.editor.doc().variants[0].recipe.contrast, 4.0, "the ▣ card keeps its own develop");
     }
@@ -800,11 +800,11 @@
 
             }; editor } , ..Default::default() };
         app.save_xmp();
-        assert!(autoshade::store::recipe_target(src).exists(), "{}", app.workspace.status);
+        assert!(autoshade::store::recipe_target(src).exists(), "{}", app.workspace.status());
         let back = autoshade::xmp::xmp_to_recipe(&std::fs::read_to_string(&xp).unwrap());
         assert_eq!(back.contrast, 7.0, "the projection is this generation's");
         assert_eq!(back.saturation, 0.0, "…and the stale one is gone");
-        assert!(app.workspace.status.starts_with("XMP + recipe saved"), "{}", app.workspace.status);
+        assert!(app.workspace.status().starts_with("XMP + recipe saved"), "{}", app.workspace.status());
         assert!(!dev.join(".commit").exists(), "the stage is consumed");
     }
 

@@ -15,7 +15,7 @@ impl AutoShadeApp {
     /// the resulting raster as a Bitmap local mask (gap batch A②). The AI only
     /// picks WHERE — every actual edit stays a deterministic recipe slider.
     pub(crate) fn start_segment(&mut self, target: &'static str, label: &'static str) {
-        if self.workspace.busy {
+        if self.workspace.busy() {
             return;
         }
         let lang = self.lang;
@@ -28,8 +28,8 @@ impl AutoShadeApp {
         // corrected base is mapped back first).
         let Some(base) = self.original_frame_base() else { return };
         let Some(src) = self.editor.photo().src_path.clone() else { return };
-        self.workspace.busy = true;
-        self.workspace.status = trf(
+        self.workspace.set_busy(true);
+        *self.workspace.status_mut() = trf(
             lang,
             K_GUI_AI_SEGMENTING_FIRST_RUN_AUTO_DOWNLOADS_THE_MODEL,
             &[("what", &disp)],
@@ -112,15 +112,16 @@ impl AutoShadeApp {
         self.select_brush_owner(BrushOwner::Fill);
         // At the PREVIEW's dimensions, which is the frame the brush paints in
         // and the frame `export_mask_png` hands on.
-        if self.workspace.masks.mask_paint.as_ref().is_none_or(|m| m.dimensions() != (mw, mh)) {
-            self.workspace.masks.mask_paint = Some(image::RgbaImage::new(mw, mh));
+        if self.workspace.masks().mask_paint.as_ref().is_none_or(|m| m.dimensions() != (mw, mh)) {
+            self.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(mw, mh));
             self.paint_mask_changed(Some(false));
         }
-        if self.workspace.masks.mask_brush_gray.as_ref().is_none_or(|g| g.dimensions() != (mw, mh)) {
-            self.workspace.masks.mask_brush_gray = Some(image::GrayImage::new(mw, mh));
+        if self.workspace.masks().mask_brush_gray.as_ref().is_none_or(|g| g.dimensions() != (mw, mh)) {
+            self.workspace.masks_mut().mask_brush_gray = Some(image::GrayImage::new(mw, mh));
         }
-        let canvas = self.workspace.masks.mask_paint.as_mut().expect("just ensured");
-        let gray = self.workspace.masks.mask_brush_gray.as_mut().expect("just ensured");
+        let masks = self.workspace.masks_mut();
+        let canvas = masks.mask_paint.as_mut().expect("just ensured");
+        let gray = masks.mask_brush_gray.as_mut().expect("just ensured");
         let short = mw.min(mh) as f32;
         for s in &wanted {
             let c = (s.cx * mw as f32, s.cy * mh as f32);
@@ -154,7 +155,7 @@ impl AutoShadeApp {
         self.paint_mask_changed(None);
         // The whole canvas changed, so a pending sub-rect from an earlier
         // stroke must not turn this into a partial GPU upload (see clear_mask).
-        self.workspace.overlay.mask_dirty_rect = None;
+        self.workspace.overlay_mut().mask_dirty_rect = None;
         wanted.len()
     }
 
@@ -163,22 +164,22 @@ impl AutoShadeApp {
     /// fresh/cleared = false, an actual red brush stamp = true. Import/erase
     /// leave it unknown. Texture uploads clear mask_dirty, never this memo.
     pub(crate) fn paint_mask_changed(&mut self, painted: Option<bool>) {
-        self.workspace.masks.mask_painted.set(painted);
-        self.workspace.overlay.mask_dirty = true;
+        self.workspace.masks().mask_painted.set(painted);
+        self.workspace.overlay_mut().mask_dirty = true;
     }
 
     /// Same alpha threshold as export. Scan at most once per unknown change,
     /// then both the adjust note and verb read the memo in O(1) every frame.
     pub(crate) fn has_painted_mask(&self) -> bool {
-        if let Some(painted) = self.workspace.masks.mask_painted.get() {
+        if let Some(painted) = self.workspace.masks().mask_painted.get() {
             return painted;
         }
-        let painted = self.workspace.masks.mask_paint.as_ref().is_some_and(|m| {
+        let painted = self.workspace.masks().mask_paint.as_ref().is_some_and(|m| {
             #[cfg(test)]
-            self.workspace.overlay.mask_presence_scans.set(self.workspace.overlay.mask_presence_scans.get() + 1);
+            self.workspace.overlay().mask_presence_scans.set(self.workspace.overlay().mask_presence_scans.get() + 1);
             m.pixels().any(|p| p[3] > 10)
         });
-        self.workspace.masks.mask_painted.set(Some(painted));
+        self.workspace.masks().mask_painted.set(Some(painted));
         painted
     }
 
@@ -188,11 +189,11 @@ impl AutoShadeApp {
         if !self.has_painted_mask() {
             return None;
         }
-        export_png_of(self.workspace.masks.mask_paint.as_ref()?)
+        export_png_of(self.workspace.masks().mask_paint.as_ref()?)
     }
 
     pub(crate) fn clear_mask(&mut self) {
-        if let Some(m) = &mut self.workspace.masks.mask_paint {
+        if let Some(m) = &mut self.workspace.masks_mut().mask_paint {
             for p in m.pixels_mut() {
                 *p = image::Rgba([0, 0, 0, 0]);
             }
@@ -201,19 +202,19 @@ impl AutoShadeApp {
             // uncommitted stroke would make ensure_mask_tex's partial-upload
             // fast path re-upload only that rectangle, leaving previously
             // painted pixels alive in the GPU texture indefinitely.
-            self.workspace.overlay.mask_dirty_rect = None;
+            self.workspace.overlay_mut().mask_dirty_rect = None;
         }
         // The display canvas and the greyscale weight buffer are a
         // DUAL-WRITE pair (the brush writes both; Apply bakes the GRAY) —
         // clearing only the display broke the session's own "bakes exactly
         // what it shows" contract: Apply after Clear still committed the
         // cleared strokes (L15-8). end_mask_brush clears the pair too.
-        if let Some(g) = &mut self.workspace.masks.mask_brush_gray {
+        if let Some(g) = &mut self.workspace.masks_mut().mask_brush_gray {
             for p in g.pixels_mut() {
                 *p = image::Luma([0]);
             }
         }
-        self.workspace.masks.paint_last = None;
+        self.workspace.masks_mut().paint_last = None;
     }
 
     /// Bring `owner`'s area onto the canvas. The owner that was there goes to
@@ -223,35 +224,39 @@ impl AutoShadeApp {
     /// `end_mask_brush` puts the stashed area back before the swap).
     pub(crate) fn select_brush_owner(&mut self, owner: BrushOwner) {
         self.end_mask_brush();
-        if owner == self.workspace.masks.paint_owner {
+        if owner == self.workspace.masks().paint_owner {
             return;
         }
-        let Some(cur) = self.workspace.masks.mask_paint.take() else {
+        let Some(cur) = self.workspace.masks_mut().mask_paint.take() else {
             // No canvas yet (no photo open): only the label moves.
-            self.workspace.masks.paint_owner = owner;
+            self.workspace.masks_mut().paint_owner = owner;
             return;
         };
         let (w, h) = cur.dimensions();
-        self.workspace.masks.paint_store[self.workspace.masks.paint_owner.slot()] =
-            Some(PaintArea { canvas: cur, painted: std::cell::Cell::new(self.workspace.masks.mask_painted.get()) });
-        let (canvas, painted) = match self.workspace.masks.paint_store[owner.slot()].take() {
+        let slot = self.workspace.masks().paint_owner.slot();
+        let painted = self.workspace.masks().mask_painted.get();
+        self.workspace.masks_mut().paint_store[slot] =
+            Some(PaintArea { canvas: cur, painted: std::cell::Cell::new(painted) });
+        let (canvas, painted) = match self.workspace.masks_mut().paint_store[owner.slot()].take() {
             Some(a) => (a.canvas, a.painted.get()),
             None => (image::RgbaImage::new(w, h), Some(false)),
         };
-        self.workspace.masks.mask_paint = Some(canvas);
+        self.workspace.masks_mut().mask_paint = Some(canvas);
         self.paint_mask_changed(painted);
         // The whole canvas changed (see clear_mask on the pending sub-rect).
-        self.workspace.overlay.mask_dirty_rect = None;
-        self.workspace.masks.paint_last = None;
-        self.workspace.masks.paint_owner = owner;
+        self.workspace.overlay_mut().mask_dirty_rect = None;
+        self.workspace.masks_mut().paint_last = None;
+        self.workspace.masks_mut().paint_owner = owner;
     }
 
     /// Stash the live owner's area for a mask-brush session, which takes the
     /// canvas; `end_mask_brush` puts it back through `unstash_owner_area`.
     fn stash_owner_area(&mut self) {
-        if let Some(cur) = self.workspace.masks.mask_paint.take() {
-            self.workspace.masks.paint_store[self.workspace.masks.paint_owner.slot()] =
-                Some(PaintArea { canvas: cur, painted: std::cell::Cell::new(self.workspace.masks.mask_painted.get()) });
+        if let Some(cur) = self.workspace.masks_mut().mask_paint.take() {
+            let slot = self.workspace.masks().paint_owner.slot();
+            let painted = self.workspace.masks().mask_painted.get();
+            self.workspace.masks_mut().paint_store[slot] =
+                Some(PaintArea { canvas: cur, painted: std::cell::Cell::new(painted) });
         }
     }
 
@@ -259,12 +264,13 @@ impl AutoShadeApp {
     /// owner's area returns unscanned; with nothing stashed the canvas stays
     /// as the caller left it (blank).
     pub(crate) fn unstash_owner_area(&mut self) {
-        if let Some(a) = self.workspace.masks.paint_store[self.workspace.masks.paint_owner.slot()].take() {
+        let slot = self.workspace.masks().paint_owner.slot();
+        if let Some(a) = self.workspace.masks_mut().paint_store[slot].take() {
             let painted = a.painted.get();
-            self.workspace.masks.mask_paint = Some(a.canvas);
+            self.workspace.masks_mut().mask_paint = Some(a.canvas);
             self.paint_mask_changed(painted);
-            self.workspace.overlay.mask_dirty_rect = None;
-            self.workspace.masks.paint_last = None;
+            self.workspace.overlay_mut().mask_dirty_rect = None;
+            self.workspace.masks_mut().paint_last = None;
         }
     }
 
@@ -272,9 +278,9 @@ impl AutoShadeApp {
     /// through `clone_mode`, the other three through `paint_mode`, and a
     /// live mask-brush session belongs to none of them.
     pub(crate) fn brush_armed(&self, owner: BrushOwner) -> bool {
-        self.workspace.masks.mask_brush.is_none()
-            && self.workspace.masks.paint_owner == owner
-            && if owner == BrushOwner::Stamp { self.workspace.tools.clone_mode } else { self.workspace.masks.paint_mode }
+        self.workspace.masks().mask_brush.is_none()
+            && self.workspace.masks().paint_owner == owner
+            && if owner == BrushOwner::Stamp { self.workspace.tools().clone_mode } else { self.workspace.masks().paint_mode }
     }
 
     /// Arm `owner`'s brush: its area comes onto the canvas, every other
@@ -284,9 +290,9 @@ impl AutoShadeApp {
         self.select_brush_owner(owner);
         self.disarm_tools();
         if owner == BrushOwner::Stamp {
-            self.workspace.tools.clone_mode = true;
+            self.workspace.tools_mut().clone_mode = true;
         } else {
-            self.workspace.masks.paint_mode = true;
+            self.workspace.masks_mut().paint_mode = true;
         }
     }
 
@@ -294,46 +300,46 @@ impl AutoShadeApp {
     /// session is a cancel too (R22-3: an orphaned session's Apply row would
     /// bake stale weights), and `end_mask_brush` restores the owner's area.
     pub(crate) fn disarm_brush(&mut self) {
-        self.workspace.masks.paint_mode = false;
-        self.workspace.tools.clone_mode = false;
-        self.workspace.masks.paint_last = None;
+        self.workspace.masks_mut().paint_mode = false;
+        self.workspace.tools_mut().clone_mode = false;
+        self.workspace.masks_mut().paint_last = None;
         self.end_mask_brush();
     }
 
     /// The K key: toggle the brush of the tool whose area is on the canvas;
     /// during a mask-brush session it is that session's Esc, as before.
     pub(crate) fn toggle_brush_key(&mut self) {
-        if self.workspace.masks.mask_brush.is_some() {
+        if self.workspace.masks().mask_brush.is_some() {
             self.disarm_tools();
-        } else if self.brush_armed(self.workspace.masks.paint_owner) {
+        } else if self.brush_armed(self.workspace.masks().paint_owner) {
             self.disarm_brush();
         } else {
-            self.arm_brush(self.workspace.masks.paint_owner);
+            self.arm_brush(self.workspace.masks().paint_owner);
         }
     }
 
     /// Wipe `owner`'s area, on the canvas or in the store; the other tools'
     /// areas stay.
     pub(crate) fn clear_area(&mut self, owner: BrushOwner) {
-        if owner == self.workspace.masks.paint_owner && self.workspace.masks.mask_brush.is_none() {
+        if owner == self.workspace.masks().paint_owner && self.workspace.masks().mask_brush.is_none() {
             self.clear_mask();
         } else {
-            self.workspace.masks.paint_store[owner.slot()] = None;
+            self.workspace.masks_mut().paint_store[owner.slot()] = None;
         }
     }
 
     /// Whether `owner`'s area has strokes (the export's alpha > 10 predicate),
     /// memoised per area exactly as `has_painted_mask` memoises the canvas'.
     pub(crate) fn area_painted(&self, owner: BrushOwner) -> bool {
-        if owner == self.workspace.masks.paint_owner && self.workspace.masks.mask_brush.is_none() {
+        if owner == self.workspace.masks().paint_owner && self.workspace.masks().mask_brush.is_none() {
             return self.has_painted_mask();
         }
-        self.workspace.masks.paint_store[owner.slot()].as_ref().is_some_and(|a| {
+        self.workspace.masks().paint_store[owner.slot()].as_ref().is_some_and(|a| {
             if let Some(p) = a.painted.get() {
                 return p;
             }
             #[cfg(test)]
-            self.workspace.overlay.mask_presence_scans.set(self.workspace.overlay.mask_presence_scans.get() + 1);
+            self.workspace.overlay().mask_presence_scans.set(self.workspace.overlay().mask_presence_scans.get() + 1);
             let p = a.canvas.pixels().any(|px| px[3] > 10);
             a.painted.set(Some(p));
             p
@@ -343,13 +349,13 @@ impl AutoShadeApp {
     /// PNG bytes of `owner`'s EXPORT mask (see `export_mask_png`); None when
     /// nothing is painted there.
     pub(crate) fn export_area_png(&self, owner: BrushOwner) -> Option<Vec<u8>> {
-        if owner == self.workspace.masks.paint_owner && self.workspace.masks.mask_brush.is_none() {
+        if owner == self.workspace.masks().paint_owner && self.workspace.masks().mask_brush.is_none() {
             return self.export_mask_png();
         }
         if !self.area_painted(owner) {
             return None;
         }
-        export_png_of(&self.workspace.masks.paint_store[owner.slot()].as_ref()?.canvas)
+        export_png_of(&self.workspace.masks().paint_store[owner.slot()].as_ref()?.canvas)
     }
 
     /// Arm a mask-brush session: `target = None` paints a NEW Bitmap mask on
@@ -401,13 +407,13 @@ impl AutoShadeApp {
                 }
             }
         }
-        self.workspace.masks.mask_paint = Some(canvas);
+        self.workspace.masks_mut().mask_paint = Some(canvas);
         self.paint_mask_changed(None);
-        self.workspace.overlay.mask_dirty_rect = None;
-        self.workspace.masks.mask_brush_gray = Some(gray);
-        self.workspace.masks.mask_brush = Some((target, false));
-        self.workspace.masks.paint_mode = true;
-        self.workspace.status = tr(
+        self.workspace.overlay_mut().mask_dirty_rect = None;
+        self.workspace.masks_mut().mask_brush_gray = Some(gray);
+        self.workspace.masks_mut().mask_brush = Some((target, false));
+        self.workspace.masks_mut().paint_mode = true;
+        *self.workspace.status_mut() = tr(
             self.lang,
             K_GUI_BRUSH_MASK_PAINT_TO_SELECT_ERASE_REMOVES_APPLY_B,
         )
@@ -419,8 +425,8 @@ impl AutoShadeApp {
     /// version snapshots keep rendering what they rendered), then the target
     /// mask repoints at it, or a new Bitmap mask is pushed.
     pub(crate) fn commit_mask_brush(&mut self) {
-        let Some((target, _)) = self.workspace.masks.mask_brush else { return };
-        let Some(gray) = self.workspace.masks.mask_brush_gray.clone() else { return };
+        let Some((target, _)) = self.workspace.masks().mask_brush else { return };
+        let Some(gray) = self.workspace.masks().mask_brush_gray.clone() else { return };
         let Some(src) = self.editor.photo().src_path.clone() else { return };
         let lang = self.lang;
         if target.is_none() {
@@ -466,8 +472,8 @@ impl AutoShadeApp {
                                 self.editor.doc_mut().recipe.masks[i].mask = MaskGeometry::Bitmap { path: path_s }
                             }
                         }
-                        self.workspace.masks.sel_mask = Some(i);
-                        self.workspace.status = tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO).into();
+                        self.workspace.masks_mut().sel_mask = Some(i);
+                        self.workspace.set_status(tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO).into());
                     }
                     _ => {
                         let n = self.editor.doc().recipe.masks.len();
@@ -476,13 +482,13 @@ impl AutoShadeApp {
                             name: trf(lang, K_GUI_BRUSH, &[("n", &(n + 1).to_string())]),
                             ..Default::default()
                         });
-                        self.workspace.masks.sel_mask = Some(n);
-                        self.workspace.status = tr(lang, K_GUI_BRUSH_MASK_CREATED_PULL_ITS_SLIDERS_IN_LOCAL_MAS).into();
+                        self.workspace.masks_mut().sel_mask = Some(n);
+                        self.workspace.set_status(tr(lang, K_GUI_BRUSH_MASK_CREATED_PULL_ITS_SLIDERS_IN_LOCAL_MAS).into());
                     }
                 }
-                self.workspace.masks.sel_component = None;
+                self.workspace.masks_mut().sel_component = None;
                 self.editor.session_mut().dirty = true;
-                self.workspace.overlay.overlay_stale = true;
+                self.workspace.overlay_mut().overlay_stale = true;
                 self.disarm_tools(); // ends the session and clears the canvas
             }
             Err(e) => {
@@ -539,8 +545,8 @@ impl AutoShadeApp {
                     *slot = p.to_string_lossy().into_owned();
                 }
                 self.editor.session_mut().dirty = true;
-                self.workspace.overlay.overlay_stale = true;
-                self.workspace.status =
+                self.workspace.overlay_mut().overlay_stale = true;
+                *self.workspace.status_mut() =
                     tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO)
                         .into();
             }
@@ -577,7 +583,7 @@ impl AutoShadeApp {
         // the raster being refined was turned into the plate frame by
         // `rotate_recipe`, and a guided filter handed a turned mask and an
         // unturned guide writes a refined raster that fits neither.
-        if self.workspace.busy || self.refuse_pixel_work_on_a_turned_photo() {
+        if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
         let Some(src) = self.editor.photo().src_path.clone() else { return };
@@ -590,8 +596,8 @@ impl AutoShadeApp {
         else {
             return;
         };
-        self.workspace.busy = true;
-        self.workspace.status =
+        self.workspace.set_busy(true);
+        *self.workspace.status_mut() =
             tr(self.lang, K_GUI_REFINING_THE_MASK_TO_FULL_RESOLUTION_DECODING_TH)
                 .into();
         let stored_ref = path.clone();

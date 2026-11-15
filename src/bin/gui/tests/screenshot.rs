@@ -224,7 +224,7 @@
                 }
                 let mut app = app_with_every_button(lang);
                 with_long_analysis(&mut app);
-                app.workspace.ui.show_analysis_full = true;
+                app.workspace.ui_mut().show_analysis_full = true;
                 window_shot(&mut app, theme).save(dir.join(format!("analysis-window-{lang:?}-{theme:?}.png"))).unwrap();
             }
         }
@@ -282,7 +282,7 @@
     /// ones that need a live window (drops, title, sheets).
     fn full_window_shot(app: &mut AutoShadeApp, theme: crate::theme::ThemePref, size: egui::Vec2) -> image::RgbaImage {
         // The app reads its own theme field for the bars and the canvas bed.
-        app.workspace.ui.theme = theme;
+        app.workspace.ui_mut().theme = theme;
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
         crate::theme::install_theme(&ctx, theme);
@@ -413,18 +413,18 @@
                     }
                 }),
             )));
-            app.workspace.rlib.recipes = rows();
-            app.workspace.rlib.recipes_loaded = true;
-            app.workspace.rlib.show_recipes = true;
-            app.workspace.rlib.recipe_sel = Some(names[0].into());
+            app.workspace.rlib_mut().recipes = rows();
+            app.workspace.rlib_mut().recipes_loaded = true;
+            app.workspace.rlib_mut().show_recipes = true;
+            app.workspace.rlib_mut().recipe_sel = Some(names[0].into());
             full_window_shot(&mut app, crate::theme::ThemePref::Dark, egui::vec2(1400.0, 880.0))
                 .save(dir.join(format!("recipe-library-{lang:?}.png")))
                 .unwrap();
             // …and the empty library, whose state has to invite the first save.
             let mut empty = app_with_every_button(lang);
-            empty.workspace.rlib.recipes.clear();
-            empty.workspace.rlib.recipes_loaded = true;
-            empty.workspace.rlib.show_recipes = true;
+            empty.workspace.rlib_mut().recipes.clear();
+            empty.workspace.rlib_mut().recipes_loaded = true;
+            empty.workspace.rlib_mut().show_recipes = true;
             full_window_shot(&mut empty, crate::theme::ThemePref::Dark, egui::vec2(1400.0, 880.0))
                 .save(dir.join(format!("recipe-library-empty-{lang:?}.png")))
                 .unwrap();

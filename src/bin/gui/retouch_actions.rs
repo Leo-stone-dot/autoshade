@@ -55,35 +55,35 @@ pub(crate) fn start_fill(&mut self) {
         // negative) is what its recipe develops in the worker below.
         let Some(src) = self.editor.photo().src_path.clone() else { return };
         let Some(path) = self.active_source_path() else { return };
-        if self.workspace.busy || self.refuse_pixel_work_on_a_turned_photo() {
+        if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
         // Blank = remove: the library substitutes its removal instruction
         // (`generative::fill_prompt`), so an empty box is a verb, not an
         // error — the mask already says what should go.
-        let prompt = self.workspace.genai.fill_prompt.trim().to_string();
+        let prompt = self.workspace.genai().fill_prompt.trim().to_string();
         // No painted area: the words alone say what to change, and the model
         // finds where (`generative::auto_fill_onto`; user request 2026-10-12,
         // 「跟原先的涂抹后ai生成一个道理，只不过省去了涂抹这一步骤」). Only an empty
         // box over an empty canvas has nothing to go on.
         let mask_png = self.export_area_png(BrushOwner::Fill);
         if mask_png.is_none() && prompt.is_empty() {
-            self.workspace.status = tr(lang, K_ACTIONS_WRITE_WHAT_TO_CHANGE_E_G_REMOVE_THE_WIRES_ON_THE).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_WRITE_WHAT_TO_CHANGE_E_G_REMOVE_THE_WIRES_ON_THE).into());
             return;
         }
         let Some(out) = unique_out(&src, "fill") else {
-            self.workspace.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into());
             return;
         };
-        self.workspace.busy = true;
-        self.workspace.status = if self.workspace.genai.fill_fullres {
+        self.workspace.set_busy(true);
+        *self.workspace.status_mut() = if self.workspace.genai().fill_fullres {
             tr(lang, K_ACTIONS_GENERATIVE_FILL_FULL_RES_RENDER_SLOW_MINUTES).into()
         } else {
             tr(lang, K_ACTIONS_GENERATIVE_FILL_VIA_GPT_IMAGE_HIGH_QUALITY_CAN_R).into()
         };
-        let quality = ["high", "medium", "low"][self.workspace.genai.fill_quality.min(2)].to_string();
-        let full_res = self.workspace.genai.fill_fullres;
+        let quality = ["high", "medium", "low"][self.workspace.genai().fill_quality.min(2)].to_string();
+        let full_res = self.workspace.genai().fill_fullres;
         // The card's live develop, captured at the click like every other
         // input the worker reads; the source kind decides the working size.
         let recipe = self.editor.doc().recipe.clone();
@@ -165,16 +165,16 @@ pub(crate) fn start_adjust(&mut self) {
             return;
         }
         let lang = self.lang;
-        let prompt = self.workspace.genai.adjust_prompt.trim().to_string();
+        let prompt = self.workspace.genai().adjust_prompt.trim().to_string();
         let mask_png = self.export_area_png(BrushOwner::Adjust);
         let region = mask_png.is_some();
         let Some(out) = unique_out(&src, "adjust") else {
-            self.workspace.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into());
             return;
         };
-        self.workspace.busy = true;
-        self.workspace.status = tr(lang, K_ACTIONS_ADJUSTING_GENERATED_IMAGE_VIA_GPT_IMAGE_HIGH_QUA).into();
-        let quality = ["high", "medium", "low"][self.workspace.genai.adjust_quality.min(2)].to_string();
+        self.workspace.set_busy(true);
+        self.workspace.set_status(tr(lang, K_ACTIONS_ADJUSTING_GENERATED_IMAGE_VIA_GPT_IMAGE_HIGH_QUA).into());
+        let quality = ["high", "medium", "low"][self.workspace.genai().adjust_quality.min(2)].to_string();
         let recipe = self.editor.doc().recipe.clone();
         let edge = self.canvas_edge();
         let out_claim = out.clone();
@@ -234,7 +234,7 @@ pub(crate) fn start_adjust(&mut self) {
 pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         // Heal the ACTIVE variant's pixels (Generated → its origin PNG).
         let Some(path) = self.active_source_path() else { return };
-        if self.workspace.busy || self.refuse_pixel_work_on_a_turned_photo() {
+        if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
@@ -242,8 +242,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
             match self.export_area_png(BrushOwner::Heal) {
                 Some(b) => Some(b),
                 None => {
-                    self.workspace.status =
-                        tr(lang, K_ACTIONS_PAINT_THE_SPOTS_FIRST_PAINT_AREA_IN_THIS_SECTION).into();
+                    self.workspace.set_status(tr(lang, K_ACTIONS_PAINT_THE_SPOTS_FIRST_PAINT_AREA_IN_THIS_SECTION).into());
                     return;
                 }
             }
@@ -251,11 +250,11 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
             None
         };
         let Some(out) = unique_out(&path, "heal") else {
-            self.workspace.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into());
             return;
         };
-        self.workspace.busy = true;
-        self.workspace.status = if use_mask {
+        self.workspace.set_busy(true);
+        *self.workspace.status_mut() = if use_mask {
             tr(lang, K_ACTIONS_HEALING_PAINTED_AREA).into()
         } else if limit.is_some() {
             tr(lang, K_ACTIONS_REMOVING_BLEMISHES_ON_THE_FACE_10_30S).into()
@@ -264,14 +263,14 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         };
         #[cfg(test)]
         {
-            self.workspace.portrait.heal_asked = Some((use_mask, limit.clone()));
+            self.workspace.portrait_mut().heal_asked = Some((use_mask, limit.clone()));
         }
         #[cfg(test)]
-        let runner = self.workspace.portrait.heal_runner;
+        let runner = self.workspace.portrait().heal_runner;
         #[cfg(not(test))]
         let runner: Option<crate::panels::portrait::HealRunner> = None;
         let in_face = limit.is_some();
-        let full_res = self.workspace.genai.heal_fullres;
+        let full_res = self.workspace.genai().heal_fullres;
         let edge = self.canvas_edge(); // bake at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
@@ -342,16 +341,16 @@ pub(crate) fn start_ai_denoise(&mut self) {
         let Some(path) = self.active_source_path() else { return };
         // R27 gate (`refuse_pixel_work_on_a_turned_photo`): the ◈ master
         // would land in the EXIF frame, and a baked card cannot be turned.
-        if self.workspace.busy || self.refuse_pixel_work_on_a_turned_photo() {
+        if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
         let Some(out) = unique_out(&path, "denoise") else {
-            self.workspace.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into());
             return;
         };
-        self.workspace.busy = true;
-        self.workspace.status = tr(lang, K_ACTIONS_AI_DENOISE_FULL_FRAME_GPU_SIDECAR_CAN_TAKE_MINUT).into();
+        self.workspace.set_busy(true);
+        self.workspace.set_status(tr(lang, K_ACTIONS_AI_DENOISE_FULL_FRAME_GPU_SIDECAR_CAN_TAKE_MINUT).into());
         // Which model the source takes — a FACT for the landing line (L12#4),
         // decided by the same rule the library applies (`decode::is_raw`).
         let on_mosaic = autoshade::decode::is_raw(&path);
@@ -397,22 +396,22 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
         let Some(path) = self.active_source_path() else { return };
         // R27 gate (`refuse_pixel_work_on_a_turned_photo`): the ▦ master
         // would land in the EXIF frame, and a baked card cannot be turned.
-        if self.workspace.busy || extra.is_empty() || self.refuse_pixel_work_on_a_turned_photo() {
+        if self.workspace.busy() || extra.is_empty() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
         let Some(out) = unique_out(&path, "stack") else {
-            self.workspace.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into());
             return;
         };
         // This fold's OWN dials, captured at the click like every other input
         // a worker reads.
-        let (kind, tripod) = (self.workspace.tools.stack_kind, self.workspace.tools.stack_tripod);
+        let (kind, tripod) = (self.workspace.tools().stack_kind, self.workspace.tools().stack_tripod);
         let mut inputs = vec![path.clone()];
         inputs.extend(extra);
         let frames = inputs.len();
-        self.workspace.busy = true;
-        self.workspace.status = trf(
+        self.workspace.set_busy(true);
+        *self.workspace.status_mut() = trf(
             lang,
             K_ACTIONS_STACKING_FRAMES_LOCAL_PIXEL_COMPUTE_MINUTES_AT_F,
             &[("n", &frames.to_string())],
@@ -481,25 +480,25 @@ pub(crate) fn start_clone(&mut self) {
         // `retouch::clone_stamp` re-develops the photo through `render::source_pixels`
         // (the un-turned frame) while the mask comes from the turned canvas, so
         // a clone on a turned photo landed transposed — and baked in place.
-        if self.workspace.busy || self.refuse_pixel_work_on_a_turned_photo() {
+        if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
-        let Some(src_pt) = self.workspace.tools.clone_src else {
-            self.workspace.status = tr(lang, K_ACTIONS_ALT_CLICK_TO_SET_THE_CLONE_SOURCE_FIRST).into();
+        let Some(src_pt) = self.workspace.tools().clone_src else {
+            self.workspace.set_status(tr(lang, K_ACTIONS_ALT_CLICK_TO_SET_THE_CLONE_SOURCE_FIRST).into());
             return;
         };
         let Some(mask_png) = self.export_area_png(BrushOwner::Stamp) else {
-            self.workspace.status = tr(lang, K_ACTIONS_BRUSH_THE_AREA_TO_CLONE_OVER_FIRST).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_BRUSH_THE_AREA_TO_CLONE_OVER_FIRST).into());
             return;
         };
         let Some(out) = unique_out(&path, "clone") else {
-            self.workspace.status = tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into();
+            self.workspace.set_status(tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into());
             return;
         };
-        self.workspace.busy = true;
-        self.workspace.status = tr(lang, K_ACTIONS_CLONING_LOCAL_PIXEL_COMPUTE).into();
-        let full_res = self.workspace.tools.clone_fullres;
+        self.workspace.set_busy(true);
+        self.workspace.set_status(tr(lang, K_ACTIONS_CLONING_LOCAL_PIXEL_COMPUTE).into());
+        let full_res = self.workspace.tools().clone_fullres;
         let edge = self.canvas_edge(); // bake at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
@@ -556,7 +555,7 @@ pub(crate) fn start_reimagine(&mut self) {
         let Some(negative) = self.negative_path() else { return };
         // R27 gate (`refuse_pixel_work_on_a_turned_photo`): the ✨ card's
         // raster would land in the EXIF frame, and a baked card cannot be turned.
-        if self.workspace.busy || self.refuse_pixel_work_on_a_turned_photo() {
+        if self.workspace.busy() || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
         // First FREE ./out name (shared `unique_out` probe) so
@@ -565,13 +564,13 @@ pub(crate) fn start_reimagine(&mut self) {
         // reusing an existing origin would cross-wire two variants'
         // export / reverse-fit.
         let Some(out) = unique_out(&path, "reimagine") else {
-            self.workspace.status = tr(self.lang, K_ACTIONS_OVER_999_GENERATED_VARIANTS_FOR_THIS_PHOTO_CLEAN).into();
+            self.workspace.set_status(tr(self.lang, K_ACTIONS_OVER_999_GENERATED_VARIANTS_FOR_THIS_PHOTO_CLEAN).into());
             return;
         };
         let prompt = {
             // The Reimagine section's OWN prompt field (no longer the shared
             // Direction — each prompt entry pairs with its own trigger).
-            let g = self.workspace.genai.reimagine_prompt.trim();
+            let g = self.workspace.genai().reimagine_prompt.trim();
             if g.is_empty() {
                 "Develop this photo into a finished, natural-looking edit: balanced exposure and \
                  contrast, pleasing realistic colour; keep the scene true to the original."
@@ -580,10 +579,9 @@ pub(crate) fn start_reimagine(&mut self) {
                 g.to_string()
             }
         };
-        self.workspace.busy = true;
+        self.workspace.set_busy(true);
         let lang = self.lang;
-        self.workspace.status =
-            tr(lang, K_ACTIONS_AI_GENERATING_GPT_IMAGE_HIGH_QUALITY_CAN_RUN_MIN).into();
+        self.workspace.set_status(tr(lang, K_ACTIONS_AI_GENERATING_GPT_IMAGE_HIGH_QUALITY_CAN_RUN_MIN).into());
         // The PREFERENCE here, not `canvas_edge`: this is the one bake that
         // renders from src_path (never the canvas — see above) and lands as a
         // NEW variant, so nothing is composited under it and there is no
@@ -591,8 +589,8 @@ pub(crate) fn start_reimagine(&mut self) {
         // clicked while the preference sat at 4096 — pinned the new variant
         // below the resolution the user asked for, behind a refusal whose own
         // remedy (save) Ctrl+S REFUSES for a generated variant.
-        let edge = self.workspace.genai.preview_edge.clamp(640, 8192);
-        let retry = self.workspace.fit.reimagine_retry; // paid opt-in, captured at click time
+        let edge = self.workspace.genai().preview_edge.clamp(640, 8192);
+        let retry = self.workspace.fit().reimagine_retry; // paid opt-in, captured at click time
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
         let (epoch, flag) = self.arm_cancel();
@@ -648,14 +646,14 @@ pub(crate) fn start_style_prompt(&mut self) {
         else {
             return;
         };
-        if self.workspace.busy {
+        if self.workspace.busy() {
             return;
         }
         let src_path = self.editor.photo().src_path.clone();
         // No lang capture: the worker returns FACTS; the landing localises
         // them with the language live at landing time (L12#4).
-        self.workspace.busy = true;
-        self.workspace.status = tr(self.lang, K_ACTIONS_EXTRACTING_STYLE_PROMPT_VISION_5_20S).into();
+        self.workspace.set_busy(true);
+        self.workspace.set_status(tr(self.lang, K_ACTIONS_EXTRACTING_STYLE_PROMPT_VISION_5_20S).into());
         self.spawn_worker(
             move || {
                 let res = (|| -> anyhow::Result<(String, StyleNote)> {

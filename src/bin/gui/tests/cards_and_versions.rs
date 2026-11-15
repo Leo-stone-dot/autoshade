@@ -168,24 +168,24 @@
     /// could previously be deleted with every GUI test green.
     #[test]
     fn export_opts_carries_every_dial_to_the_renderer() {
-        let app = AutoShadeApp { workspace: WorkspaceView { exp: ExportState {
+        let app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.exp_mut() = ExportState {
                 long_edge: 2560,
                 sharpen: 35.0,
                 quality: 88.0,
                 space: 1,
                 format: ExportFormat::Png8,
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
+            }; view } , ..Default::default() };
         let o = app.export_opts();
         assert_eq!(o.long_edge, Some(2560));
         assert!((o.sharpen - 35.0).abs() < 1e-6);
         assert_eq!(o.jpeg_quality, 88);
         assert!(o.eight_bit, "Png8 is 8-bit");
         assert!(matches!(o.color_space, autoshade::render::ExportColorSpace::DisplayP3));
-        let flat = AutoShadeApp { workspace: WorkspaceView { exp: ExportState {
+        let flat = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.exp_mut() = ExportState {
                 long_edge: 0,
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
+            }; view } , ..Default::default() };
         assert_eq!(flat.export_opts().long_edge, None, "0 = no resize");
     }
 
@@ -214,7 +214,7 @@
         let mut input = egui::RawInput::default();
         input.events.push(key(egui::Key::R));
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
-        assert!(app.workspace.crop.mode, "positive control: R arms the crop tool");
+        assert!(app.workspace.crop().mode, "positive control: R arms the crop tool");
 
         // The negative: a transient (Settings) swallows the tool tier…
         let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
@@ -223,28 +223,28 @@
 
                 ..Default::default()
 
-            }; editor } , workspace: WorkspaceView { ui: ShellState { show_settings: true, ..Default::default() }, ..Default::default() }, ..Default::default() };
+            }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.ui_mut() = ShellState { show_settings: true, ..Default::default() }; view } , ..Default::default() };
         let mut input = egui::RawInput::default();
         input.events.push(key(egui::Key::R));
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
-        assert!(!app.workspace.crop.mode, "R is dead while a modal transient is up");
+        assert!(!app.workspace.crop().mode, "R is dead while a modal transient is up");
         // …and Esc dismisses the transient instead of leaking anywhere.
         let mut input = egui::RawInput::default();
         input.events.push(key(egui::Key::Escape));
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
-        assert!(!app.workspace.ui.show_settings, "Esc dismissed the transient");
-        assert!(!app.workspace.crop.mode);
+        assert!(!app.workspace.ui().show_settings, "Esc dismissed the transient");
+        assert!(!app.workspace.crop().mode);
 
         // The reverse-fit question is a transient too: R is dead under it
         // (the prompt's own frame path is the same gate).
         let one = "out/_fit_prompt_test.reimagine.png";
         let mut prompt = app_before_a_generation(Lang::En);
         land(&mut prompt, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
-        assert!(prompt.workspace.fit.fit_prompt.is_some());
+        assert!(prompt.workspace.fit().fit_prompt.is_some());
         let mut input = egui::RawInput::default();
         input.events.push(key(egui::Key::R));
         let _ = ctx.run(input, |ctx| prompt.upd_shortcuts(ctx));
-        assert!(!prompt.workspace.crop.mode, "R is dead under the prompt");
+        assert!(!prompt.workspace.crop().mode, "R is dead under the prompt");
     }
 
     /// L16-12: the display resync is exercised through a REAL swap path
@@ -287,17 +287,17 @@ rationale: "stale rationale".into(),
                 ..Default::default()
 
 
-            }; editor } , workspace: WorkspaceView { masks: MaskEditState {
+            }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.masks_mut() = MaskEditState {
                 sel_mask: Some(3),
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
+            }; view } , ..Default::default() };
         app.load_version(1);
         assert!((app.editor.doc().recipe.exposure_ev - 0.75).abs() < 1e-3, "the version landed");
         assert_eq!(
             app.editor.analysis().rationale, "v1 marker rationale",
             "the swap path resynced the rationale display"
         );
-        assert_eq!(app.workspace.masks.sel_mask, None, "a stale mask selection cannot linger");
+        assert_eq!(app.workspace.masks().sel_mask, None, "a stale mask selection cannot linger");
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&dev);
     }
@@ -527,9 +527,9 @@ rationale: "stale rationale".into(),
         assert_eq!(app.editor.doc().variants[0].recipe.contrast, 11.0, "the negative was not overwritten");
         assert_eq!(app.editor.doc().active, 1, "and the canvas did not move");
         assert!(
-            app.workspace.status.contains("Reverse-fit"),
+            app.workspace.status().contains("Reverse-fit"),
             "the refusal carries the remedy: {}",
-            app.workspace.status
+            app.workspace.status()
         );
     }
 
@@ -562,10 +562,10 @@ rationale: "stale rationale".into(),
 
                 ..Default::default()
 
-            }; editor } , workspace: WorkspaceView { cards: CardsState {
+            }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.cards_mut() = CardsState {
                 versions: vec![1, 2],
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
+            }; view } , ..Default::default() };
         let _ = ctx.run(
             egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
@@ -640,10 +640,10 @@ rationale: "stale rationale".into(),
 
                     ..Default::default()
 
-                }; editor } , workspace: WorkspaceView { cards: CardsState {
+                }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.cards_mut() = CardsState {
                     versions: vec![1],
                     ..Default::default()
-                }, ..Default::default() }, ..Default::default() };
+                }; view } , ..Default::default() };
             let mut widths = Vec::new();
             for _ in 0..3 {
                 let _ = ctx.run(
@@ -774,7 +774,7 @@ rationale: "stale rationale".into(),
                 app.seams.strip_name_rect.is_some_and(|r| r.width() > 0.0),
                 "{kind:?}: the active card offers no name affordance"
             );
-            app.workspace.cards.variant_name_buf =
+            app.workspace.cards_mut().variant_name_buf =
                 Some((photo.clone(), "card-b".into(), String::new(), "dusk".into()));
             app.seams.strip_name_rect = None;
             let _ = ctx.run(input(), |ctx| {
@@ -829,7 +829,7 @@ rationale: "stale rationale".into(),
 
             }; editor } , ..Default::default() };
         // Typed on the Fitted card…
-        app.workspace.cards.variant_name_buf =
+        app.workspace.cards_mut().variant_name_buf =
             Some((photo.clone(), "card-fit".into(), String::new(), "dusk".into()));
         // …while an async completion inserts a card ahead of it.
         app.editor.doc_mut().variants.insert(1, mk(VariantKind::Generated, "card-gen"));
@@ -979,13 +979,13 @@ rationale: "stale rationale".into(),
             "a generated card must not mint an empty snapshot"
         );
         assert!(
-            app.workspace.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
+            app.workspace.chrome().toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
             "the refusal must be SEEN — the keyboard path has no other channel"
         );
 
         // The same canvas on a PARAMETRIC card saves, and records what it
         // was a picture of.
-        app.workspace.chrome.toasts.clear();
+        app.workspace.chrome_mut().toasts.clear();
         app.editor.doc_mut().variants = vec![crate::model::Variant {
             id: "card-fit".into(),
             ..mk(crate::model::VariantKind::Fitted)

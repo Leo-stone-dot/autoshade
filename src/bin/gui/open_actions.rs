@@ -6,7 +6,7 @@ use crate::*;
 
 impl AutoShadeApp {
     pub(crate) fn open_path(&mut self, path: PathBuf) {
-        if self.workspace.busy {
+        if self.workspace.busy() {
             // Defence-in-depth: since the px combo refuses BEFORE arming, no
             // live caller reaches this guard with keep_recipe set — but a
             // stale request here once misclassified a genuine cross-photo
@@ -14,7 +14,7 @@ impl AutoShadeApp {
             // arms-then-calls gets the same protection instead of relying on
             // its own busy check. Said so, instead of claiming a live
             // scenario.
-            self.workspace.cards.keep_recipe = false;
+            self.workspace.cards_mut().keep_recipe = false;
             // Refusal must be visible (the switch_variant rule: a silent
             // no-op reads as a dead UI) — the EMPTY-STATE picker button has
             // no busy gate, so this arm IS user-reachable (L11-4).
@@ -36,19 +36,19 @@ impl AutoShadeApp {
         // across, a same-index mask / same-number version / same-card rename
         // box on the NEXT photo skipped the reseed and greeted it pre-filled
         // with the previous photo's text.
-        self.workspace.masks.mask_name_buf = None;
-        self.workspace.cards.version_name_buf = None;
-        self.workspace.cards.variant_name_buf = None;
+        self.workspace.masks_mut().mask_name_buf = None;
+        self.workspace.cards_mut().version_name_buf = None;
+        self.workspace.cards_mut().variant_name_buf = None;
         // An armed strip ✕ dies with the photo too — the index it named
         // belongs to a strip that is about to be replaced (R24-4).
-        self.workspace.cards.variant_delete_confirm = None;
+        self.workspace.cards_mut().variant_delete_confirm = None;
         // The mid-open window marker (see confirm_quit_layer): src_path is
         // re-pointed below while recipe/saved_recipe still describe the old
         // photo; cleared in BOTH Msg::Opened arms. `open_same_path` is the
         // FACT the repair gates key on — keep_recipe is only a request, and
         // a stale request must never classify a flight.
-        self.workspace.open.open_in_flight = true;
-        self.workspace.open.open_same_path = self.editor.photo().src_path.as_ref() == Some(&path);
+        self.workspace.open_mut().open_in_flight = true;
+        self.workspace.open_mut().open_same_path = self.editor.photo().src_path.as_ref() == Some(&path);
         // Leaving a photo with unsaved edits: stash the canvas for this
         // session so navigation can never silently destroy work (arrow keys /
         // thumbnail clicks used to drop the whole develop). Ctrl+S still owns
@@ -86,33 +86,29 @@ impl AutoShadeApp {
                     })
                     .collect();
                 let active_pos = self.editor.doc().active.min(others.len());
-                self.workspace.open.nav_stash.insert(
+                let active = self.active_variant();
+                let recipe = self.editor.doc().recipe.clone();
+                let base = active.and_then(|v| v.base.clone());
+                let kind = active.map_or(VariantKind::Original, |v| v.kind);
+                // The ACTIVE card's identity + name travel with the
+                // rest of its state (R24-2): a nav round-trip that
+                // re-minted the id would orphan every version taken
+                // from this card.
+                let id = active
+                    .map_or_else(|| ORIGINAL_VARIANT_ID.to_string(), |v| v.id.clone());
+                let name = active.and_then(|v| v.name.clone());
+                self.workspace.open_mut().nav_stash.insert(
                     old,
-                    StashEntry {
-                        recipe: self.editor.doc().recipe.clone(),
-                        base: self.active_variant().and_then(|v| v.base.clone()),
-                        origin,
-                        kind: self.active_variant().map_or(VariantKind::Original, |v| v.kind),
-                        // The ACTIVE card's identity + name travel with the
-                        // rest of its state (R24-2): a nav round-trip that
-                        // re-minted the id would orphan every version taken
-                        // from this card.
-                        id: self
-                            .active_variant()
-                            .map_or_else(|| ORIGINAL_VARIANT_ID.to_string(), |v| v.id.clone()),
-                        name: self.active_variant().and_then(|v| v.name.clone()),
-                        others,
-                        active_pos,
-                    },
+                    StashEntry { recipe, base, origin, kind, id, name, others, active_pos },
                 );
             }
         }
         let lang = self.lang;
-        self.workspace.busy = true;
+        self.workspace.set_busy(true);
         // Every open starts resolved-until-proven-otherwise; the Opened
         // handler's Unreadable arm re-arms it for THIS photo when the read
         // fails.
-        self.workspace.open.open_unresolved = false;
+        self.workspace.open_mut().open_unresolved = false;
         self.editor.photo_mut().src_path = Some(path.clone());
         // The version list describes the photo `src_path` NAMES, so it dies
         // with the old value of that field — not later, when the decode lands.
@@ -126,18 +122,18 @@ impl AutoShadeApp {
         // rows visibly changed and the status line confirmed a delete, hiding
         // what had happened. "＋ Save as version" was the mirror image: it
         // wrote A's canvas into B's develop as B's next version.
-        self.workspace.cards.versions.clear();
+        self.workspace.cards_mut().versions.clear();
         // …and so does the armed "overwrite the .xmp beside the photo" confirm
         // (R22-8): it is a claim about THIS photo's neighbouring sidecar, and
         // carrying it across would let one click overwrite the NEXT photo's
         // Lightroom sidecar with no warning at all. Same reasoning as the
         // version list above.
-        self.workspace.exp.xmp_beside_confirm = false;
-        self.workspace.status = trf(lang, K_ACTIONS_DECODING, &[("path", &path.display().to_string())]);
+        self.workspace.exp_mut().xmp_beside_confirm = false;
+        self.workspace.set_status(trf(lang, K_ACTIONS_DECODING, &[("path", &path.display().to_string())]));
         // Working-preview size is a user choice now (gap batch E): 1280 keeps
         // sliders fluid; 2560/4096 trade tick latency for real 1:1 detail when
         // checking focus / noise.
-        let edge = self.workspace.genai.preview_edge.clamp(640, 8192);
+        let edge = self.workspace.genai().preview_edge.clamp(640, 8192);
         // Decoded-base LRU: gallery culling flips between neighbours constantly,
         // and a hit skips the multi-second full demosaic entirely. Delivered
         // through the ordinary Msg::Opened channel so the handler stays the one
@@ -314,23 +310,23 @@ impl AutoShadeApp {
 
     /// Open one of the gallery photos by index (keeps the thumbnail highlighted).
     pub(crate) fn open_gallery_index(&mut self, idx: usize) {
-        if self.workspace.busy {
+        if self.workspace.busy() {
             return;
         }
-        let Some(path) = self.workspace.gal.gallery.get(idx).cloned() else { return };
-        self.workspace.gal.selected = Some(idx);
+        let Some(path) = self.workspace.gal().gallery.get(idx).cloned() else { return };
+        self.workspace.gal_mut().selected = Some(idx);
         self.open_path(path);
     }
 
     /// Scan `dir` (recursively) for sources off the UI thread and replace the
     /// gallery — folders can hold thousands of RAWs, so this never blocks paint.
     pub(crate) fn open_folder(&mut self, dir: PathBuf) {
-        if self.workspace.busy {
+        if self.workspace.busy() {
             return;
         }
         let lang = self.lang;
-        self.workspace.busy = true;
-        self.workspace.status = trf(lang, K_ACTIONS_SCANNING, &[("path", &dir.display().to_string())]);
+        self.workspace.set_busy(true);
+        self.workspace.set_status(trf(lang, K_ACTIONS_SCANNING, &[("path", &dir.display().to_string())]));
         self.spawn_worker(
             move || {
                 let res = autoshade::pipeline::find_sources_counted(&dir)

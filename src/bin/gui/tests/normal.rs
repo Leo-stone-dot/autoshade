@@ -8,7 +8,7 @@
     fn window_frame(app: &mut AutoShadeApp, size: egui::Vec2) -> (Vec<String>, Vec<crate::buttons::Drawn>, image::RgbaImage) {
         use crate::buttons::DRAWN;
         let theme = crate::theme::ThemePref::Dark;
-        app.workspace.ui.theme = theme;
+        app.workspace.ui_mut().theme = theme;
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);
         crate::theme::install_theme(&ctx, theme);
@@ -52,7 +52,7 @@
     fn app_in(lang: Lang) -> AutoShadeApp {
         let mut app = app_with_every_button(lang);
         app.start_mask_brush(None);
-        app.workspace.normal.key_present = Some(false);
+        app.workspace.normal_mut().key_present = Some(false);
         app
     }
 
@@ -150,8 +150,8 @@
                 texts.iter().any(|x| x.ends_with('%') && x[..x.len() - 1].parse::<f32>().is_ok()),
                 "{lang:?}: the zoom readout"
             );
-            assert_eq!(app.workspace.masks.paint_mode, true, "{lang:?}: the armed brush stays armed");
-            assert!(has_text(&app.workspace.status), "{lang:?}: the status bar is in the frame's texts");
+            assert_eq!(app.workspace.masks().paint_mode, true, "{lang:?}: the armed brush stays armed");
+            assert!(has_text(&app.workspace.status()), "{lang:?}: the status bar is in the frame's texts");
             assert!(has_text(tr(lang, K_GUI_ORIGINAL__2)), "{lang:?}: the variant strip");
             if let Some(dir) = &shots {
                 std::fs::create_dir_all(dir).unwrap();
@@ -233,7 +233,7 @@
     /// Poll the app's workers until the one-click's analysis has landed.
     fn land_analysis(app: &mut AutoShadeApp, ctx: &egui::Context) {
         let start = std::time::Instant::now();
-        while app.workspace.tools.analyze_inflight {
+        while app.workspace.tools().analyze_inflight {
             assert!(start.elapsed() < std::time::Duration::from_secs(20), "the analysis never landed");
             std::thread::sleep(std::time::Duration::from_millis(20));
             app.poll_workers(ctx);
@@ -253,7 +253,7 @@
      src_path: Some(src.clone()),
      ..Default::default()
  }; editor } , ..Default::default() };
-        app.workspace.normal.runner = Some(heuristic_runner);
+        app.workspace.normal_mut().runner = Some(heuristic_runner);
         (app, src, Scrub(vec![dir, dev]))
     }
 
@@ -273,7 +273,7 @@
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
         let size = egui::vec2(1400.0, 6000.0);
         let mut frame = 0;
-        app.workspace.normal.key_present = Some(true);
+        app.workspace.normal_mut().key_present = Some(true);
         app_frame(&ctx, &mut app, size, frame, Vec::new());
         frame += 1;
         DRAWN.with_borrow_mut(Vec::clear);
@@ -283,7 +283,7 @@
         let (rect, in_cell) = mono.expect("the Black & white card is drawn");
         assert!(in_cell, "a preset card is a grid cell");
         click_at(&ctx, &mut app, size, &mut frame, rect.center());
-        let (req, text, library) = app.workspace.normal.last_request.clone().expect("the click started an analysis");
+        let (req, text, library) = app.workspace.normal_mut().last_request.clone().expect("the click started an analysis");
         assert_eq!(req.guide, autoshade::pipeline::Guide::Direction);
         assert_eq!(text.as_deref(), autoshade::advisor::presets::preset_guidance("mono"));
         assert!(text.unwrap().contains("set convert_to_grayscale to true"));
@@ -311,18 +311,18 @@
         let ctx = egui::Context::default();
         // What the reference-build action leaves while the folder is read.
         let building = |app: &mut AutoShadeApp| {
-            app.workspace.normal.building = true;
-            app.workspace.normal.build_photo = Some(src.clone());
-            app.workspace.busy = true;
+            app.workspace.normal_mut().building = true;
+            app.workspace.normal_mut().build_photo = Some(src.clone());
+            app.workspace.set_busy(true);
         };
         building(&mut app);
         app.on_one_click_built(Lang::En, Err("no photos in that folder".into()));
-        assert!(app.workspace.normal.last_request.is_none(), "a failed build asks nothing");
-        assert!(!app.workspace.normal.building);
-        assert!(matches!(&app.workspace.normal.line, crate::panels::normal::NormalLine::Failed(t) if t.contains("no photos")));
+        assert!(app.workspace.normal_mut().last_request.is_none(), "a failed build asks nothing");
+        assert!(!app.workspace.normal_mut().building);
+        assert!(matches!(&app.workspace.normal_mut().line, crate::panels::normal::NormalLine::Failed(t) if t.contains("no photos")));
         building(&mut app);
         app.on_one_click_built(Lang::En, Ok(3));
-        let (req, text, library) = app.workspace.normal.last_request.clone().expect("the build handed over to the analysis");
+        let (req, text, library) = app.workspace.normal_mut().last_request.clone().expect("the build handed over to the analysis");
         assert_eq!(req.guide, autoshade::pipeline::Guide::Library);
         assert_eq!(req.style, 1.0);
         assert!(req.style >= autoshade::library::STYLE_TARGET_MIN, "the references are the look to reproduce");
@@ -331,7 +331,7 @@
         assert!(!req.think);
         assert_eq!(text, None, "no typed direction");
         assert_eq!(library, autoshade::library::NORMAL_NAME, "Normal's own library");
-        assert_eq!(app.workspace.normal.line, crate::panels::normal::NormalLine::Working);
+        assert_eq!(app.workspace.normal_mut().line, crate::panels::normal::NormalLine::Working);
         land_analysis(&mut app, &ctx);
     }
 
@@ -346,14 +346,14 @@
         app.apply_actions(vec![logic::Action::Look(logic::look::LookIntent::of(
             logic::look::LookKind::OneClick(crate::logic::look::OneClick::Preset("natural")),
         ))]);
-        assert!(app.workspace.busy && app.workspace.tools.analyze_inflight);
+        assert!(app.workspace.busy() && app.workspace.tools().analyze_inflight);
         land_analysis(&mut app, &ctx);
-        assert!(!app.workspace.busy);
+        assert!(!app.workspace.busy());
         assert!(app.editor.doc().recipe.exposure_ev > 0.0, "the dark frame was brightened: {}", app.editor.doc().recipe.exposure_ev);
-        assert_eq!(app.workspace.normal.line, crate::panels::normal::NormalLine::BuiltIn);
-        assert_eq!(app.workspace.status, "No AI key set — built-in look used");
-        assert_eq!(app.workspace.normal.key_present, Some(false));
-        let (photo, kept) = app.workspace.normal.result.clone().expect("the one-click result is remembered");
+        assert_eq!(app.workspace.normal_mut().line, crate::panels::normal::NormalLine::BuiltIn);
+        assert_eq!(app.workspace.status(), "No AI key set — built-in look used");
+        assert_eq!(app.workspace.normal_mut().key_present, Some(false));
+        let (photo, kept) = app.workspace.normal_mut().result.clone().expect("the one-click result is remembered");
         assert_eq!(Some(photo), app.editor.photo().src_path);
         assert_eq!(kept.exposure_ev, app.editor.doc().recipe.exposure_ev);
         // Undoable, like every analysis landing.
@@ -365,7 +365,7 @@
     /// Poll the app's workers until nothing is running.
     fn land_all(app: &mut AutoShadeApp, ctx: &egui::Context) {
         let start = std::time::Instant::now();
-        while app.workspace.busy {
+        while app.workspace.busy() {
             assert!(start.elapsed() < std::time::Duration::from_secs(60), "the worker never landed");
             std::thread::sleep(std::time::Duration::from_millis(20));
             app.poll_workers(ctx);
@@ -397,13 +397,13 @@
         image::RgbImage::from_pixel(32, 24, image::Rgb([120, 90, 60])).save(&src).unwrap();
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-keys-export-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.workspace.exp.dest = ExportDest::LastUsed;
-        app.workspace.exp.last_dir = Some(out.clone());
+        app.workspace.exp_mut().dest = ExportDest::LastUsed;
+        app.workspace.exp_mut().last_dir = Some(out.clone());
         let ctx = egui::Context::default();
         press(&mut app, &ctx, egui::Key::E);
-        assert!(app.workspace.busy, "the workspace export started");
-        assert!(!app.workspace.normal.delivering, "not the Save group's delivery");
-        assert!(app.workspace.status.contains(&out.file_name().unwrap().to_string_lossy().into_owned()), "{}", app.workspace.status);
+        assert!(app.workspace.busy(), "the workspace export started");
+        assert!(!app.workspace.normal_mut().delivering, "not the Save group's delivery");
+        assert!(app.workspace.status().contains(&out.file_name().unwrap().to_string_lossy().into_owned()), "{}", app.workspace.status());
         land_all(&mut app, &ctx);
         // Ctrl+S saves the develop: the shared ● marker goes clean.
         let (mut app, src, _scrub) = normal_photo("keys-save");
@@ -425,9 +425,9 @@
         assert!(app.unsaved_marker_dirty(), "the edit is unsaved before Ctrl+S");
         let ctx = egui::Context::default();
         press(&mut app, &ctx, egui::Key::S);
-        assert!(!app.workspace.normal.delivering, "not the Save group's delivery");
-        assert!(!app.workspace.busy);
-        assert!(!app.unsaved_marker_dirty(), "the develop was saved: {}", app.workspace.status);
+        assert!(!app.workspace.normal_mut().delivering, "not the Save group's delivery");
+        assert!(!app.workspace.busy());
+        assert!(!app.unsaved_marker_dirty(), "the develop was saved: {}", app.workspace.status());
     }
 
     /// 「Apply this look to every photo in the folder」 settles the jpgs'
@@ -441,21 +441,21 @@
     fn apply_to_every_photo_asks_for_the_folder_before_it_pastes() {
         let (mut app, src, _scrub) = normal_photo("applyall");
         let ctx = egui::Context::default();
-        app.workspace.gal.gallery = vec![src.clone()];
-        app.workspace.exp.dest = ExportDest::Ask;
-        app.workspace.status = "Recipe pasted onto 1 photo".into();
-        app.workspace.normal.folder_pick = Some(None);
+        app.workspace.gal_mut().gallery = vec![src.clone()];
+        app.workspace.exp_mut().dest = ExportDest::Ask;
+        app.workspace.set_status("Recipe pasted onto 1 photo".into());
+        app.workspace.normal_mut().folder_pick = Some(None);
         app.start_apply_to_folder();
-        assert_eq!(app.workspace.status, "", "a cancelled dialog leaves nothing on the line");
-        assert!(!app.workspace.busy && app.workspace.normal.apply_all.is_none(), "and nothing was pasted");
+        assert_eq!(app.workspace.status(), "", "a cancelled dialog leaves nothing on the line");
+        assert!(!app.workspace.busy() && app.workspace.normal_mut().apply_all.is_none(), "and nothing was pasted");
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-applyall-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.workspace.normal.folder_pick = Some(Some(out.clone()));
+        app.workspace.normal_mut().folder_pick = Some(Some(out.clone()));
         app.start_apply_to_folder();
-        assert!(app.workspace.busy, "the paste runs");
-        assert_eq!(app.workspace.normal.apply_all.as_deref(), Some(out.as_path()), "into the folder picked first");
+        assert!(app.workspace.busy(), "the paste runs");
+        assert_eq!(app.workspace.normal_mut().apply_all.as_deref(), Some(out.as_path()), "into the folder picked first");
         land_all(&mut app, &ctx);
-        assert!(app.workspace.normal.apply_all.is_none());
+        assert!(app.workspace.normal_mut().apply_all.is_none());
     }
 
     /// The Save group says where the jpg goes, in plain words: never beside
@@ -465,18 +465,18 @@
     fn the_save_line_names_where_the_jpg_goes() {
         for lang in [Lang::En, Lang::Zh] {
             let mut app = app_in(lang);
-            app.workspace.exp.dest = ExportDest::LastUsed;
-            app.workspace.exp.last_dir = Some(std::env::temp_dir().join("Deliveries"));
+            app.workspace.exp_mut().dest = ExportDest::LastUsed;
+            app.workspace.exp_mut().last_dir = Some(std::env::temp_dir().join("Deliveries"));
             let texts = normal_panel_texts(&mut app);
             let last = trf(lang, K_NORMAL_SAVES_TO_THE_FOLDER_YOU_LAST_SAVED_TO, &[("folder", "Deliveries")]);
             assert!(texts.contains(&last), "{lang:?}: {last:?}");
-            app.workspace.exp.dest = ExportDest::OutFolder;
+            app.workspace.exp_mut().dest = ExportDest::OutFolder;
             let texts = normal_panel_texts(&mut app);
             let root = autoshade::config::delivery_root();
             let name = root.file_name().map_or_else(|| abs_display(&root), |n| n.to_string_lossy().into_owned());
             let out = trf(lang, K_NORMAL_SAVES_TO_THE_APP_S_OUTPUT_FOLDER_CHANGE_IT_IN_SE, &[("folder", &name)]);
             assert!(texts.contains(&out), "{lang:?}: {out:?}");
-            app.workspace.exp.dest = ExportDest::Ask;
+            app.workspace.exp_mut().dest = ExportDest::Ask;
             let texts = normal_panel_texts(&mut app);
             assert!(texts.iter().any(|t| t == tr(lang, K_NORMAL_ASKS_WHERE_TO_SAVE_EACH_TIME)), "{lang:?}: ask");
         }
@@ -497,10 +497,10 @@
      ..Default::default()
  }; editor } , lang, ..Default::default() };
             assert_eq!(app.noise_lines(lang, false), vec![tr(lang, K_NORMAL_THIS_DOWNLOAD_DOES_NOT_INCLUDE_THE_NOISE_TOOL).to_string()]);
-            app.workspace.normal.denoise_ready = Some(true);
+            app.workspace.normal_mut().denoise_ready = Some(true);
             assert_eq!(app.noise_lines(lang, true), vec![plain.clone()], "{lang:?}: the model is there");
             for ready in [Some(false), None] {
-                app.workspace.normal.denoise_ready = ready;
+                app.workspace.normal_mut().denoise_ready = ready;
                 let lines = app.noise_lines(lang, true);
                 assert_eq!(lines.len(), 2, "{lang:?} {ready:?}: {lines:?}");
                 assert_eq!(lines[0], plain);
@@ -573,50 +573,50 @@
         // before any worker, with that door's words.
         app.editor.doc_mut().recipe.quarter_turns = 1;
         app.set_normal_denoise(true);
-        assert!(!app.workspace.busy, "refused before a worker");
-        assert!(app.workspace.status.contains("this photo is turned"), "{}", app.workspace.status);
-        assert!(app.workspace.normal.denoise_pair.is_none(), "a refused run remembers nothing");
+        assert!(!app.workspace.busy(), "refused before a worker");
+        assert!(app.workspace.status().contains("this photo is turned"), "{}", app.workspace.status());
+        assert!(app.workspace.normal_mut().denoise_pair.is_none(), "a refused run remembers nothing");
         app.editor.doc_mut().recipe.quarter_turns = 0;
         // The door's worker runs: this photo has no file, so it fails fast at
         // the decode — through `Msg::Retouched`, the Retouch button's message.
         app.set_normal_denoise(true);
-        assert!(app.workspace.busy, "the denoise worker runs: {}", app.workspace.status);
-        assert_eq!(app.workspace.status, tr(Lang::En, K_ACTIONS_REMOVING_THE_GRAIN_THIS_TAKES_A_MOMENT));
+        assert!(app.workspace.busy(), "the denoise worker runs: {}", app.workspace.status());
+        assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_REMOVING_THE_GRAIN_THIS_TAKES_A_MOMENT));
         assert!(app.normal_denoise_on(), "the switch reads on while it runs");
         land_all(&mut app, &ctx);
         assert!(!app.normal_denoise_on(), "a failed run leaves the switch off");
         assert_eq!(app.editor.doc().variants.len(), 1, "and no card");
         // A landed run, through the same message the worker sends.
-        app.workspace.normal.denoise_pair =
+        app.workspace.normal_mut().denoise_pair =
             Some(DenoisePair { photo: src.clone(), plain: ORIGINAL_VARIANT_ID.into(), denoised: None });
         let master = std::path::PathBuf::from("out/_gui_normal_denoise.denoise.png");
         let note = RetouchNote::Denoised { out: master.clone(), on_mosaic: false };
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
-        app.services.tx.send(Msg::Retouched(app.workspace.tools.gen_epoch, Box::new(done))).unwrap();
+        app.services.tx.send(Msg::Retouched(app.workspace.tools().gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         assert_eq!(app.active_source_path().as_deref(), Some(master.as_path()), "…and is what a save renders");
         assert!(app.normal_denoise_on());
         let made = app.editor.doc().variants[app.editor.doc().active].id.clone();
-        assert_eq!(app.workspace.normal.denoise_pair.as_ref().and_then(|d| d.denoised.clone()), Some(made.clone()), "remembered");
-        assert_eq!(app.workspace.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P));
+        assert_eq!(app.workspace.normal_mut().denoise_pair.as_ref().and_then(|d| d.denoised.clone()), Some(made.clone()), "remembered");
+        assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P));
         // Off: the card it was made from, the look kept.
         app.editor.doc_mut().recipe.exposure_ev = 0.7;
         app.set_normal_denoise(false);
-        assert!(!app.workspace.busy);
+        assert!(!app.workspace.busy());
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, ORIGINAL_VARIANT_ID, "back to the un-denoised card");
         assert_eq!(app.active_source_path().as_deref(), Some(src.as_path()));
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.7, "the look rides across");
         assert!(!app.normal_denoise_on());
-        assert_eq!(app.workspace.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_OFF));
+        assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_AI_DENOISE_OFF));
         // On again: the same ◈ card, no second run.
         app.editor.doc_mut().recipe.contrast = 12.0;
         app.set_normal_denoise(true);
-        assert!(!app.workspace.busy, "no second sidecar run");
+        assert!(!app.workspace.busy(), "no second sidecar run");
         assert_eq!(app.editor.doc().variants.len(), 2, "no second card");
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, made, "the master already made");
         assert_eq!((app.editor.doc().recipe.exposure_ev, app.editor.doc().recipe.contrast), (0.7, 12.0), "the look rides across");
-        assert_eq!(app.workspace.status, tr(Lang::En, K_ACTIONS_AI_DENOISE_ON));
+        assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_AI_DENOISE_ON));
         // The switch's behaviour above IS the claim: turning it on runs the
         // Retouch worker (busy + that door's status), turning it off returns to
         // the un-denoised card, and the save path renders whatever card is
@@ -648,48 +648,48 @@
         let _scrub2 = Scrub(vec![autoshade::store::develop_dir(&src2)]);
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-numbered-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.workspace.exp.dest = ExportDest::LastUsed;
-        app.workspace.exp.last_dir = Some(out.clone());
+        app.workspace.exp_mut().dest = ExportDest::LastUsed;
+        app.workspace.exp_mut().last_dir = Some(out.clone());
         let ctx = egui::Context::default();
         let names = ["_gui_normal_numbered.developed.jpg", "_gui_normal_numbered.developed-2.jpg", "_gui_normal_numbered.developed-3.jpg"];
         let mut sizes = Vec::new();
         for (i, name) in names.iter().enumerate() {
             app.editor.doc_mut().recipe.exposure_ev = 0.2 * (i + 1) as f32;
             app.start_normal_save();
-            assert!(app.workspace.busy, "save {}: {}", i + 1, app.workspace.status);
-            assert!(app.workspace.status.contains(name), "save {}: the line names the file: {}", i + 1, app.workspace.status);
+            assert!(app.workspace.busy(), "save {}: {}", i + 1, app.workspace.status());
+            assert!(app.workspace.status().contains(name), "save {}: the line names the file: {}", i + 1, app.workspace.status());
             land_all(&mut app, &ctx);
             let folder = out.file_name().unwrap().to_string_lossy().into_owned();
-            assert_eq!(app.workspace.status, trf(Lang::En, K_ACTIONS_SAVED_TO, &[("file", name), ("folder", &folder)]));
+            assert_eq!(app.workspace.status(), trf(Lang::En, K_ACTIONS_SAVED_TO, &[("file", name), ("folder", &folder)]));
             sizes.push(std::fs::metadata(out.join(name)).map(|m| m.len()).unwrap_or(0));
         }
         assert!(sizes.iter().all(|&n| n > 0), "three real jpgs, none replaced by the next: {sizes:?}");
         // A file picked in the save window: replaced, not numbered.
         let picked = out.join(names[0]);
         let before = std::fs::read(&picked).unwrap();
-        app.workspace.exp.dest = ExportDest::Ask;
-        app.workspace.normal.file_pick = Some(Some(picked.clone()));
+        app.workspace.exp_mut().dest = ExportDest::Ask;
+        app.workspace.normal_mut().file_pick = Some(Some(picked.clone()));
         app.editor.doc_mut().recipe.exposure_ev = -1.5;
         app.start_normal_save();
-        assert!(app.workspace.busy, "the picked save runs: {}", app.workspace.status);
+        assert!(app.workspace.busy(), "the picked save runs: {}", app.workspace.status());
         land_all(&mut app, &ctx);
         let folder = out.file_name().unwrap().to_string_lossy().into_owned();
-        assert_eq!(app.workspace.status, trf(Lang::En, K_ACTIONS_SAVED_TO, &[("file", names[0]), ("folder", &folder)]));
+        assert_eq!(app.workspace.status(), trf(Lang::En, K_ACTIONS_SAVED_TO, &[("file", names[0]), ("folder", &folder)]));
         assert_ne!(std::fs::read(&picked).unwrap(), before, "the picked file was replaced");
         let fourth = out.join("_gui_normal_numbered.developed-4.jpg");
         assert!(!fourth.exists(), "a picked file is never numbered");
         // …while the app-made name is numbered again.
-        app.workspace.exp.dest = ExportDest::LastUsed;
-        app.workspace.exp.last_dir = Some(out.clone());
+        app.workspace.exp_mut().dest = ExportDest::LastUsed;
+        app.workspace.exp_mut().last_dir = Some(out.clone());
         app.editor.doc_mut().recipe.exposure_ev = 0.9;
         app.start_normal_save();
         land_all(&mut app, &ctx);
-        assert!(fourth.is_file(), "the app-made name steps on to -4: {}", app.workspace.status);
+        assert!(fourth.is_file(), "the app-made name steps on to -4: {}", app.workspace.status());
         // The whole folder, twice: the second run numbers every photo.
-        app.workspace.gal.gallery = vec![src.clone(), src2.clone()];
+        app.workspace.gal_mut().gallery = vec![src.clone(), src2.clone()];
         let all = std::env::temp_dir().join(format!("autoshade-gui-normal-numbered-all-{}", std::process::id()));
         let _scrub_all = Scrub(vec![all.clone()]);
-        app.workspace.exp.last_dir = Some(all.clone());
+        app.workspace.exp_mut().last_dir = Some(all.clone());
         for run in 0..2 {
             app.editor.doc_mut().recipe.contrast = 10.0 * (run + 1) as f32;
             app.start_apply_to_folder();
@@ -697,10 +697,10 @@
             let folder = all.file_name().unwrap().to_string_lossy().into_owned();
             let saved = trf(Lang::En, K_ACTIONS_PHOTOS_SAVED_TO, &[("n", "2"), ("folder", &folder)]);
             if run == 0 {
-                assert_eq!(app.workspace.status, saved);
+                assert_eq!(app.workspace.status(), saved);
             } else {
                 let numbered = trf(Lang::En, K_ACTIONS_OF_THEM_HAVE_A_NUMBER_ADDED_TO_THE_NAME_SO_NO_EA, &[("k", "2")]);
-                assert_eq!(app.workspace.status, format!("{saved}. {numbered}"));
+                assert_eq!(app.workspace.status(), format!("{saved}. {numbered}"));
             }
         }
         let mut written: Vec<String> =
@@ -719,8 +719,8 @@
         // The workspace's render path keeps the library's refusal (outside
         // its output areas).
         app.start_render_to(out.join(names[0]));
-        assert!(!app.workspace.busy);
-        assert!(app.workspace.status.contains("refusing to overwrite"), "{}", app.workspace.status);
+        assert!(!app.workspace.busy());
+        assert!(app.workspace.status().contains("refusing to overwrite"), "{}", app.workspace.status());
     }
 
     /// The guard protects FILES, not folders (user ruling 2026-11-14): a save
@@ -734,8 +734,8 @@
         let (mut app, src, _scrub) = normal_photo("ownfolder");
         image::RgbImage::from_pixel(32, 24, image::Rgb([60, 90, 120])).save(&src).unwrap();
         let own = src.parent().unwrap().to_path_buf();
-        app.workspace.exp.dest = ExportDest::LastUsed;
-        app.workspace.exp.last_dir = Some(own.clone());
+        app.workspace.exp_mut().dest = ExportDest::LastUsed;
+        app.workspace.exp_mut().last_dir = Some(own.clone());
         let ctx = egui::Context::default();
         app.editor.doc_mut().recipe.exposure_ev = 0.3;
         app.start_normal_save();
@@ -748,14 +748,14 @@
         assert!(
             landed.iter().any(|n| n.starts_with("_gui_normal_ownfolder") && n.ends_with(".jpg")),
             "the jpg landed beside the photo: {landed:?} / {}",
-            app.workspace.status
+            app.workspace.status()
         );
         // The photo itself is never replaced: a render aimed at an existing
         // image is refused, and that file keeps its bytes.
         let victim = own.join("_gui_normal_ownfolder_existing.jpg");
         image::RgbImage::from_pixel(32, 24, image::Rgb([10, 20, 30])).save(&victim).unwrap();
         app.start_render_to(victim.clone());
-        assert!(app.workspace.status.contains("refusing to overwrite"), "{}", app.workspace.status);
+        assert!(app.workspace.status().contains("refusing to overwrite"), "{}", app.workspace.status());
         let back = image::open(&victim).unwrap().to_rgb8();
         assert_eq!(back.get_pixel(0, 0).0, [10, 20, 30], "the existing photo is untouched");
     }
@@ -786,7 +786,7 @@
             image::RgbImage::from_pixel(32, 24, image::Rgb([120, 90, 60])).save(p).unwrap();
         }
         // The other photo was edited, much brighter, and left unsaved.
-        app.workspace.open.nav_stash.insert(
+        app.workspace.open_mut().nav_stash.insert(
             other.clone(),
             StashEntry {
                 recipe: EditRecipe { exposure_ev: 2.0, ..Default::default() },
@@ -802,14 +802,14 @@
         app.editor.doc_mut().recipe.exposure_ev = -1.0;
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-applystash-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.workspace.exp.dest = ExportDest::Ask;
-        app.workspace.normal.folder_pick = Some(Some(out.clone()));
-        app.workspace.gal.gallery = vec![src.clone(), other.clone()];
+        app.workspace.exp_mut().dest = ExportDest::Ask;
+        app.workspace.normal_mut().folder_pick = Some(Some(out.clone()));
+        app.workspace.gal_mut().gallery = vec![src.clone(), other.clone()];
         let ctx = egui::Context::default();
         app.start_apply_to_folder();
         land_all(&mut app, &ctx);
-        assert!(app.workspace.status.contains('2'), "both photos saved: {}", app.workspace.status);
-        assert!(!app.workspace.open.nav_stash.contains_key(&other), "the paste replaced the unsaved work, so reopening reads the paste");
+        assert!(app.workspace.status().contains('2'), "both photos saved: {}", app.workspace.status());
+        assert!(!app.workspace.open().nav_stash.contains_key(&other), "the paste replaced the unsaved work, so reopening reads the paste");
         let disk: EditRecipe =
             serde_json::from_str(&std::fs::read_to_string(autoshade::store::recipe_target(&other)).unwrap()).unwrap();
         assert_eq!(disk.exposure_ev, -1.0, "the look is on disk");
@@ -840,46 +840,46 @@
         let refs = std::env::temp_dir().join(format!("autoshade-gui-normal-buildbusy-refs-{}", std::process::id()));
         std::fs::create_dir_all(&refs).unwrap();
         let _scrub_refs = Scrub(vec![refs.clone()]);
-        app.workspace.gal.gallery = vec![src.clone()];
-        app.workspace.exp.dest = ExportDest::LastUsed;
-        app.workspace.exp.last_dir = Some(refs.clone());
+        app.workspace.gal_mut().gallery = vec![src.clone()];
+        app.workspace.exp_mut().dest = ExportDest::LastUsed;
+        app.workspace.exp_mut().last_dir = Some(refs.clone());
         app.apply_actions(vec![logic::Action::References(refs.clone())]);
-        assert!(app.workspace.normal.building);
-        assert!(app.workspace.busy, "the build is work: the buttons that start work wait for it");
+        assert!(app.workspace.normal_mut().building);
+        assert!(app.workspace.busy(), "the build is work: the buttons that start work wait for it");
         app.start_normal_save();
-        assert!(!app.workspace.normal.delivering, "no save starts under the build");
+        assert!(!app.workspace.normal_mut().delivering, "no save starts under the build");
         app.start_apply_to_folder();
-        assert!(app.workspace.normal.apply_all.is_none(), "no folder delivery either");
+        assert!(app.workspace.normal_mut().apply_all.is_none(), "no folder delivery either");
         app.set_normal_denoise(true);
-        assert!(app.workspace.normal.denoise_pair.is_none(), "nor the noise switch");
+        assert!(app.workspace.normal_mut().denoise_pair.is_none(), "nor the noise switch");
         // The empty folder's build lands (an error) and frees the buttons.
         let ctx = egui::Context::default();
         let start = std::time::Instant::now();
-        while app.workspace.normal.building {
+        while app.workspace.normal_mut().building {
             assert!(start.elapsed() < std::time::Duration::from_secs(60), "the build never landed");
             std::thread::sleep(std::time::Duration::from_millis(20));
             app.poll_workers(&ctx);
         }
-        assert!(!app.workspace.busy, "the build's landing frees the buttons");
+        assert!(!app.workspace.busy(), "the build's landing frees the buttons");
         // A build lands while another photo is open: nothing is made for
         // that photo, and the line says the look did not start.
-        app.workspace.normal.building = true;
-        app.workspace.normal.build_photo = Some(src.clone());
-        app.workspace.busy = true;
+        app.workspace.normal_mut().building = true;
+        app.workspace.normal_mut().build_photo = Some(src.clone());
+        app.workspace.set_busy(true);
         app.editor.photo_mut().src_path = Some(src.with_file_name("_gui_normal_buildbusy_other.jpg"));
         app.on_one_click_built(Lang::En, Ok(3));
-        assert!(!app.workspace.busy && !app.workspace.normal.building);
-        assert!(app.workspace.normal.last_request.is_none(), "no look for a photo the folder was not picked for");
+        assert!(!app.workspace.busy() && !app.workspace.normal_mut().building);
+        assert!(app.workspace.normal_mut().last_request.is_none(), "no look for a photo the folder was not picked for");
         let said = tr(Lang::En, K_LOGIC_YOUR_REFERENCE_PHOTOS_ARE_READ_BUT_THE_LOOK_COUL);
-        assert_eq!(app.workspace.status, said);
-        assert_eq!(app.workspace.normal.line, crate::panels::normal::NormalLine::Failed(said.to_string()));
+        assert_eq!(app.workspace.status(), said);
+        assert_eq!(app.workspace.normal_mut().line, crate::panels::normal::NormalLine::Failed(said.to_string()));
         // Back on its own photo, the build hands over to the look.
         app.editor.photo_mut().src_path = Some(src.clone());
-        app.workspace.normal.building = true;
-        app.workspace.normal.build_photo = Some(src.clone());
-        app.workspace.busy = true;
+        app.workspace.normal_mut().building = true;
+        app.workspace.normal_mut().build_photo = Some(src.clone());
+        app.workspace.set_busy(true);
         app.on_one_click_built(Lang::En, Ok(3));
-        assert!(app.workspace.normal.last_request.is_some(), "the look starts for the photo the folder was picked for");
+        assert!(app.workspace.normal_mut().last_request.is_some(), "the look starts for the photo the folder was picked for");
         land_analysis(&mut app, &ctx);
     }
 
@@ -913,12 +913,12 @@
         // A look, then the switch on: its ◈ card lands.
         app.editor.doc_mut().recipe.exposure_ev = 0.5;
         app.commit_now();
-        app.workspace.normal.denoise_pair =
+        app.workspace.normal_mut().denoise_pair =
             Some(DenoisePair { photo: src.clone(), plain: ORIGINAL_VARIANT_ID.into(), denoised: None });
         let master = std::path::PathBuf::from("out/_gui_normal_denoise_undo.denoise.png");
         let note = RetouchNote::Denoised { out: master.clone(), on_mosaic: false };
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
-        app.services.tx.send(Msg::Retouched(app.workspace.tools.gen_epoch, Box::new(done))).unwrap();
+        app.services.tx.send(Msg::Retouched(app.workspace.tools().gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         let denoised = app.editor.doc().variants[app.editor.doc().active].base.clone().unwrap();
@@ -954,14 +954,14 @@
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-lastdir-out-{}", std::process::id()));
         std::fs::create_dir_all(&out).unwrap();
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.workspace.exp.dest = ExportDest::LastUsed;
-        app.workspace.exp.last_dir = None;
+        app.workspace.exp_mut().dest = ExportDest::LastUsed;
+        app.workspace.exp_mut().last_dir = None;
         assert_eq!(app.export_dest_dir(), None, "nothing saved yet: the save window asks");
-        app.workspace.normal.file_pick = Some(Some(out.join("picked.jpg")));
+        app.workspace.normal_mut().file_pick = Some(Some(out.join("picked.jpg")));
         app.start_normal_save();
-        assert!(app.workspace.busy, "the save runs: {}", app.workspace.status);
+        assert!(app.workspace.busy(), "the save runs: {}", app.workspace.status());
         let ctx = egui::Context::default();
         land_all(&mut app, &ctx);
-        assert!(out.join("picked.jpg").is_file(), "{}", app.workspace.status);
+        assert!(out.join("picked.jpg").is_file(), "{}", app.workspace.status());
         assert_eq!(app.export_dest_dir().as_deref(), Some(out.as_path()), "the next save goes there without asking");
     }

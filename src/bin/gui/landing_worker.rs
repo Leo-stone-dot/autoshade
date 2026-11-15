@@ -6,8 +6,8 @@ use crate::*;
 
 impl AutoShadeApp {
 pub(crate) fn on_style_built(&mut self, lang: Lang, outcome: StyleBuildOutcome) {
-    self.workspace.ai.style_build_inflight = false;
-    self.workspace.ai.style_build_progress = None;
+    self.workspace.ai_mut().style_build_inflight = false;
+    self.workspace.ai_mut().style_build_progress = None;
     // The words are the logic layer's; the state below is this landing's.
     let (words, dir) = match &outcome {
         StyleBuildOutcome::Saved { total, dir, phrased } => (
@@ -41,21 +41,21 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
             let photo_stem = self.editor.photo().src_path.clone().map(|p| autoshade::pipeline::stem(&p).to_owned());
             let landed =
                 logic::segmented::apply(&mut self.editor.doc_mut().recipe, &label, &path, &backend, photo_stem.as_deref());
-            self.workspace.masks.sel_mask = Some(landed.selection);
+            self.workspace.masks_mut().sel_mask = Some(landed.selection);
             // The landing MOVED the selection — index-armed tools bound to
             // another row die with it, exactly like the row-click sites
             // (Codex L06-1: this async door was missed and a stranded brush
             // baked into the old mask).
-            if self.disarm_selection_bound_tools(self.workspace.masks.sel_mask) {
+            if self.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
                 let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
                 self.toast(ToastKind::Error, t);
             }
-            self.workspace.overlay.overlay_stale = true; // fresh raster ⇒ fresh coverage
-            self.workspace.busy = false;
+            self.workspace.overlay_mut().overlay_stale = true; // fresh raster ⇒ fresh coverage
+            self.workspace.set_busy(false);
             // MarkDirty + the status line (+ the fallback toast).
             self.run_effects(landed.effects);
             if let Some(note) = landed.backend_note {
-                self.workspace.status = format!("{}{}", self.workspace.status, crate::i18n::text(lang, &note));
+                self.workspace.set_status(format!("{}{}", self.workspace.status(), crate::i18n::text(lang, &note)));
             }
         }
         Err(e) => {
@@ -84,16 +84,16 @@ pub(crate) fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRef
             };
             let landed = logic::mask_refine::apply(&mut self.editor.doc_mut().recipe, &outcome);
             if let Some(i) = landed.selection {
-                self.workspace.masks.sel_mask = Some(i);
+                self.workspace.masks_mut().sel_mask = Some(i);
                 // Same rule as the segmentation landing: the selection
                 // moved, selection-bound tools on another row follow it.
-                if self.disarm_selection_bound_tools(self.workspace.masks.sel_mask) {
+                if self.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
                     let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
                     self.toast(ToastKind::Error, t);
                 }
-                self.workspace.overlay.overlay_stale = true;
+                self.workspace.overlay_mut().overlay_stale = true;
             }
-            self.workspace.busy = false;
+            self.workspace.set_busy(false);
             self.run_effects(landed.effects);
         }
         Err(e) => {
@@ -106,27 +106,27 @@ pub(crate) fn on_folder(&mut self, lang: Lang, res: anyhow::Result<(PathBuf, Vec
             match res {
                 Ok((dir, list, skipped)) => {
                     let n = list.len();
-                    self.workspace.gal.gallery = list;
-                    self.workspace.gal.gallery_dir = Some(dir);
-                    self.workspace.gal.gallery_gen += 1; // invalidate any in-flight old thumbs
-                    self.workspace.gal.thumbs.clear();
-                    self.workspace.gal.thumb_requested.clear();
+                    self.workspace.gal_mut().gallery = list;
+                    self.workspace.gal_mut().gallery_dir = Some(dir);
+                    self.workspace.gal_mut().gallery_gen += 1; // invalidate any in-flight old thumbs
+                    self.workspace.gal_mut().thumbs.clear();
+                    self.workspace.gal_mut().thumb_requested.clear();
                     // Keyed by gallery INDEX, so it is meaningless across
                     // folders: without this, index 0 failing three times
                     // here silently denied index 0 a thumbnail in every
                     // folder opened afterwards.
-                    self.workspace.gal.thumb_fail.clear();
-                    self.workspace.gal.thumb_inflight = 0;
-                    self.workspace.gal.edited_badge.clear(); // badge stats belong to the old folder
-                    self.workspace.gal.selected = None;
-                    self.workspace.gal.multi_sel.clear(); // indices belong to the old folder
-                    self.workspace.busy = false;
+                    self.workspace.gal_mut().thumb_fail.clear();
+                    self.workspace.gal_mut().thumb_inflight = 0;
+                    self.workspace.gal_mut().edited_badge.clear(); // badge stats belong to the old folder
+                    self.workspace.gal_mut().selected = None;
+                    self.workspace.gal_mut().multi_sel.clear(); // indices belong to the old folder
+                    self.workspace.set_busy(false);
                     // The count line and the skipped-items disclosure are
                     // the logic layer's words.
                     let words = logic::folder::words(n, skipped);
-                    self.workspace.status = crate::i18n::text(lang, &words.status);
+                    self.workspace.set_status(crate::i18n::text(lang, &words.status));
                     if let Some(skip) = words.skipped {
-                        self.workspace.status = format!("{} — ⚠ {}", self.workspace.status, crate::i18n::text(lang, &skip));
+                        self.workspace.set_status(format!("{} — ⚠ {}", self.workspace.status(), crate::i18n::text(lang, &skip)));
                     }
                     // L12#3 tofu disclosure: a gallery name in a script
                     // no installed face covers renders as boxes — say
@@ -144,7 +144,7 @@ pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo
                 // The in-flight marker clears on EVERY outcome — photo
                 // mismatch included — or one failed decode would block
                 // all retries for the rest of the session.
-                self.workspace.open.master_loads.remove(&(photo.clone(), origin.clone()));
+                self.workspace.open_mut().master_loads.remove(&(photo.clone(), origin.clone()));
                 // Install by identity, not index: only while the SAME
                 // photo is open, and only into strip entries that still
                 // reference this exact master and still await pixels.
@@ -223,7 +223,7 @@ pub(crate) fn render_retouch_note(lang: Lang, n: &RetouchNote) -> String {
 }
 
 pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u64, done: RetouchDone) {
-                if epoch != self.workspace.tools.gen_epoch {
+                if epoch != self.workspace.tools().gen_epoch {
                     // A cancelled task's late result: the user already
                     // moved on — never let it mutate the canvas. And the
                     // cancel toast PROMISES "the late result is
@@ -237,7 +237,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                     }
                     return; // was `continue` — the match was the loop's last statement
                 }
-                self.workspace.tools.gen_cancel = None;
+                self.workspace.tools_mut().gen_cancel = None;
                 match done {
                 Ok((img, note, saved, kind)) => {
                     let msg = Self::render_retouch_note(lang, &note);
@@ -374,8 +374,8 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             self.set_before(ctx, &img, &start);
                             // New baked base ⇒ the cached masks-cleared
                             // reference develop no longer matches it.
-                            self.workspace.overlay.overlay_ref = None;
-                            self.workspace.overlay.overlay_stale = true;
+                            self.workspace.overlay_mut().overlay_ref = None;
+                            self.workspace.overlay_mut().overlay_stale = true;
                             self.editor.photo_mut().base_preview = Some(img);
                             // Keep the paint canvas sized to the new base (the
                             // retouch result can differ in dimensions — e.g. a
@@ -437,7 +437,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                 // Either way the worker may have persisted a recipe.json
                 // (an Err can land after that write) — recompute badges.
                 Ok(out) => {
-                    self.workspace.gal.edited_badge.clear();
+                    self.workspace.gal_mut().edited_badge.clear();
                     // Advance the ● baseline ONLY when the store actually
                     // holds the fit. A backup-gate refusal means nothing
                     // was written: leaving the baseline alone keeps
@@ -445,7 +445,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // the ordinary unsaved-edit path takes over.
                     if out.persisted {
                         self.editor.session_mut().hist.saved_recipe = out.recipe.clone();
-                        self.workspace.open.nav_stash.remove(
+                        self.workspace.open_mut().nav_stash.remove(
                             &self.editor.photo().src_path.clone().unwrap_or_default(),
                         );
                         // The pixel link the worker committed beside the
@@ -501,7 +501,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     self.done(note);
                 }
                 Err(e) => {
-                    self.workspace.gal.edited_badge.clear();
+                    self.workspace.gal_mut().edited_badge.clear();
                     // The pre-fit snapshot may exist even when the fit
                     // errored — keep the Versions list truthful.
                     self.refresh_versions();
@@ -513,7 +513,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
 pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>) {
     // Sidecars were written (possibly partially on error) — recompute the
     // gallery badges either way.
-    self.workspace.gal.edited_badge.clear();
+    self.workspace.gal_mut().edited_badge.clear();
     // Every photo the paste wrote now has the pasted look on disk, and that
     // look REPLACED whatever unsaved work its navigation stash held: left
     // in place, the stash would outrank the paste in a batch render, a
@@ -521,7 +521,7 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
     // A partial failure wrote the others all the same.
     if let Ok(out) = &res {
         for p in &out.written {
-            self.workspace.open.nav_stash.remove(p);
+            self.workspace.open_mut().nav_stash.remove(p);
         }
     }
     match res {
@@ -534,11 +534,11 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             // warning. Guard on the photo still being open, and compare
             // nothing: edits made while the worker ran leave
             // recipe != saved_recipe, correctly re-lighting ●.
-            if let Some((p, r)) = self.workspace.open.pasted_open.take()
+            if let Some((p, r)) = self.workspace.open_mut().pasted_open.take()
                 && self.editor.photo().src_path.as_ref() == Some(&p)
             {
                 self.editor.session_mut().hist.saved_recipe = r;
-                self.workspace.open.nav_stash.remove(&p);
+                self.workspace.open_mut().nav_stash.remove(&p);
             }
             // The counts and the sidecar disclosures are the logic layer's
             // (`logic/paste.rs`); the suffixes already carry their " — ".
@@ -551,12 +551,12 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
             self.done(s);
         }
         Ok(out) => {
-            self.workspace.open.pasted_open = None;
+            self.workspace.open_mut().pasted_open = None;
             let msg = crate::i18n::text(lang, &logic::paste::partial_words(out.ok, &out.errs));
             self.fail(tr(lang, K_LANDING_BATCH_PASTE), anyhow::anyhow!("{}", msg));
         }
         Err(e) => {
-            self.workspace.open.pasted_open = None;
+            self.workspace.open_mut().pasted_open = None;
             self.fail(tr(lang, K_LANDING_BATCH_PASTE), e);
         }
     }
@@ -579,14 +579,14 @@ pub(crate) fn on_models(
     // installing this completion would resurrect the ids the OLD
     // credential could see and offer them under the new one's name.
     if generation != self.catalogue_mut(role).generation {
-        self.workspace.ui.settings.status = crate::i18n::text(lang, &logic::models::discarded_words());
+        self.workspace.ui_mut().settings.status = crate::i18n::text(lang, &logic::models::discarded_words());
         return;
     }
     match res {
         Ok(models) => {
             // The classification and the line are the logic layer's.
             let cat = logic::models::catalogue(&models, role == ModelRole::Image);
-            self.workspace.ui.settings.status = crate::i18n::text(lang, &logic::models::installed_words(&cat));
+            self.workspace.ui_mut().settings.status = crate::i18n::text(lang, &logic::models::installed_words(&cat));
             let slot = self.catalogue_mut(role);
             slot.chat = cat.chat;
             slot.image_gen = cat.image;
@@ -594,7 +594,7 @@ pub(crate) fn on_models(
             slot.vision = cat.vision;
         }
         Err(e) => {
-            self.workspace.ui.settings.status =
+            self.workspace.ui_mut().settings.status =
                 crate::i18n::text(lang, &logic::models::failed_words(&e.to_string()));
         }
     }

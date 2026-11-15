@@ -94,14 +94,14 @@
 
                 ..Default::default()
 
-            }; editor } , workspace: WorkspaceView { view: ViewState {
+            }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.view_mut() = ViewState {
                 one_to_one: 4.0,
                 // what the canvas computed last frame
                 zoom: 2.0,
                 zoom_target: 2.0,
                 pan: egui::vec2(0.7, 0.7),
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
+            }; view } , ..Default::default() };
 
         let ctx = egui::Context::default();
         let run_key = |app: &mut AutoShadeApp, k: egui::Key| {
@@ -110,23 +110,23 @@
             let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
         };
         run_key(&mut app, egui::Key::Plus);
-        assert!((app.workspace.view.zoom_target - 2.5).abs() < 1e-4, "`+` retargets ×1.25, got {}", app.workspace.view.zoom_target);
+        assert!((app.workspace.view().zoom_target - 2.5).abs() < 1e-4, "`+` retargets ×1.25, got {}", app.workspace.view().zoom_target);
         run_key(&mut app, egui::Key::Minus);
-        assert!((app.workspace.view.zoom_target - 2.0).abs() < 1e-4, "`-` steps back, got {}", app.workspace.view.zoom_target);
+        assert!((app.workspace.view().zoom_target - 2.0).abs() < 1e-4, "`-` steps back, got {}", app.workspace.view().zoom_target);
         run_key(&mut app, egui::Key::Num1);
-        assert_eq!(app.workspace.view.zoom_target, 4.0, "`1` targets the stored 1:1 zoom");
+        assert_eq!(app.workspace.view().zoom_target, 4.0, "`1` targets the stored 1:1 zoom");
         run_key(&mut app, egui::Key::Num0);
-        assert_eq!(app.workspace.view.zoom_target, 1.0, "`0` refits");
-        assert_eq!(app.workspace.view.pan, egui::vec2(0.5, 0.5), "`0` recentres the pan (instant)");
+        assert_eq!(app.workspace.view().zoom_target, 1.0, "`0` refits");
+        assert_eq!(app.workspace.view().pan, egui::vec2(0.5, 0.5), "`0` recentres the pan (instant)");
         // Ceiling: from 11× one `+` press must stop at the 12× clamp.
-        app.workspace.view.zoom_target = 11.0;
+        app.workspace.view_mut().zoom_target = 11.0;
         run_key(&mut app, egui::Key::Plus);
-        assert_eq!(app.workspace.view.zoom_target, 12.0, "zoom keys respect the 12x ceiling");
+        assert_eq!(app.workspace.view().zoom_target, 12.0, "zoom keys respect the 12x ceiling");
         // No photo → the keys are inert (same gate as the canvas buttons).
         app.editor.photo_mut().src_path = None;
-        app.workspace.view.zoom_target = 3.0;
+        app.workspace.view_mut().zoom_target = 3.0;
         run_key(&mut app, egui::Key::Num0);
-        assert_eq!(app.workspace.view.zoom_target, 3.0, "no photo: zoom keys must not act");
+        assert_eq!(app.workspace.view().zoom_target, 3.0, "no photo: zoom keys must not act");
     }
 
     /// 阶段5 手感: the glide that carries `zoom` to `zoom_target` must move
@@ -217,12 +217,12 @@
             let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
         };
         run_copy(&mut app, false);
-        assert!(app.workspace.genai.copied.is_none(), "bare Ctrl+C belongs to egui's text copy");
+        assert!(app.workspace.genai().copied.is_none(), "bare Ctrl+C belongs to egui's text copy");
         run_copy(&mut app, true);
-        let copied = app.workspace.genai.copied.as_ref().expect("Ctrl+Shift+C copies the recipe");
+        let copied = app.workspace.genai().copied.as_ref().expect("Ctrl+Shift+C copies the recipe");
         assert_eq!(copied.exposure_ev, 1.5, "the CURRENT recipe is what's copied");
         assert_eq!(
-            app.workspace.genai.copied_from.as_deref(),
+            app.workspace.genai().copied_from.as_deref(),
             Some(std::path::Path::new("x.png")),
             "provenance rides along (the paste-guard identity)"
         );
@@ -239,27 +239,27 @@
         let mut app = AutoShadeApp::default();
         // A typed loopback base + typed token keep the real worker's probe
         // off the network entirely (connection refused before any header).
-        app.workspace.ui.settings.image_base_url = "http://127.0.0.1:9/v1".into();
-        app.workspace.ui.settings.image_api_key = "typed-test-token".into();
+        app.workspace.ui_mut().settings.image_base_url = "http://127.0.0.1:9/v1".into();
+        app.workspace.ui_mut().settings.image_api_key = "typed-test-token".into();
         app.fetch_models(ModelRole::Image);
-        let stale_gen = app.workspace.ui.settings.image_models.generation;
-        assert!(app.workspace.ui.settings.image_models.fetching, "the flight is up");
+        let stale_gen = app.workspace.ui().settings.image_models.generation;
+        assert!(app.workspace.ui().settings.image_models.fetching, "the flight is up");
         // The user replaces the key mid-flight — the key field's handler
         // clears the catalogue, and clearing bumps the generation:
-        app.workspace.ui.settings.image_models.clear();
+        app.workspace.ui_mut().settings.image_models.clear();
         // The old flight lands, delivered exactly as the pump would:
         app.on_models(Lang::En, ModelRole::Image, stale_gen, Ok(vec!["stale-model".into()]));
         assert!(
-            app.workspace.ui.settings.image_models.chat.is_empty(),
+            app.workspace.ui().settings.image_models.chat.is_empty(),
             "ids fetched with the OLD credential must not be offered under the new one"
         );
-        assert!(!app.workspace.ui.settings.image_models.fetching, "stale or not, THE flight is over");
+        assert!(!app.workspace.ui().settings.image_models.fetching, "stale or not, THE flight is over");
         // A fresh fetch's completion still installs normally:
         app.fetch_models(ModelRole::Image);
-        let live_gen = app.workspace.ui.settings.image_models.generation;
+        let live_gen = app.workspace.ui().settings.image_models.generation;
         app.on_models(Lang::En, ModelRole::Image, live_gen, Ok(vec!["fresh-model".into()]));
-        assert_eq!(app.workspace.ui.settings.image_models.chat, vec!["fresh-model".to_string()]);
-        assert!(!app.workspace.ui.settings.image_models.fetching);
+        assert_eq!(app.workspace.ui().settings.image_models.chat, vec!["fresh-model".to_string()]);
+        assert!(!app.workspace.ui().settings.image_models.fetching);
     }
 
     /// Part D: what the listing SAYS about a model reaches its pickers — the
@@ -271,10 +271,10 @@
     fn the_listing_capabilities_reach_the_pickers_and_clear_with_the_ids() {
         use autoshade::openai_models::ModelInfo;
         let mut app = AutoShadeApp::default();
-        app.workspace.ui.settings.image_base_url = "http://127.0.0.1:9/v1".into();
-        app.workspace.ui.settings.image_api_key = "typed-test-token".into();
+        app.workspace.ui_mut().settings.image_base_url = "http://127.0.0.1:9/v1".into();
+        app.workspace.ui_mut().settings.image_api_key = "typed-test-token".into();
         app.fetch_models(ModelRole::Image);
-        let live_gen = app.workspace.ui.settings.image_models.generation;
+        let live_gen = app.workspace.ui().settings.image_models.generation;
         app.on_models(
             Lang::En,
             ModelRole::Image,
@@ -289,7 +289,7 @@
                 ModelInfo::from("unknown"),
             ]),
         );
-        let cat = &app.workspace.ui.settings.image_models;
+        let cat = &app.workspace.ui().settings.image_models;
         assert_eq!(cat.tiers_for("reasoner", &EFFORT_TIERS_API), vec!["minimal", "max"]);
         assert_eq!(cat.tiers_for("plain", &EFFORT_TIERS_API), Vec::<&str>::new());
         assert_eq!(cat.tiers_for("unknown", &EFFORT_TIERS_API), EFFORT_TIERS_API.to_vec());
@@ -297,8 +297,8 @@
         assert_eq!(cat.vision_of("plain"), Some(false));
         assert_eq!(cat.vision_of("reasoner"), Some(true));
         assert_eq!(cat.vision_of("unknown"), None);
-        app.workspace.ui.settings.image_models.clear();
-        let cat = &app.workspace.ui.settings.image_models;
+        app.workspace.ui_mut().settings.image_models.clear();
+        let cat = &app.workspace.ui().settings.image_models;
         assert!(cat.efforts.is_empty() && cat.vision.is_empty(), "forgotten with the ids");
         assert_eq!(cat.tiers_for("reasoner", &EFFORT_TIERS_API), EFFORT_TIERS_API.to_vec());
     }
@@ -313,7 +313,7 @@
         // Any dispatch stays strictly on loopback: a typed form base wins
         // over the machine's saved config, and the saved-key rule withholds
         // any real credential from an endpoint it was not saved for.
-        app.workspace.ui.settings.image_base_url = "http://127.0.0.1:9/v1".into();
+        app.workspace.ui_mut().settings.image_base_url = "http://127.0.0.1:9/v1".into();
         let mut cfg = autoshade::config::Config {
             openai_api_key: None,
             openai_model: "test-chat".into(),
@@ -349,20 +349,20 @@
         // must not spend the session's opportunity.
         app.autofetch_models_once(&cfg);
         assert!(
-            !app.workspace.ui.settings.image_models.autofetched,
+            !app.workspace.ui().settings.image_models.autofetched,
             "an ineligible open must not consume the role's probe"
         );
-        assert!(!app.workspace.ui.settings.image_models.fetching);
+        assert!(!app.workspace.ui().settings.image_models.fetching);
         // The key arrives (saved on another surface); the NEXT open probes.
         cfg.openai_api_key = Some("typed-test-token".into());
         app.autofetch_models_once(&cfg);
-        assert!(app.workspace.ui.settings.image_models.autofetched, "consumed at dispatch");
-        assert!(app.workspace.ui.settings.image_models.fetching, "the probe launched");
+        assert!(app.workspace.ui().settings.image_models.autofetched, "consumed at dispatch");
+        assert!(app.workspace.ui().settings.image_models.fetching, "the probe launched");
         // …and only once per session: a reopen never re-probes a metered
         // endpoint (the review verified this half held; it must keep holding).
-        app.workspace.ui.settings.image_models.fetching = false;
+        app.workspace.ui_mut().settings.image_models.fetching = false;
         app.autofetch_models_once(&cfg);
-        assert!(!app.workspace.ui.settings.image_models.fetching, "the one probe is spent");
+        assert!(!app.workspace.ui().settings.image_models.fetching, "the one probe is spent");
     }
 
     /// GUI review 2026-08-12 F1 (model face): the CLI accepts full ids as
@@ -482,10 +482,10 @@
             // Text long enough that a field free to grow would want to: the
             // singleline clip keeps this from mattering, the cap is about the
             // BOX, and a filled buffer also exercises the hover-tooltip arm.
-            app.workspace.ai.guidance = "warmer and moodier, lift the shadows a lot, and keep the sky honest".into();
-            app.workspace.genai.reimagine_prompt = app.workspace.ai.guidance.clone();
-            app.workspace.genai.adjust_prompt = app.workspace.ai.guidance.clone();
-            app.workspace.genai.fill_prompt = app.workspace.ai.guidance.clone();
+            app.workspace.ai_mut().guidance = "warmer and moodier, lift the shadows a lot, and keep the sky honest".into();
+            app.workspace.genai_mut().reimagine_prompt = app.workspace.ai().guidance.clone();
+            app.workspace.genai_mut().adjust_prompt = app.workspace.ai().guidance.clone();
+            app.workspace.genai_mut().fill_prompt = app.workspace.ai().guidance.clone();
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let input = || egui::RawInput {
@@ -634,9 +634,9 @@
                 egui::TextureOptions::LINEAR,
             );
             // One row, its texture already resident: the loaded branch.
-            app.workspace.gal.gallery = vec![PathBuf::from("r22-thumb-geometry.arw")];
-            app.workspace.gal.gallery_dir = Some(PathBuf::from("."));
-            app.workspace.gal.thumbs.insert(0, tex);
+            app.workspace.gal_mut().gallery = vec![PathBuf::from("r22-thumb-geometry.arw")];
+            app.workspace.gal_mut().gallery_dir = Some(PathBuf::from("."));
+            app.workspace.gal_mut().thumbs.insert(0, tex);
             let input = egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
@@ -649,8 +649,8 @@
                     .default_width(260.0)
                     .show(ctx, |ui| app.gallery_panel(ui));
             });
-            let slot = app.workspace.gal.gallery_slot_rect.expect("the gallery records its thumb slot (test seam)");
-            let draw = app.workspace.gal.gallery_thumb_rect.expect("the gallery records the drawn image (test seam)");
+            let slot = app.workspace.gal().gallery_slot_rect.expect("the gallery records its thumb slot (test seam)");
+            let draw = app.workspace.gal().gallery_thumb_rect.expect("the gallery records the drawn image (test seam)");
             eprintln!("gallery thumb [{tag}]: slot={slot:?} draw={draw:?}");
             // ① the image is drawn at the TEXTURE's aspect ratio
             let want = tw as f32 / th as f32;
@@ -720,7 +720,7 @@
         let mut app = AutoShadeApp::default();
         assert_eq!(frame(&mut app), Some(true), "a settled panel must be editable");
         // ② mid-open: frozen.
-        app.workspace.open.open_in_flight = true;
+        app.workspace.open_mut().open_in_flight = true;
         assert_eq!(
             frame(&mut app),
             Some(false),
@@ -728,12 +728,12 @@
         );
         // ③ busy but NOT opening (a 600 s analyze): still live, or cancelling
         // and re-typing a direction would be impossible for ten minutes.
-        app.workspace.open.open_in_flight = false;
-        app.workspace.busy = true;
+        app.workspace.open_mut().open_in_flight = false;
+        app.workspace.set_busy(true);
         assert_eq!(frame(&mut app), Some(true), "a long AI call must not freeze the panel");
     }
     /// #9 (user report after the v0.27 trial): "画笔大小的滑杆不见了". It was
-    /// never deleted — the app's ONE brush radius (`self.workspace.masks.brush`) had its only
+    /// never deleted — the app's ONE brush radius (`self.workspace.masks().brush`) had its only
     /// slider in the Retouch panel, next to Fill / Heal / Stamp, while the
     /// mask brush is armed from Develop → Local Masks and paints in a session
     /// whose row carried ⌫ / ✓ / ✕ and nothing else. So the control existed in
@@ -754,7 +754,7 @@
             // A plate is what start_mask_brush sizes its buffers against.
             app.editor.photo_mut().base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
             app.start_mask_brush(None);
-            assert!(app.workspace.masks.mask_brush.is_some(), "{lang:?}: the brush session armed");
+            assert!(app.workspace.masks().mask_brush.is_some(), "{lang:?}: the brush session armed");
             let input = || egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
@@ -814,24 +814,24 @@
 
                 ..Default::default()
 
-            }; editor } , workspace: WorkspaceView { crop: CropState { mode: true, ..Default::default() }, tools: ToolsState { clone_mode: true, ..Default::default() }, ..Default::default() }, ..Default::default() };
+            }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.crop_mut() = CropState { mode: true, ..Default::default() }; *view.tools_mut() = ToolsState { clone_mode: true, ..Default::default() }; view } , ..Default::default() };
         app.arm_brush(BrushOwner::Fill);
-        assert!(app.workspace.masks.paint_mode && app.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
-        assert!(!app.workspace.crop.mode && !app.workspace.tools.clone_mode, "the other tools are disarmed");
+        assert!(app.workspace.masks().paint_mode && app.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
+        assert!(!app.workspace.crop().mode && !app.workspace.tools().clone_mode, "the other tools are disarmed");
         app.arm_brush(BrushOwner::Stamp);
-        assert!(app.workspace.tools.clone_mode && !app.workspace.masks.paint_mode, "the Stamp paints through clone_mode");
+        assert!(app.workspace.tools().clone_mode && !app.workspace.masks().paint_mode, "the Stamp paints through clone_mode");
         assert!(app.brush_armed(BrushOwner::Stamp) && !app.brush_armed(BrushOwner::Fill));
         // Phase 2: a live session + the brush put away = a cancel, not an orphan.
         app.start_mask_brush(None);
         assert!(
-            app.workspace.masks.mask_brush.is_some() && app.workspace.masks.mask_brush_gray.is_some() && app.workspace.masks.paint_mode,
+            app.workspace.masks().mask_brush.is_some() && app.workspace.masks().mask_brush_gray.is_some() && app.workspace.masks().paint_mode,
             "sanity: the session is live and painting through paint_mode"
         );
         app.disarm_brush();
         assert!(
-            app.workspace.masks.mask_brush.is_none(),
+            app.workspace.masks().mask_brush.is_none(),
             "the session outlived its own paint flag — its Apply row would bake stale weights"
         );
-        assert!(app.workspace.masks.mask_brush_gray.is_none(), "the weight buffer goes with it");
-        assert!(!app.workspace.masks.paint_mode && !app.workspace.tools.clone_mode, "and the flags stay off");
+        assert!(app.workspace.masks().mask_brush_gray.is_none(), "the weight buffer goes with it");
+        assert!(!app.workspace.masks().paint_mode && !app.workspace.tools().clone_mode, "and the flags stay off");
     }

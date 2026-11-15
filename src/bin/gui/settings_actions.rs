@@ -14,13 +14,13 @@ impl AutoShadeApp {
         // zeroing it mid-fetch stopped the repaint pump AND re-armed the fetch
         // button (duplicate requests, stalled status). The catalogues also
         // carry the per-role auto-fetch guards and generation stamps.
-        let image_models = std::mem::take(&mut self.workspace.ui.settings.image_models);
-        let analysis_models = std::mem::take(&mut self.workspace.ui.settings.analysis_models);
+        let image_models = std::mem::take(&mut self.workspace.ui_mut().settings.image_models);
+        let analysis_models = std::mem::take(&mut self.workspace.ui_mut().settings.analysis_models);
         // ONE read of the settings file for the two fields below that show the
         // file's own spelling rather than the resolved value.
         let local = autoshade::config::load_local_settings();
         let comfy = autoshade::comfy::Settings::load();
-        self.workspace.ui.settings = SettingsForm {
+        self.workspace.ui_mut().settings = SettingsForm {
             analysis_provider_api: cfg.analysis_is_api(),
             image_provider_oauth: cfg.image_is_oauth(),
             analysis_model: cfg.analysis_model.clone(),
@@ -89,14 +89,14 @@ impl AutoShadeApp {
     /// the role that became eligible five minutes later — key saved, provider
     /// flipped to `api` — was never probed on any later open.
     pub(crate) fn autofetch_models_once(&mut self, cfg: &autoshade::config::Config) {
-        if cfg.openai_api_key.is_some() && !self.workspace.ui.settings.image_models.autofetched {
+        if cfg.openai_api_key.is_some() && !self.workspace.ui().settings.image_models.autofetched {
             self.fetch_models(ModelRole::Image);
         }
         // The analysis endpoint only has a catalogue to fetch in `api` mode —
         // the OAuth verifier is the `claude` CLI, which serves no /models.
         if cfg.analysis_is_api()
             && cfg.analysis_api_key.is_some()
-            && !self.workspace.ui.settings.analysis_models.autofetched
+            && !self.workspace.ui().settings.analysis_models.autofetched
         {
             self.fetch_models(ModelRole::Analysis);
         }
@@ -109,7 +109,7 @@ impl AutoShadeApp {
         // lock (`config::update_local_settings`): this panel and the serve
         // process merge onto the same file, and the old unlocked cycle here
         // let a save that landed between its load and its rename be erased.
-        let form = &self.workspace.ui.settings;
+        let form = &self.workspace.ui().settings;
         let saved = autoshade::config::update_local_settings(|cur| {
             cur.analysis_provider =
                 Some(if form.analysis_provider_api { "api" } else { "oauth" }.to_string());
@@ -182,13 +182,13 @@ impl AutoShadeApp {
         // install must not block saving the AI settings above.
         {
             let mut comfy = autoshade::comfy::Settings::load();
-            comfy.cli = self.workspace.ui.settings.comfy_cli.trim().to_string();
-            comfy.workspace = self.workspace.ui.settings.comfy_workspace.trim().to_string();
-            comfy.base_dir = self.workspace.ui.settings.comfy_base_dir.trim().to_string();
-            comfy.reimagine_workflow = self.workspace.ui.settings.comfy_reimagine_workflow.trim().to_string();
-            comfy.fill_workflow = self.workspace.ui.settings.comfy_fill_workflow.trim().to_string();
+            comfy.cli = self.workspace.ui().settings.comfy_cli.trim().to_string();
+            comfy.workspace = self.workspace.ui().settings.comfy_workspace.trim().to_string();
+            comfy.base_dir = self.workspace.ui().settings.comfy_base_dir.trim().to_string();
+            comfy.reimagine_workflow = self.workspace.ui().settings.comfy_reimagine_workflow.trim().to_string();
+            comfy.fill_workflow = self.workspace.ui().settings.comfy_fill_workflow.trim().to_string();
             if let Err(e) = comfy.save() {
-                self.workspace.ui.settings.status = trf(
+                self.workspace.ui_mut().settings.status = trf(
                     self.lang,
                     K_ACTIONS_SETTINGS_SAVED_BUT_THE_COMFYUI_PATHS_FAILED_TO_S,
                     &[("err", &e.to_string())],
@@ -198,28 +198,28 @@ impl AutoShadeApp {
         // Did the user type a key on this save? Asked BEFORE the fields are
         // cleared, so the refusal check below can tell "typed and rejected"
         // from "left blank on purpose".
-        let typed_image = !self.workspace.ui.settings.image_api_key.trim().is_empty();
-        let typed_analysis = !self.workspace.ui.settings.analysis_api_key.trim().is_empty();
+        let typed_image = !self.workspace.ui().settings.image_api_key.trim().is_empty();
+        let typed_analysis = !self.workspace.ui().settings.analysis_api_key.trim().is_empty();
         match saved {
             Ok(p) => {
-                self.workspace.ui.settings.analysis_api_key.clear();
-                self.workspace.ui.settings.image_api_key.clear();
+                self.workspace.ui_mut().settings.analysis_api_key.clear();
+                self.workspace.ui_mut().settings.image_api_key.clear();
                 // Presence reflects the RESOLVED config (file merged with env) —
                 // deriving it from the file alone told a user whose key lives in
                 // OPENAI_API_KEY that no key was set right after saving.
                 let cfg = autoshade::config::Config::load();
-                self.workspace.ui.settings.analysis_key_present = cfg.analysis_api_key.is_some();
-                self.workspace.ui.settings.image_key_present = cfg.openai_api_key.is_some();
+                self.workspace.ui_mut().settings.analysis_key_present = cfg.analysis_api_key.is_some();
+                self.workspace.ui_mut().settings.image_key_present = cfg.openai_api_key.is_some();
                 // Normal's sidebar says whether its looks use the AI.
-                self.workspace.normal.key_present = Some(cfg.openai_api_key.is_some());
+                self.workspace.normal_mut().key_present = Some(cfg.openai_api_key.is_some());
                 // A key that cannot appear in an HTTP header is REFUSED by
                 // Config::load (`header_safe_key` — a newline or space from a
                 // paste is the usual cause). The refusal only prints to
                 // stderr, which the windowed GUI does not show, so "saved"
                 // beside a still-empty key state was the whole story the user
                 // got. Say it here instead.
-                let refused = (typed_image && !self.workspace.ui.settings.image_key_present)
-                    || (typed_analysis && !self.workspace.ui.settings.analysis_key_present);
+                let refused = (typed_image && !self.workspace.ui().settings.image_key_present)
+                    || (typed_analysis && !self.workspace.ui().settings.analysis_key_present);
                 // The file's HOME decides what `Config::load` reads back:
                 // under the shared temp root (no per-user data directory on
                 // this machine) it is not trusted with a key or an endpoint,
@@ -228,24 +228,24 @@ impl AutoShadeApp {
                 // never shows, so "saved" was the whole story until 2026-09-24.
                 let shared = autoshade::config::load_local_settings_from().1
                     == autoshade::config::SettingsOrigin::SharedRoot;
-                self.workspace.ui.settings.status = if refused {
+                self.workspace.ui_mut().settings.status = if refused {
                     tr(self.lang, K_ACTIONS_SAVED_BUT_THE_KEY_WAS_NOT_ACCEPTED_IT_CONTAINS_C).into()
                 } else if shared {
                     trf(self.lang, K_ACTIONS_SAVED_BUT_THIS_FILE_SITS_IN_THE_SHARED_TEMP_FOLD, &[("path", &p.display().to_string())])
                 } else {
                     trf(self.lang, K_ACTIONS_SAVED, &[("path", &p.display().to_string())])
                 };
-                self.workspace.status = tr(self.lang, K_ACTIONS_SETTINGS_SAVED_APPLIES_TO_THE_NEXT_AI_CALL_ANALY).into();
+                self.workspace.set_status(tr(self.lang, K_ACTIONS_SETTINGS_SAVED_APPLIES_TO_THE_NEXT_AI_CALL_ANALY).into());
                 // The interpreter field may have just changed: measure it now
                 // and let the note ride the same line (a wrong one would fail
                 // every sidecar later with a different error).
                 if let Some(note) = self.refresh_python_check() {
-                    self.workspace.status.push_str(" — ");
-                    self.workspace.status.push_str(&note);
+                    self.workspace.status_mut().push_str(" — ");
+                    self.workspace.status_mut().push_str(&note);
                 }
             }
             Err(e) => {
-                self.workspace.ui.settings.status =
+                self.workspace.ui_mut().settings.status =
                     trf(self.lang, K_ACTIONS_SAVE_FAILED, &[("err", &e.to_string())])
             }
         }
@@ -262,12 +262,12 @@ impl AutoShadeApp {
     pub(crate) fn fetch_models(&mut self, role: ModelRole) {
         let (form_key, form_base) = match role {
             ModelRole::Image => (
-                self.workspace.ui.settings.image_api_key.trim().to_string(),
-                self.workspace.ui.settings.image_base_url.trim().to_string(),
+                self.workspace.ui().settings.image_api_key.trim().to_string(),
+                self.workspace.ui().settings.image_base_url.trim().to_string(),
             ),
             ModelRole::Analysis => (
-                self.workspace.ui.settings.analysis_api_key.trim().to_string(),
-                self.workspace.ui.settings.analysis_base_url.trim().to_string(),
+                self.workspace.ui().settings.analysis_api_key.trim().to_string(),
+                self.workspace.ui().settings.analysis_base_url.trim().to_string(),
             ),
         };
         let cfg = autoshade::config::Config::load();
@@ -305,7 +305,7 @@ impl AutoShadeApp {
         cat.from_base = base.clone();
         cat.from_key = key_fingerprint(&key);
         let generation = cat.generation;
-        self.workspace.ui.settings.status = tr(self.lang, K_ACTIONS_FETCHING_MODELS).into();
+        self.workspace.ui_mut().settings.status = tr(self.lang, K_ACTIONS_FETCHING_MODELS).into();
         // spawn_worker's catch_unwind guarantees the UI's `fetching` flag
         // always clears — a panic still delivers Msg::Models(role, gen, Err)
         // (this site used to hand-roll a Drop guard for exactly that; the
@@ -318,8 +318,8 @@ impl AutoShadeApp {
 
     pub(crate) fn catalogue_mut(&mut self, role: ModelRole) -> &mut ModelCatalogue {
         match role {
-            ModelRole::Image => &mut self.workspace.ui.settings.image_models,
-            ModelRole::Analysis => &mut self.workspace.ui.settings.analysis_models,
+            ModelRole::Image => &mut self.workspace.ui_mut().settings.image_models,
+            ModelRole::Analysis => &mut self.workspace.ui_mut().settings.analysis_models,
         }
     }
 
@@ -327,7 +327,7 @@ impl AutoShadeApp {
     /// install the sidecar requirements into it. Explicit, because the wheel
     /// set is a multi-gigabyte download; the app must not start one on its own.
     pub(crate) fn start_python_env_install(&mut self) {
-        if self.workspace.busy {
+        if self.workspace.busy() {
             return;
         }
         let lang = self.lang;
@@ -335,14 +335,14 @@ impl AutoShadeApp {
             Ok(p) => p,
             Err(e) => {
                 let t = format!("{e:#}");
-                self.workspace.status = t.clone();
+                self.workspace.set_status(t.clone());
                 self.toast(ToastKind::Error, t);
                 return;
             }
         };
-        self.workspace.busy = true;
-        self.workspace.ui.python_env_line = None;
-        self.workspace.status = tr(
+        self.workspace.set_busy(true);
+        self.workspace.ui_mut().python_env_line = None;
+        *self.workspace.status_mut() = tr(
             lang,
             K_ACTIONS_PREPARING_THE_PYTHON_ENVIRONMENT_UV_THE_DOWNLOAD,
         )
@@ -363,19 +363,19 @@ impl AutoShadeApp {
 
     /// The install's landing: the interpreter it produced, or the failure.
     pub(crate) fn on_python_env_ready(&mut self, lang: Lang, res: anyhow::Result<String>) {
-        self.workspace.busy = false;
+        self.workspace.set_busy(false);
         match res {
             Ok(path) => {
-                self.workspace.ui.python_env_line = Some(path.clone());
-                self.workspace.status = trf(lang, K_ACTIONS_PYTHON_ENVIRONMENT_READY, &[("path", &path)]);
+                self.workspace.ui_mut().python_env_line = Some(path.clone());
+                self.workspace.set_status(trf(lang, K_ACTIONS_PYTHON_ENVIRONMENT_READY, &[("path", &path)]));
                 // The environment is ready now: re-measure so the Settings row
                 // and any later note describe the new interpreter.
                 self.refresh_python_check();
             }
             Err(e) => {
                 let t = format!("{e:#}");
-                self.workspace.ui.python_env_line = Some(t.clone());
-                self.workspace.status = t.clone();
+                self.workspace.ui_mut().python_env_line = Some(t.clone());
+                self.workspace.set_status(t.clone());
                 self.toast(ToastKind::Error, t);
             }
         }
@@ -387,7 +387,7 @@ impl AutoShadeApp {
     pub(crate) fn refresh_python_check(&mut self) -> Option<String> {
         let check = autoshade::python_env::inspect(&autoshade::config::Config::load());
         let words = crate::panels::settings::python_startup_words(self.lang, &check);
-        self.workspace.ui.python_check = Some(check);
+        self.workspace.ui_mut().python_check = Some(check);
         words
     }
 }

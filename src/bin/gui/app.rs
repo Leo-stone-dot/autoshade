@@ -47,7 +47,7 @@ impl AutoShadeApp {
         // Tab's egui focus traversal fired last frame despite the consume (see
         // `defocus_next`): drop that focus now so the panel toggle doesn't
         // leave a surprise-focused widget eating every later shortcut.
-        if std::mem::take(&mut self.workspace.ui.defocus_next)
+        if std::mem::take(&mut self.workspace.ui_mut().defocus_next)
             && let Some(id) = ctx.memory(|m| m.focused())
         {
             ctx.memory_mut(|m| m.surrender_focus(id));
@@ -69,9 +69,9 @@ impl AutoShadeApp {
         // box), R = crop, Enter = commit crop, W/Q/K/M = LR tool keys,
         // \ / Y = compare, [ ] = brush size, Tab = hide the side panels —
         // the keyboard grammar of every desktop photo editor.
-        let transient_open = self.workspace.ui.show_settings || self.workspace.ui.show_shortcuts;
+        let transient_open = self.workspace.ui().show_settings || self.workspace.ui().show_shortcuts;
         if !self.modal_up() && transient_open {
-            let sheet_open = self.workspace.ui.show_shortcuts;
+            let sheet_open = self.workspace.ui().show_shortcuts;
             let (esc, sheet_key) = ctx.input_mut(|i| {
                 (
                     i.consume_key(egui::Modifiers::NONE, egui::Key::Escape),
@@ -86,10 +86,10 @@ impl AutoShadeApp {
             });
             if esc || sheet_key {
                 // Cheat-sheet first — it is the topmost transient.
-                if self.workspace.ui.show_shortcuts {
-                    self.workspace.ui.show_shortcuts = false;
+                if self.workspace.ui().show_shortcuts {
+                    self.workspace.ui_mut().show_shortcuts = false;
                 } else {
-                    self.workspace.ui.show_settings = false;
+                    self.workspace.ui_mut().show_settings = false;
                 }
             }
         }
@@ -104,16 +104,16 @@ impl AutoShadeApp {
                 if i.consume_key(egui::Modifiers::COMMAND, egui::Key::E) { do_export = true; }
                 if i.consume_key(egui::Modifiers::COMMAND, egui::Key::S) { do_xmp = true; }
             });
-            if do_open && !self.workspace.busy {
-                self.workspace.gal.selected = None;
+            if do_open && !self.workspace.busy() {
+                self.workspace.gal_mut().selected = None;
                 self.apply_actions(vec![logic::Action::Gallery(
                     logic::gallery::GalleryAction::OpenPhotoFile,
                 )]);
             }
-            if do_export && self.editor.photo().src_path.is_some() && !self.workspace.busy {
+            if do_export && self.editor.photo().src_path.is_some() && !self.workspace.busy() {
                 self.start_export();
             }
-            if do_xmp && self.editor.photo().src_path.is_some() && !self.workspace.busy {
+            if do_xmp && self.editor.photo().src_path.is_some() && !self.workspace.busy() {
                 // The pending-rename flush lives at save_xmp's head now (it
                 // fires while a TextEdit holds focus either way) — the Save
                 // develop BUTTON takes the same entry point (U10).
@@ -136,8 +136,8 @@ impl AutoShadeApp {
             let mut brush_delta: f32 = 0.0;
             // [ / ] belong to the active brush tool; when none is armed the
             // keys stay unconsumed (free for egui / future bindings).
-            let brush_tool = self.workspace.masks.paint_mode || self.workspace.tools.clone_mode;
-            let crop_tool = self.workspace.crop.mode;
+            let brush_tool = self.workspace.masks().paint_mode || self.workspace.tools().clone_mode;
+            let crop_tool = self.workspace.crop().mode;
             // ↑/↓ walk the library ONLY while the pointer is off the controls
             // panel: over it, the same keys nudge a hovered slider — and this
             // handler runs FIRST each frame, so consuming here would eat the
@@ -145,7 +145,7 @@ impl AutoShadeApp {
             // (panels draw after the shortcuts) — one frame stale, harmless.
             let over_controls = ctx
                 .input(|i| i.pointer.latest_pos())
-                .zip(self.workspace.view.controls_rect)
+                .zip(self.workspace.view().controls_rect)
                 .is_some_and(|(p, r)| r.contains(p));
             ctx.input_mut(|i| {
                 if i.consume_key(egui::Modifiers::COMMAND | egui::Modifiers::SHIFT, egui::Key::Z) { do_redo = true; }
@@ -247,7 +247,7 @@ impl AutoShadeApp {
             // silent no-ops the disabled buttons are.
             let armed_undo = do_undo && self.editor.photo().src_path.is_some() && !self.editor.session().hist.undo_stack.is_empty();
             let armed_redo = do_redo && self.editor.photo().src_path.is_some() && !self.editor.session().hist.redo_stack.is_empty();
-            if self.workspace.busy {
+            if self.workspace.busy() {
                 if armed_undo || armed_redo {
                     let t = tr(
                         self.lang,
@@ -262,14 +262,14 @@ impl AutoShadeApp {
             // R mirrors the crop button exactly (incl. the one-tool-at-a-time
             // disarms); no photo → nothing to crop.
             if do_crop && self.editor.photo().src_path.is_some() {
-                let on = !self.workspace.crop.mode;
+                let on = !self.workspace.crop().mode;
                 self.disarm_tools();
                 self.set_crop_mode(on);
             }
             // Enter commits the crop (LR, D13): the box is already live in
             // recipe.crop — committing is dropping the grab and disarming.
             if do_crop_commit {
-                self.workspace.crop.drag = None;
+                self.workspace.crop_mut().drag = None;
                 self.set_crop_mode(false);
             }
             if crop_nudge != (0.0, 0.0)
@@ -297,102 +297,102 @@ impl AutoShadeApp {
                 }
             }
             if do_crop_grid {
-                self.workspace.crop.grid = (self.workspace.crop.grid + 1) % 3;
+                self.workspace.crop_mut().grid = (self.workspace.crop().grid + 1) % 3;
             }
             // LR tool keys: each mirrors its own button exactly
             // (disarm-then-arm; a second press exits the tool).
             if do_wb && self.editor.photo().src_path.is_some() {
-                let on = !self.workspace.tools.wb_picking;
+                let on = !self.workspace.tools().wb_picking;
                 self.disarm_tools();
-                self.workspace.tools.wb_picking = on;
+                self.workspace.tools_mut().wb_picking = on;
                 if on {
-                    self.workspace.status = tr(self.lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into();
+                    self.workspace.set_status(tr(self.lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into());
                 }
             }
             if do_heal && self.editor.photo().src_path.is_some() {
-                let on = !self.workspace.tools.clone_mode;
+                let on = !self.workspace.tools().clone_mode;
                 self.disarm_tools();
-                self.workspace.tools.clone_mode = on;
+                self.workspace.tools_mut().clone_mode = on;
             }
             if do_brush && self.editor.photo().src_path.is_some() {
                 self.toggle_brush_key();
             }
             if do_linear && self.editor.photo().src_path.is_some() {
-                let armed = matches!(self.workspace.masks.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
+                let armed = matches!(self.workspace.masks().placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
                 self.disarm_tools();
                 if !armed {
-                    self.workspace.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
-                    self.workspace.status = tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_LINEAR_GRADIENT_STAR).into();
+                    self.workspace.masks_mut().placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
+                    self.workspace.set_status(tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_LINEAR_GRADIENT_STAR).into());
                 }
             }
             if do_radial && self.editor.photo().src_path.is_some() {
-                let armed = matches!(self.workspace.masks.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
+                let armed = matches!(self.workspace.masks().placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
                 self.disarm_tools();
                 if !armed {
-                    self.workspace.masks.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
-                    self.workspace.status = tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_RADIAL_ELLIPTICAL_AR).into();
+                    self.workspace.masks_mut().placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
+                    self.workspace.set_status(tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_RADIAL_ELLIPTICAL_AR).into());
                 }
             }
             // \ latches the Before view, Y flips the comparison layout (LR).
             if do_before {
-                self.workspace.view.before = !self.workspace.view.before;
+                self.workspace.view_mut().before = !self.workspace.view().before;
             }
             if do_compare {
-                self.workspace.view.mode = if self.workspace.view.mode == ViewMode::SideBySide {
+                self.workspace.view_mut().mode = if self.workspace.view().mode == ViewMode::SideBySide {
                     ViewMode::AfterOnly
                 } else {
                     ViewMode::SideBySide
                 };
             }
             if do_panels {
-                self.workspace.ui.panels_hidden = !self.workspace.ui.panels_hidden;
-                self.workspace.ui.defocus_next = true; // undo egui's Tab focus traversal next frame
+                self.workspace.ui_mut().panels_hidden = !self.workspace.ui().panels_hidden;
+                self.workspace.ui_mut().defocus_next = true; // undo egui's Tab focus traversal next frame
             }
             if brush_delta != 0.0 {
                 // Proportional, as Lightroom's [ / ]: a fixed 4 px step was
                 // fifty presses across the range.
                 let now = ctx.input(|i| i.time);
                 let factor = if brush_delta > 0.0 { 1.15 } else { 1.0 / 1.15 };
-                self.set_brush((self.workspace.masks.brush * factor).round(), now);
+                self.set_brush((self.workspace.masks().brush * factor).round(), now);
             }
             if do_cheatsheet {
-                self.workspace.ui.show_shortcuts = !self.workspace.ui.show_shortcuts;
+                self.workspace.ui_mut().show_shortcuts = !self.workspace.ui().show_shortcuts;
             }
             // Esc leaves whatever on-image tool is active (the universal
             // editor exit) — the transient windows own their Esc in the
             // pre-tier above; painted canvases/samples stay for resuming.
             if do_escape
-                && (self.tool_armed() || self.workspace.overlay.region_drag.is_some() || self.workspace.view.before)
+                && (self.tool_armed() || self.workspace.overlay().region_drag.is_some() || self.workspace.view().before)
             {
                 // disarm_tools also kills the transient gesture anchors — a
                 // grab or stroke surviving Esc used to hijack the next drag.
                 // The \-latched Before view exits here too: it locks every
                 // tool out, and Esc is the universal way back (M21).
                 self.disarm_tools();
-                self.workspace.overlay.region_drag = None;
-                self.workspace.view.before = false;
-                self.workspace.status = tr(self.lang, K_APP_EXITED_THE_CURRENT_TOOL_ESC).into();
+                self.workspace.overlay_mut().region_drag = None;
+                self.workspace.view_mut().before = false;
+                self.workspace.set_status(tr(self.lang, K_APP_EXITED_THE_CURRENT_TOOL_ESC).into());
             }
             if do_overlay {
-                self.workspace.overlay.show_mask_overlay = !self.workspace.overlay.show_mask_overlay;
-                self.workspace.overlay.overlay_stale = true;
+                self.workspace.overlay_mut().show_mask_overlay = !self.workspace.overlay().show_mask_overlay;
+                self.workspace.overlay_mut().overlay_stale = true;
             }
             if do_clip {
                 // Instant: rebuilt from the retained frame, no redevelop (J).
                 self.toggle_clipping(ctx);
             }
-            if nav != 0 && !self.workspace.busy && !self.workspace.gal.gallery.is_empty() {
+            if nav != 0 && !self.workspace.busy() && !self.workspace.gal().gallery.is_empty() {
                 // Nothing selected yet: either arrow ENTERS the gallery at its
                 // first photo (the old Right-arrow default skipped index 0).
-                let next = match self.workspace.gal.selected {
-                    Some(i) => (i as i32 + nav).clamp(0, self.workspace.gal.gallery.len() as i32 - 1),
+                let next = match self.workspace.gal().selected {
+                    Some(i) => (i as i32 + nav).clamp(0, self.workspace.gal().gallery.len() as i32 - 1),
                     None => 0,
                 };
-                if Some(next as usize) != self.workspace.gal.selected {
+                if Some(next as usize) != self.workspace.gal().selected {
                     // Keyboard walking must keep the highlight on screen — the
                     // gallery scrolls to it next frame (clicks don't set this:
                     // a clicked row is visible by definition).
-                    self.workspace.gal.gallery_scroll_to = Some(next as usize);
+                    self.workspace.gal_mut().gallery_scroll_to = Some(next as usize);
                     self.open_gallery_index(next as usize);
                 }
             }
@@ -404,35 +404,35 @@ impl AutoShadeApp {
             // accumulates instead of fighting the animation.
             if self.editor.photo().src_path.is_some() {
                 if do_fit {
-                    self.workspace.view.zoom_target = 1.0;
-                    self.workspace.view.pan = egui::vec2(0.5, 0.5);
+                    self.workspace.view_mut().zoom_target = 1.0;
+                    self.workspace.view_mut().pan = egui::vec2(0.5, 0.5);
                 }
                 if do_one {
-                    self.workspace.view.zoom_target = self.workspace.view.one_to_one.clamp(1.0, 12.0);
+                    self.workspace.view_mut().zoom_target = self.workspace.view().one_to_one.clamp(1.0, 12.0);
                 }
                 if zoom_key != 0.0 {
-                    self.workspace.view.zoom_target =
-                        (self.workspace.view.zoom_target * 1.25f32.powi(zoom_key as i32)).clamp(1.0, 12.0);
+                    self.workspace.view_mut().zoom_target =
+                        (self.workspace.view().zoom_target * 1.25f32.powi(zoom_key as i32)).clamp(1.0, 12.0);
                 }
             }
             // Ctrl+C mirrors ⎘ Copy recipe (same guards + the pending-rename
             // flush); Ctrl+V mirrors ⇩ Paste to selected — and like the
             // disabled buttons, a press that would not act stays silent.
-            if do_copy && self.editor.photo().src_path.is_some() && !self.workspace.busy {
+            if do_copy && self.editor.photo().src_path.is_some() && !self.workspace.busy() {
                 // Every name box at once (the 10+1 boundary rule): a name
                 // typed into a mask row, a version row or a variant card and
                 // never blurred still lands before anything else in the app
                 // acts.
                 self.commit_pending_names();
-                self.workspace.genai.copied = Some(self.editor.doc().recipe.clone());
-                self.workspace.genai.copied_from = self.editor.photo().src_path.clone();
-                self.workspace.status = tr(
+                self.workspace.genai_mut().copied = Some(self.editor.doc().recipe.clone());
+                self.workspace.genai_mut().copied_from = self.editor.photo().src_path.clone();
+                *self.workspace.status_mut() = tr(
                     self.lang,
                     K_APP_RECIPE_COPIED_CTRL_CLICK_TO_PICK_SEVERAL_THEN_PA,
                 )
                 .to_string();
             }
-            if do_paste && !self.workspace.busy && self.workspace.genai.copied.is_some() && !self.workspace.gal.multi_sel.is_empty() {
+            if do_paste && !self.workspace.busy() && self.workspace.genai().copied.is_some() && !self.workspace.gal().multi_sel.is_empty() {
                 self.start_paste();
             }
         }
@@ -453,7 +453,7 @@ impl AutoShadeApp {
         };
         let n_dropped = dropped.len();
         if let Some(p) = dropped.into_iter().next() {
-            if self.workspace.busy {
+            if self.workspace.busy() {
                 self.toast(
                     ToastKind::Error,
                     tr(self.lang, K_APP_BUSY_WAIT_FOR_THE_CURRENT_TASK_TO_FINISH_BEFORE),
@@ -474,7 +474,7 @@ impl AutoShadeApp {
                     );
                 }
             } else if is_photo_path(&p) {
-                self.workspace.gal.selected = None;
+                self.workspace.gal_mut().selected = None;
                 self.open_path(p);
                 if n_dropped > 1 {
                     // Silently eating the rest read as "it opened them all".
@@ -512,9 +512,9 @@ impl AutoShadeApp {
             ),
             None => "AutoShade".to_string(),
         };
-        if title != self.workspace.chrome.last_title {
+        if title != self.workspace.chrome().last_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
-            self.workspace.chrome.last_title = title;
+            self.workspace.chrome_mut().last_title = title;
         }
     }
 
@@ -527,7 +527,7 @@ impl AutoShadeApp {
         window_chrome::window_outline(ctx);
         let frame = egui::Frame::side_top_panel(&ctx.style())
             .inner_margin(egui::Margin::symmetric(8, SPACE_MD.round() as i8))
-            .fill(self.workspace.ui.theme.colors().bar_fill);
+            .fill(self.workspace.ui().theme.colors().bar_fill);
         egui::TopBottomPanel::top("top").frame(frame).show(ctx, |ui| {
             let lang = self.lang;
             // ONE wrapped row of ACTIONS only (UX batch): settings that used
@@ -542,7 +542,7 @@ impl AutoShadeApp {
             // the Direction prompt it consumes (user feedback: a trigger
             // stranded in the toolbar, far from its input, reads as
             // unrelated — every prompt entry now carries its own button).
-            let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy;
+            let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy();
             // R38: the row wraps only BETWEEN its groups — each group is one
             // measured allocation (`buttons::group`, sized from its labels),
             // so a narrow window moves a whole group to the next line instead
@@ -554,11 +554,11 @@ impl AutoShadeApp {
             // On Windows the row is also the title bar (`window_chrome`).
             window_chrome::toolbar_row(ui, lang, |ui| {
                 group(ui, &[tr(lang, K_APP_OPEN_PHOTO), tr(lang, K_APP_RESET)], 0, |ui| {
-                    if action(ui, !self.workspace.busy, tr(lang, K_APP_OPEN_PHOTO))
+                    if action(ui, !self.workspace.busy(), tr(lang, K_APP_OPEN_PHOTO))
                         .on_hover_text(tr(lang, K_APP_CTRL_O_OR_DRAG_A_FILE_INTO_THE_WINDOW))
                         .clicked()
                     {
-                        self.workspace.gal.selected = None; // a one-off file isn't a gallery selection
+                        self.workspace.gal_mut().selected = None; // a one-off file isn't a gallery selection
                         self.apply_actions(vec![logic::Action::Gallery(
                             logic::gallery::GalleryAction::OpenPhotoFile,
                         )]);
@@ -580,16 +580,16 @@ impl AutoShadeApp {
                         // The fresh START (v1.17.0): the canvas profile and
                         // Look, or the camera curve where they cannot render.
                         let start =
-                            if generated { Default::default() } else { self.workspace.open.photo_start.clone() };
+                            if generated { Default::default() } else { self.workspace.open().photo_start.clone() };
                         // The lens profile is the same kind of calibration: Reset
                         // re-stamps the photo's own (a Generated master's pixels
                         // already carry the corrections — none re-applied).
                         let lens_profile =
-                            if generated { Default::default() } else { self.workspace.open.photo_lens.clone() };
+                            if generated { Default::default() } else { self.workspace.open().photo_lens.clone() };
                         // The as-shot anchor follows the SAME generated strip:
                         // baked pixels carry their WB, so an absolute-Kelvin
                         // claim over them would be false.
-                        let (as_shot_k, as_shot_tint) = match self.workspace.open.photo_as_shot {
+                        let (as_shot_k, as_shot_tint) = match self.workspace.open().photo_as_shot {
                             Some((k, t)) if !generated => (Some(k), Some(t)),
                             _ => (None, None),
                         };
@@ -602,7 +602,7 @@ impl AutoShadeApp {
                         let start: autoshade::pipeline::CanvasStart = start;
                         start.stamp(&mut fresh);
                         self.editor.doc_mut().recipe = fresh;
-                        self.workspace.overlay.region = None;
+                        self.workspace.overlay_mut().region = None;
                         self.editor.session_mut().dirty = true;
                         // The old AI rationale/verdict describe the recipe Reset
                         // just discarded — showing them under neutral sliders lies.
@@ -671,9 +671,9 @@ impl AutoShadeApp {
                     // compare). ◫ lives in egui's bundled fonts — the old ⿲
                     // (U+2FF2) only rendered when the OPTIONAL CJK fallback font
                     // loaded, tofu otherwise.
-                    ui.selectable_value(&mut self.workspace.view.mode, ViewMode::SideBySide, tr(lang, K_APP_COMPARE))
+                    ui.selectable_value(&mut self.workspace.view_mut().mode, ViewMode::SideBySide, tr(lang, K_APP_COMPARE))
                         .on_hover_text(tr(lang, K_APP_BEFORE_AFTER_SIDE_BY_SIDE));
-                    ui.selectable_value(&mut self.workspace.view.mode, ViewMode::AfterOnly, tr(lang, K_APP_SINGLE))
+                    ui.selectable_value(&mut self.workspace.view_mut().mode, ViewMode::AfterOnly, tr(lang, K_APP_SINGLE))
                         .on_hover_text(tr(lang, K_APP_THE_EDIT_FILLS_THE_CANVAS_HOLD_B_TO_QUICKLY_COMP));
                 });
                 group(ui, &[tr(lang, K_APP_EXPORT), "▾", tr(lang, K_APP_SAVE_DEVELOP)], 0, |ui| {
@@ -730,13 +730,13 @@ impl AutoShadeApp {
                         // Reload the form only on the closed→open edge — reloading
                         // while open wiped everything already typed (incl. keys).
                         // Toggle semantics, matching ⌨ next door.
-                        if !self.workspace.ui.show_settings {
+                        if !self.workspace.ui().show_settings {
                             self.load_settings_form();
                         }
-                        self.workspace.ui.show_settings = !self.workspace.ui.show_settings;
+                        self.workspace.ui_mut().show_settings = !self.workspace.ui().show_settings;
                     }
                     if glyph(ui, true, "⌨").on_hover_text(tr(lang, K_APP_KEYBOARD_SHORTCUTS_F1)).clicked() {
-                        self.workspace.ui.show_shortcuts = !self.workspace.ui.show_shortcuts;
+                        self.workspace.ui_mut().show_shortcuts = !self.workspace.ui().show_shortcuts;
                     }
                 });
             });
@@ -746,17 +746,17 @@ impl AutoShadeApp {
     /// One update() phase — body extracted verbatim from the eframe
     /// update loop (round-12 decomposition).
     pub(crate) fn upd_status_bar(&mut self, ctx: &egui::Context) {
-        let frame = egui::Frame::side_top_panel(&ctx.style()).fill(self.workspace.ui.theme.colors().bar_fill);
+        let frame = egui::Frame::side_top_panel(&ctx.style()).fill(self.workspace.ui().theme.colors().bar_fill);
         egui::TopBottomPanel::bottom("status").frame(frame).show(ctx, |ui| {
             ui.horizontal(|ui| {
-                if self.workspace.busy {
+                if self.workspace.busy() {
                     ui.spinner();
                     // Armed by every cancellable long-run: retouch/generative
                     // workers (which poll the flag and really stop), local
                     // compute, and AI analyze — the last two are ABANDON-only,
                     // which the hover text says rather than promising a
                     // checkpoint they do not have.
-                    if self.workspace.tools.gen_cancel.is_some()
+                    if self.workspace.tools().gen_cancel.is_some()
                         && action(ui, true, tr(self.lang, K_APP_CANCEL))
                             .on_hover_text(tr(
                                 self.lang,
@@ -787,7 +787,7 @@ impl AutoShadeApp {
                 // Live batch-render progress, beside the spinner (its old home
                 // at the START of the toolbar shifted every control right by
                 // ~160px exactly while the user was waiting).
-                if let Some((done, total)) = self.workspace.exp.batch_progress {
+                if let Some((done, total)) = self.workspace.exp().batch_progress {
                     ui.add(
                         egui::ProgressBar::new(done as f32 / total.max(1) as f32)
                             .desired_width(150.0)
@@ -797,8 +797,8 @@ impl AutoShadeApp {
                 }
                 // Long messages (paths, batch reports) must clip, not blow the
                 // panel wide; the full text is one hover away.
-                ui.add(egui::Label::new(&self.workspace.status).truncate())
-                    .on_hover_text(&self.workspace.status);
+                ui.add(egui::Label::new(self.workspace.status()).truncate())
+                    .on_hover_text(self.workspace.status());
             });
         });
     }
@@ -900,7 +900,7 @@ impl AutoShadeApp {
         // Left-most: the library gallery (folder browse + thumbnails), then
         // the develop controls. Tab collapses both for an edge-to-edge canvas
         // (LR's panel-hiding grammar); all state lives on, only layout skips.
-        if !self.workspace.ui.panels_hidden {
+        if !self.workspace.ui().panels_hidden {
             egui::SidePanel::left("gallery").default_width(240.0).show(ctx, |ui| {
                 self.gallery_panel(ui);
             });
@@ -909,9 +909,9 @@ impl AutoShadeApp {
             // ↑/↓ routing (see upd_shortcuts): over this panel the keys
             // belong to a hovered slider; anywhere else they walk the
             // library. One frame stale — panels draw after the shortcuts.
-            self.workspace.view.controls_rect = Some(controls.response.rect);
+            self.workspace.view_mut().controls_rect = Some(controls.response.rect);
         } else {
-            self.workspace.view.controls_rect = None;
+            self.workspace.view_mut().controls_rect = None;
         }
 
         // Re-develop AFTER the controls are read (so this frame reflects edits).
@@ -932,7 +932,7 @@ impl AutoShadeApp {
         // The canvas sits on a bed one step below the panel fill (recessed
         // stage / raised chrome) — keep the stock margins, swap the fill.
         let bed = egui::Frame::central_panel(&ctx.style())
-            .fill(self.workspace.ui.theme.colors().canvas_bed);
+            .fill(self.workspace.ui().theme.colors().canvas_bed);
         egui::CentralPanel::default().frame(bed).show(ctx, |ui| {
             // Empty state: a real landing surface instead of a blank canvas.
             if self.editor.photo().src_path.is_none() {
@@ -974,11 +974,11 @@ impl AutoShadeApp {
             // gesture (\ latches it until pressed again, D13). Focus-gated
             // like every other shortcut: typing a "b" into Direction must
             // not flash the Before mid-word.
-            let comparing = self.workspace.view.before
+            let comparing = self.workspace.view().before
                 || (ctx.memory(|m| m.focused()).is_none()
                     && ctx.input(|i| i.key_down(egui::Key::B)));
 
-            match self.workspace.view.mode {
+            match self.workspace.view().mode {
                 ViewMode::SideBySide => {
                     let half = (avail.x - 16.0) * 0.5;
                     let uv = self.view_uv(); // same window for both panes (synced zoom)
@@ -1016,7 +1016,7 @@ impl AutoShadeApp {
         self.recipe_library_window(ctx);
         // Settings window (provider / model / API keys). A local `open` avoids a
         // double &mut self borrow (Window::open vs the closure that reads self).
-        if self.workspace.ui.show_settings {
+        if self.workspace.ui().show_settings {
             let mut open = true;
             // Scroll inside the window, capped below the screen height: the
             // provider sections outgrow a small display, and without a scroll
@@ -1036,17 +1036,17 @@ impl AutoShadeApp {
                         .show(ui, |ui| self.settings_ui(ui));
                 });
             if !open {
-                self.workspace.ui.show_settings = false;
+                self.workspace.ui_mut().show_settings = false;
             }
         }
 
         // Keyboard cheat-sheet (F1 / ? / the ⌨ toolbar button) — the full
         // shortcut + gesture map lived only in tooltips and a code comment;
         // O (mask overlay) had no visible control at all.
-        if self.workspace.ui.show_shortcuts {
+        if self.workspace.ui().show_shortcuts {
             let mut open = true;
             let lang = self.lang;
-            let accent = self.workspace.ui.theme.colors().accent_text;
+            let accent = self.workspace.ui().theme.colors().accent_text;
             egui::Window::new(tr(lang, K_APP_SHORTCUTS))
                 // Fixed id, as for Settings: the title varies with the language
                 // and egui keys window state (position) off the id.
@@ -1121,7 +1121,7 @@ impl AutoShadeApp {
                     );
                 });
             if !open {
-                self.workspace.ui.show_shortcuts = false;
+                self.workspace.ui_mut().show_shortcuts = false;
             }
         }
     }
@@ -1155,8 +1155,8 @@ impl AutoShadeApp {
         // from the creation closure, but viewport commands sent before the
         // event loop runs are dropped — a FIRST-ever launch (no prefs, so no
         // second install) kept the OS-default titlebar over dark chrome.
-        if !std::mem::replace(&mut self.workspace.ui.os_theme_synced, true) {
-            ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(self.workspace.ui.theme.system()));
+        if !std::mem::replace(&mut self.workspace.ui_mut().os_theme_synced, true) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(self.workspace.ui().theme.system()));
             // …and say which system faces the font chain turned away.
             // `install_fonts` runs before this app exists and can only reach
             // stderr, which a windowed build does not have — so the first
@@ -1204,20 +1204,20 @@ impl AutoShadeApp {
             self.commit_pending_names();
             self.fork_edited_card();
             let unsaved_open = self.quit_guard_open_dirty();
-            if self.workspace.busy {
+            if self.workspace.busy() {
                 // A running export / retouch / paid AI generation dies with
                 // the process — the ✕ used to bypass every guard mid-flight.
                 // Block and say why; close again once the worker lands.
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
                 let t = tr(self.lang, K_APP_AN_OPERATION_IS_STILL_RUNNING_WAIT_FOR_IT_TO_FIN).to_string();
                 self.toast(ToastKind::Error, t);
-            } else if !self.workspace.open.discard_requested
+            } else if !self.workspace.open().discard_requested
                 && (unsaved_open
-                    || !self.workspace.open.nav_stash.is_empty()
+                    || !self.workspace.open().nav_stash.is_empty()
                     || self.inactive_dirty_variants() > 0)
             {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-                self.workspace.ui.confirm_quit = true;
+                self.workspace.ui_mut().confirm_quit = true;
                 // Surrender any widget focus NOW: the layer's Enter-saves
                 // default is gated on "no widget focused", and a text field
                 // that kept focus from before the close request silently
@@ -1229,17 +1229,17 @@ impl AutoShadeApp {
                 }
             }
         }
-        if self.workspace.ui.confirm_quit {
+        if self.workspace.ui().confirm_quit {
             self.confirm_quit_layer(ctx);
         }
         // Hover-to-preview is frame-scoped: take last frame's target; the mask
         // list re-sets it below if the cursor is still on a row. The diff is
         // checked right before the overlay refresh at the end of update().
-        let hover_prev = self.workspace.overlay.hover_mask.take();
+        let hover_prev = self.workspace.overlay_mut().hover_mask.take();
         // The question a generation landing asks: BEFORE the shortcut tiers,
         // so its Esc / Enter are its own; never under the quit layer, which
         // outranks it.
-        if !self.workspace.ui.confirm_quit {
+        if !self.workspace.ui().confirm_quit {
             self.fit_prompt_layer(ctx);
         }
 
@@ -1279,7 +1279,7 @@ impl AutoShadeApp {
             // recipe's curve is empty by construction, so this compare is
             // simply quiet there.
             && !self.active_on_ai_pixels()
-            && self.editor.doc().recipe.start_only() != self.workspace.open.before_start
+            && self.editor.doc().recipe.start_only() != self.workspace.open().before_start
             && let Some(b) = self.editor.photo().base_preview.clone()
         {
             let start = self.editor.doc().recipe.start_only();
@@ -1294,10 +1294,10 @@ impl AutoShadeApp {
         }
         // The mask coverage overlay follows develop / selection / toggle /
         // hover (a changed hover target includes "left the list entirely").
-        if self.workspace.overlay.hover_mask != hover_prev {
-            self.workspace.overlay.overlay_stale = true;
+        if self.workspace.overlay().hover_mask != hover_prev {
+            self.workspace.overlay_mut().overlay_stale = true;
         }
-        if std::mem::take(&mut self.workspace.overlay.overlay_stale) {
+        if std::mem::take(&mut self.workspace.overlay_mut().overlay_stale) {
             self.refresh_mask_overlay(ctx);
         }
 
@@ -1315,7 +1315,7 @@ impl AutoShadeApp {
             // Chrome-side veil → the chrome accent's family (see the colour
             // rule at ACCENT), dimmed to 0.29 so the white line reads on it
             // in every theme.
-            let a = self.workspace.ui.theme.colors().accent_fill;
+            let a = self.workspace.ui().theme.colors().accent_fill;
             let dim = |v: u8| (f32::from(v) * 0.29).round() as u8;
             painter.rect_filled(rect, 0.0, egui::Color32::from_rgba_unmultiplied(dim(a.r()), dim(a.g()), dim(a.b()), 150));
             painter.text(
@@ -1330,8 +1330,8 @@ impl AutoShadeApp {
         // Transient toasts (bottom-right). Errors linger longer than
         // successes, long texts longer than short ones (Toast::ttl), a click
         // dismisses early, and the last 300 ms fade instead of blinking out.
-        self.workspace.chrome.toasts.retain(|t| t.born.elapsed() < t.ttl());
-        if !self.workspace.chrome.toasts.is_empty() {
+        self.workspace.chrome_mut().toasts.retain(|t| t.born.elapsed() < t.ttl());
+        if !self.workspace.chrome().toasts.is_empty() {
             let mut dismiss: Option<usize> = None;
             let mut fading = false;
             egui::Area::new(egui::Id::new("toasts"))
@@ -1339,11 +1339,11 @@ impl AutoShadeApp {
                 .constrain(false)
                 .order(egui::Order::Foreground)
                 .show(ctx, |ui| {
-                    let c = self.workspace.ui.theme.colors();
+                    let c = self.workspace.ui().theme.colors();
                     // Right-aligned rows: a toast slides in from the right
                     // edge by a shrinking right-hand gap.
                     ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
-                    for (idx, t) in self.workspace.chrome.toasts.iter().enumerate() {
+                    for (idx, t) in self.workspace.chrome().toasts.iter().enumerate() {
                         let (bg, fg) = match t.kind {
                             ToastKind::Success => (c.toast_ok_bg, c.toast_ok_fg),
                             ToastKind::Error => (c.toast_err_bg, c.toast_err_fg),
@@ -1402,7 +1402,7 @@ impl AutoShadeApp {
                     });
                 });
             if let Some(i) = dismiss {
-                self.workspace.chrome.toasts.remove(i);
+                self.workspace.chrome_mut().toasts.remove(i);
             }
             // Keep repainting so expiry doesn't wait for the next input
             // event — per frame while a fade is running, else a coarse poll.
@@ -1438,7 +1438,7 @@ impl eframe::App for AutoShadeApp {
             eframe::APP_KEY,
             &Prefs {
                 prefs_era: PREFS_ERA,
-                gallery_dir: self.workspace.gal.gallery_dir.clone(),
+                gallery_dir: self.workspace.gal().gallery_dir.clone(),
                 guide: self.aip.guide,
                 style_strength: self.aip.style_strength,
                 grade_strength: self.aip.grade_strength,
@@ -1452,35 +1452,35 @@ impl eframe::App for AutoShadeApp {
                 direction_adherence: self.aip.direction_adherence,
                 // Both written: exp_format is the truth, save_jpeg keeps a
                 // pre-阶段4 build reading this prefs file sane.
-                save_jpeg: self.workspace.exp.format == ExportFormat::Jpeg,
-                exp_format: self.workspace.exp.format.pref_code(),
-                exp_dest: self.workspace.exp.dest.pref_code(),
-                last_export_dir: self.workspace.exp.last_dir.clone(),
-                save_denoise: self.workspace.exp.save_denoise,
-                save_denoise_strength: self.workspace.exp.save_denoise_strength,
-                denoise_strength: self.workspace.exp.denoise_strength,
-                baked_denoise_strength: self.workspace.exp.baked_denoise_strength,
-                baked_save_denoise_strength: self.workspace.exp.baked_save_denoise_strength,
-                zoned_fit: self.workspace.fit.zoned_fit,
-                zoned_four_regions: self.workspace.fit.zoned_four_regions,
-                fit_ai_judge: self.workspace.fit.fit_ai_judge,
+                save_jpeg: self.workspace.exp().format == ExportFormat::Jpeg,
+                exp_format: self.workspace.exp().format.pref_code(),
+                exp_dest: self.workspace.exp().dest.pref_code(),
+                last_export_dir: self.workspace.exp().last_dir.clone(),
+                save_denoise: self.workspace.exp().save_denoise,
+                save_denoise_strength: self.workspace.exp().save_denoise_strength,
+                denoise_strength: self.workspace.exp().denoise_strength,
+                baked_denoise_strength: self.workspace.exp().baked_denoise_strength,
+                baked_save_denoise_strength: self.workspace.exp().baked_save_denoise_strength,
+                zoned_fit: self.workspace.fit().zoned_fit,
+                zoned_four_regions: self.workspace.fit().zoned_four_regions,
+                fit_ai_judge: self.workspace.fit().fit_ai_judge,
                 // R23-6 D: the deep reverse-fit toggle persists like every
                 // other paid opt-in. `fit_ref` deliberately does NOT — it
                 // names one file for one photo (see the field).
-                fit_deep: self.workspace.fit.fit_deep,
-                reimagine_retry: self.workspace.fit.reimagine_retry,
-                ask_fit_after_generate: self.workspace.fit.ask_fit_after_generate,
-                adjust_quality: self.workspace.genai.adjust_quality,
-                view_mode: self.workspace.view.mode,
-                exp_long_edge: self.workspace.exp.long_edge,
-                exp_sharpen: self.workspace.exp.sharpen,
-                exp_quality: self.workspace.exp.quality,
-                exp_space: self.workspace.exp.space,
-                preview_edge: self.workspace.genai.preview_edge,
-                show_clipping: self.workspace.chrome.show_clipping,
+                fit_deep: self.workspace.fit().fit_deep,
+                reimagine_retry: self.workspace.fit().reimagine_retry,
+                ask_fit_after_generate: self.workspace.fit().ask_fit_after_generate,
+                adjust_quality: self.workspace.genai().adjust_quality,
+                view_mode: self.workspace.view().mode,
+                exp_long_edge: self.workspace.exp().long_edge,
+                exp_sharpen: self.workspace.exp().sharpen,
+                exp_quality: self.workspace.exp().quality,
+                exp_space: self.workspace.exp().space,
+                preview_edge: self.workspace.genai().preview_edge,
+                show_clipping: self.workspace.chrome().show_clipping,
                 lang: self.lang,
-                theme: self.workspace.ui.theme,
-                accent: self.workspace.ui.accent,
+                theme: self.workspace.ui().theme,
+                accent: self.workspace.ui().accent,
             },
         );
     }

@@ -5,14 +5,14 @@
     /// is "bakes exactly what it shows".
     #[test]
     fn clearing_the_brush_clears_what_apply_would_bake() {
-        let mut app = AutoShadeApp { workspace: WorkspaceView { masks: MaskEditState {
+        let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.masks_mut() = MaskEditState {
                 mask_paint: Some(image::RgbaImage::from_pixel(4, 4, image::Rgba([255, 64, 64, 160]))),
                 mask_brush_gray: Some(image::GrayImage::from_pixel(4, 4, image::Luma([255]))),
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
+            }; view } , ..Default::default() };
         app.clear_mask();
         assert!(
-            app.workspace.masks.mask_brush_gray.unwrap().pixels().all(|p| p[0] == 0),
+            app.workspace.masks().mask_brush_gray.as_ref().unwrap().pixels().all(|p| p[0] == 0),
             "Apply after Clear must bake nothing"
         );
     }
@@ -48,18 +48,18 @@
         let mut app = AutoShadeApp::default();
         app.editor.doc_mut().recipe.crop =
             Some(autoshade::recipe::Crop { left: 0.5, top: 0.5, right: 1.0, bottom: 1.0 });
-        app.workspace.view.pan = egui::vec2(0.5, 0.5); // centre of the CROP window
+        app.workspace.view_mut().pan = egui::vec2(0.5, 0.5); // centre of the CROP window
         app.set_crop_mode(true);
         assert!(
-            (app.workspace.view.pan.x - 0.75).abs() < 1e-4 && (app.workspace.view.pan.y - 0.75).abs() < 1e-4,
+            (app.workspace.view().pan.x - 0.75).abs() < 1e-4 && (app.workspace.view().pan.y - 0.75).abs() < 1e-4,
             "the same viewport centre, now in full-frame coords: {:?}",
-            app.workspace.view.pan
+            app.workspace.view().pan
         );
         app.set_crop_mode(false);
         assert!(
-            (app.workspace.view.pan.x - 0.5).abs() < 1e-4 && (app.workspace.view.pan.y - 0.5).abs() < 1e-4,
+            (app.workspace.view().pan.x - 0.5).abs() < 1e-4 && (app.workspace.view().pan.y - 0.5).abs() < 1e-4,
             "leaving the tool rebases back: {:?}",
-            app.workspace.view.pan
+            app.workspace.view().pan
         );
     }
 
@@ -77,7 +77,7 @@
 
         let ctx = egui::Context::default();
         // The cancel already bumped past this task's epoch 6.
-        let mut app = AutoShadeApp { workspace: WorkspaceView { tools: ToolsState { gen_epoch: 7, ..Default::default() }, ..Default::default() }, ..Default::default() };
+        let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.tools_mut() = ToolsState { gen_epoch: 7, ..Default::default() }; view } , ..Default::default() };
         app.on_retouched(
             &ctx,
             Lang::En,
@@ -327,14 +327,14 @@
 
                 ..Default::default()
 
-            }; editor } , workspace: WorkspaceView { exp: ExportState {
+            }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.exp_mut() = ExportState {
                 dest: ExportDest::Ask,
                 format: ExportFormat::Jpeg,
                 // A remembered folder is present ON PURPOSE: "ask every time"
                 // must outrank it, or the setting silently becomes "last used".
                 last_dir: Some(std::env::temp_dir().join(format!("autoshade-deliver-{}/tripA", std::process::id()))),
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
+            }; view } , ..Default::default() };
         assert_eq!(asking.export_route(), ExportRoute::Ask);
         // The out-folder destination is the configured delivery root, `out`
         // only while the machine's settings leave it unset.
@@ -353,11 +353,11 @@
 
                 ..Default::default()
 
-            }; editor } , workspace: WorkspaceView { exp: ExportState {
+            }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.exp_mut() = ExportState {
                 dest: ExportDest::OutFolder,
                 format: ExportFormat::Jpeg,
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
+            }; view } , ..Default::default() };
         assert_eq!(direct.export_route(), ExportRoute::Render(candidate));
     }
 
@@ -369,7 +369,7 @@
     fn a_finished_export_names_an_absolute_path() {
         use std::path::PathBuf;
         let ctx = egui::Context::default();
-        let mut app = AutoShadeApp { workspace: WorkspaceView { busy: true, ..Default::default() }, ..Default::default() };
+        let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.busy_mut() = true; view } , ..Default::default() };
         let rel = PathBuf::from("out").join("_r22_abs.developed.tif");
         let abs = std::path::absolute(&rel).unwrap();
         assert_ne!(abs, rel, "fixture: the path must actually be relative");
@@ -378,14 +378,14 @@
             .unwrap();
         app.poll_workers(&ctx);
         assert!(
-            app.workspace.status.contains(&abs.display().to_string()),
+            app.workspace.status().contains(&abs.display().to_string()),
             "the completion message must be actionable: {}",
-            app.workspace.status
+            app.workspace.status()
         );
         assert!(
-            !app.workspace.status.contains(r"\\?\"),
+            !app.workspace.status().contains(r"\\?\"),
             "…and readable — no canonicalize verbatim prefix: {}",
-            app.workspace.status
+            app.workspace.status()
         );
     }
 
@@ -399,7 +399,7 @@
         let ctx = egui::Context::default();
         let kept = std::env::temp_dir().join(format!("autoshade-deliver-{}/tripA", std::process::id()));
         let refused = std::env::temp_dir().join(format!("autoshade-library-{}/2026-08", std::process::id()));
-        let mut app = AutoShadeApp { workspace: WorkspaceView { busy: true, exp: ExportState { last_dir: Some(kept.clone()), ..Default::default() }, ..Default::default() }, ..Default::default() };
+        let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.busy_mut() = true; *view.exp_mut() = ExportState { last_dir: Some(kept.clone()), ..Default::default() }; view } , ..Default::default() };
         app.services.tx
             .send(Msg::Exported(Ok(ExportOutcome::Batch {
                 ok: 0,
@@ -415,7 +415,7 @@
             .unwrap();
         app.poll_workers(&ctx);
         assert_eq!(
-            app.workspace.exp.last_dir.as_deref(),
+            app.workspace.exp().last_dir.as_deref(),
             Some(kept.as_path()),
             "a batch that delivered nothing must leave the memory alone"
         );
@@ -423,7 +423,7 @@
         // The other half, or the assertion above would pass on a build that
         // never remembers anything: a batch that DID deliver seeds the memory.
         let landed = std::env::temp_dir().join(format!("autoshade-deliver-{}/tripB", std::process::id()));
-        let mut ok_app = AutoShadeApp { workspace: WorkspaceView { busy: true, ..Default::default() }, ..Default::default() };
+        let mut ok_app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.busy_mut() = true; view } , ..Default::default() };
         ok_app
             .services.tx
             .send(Msg::Exported(Ok(ExportOutcome::Batch {
@@ -437,7 +437,7 @@
             .unwrap();
         ok_app.poll_workers(&ctx);
         assert_eq!(
-            ok_app.workspace.exp.last_dir.as_deref(),
+            ok_app.workspace.exp().last_dir.as_deref(),
             Some(landed.as_path()),
             "the folder the files really landed in becomes ExportDest::LastUsed"
         );
@@ -469,31 +469,31 @@
 
         // First delivery: nothing in the way, so it lands with no confirmation.
         app.export_xmp_beside();
-        assert!(!app.workspace.exp.xmp_beside_confirm, "an unobstructed hand-off needs no confirm");
+        assert!(!app.workspace.exp().xmp_beside_confirm, "an unobstructed hand-off needs no confirm");
         assert_eq!(std::fs::read(&beside).unwrap(), b"<x:xmpmeta>ours</x:xmpmeta>");
         assert!(
-            app.workspace.status.contains(&abs_display(&beside)),
+            app.workspace.status().contains(&abs_display(&beside)),
             "the status names where it landed: {}",
-            app.workspace.status
+            app.workspace.status()
         );
 
         // Lightroom's own file appears there. One click must ARM, not write.
         std::fs::write(&beside, b"<x:xmpmeta>LIGHTROOM</x:xmpmeta>").unwrap();
         app.export_xmp_beside();
-        assert!(app.workspace.exp.xmp_beside_confirm, "the armed state is the confirmation");
+        assert!(app.workspace.exp().xmp_beside_confirm, "the armed state is the confirmation");
         assert_eq!(
             std::fs::read(&beside).unwrap(),
             b"<x:xmpmeta>LIGHTROOM</x:xmpmeta>",
             "the first click left their sidecar untouched"
         );
         assert!(
-            app.workspace.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
+            app.workspace.chrome().toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
             "a refusal must be seen, not only appear in a status line"
         );
 
         // Second click: armed ⇒ overwrite, then disarm.
         app.export_xmp_beside();
-        assert!(!app.workspace.exp.xmp_beside_confirm, "the arm is spent");
+        assert!(!app.workspace.exp().xmp_beside_confirm, "the arm is spent");
         assert_eq!(std::fs::read(&beside).unwrap(), b"<x:xmpmeta>ours</x:xmpmeta>");
 
         // A non-RAW cannot: its neighbouring .xmp is another program's file.
@@ -547,7 +547,7 @@
     }
 
     fn painted_pixels(app: &AutoShadeApp) -> usize {
-        app.workspace.masks.mask_paint.as_ref().map_or(0, |m| m.pixels().filter(|p| p[3] > 10).count())
+        app.workspace.masks().mask_paint.as_ref().map_or(0, |m| m.pixels().filter(|p| p[3] > 10).count())
     }
 
     /// User report 2026-10-13: 「操作感觉也不连贯」. A press on the canvas inks
@@ -559,11 +559,11 @@
     #[test]
     fn a_brush_press_inks_before_the_pointer_moves_or_lifts() {
         let fresh = || {
-            let mut app = AutoShadeApp { workspace: WorkspaceView { masks: MaskEditState {
+            let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.masks_mut() = MaskEditState {
                     paint_mode: true,
                     ..Default::default()
-                }, ..Default::default() }, ..Default::default() };
-            app.workspace.masks.mask_paint = Some(image::RgbaImage::new(1024, 768));
+                }; view } , ..Default::default() };
+            app.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(1024, 768));
             app
         };
         let press = |pos| egui::Event::PointerButton {
@@ -618,11 +618,11 @@
             shapes.iter().for_each(|c| walk(&c.shape, r, &mut out));
             out
         }
-        let mut app = AutoShadeApp { workspace: WorkspaceView { masks: MaskEditState {
+        let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.masks_mut() = MaskEditState {
                 paint_mode: true,
                 ..Default::default()
-            }, ..Default::default() }, ..Default::default() };
-        app.workspace.masks.mask_paint = Some(image::RgbaImage::new(1024, 768));
+            }; view } , ..Default::default() };
+        app.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(1024, 768));
         app.set_brush(57.0, 0.0);
         let ctx = egui::Context::default();
         let (_, _, canvas) = paint_frame(&mut app, &ctx, vec![], 0.0);
@@ -641,7 +641,7 @@
         assert!(rings(&shapes, 57.0).is_empty(), "the flash ring outlived its second");
         // The range clamps.
         app.set_brush(10_000.0, 6.0);
-        assert_eq!(app.workspace.masks.brush, crate::panels::retouch::BRUSH_R_MAX);
+        assert_eq!(app.workspace.masks().brush, crate::panels::retouch::BRUSH_R_MAX);
     }
 
     /// User report 2026-10-13: 「UI 现在最上方 -□x 条，太丑了」. On Windows the
@@ -845,8 +845,8 @@
         let ctx = egui::Context::default();
         let land = |app: &mut AutoShadeApp| {
             let start = std::time::Instant::now();
-            while app.workspace.busy || app.workspace.open.open_in_flight {
-                assert!(start.elapsed() < std::time::Duration::from_secs(60), "never landed: {}", app.workspace.status);
+            while app.workspace.busy() || app.workspace.open().open_in_flight {
+                assert!(start.elapsed() < std::time::Duration::from_secs(60), "never landed: {}", app.workspace.status());
                 std::thread::sleep(std::time::Duration::from_millis(20));
                 app.poll_workers(&ctx);
             }
@@ -857,10 +857,10 @@
             Some(autoshade::recipe::MaskGeometry::AiMask { raster, .. }) => raster.clone(),
             other => panic!("the sky mask is not there: {other:?}"),
         };
-        assert!(alpha(&app.editor.doc().recipe).is_some(), "the open card's AI mask has its alpha: {}", app.workspace.status);
+        assert!(alpha(&app.editor.doc().recipe).is_some(), "the open card's AI mask has its alpha: {}", app.workspace.status());
         assert_eq!(alpha(&app.editor.session().hist.saved_recipe), alpha(&app.editor.doc().recipe), "an alpha is not an edit: ● stays dark");
         assert_eq!(alpha(&app.editor.session().hist.committed.recipe), alpha(&app.editor.doc().recipe), "and Ctrl+Z does not take it away");
-        assert_eq!(app.workspace.status, trf(Lang::En, K_PERSIST_AI_MASKS_RE_DERIVED_LOCALLY_NOT_ADOBE_S_RASTER, &[("n", "1")]));
+        assert_eq!(app.workspace.status(), trf(Lang::En, K_PERSIST_AI_MASKS_RE_DERIVED_LOCALLY_NOT_ADOBE_S_RASTER, &[("n", "1")]));
         // Export: a card still without its alpha is cut on the export's copy.
         let mean = |p: &std::path::Path| {
             let img = image::open(p).unwrap_or_else(|e| panic!("{}: {e}", p.display())).to_luma8();
@@ -868,7 +868,7 @@
         };
         let export = |app: &mut AutoShadeApp, recipe: EditRecipe, name: &str| {
             app.editor.doc_mut().recipe = recipe;
-            assert!(app.start_render_to(out.join(name)), "{}", app.workspace.status);
+            assert!(app.start_render_to(out.join(name)), "{}", app.workspace.status());
             land(app);
             mean(&out.join(name))
         };
@@ -914,8 +914,8 @@
         let ctx = egui::Context::default();
         let land = |app: &mut AutoShadeApp| {
             let start = std::time::Instant::now();
-            while app.workspace.busy || app.workspace.open.open_in_flight {
-                assert!(start.elapsed() < std::time::Duration::from_secs(60), "never landed: {}", app.workspace.status);
+            while app.workspace.busy() || app.workspace.open().open_in_flight {
+                assert!(start.elapsed() < std::time::Duration::from_secs(60), "never landed: {}", app.workspace.status());
                 std::thread::sleep(std::time::Duration::from_millis(20));
                 app.poll_workers(&ctx);
             }
@@ -926,10 +926,10 @@
             Some((autoshade::recipe::MaskGeometry::Bitmap { path }, autoshade::recipe::MaskRole::Face)) => path.clone(),
             other => panic!("the face mask is not there: {other:?}"),
         };
-        assert!(!raster(&app.editor.doc().recipe).is_empty(), "the open card's face mask has its raster: {}", app.workspace.status);
+        assert!(!raster(&app.editor.doc().recipe).is_empty(), "the open card's face mask has its raster: {}", app.workspace.status());
         assert_eq!(raster(&app.editor.session().hist.saved_recipe), raster(&app.editor.doc().recipe), "a raster is not an edit: ● stays dark");
         assert_eq!(raster(&app.editor.session().hist.committed.recipe), raster(&app.editor.doc().recipe), "and Ctrl+Z does not take it away");
-        assert_eq!(app.workspace.status, trf(Lang::En, K_PERSIST_FACE_MASKS_OUTLINED_ON_THIS_COMPUTER, &[("n", "1")]));
+        assert_eq!(app.workspace.status(), trf(Lang::En, K_PERSIST_FACE_MASKS_OUTLINED_ON_THIS_COMPUTER, &[("n", "1")]));
         // Export: a card whose face mask still names no raster is drawn on
         // the export's copy, so the jpg carries it.
         let mean = |p: &std::path::Path| {
@@ -938,7 +938,7 @@
         };
         let export = |app: &mut AutoShadeApp, recipe: EditRecipe, name: &str| {
             app.editor.doc_mut().recipe = recipe;
-            assert!(app.start_render_to(out.join(name)), "{}", app.workspace.status);
+            assert!(app.start_render_to(out.join(name)), "{}", app.workspace.status());
             land(app);
             mean(&out.join(name))
         };
@@ -952,10 +952,10 @@
         assert!(app.editor.doc().recipe.masks.is_empty(), "a face mask with no face to stand on is taken out: {:?}", app.editor.doc().recipe.masks);
         assert!(app.editor.session().hist.saved_recipe.masks.is_empty(), "from the saved mark too, so ● stays dark");
         let why = "\"Face\" left out (no face was found in this photo)";
-        assert!(app.workspace.status.contains(why), "the status line names the mask and the reason: {}", app.workspace.status);
+        assert!(app.workspace.status().contains(why), "the status line names the mask and the reason: {}", app.workspace.status());
         assert!(
-            app.workspace.status.starts_with(&trf(Lang::En, K_LANDING_SOME_MASKS_COULD_NOT_BE_DRAWN_SO_THEY_ARE_NOT_AP, &[("why", "")])),
+            app.workspace.status().starts_with(&trf(Lang::En, K_LANDING_SOME_MASKS_COULD_NOT_BE_DRAWN_SO_THEY_ARE_NOT_AP, &[("why", "")])),
             "{}",
-            app.workspace.status
+            app.workspace.status()
         );
     }
