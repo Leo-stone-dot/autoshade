@@ -512,7 +512,7 @@ impl AutoShadeApp {
         let card_h = STRIP_THUMB_H + ui.spacing().item_spacing.y + ui.spacing().interact_size.y;
         #[cfg(test)]
         {
-            self.strip_row_rect = Some(ui.max_rect());
+            self.seams.strip_row_rect = Some(ui.max_rect());
         }
         ui.add_space(((ui.available_height() - card_h) / 2.0).max(0.0));
         // LAYOUT INVARIANT (probed, R14+R15): egui places the scroll area
@@ -540,7 +540,7 @@ impl AutoShadeApp {
         );
         #[cfg(test)]
         {
-            self.strip_title_rect =
+            self.seams.strip_title_rect =
                 Some(egui::Rect::from_min_size(title_pos, title_galley.size()));
         }
         ui.painter().galley(title_pos, title_galley, ui.visuals().strong_text_color());
@@ -692,7 +692,7 @@ impl AutoShadeApp {
                                     // label that used to be here.
                                     #[cfg(test)]
                                     {
-                                        self.strip_name_rect = Some(resp.rect);
+                                        self.seams.strip_name_rect = Some(resp.rect);
                                     }
                                     if resp.lost_focus() {
                                         self.commit_variant_name_buf();
@@ -712,7 +712,7 @@ impl AutoShadeApp {
                                         .on_hover_text(tr(lang, "Name this variant"));
                                     #[cfg(test)]
                                     {
-                                        self.strip_name_rect = Some(resp.rect);
+                                        self.seams.strip_name_rect = Some(resp.rect);
                                     }
                                     if resp.clicked() {
                                         act = Some(VariantAction::Rename(card_id.clone()));
@@ -732,7 +732,7 @@ impl AutoShadeApp {
                             });
                             #[cfg(test)]
                             if i == 0 {
-                                self.strip_card_rect = Some(ui.min_rect());
+                                self.seams.strip_card_rect = Some(ui.min_rect());
                             }
                         });
                         ui.add_space(SPACE_MD);
@@ -823,7 +823,7 @@ impl AutoShadeApp {
                 // The STRIP owns this seam: a full frame draws both surfaces,
                 // and letting the list overwrite it would silently retarget
                 // every existing assertion at the other widget.
-                self.strip_apply = Some((resp.rect, can && !busy));
+                self.seams.strip_apply = Some((resp.rect, can && !busy));
             }
             if resp.clicked() {
                 act = Some(VariantAction::Apply(i));
@@ -854,7 +854,7 @@ impl AutoShadeApp {
         }
         #[cfg(test)]
         if surface == VariantSurface::List {
-            self.edit_list_actions.push(format!("{i}:{}", drawn.join("")));
+            self.seams.edit_list_actions.push(format!("{i}:{}", drawn.join("")));
         }
         act
     }
@@ -3238,8 +3238,8 @@ impl AutoShadeApp {
                 let busy = self.busy;
                 #[cfg(test)]
                 {
-                    self.edit_list_rows.clear();
-                    self.edit_list_actions.clear();
+                    self.seams.edit_list_rows.clear();
+                    self.seams.edit_list_actions.clear();
                 }
                 if n_var > 0 {
                     let accent = self.theme.colors().accent_text;
@@ -3263,7 +3263,7 @@ impl AutoShadeApp {
                             (v.kind, v.name.clone(), v.origin.is_some())
                         };
                         #[cfg(test)]
-                        self.edit_list_rows.push(format!("variant:{}", kind.store_str()));
+                        self.seams.edit_list_rows.push(format!("variant:{}", kind.store_str()));
                         let hit = ui
                             .horizontal(|ui| {
                                 let label = egui::RichText::new(tr(lang, kind.label())).small();
@@ -3378,7 +3378,7 @@ impl AutoShadeApp {
                         continue;
                     }
                     #[cfg(test)]
-                    self.edit_list_rows.push(format!("version:{n}"));
+                    self.seams.edit_list_rows.push(format!("version:{n}"));
                     let named = meta.as_ref().and_then(|m| m.name.clone());
                     let editing = self
                         .version_name_buf

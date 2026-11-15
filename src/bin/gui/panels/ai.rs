@@ -96,7 +96,7 @@ impl AutoShadeApp {
                 #[cfg(test)]
                 {
                     // The gate's own witness: a comment cannot keep it here.
-                    app.ai_gate_enabled = Some(ui.is_enabled());
+                    app.seams.ai_gate_enabled = Some(ui.is_enabled());
                 }
                 app.ai_analysis(ui);
                 app.ai_adjust_edit(ui);
@@ -320,7 +320,7 @@ impl AutoShadeApp {
                     .inner;
                 #[cfg(test)]
                 {
-                    self.analysis_box_rect = Some(out.inner_rect);
+                    self.seams.analysis_box_rect = Some(out.inner_rect);
                 }
                 if out.content_size.y > out.inner_rect.height() + 0.5
                     && action_row(ui, true, tr(lang, "View full text…")).clicked()
@@ -354,7 +354,7 @@ impl AutoShadeApp {
                 );
                 #[cfg(test)]
                 {
-                    self.prompt_rects.push(_field.rect);
+                    self.seams.prompt_rects.push(_field.rect);
                 }
             });
             // The prompt's trigger sits DIRECTLY under it (user feedback:
@@ -411,7 +411,7 @@ impl AutoShadeApp {
             ui.add_enabled_ui(!by_direction, |ui| ui.horizontal_wrapped(|ui| {
                 #[cfg(test)]
                 {
-                    self.guide_gate_enabled = Some((by_direction, ui.is_enabled()));
+                    self.seams.guide_gate_enabled = Some((by_direction, ui.is_enabled()));
                 }
                 // #16: the ONE slider in the app that never went through the
                 // panel's own helper — a bare `egui::Slider` with `show_value(false)`
@@ -473,7 +473,7 @@ impl AutoShadeApp {
                 {
                     // The gate's own witness (same seam as `ai_gate_enabled`): a
                     // comment cannot keep the wrapper here.
-                    self.adherence_gate_enabled = Some(ui.is_enabled());
+                    self.seams.adherence_gate_enabled = Some(ui.is_enabled());
                 }
                 Self::slider_pct_hinted(
                     ui,
@@ -519,7 +519,7 @@ impl AutoShadeApp {
                 );
                 #[cfg(test)]
                 {
-                    self.prompt_rects.push(_field.rect);
+                    self.seams.prompt_rects.push(_field.rect);
                 }
                 let ready = self.src_path.is_some() && !self.busy && !self.analyze_inflight;
                 let asked = ready && !self.adjust_edit_prompt.trim().is_empty();
@@ -535,7 +535,7 @@ impl AutoShadeApp {
                     ));
                 #[cfg(test)]
                 {
-                    self.adjust_edit_btn_enabled = Some(resp.enabled());
+                    self.seams.adjust_edit_btn_enabled = Some(resp.enabled());
                 }
                 if resp.clicked() {
                     let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Adjust);
@@ -597,7 +597,7 @@ impl AutoShadeApp {
                 ui.add_enabled_ui(reads_a_library, |ui| {
                     #[cfg(test)]
                     {
-                        self.ai_library_read_enabled = Some(ui.is_enabled());
+                        self.seams.ai_library_read_enabled = Some(ui.is_enabled());
                     }
                     self.ai_library_use(ui);
                 });
@@ -663,7 +663,7 @@ impl AutoShadeApp {
         ui.add_enabled_ui(!building, |ui| {
             #[cfg(test)]
             {
-                self.ai_library_build_enabled = Some(ui.is_enabled());
+                self.seams.ai_library_build_enabled = Some(ui.is_enabled());
             }
             // 🗂, the same glyph Settings uses for a folder action: the
             // embedded font subset covers it already (📂 is not in it).
@@ -859,13 +859,13 @@ impl AutoShadeApp {
                     );
                     #[cfg(test)]
                     {
-                        self.prompt_rects.push(_field.rect);
+                        self.seams.prompt_rects.push(_field.rect);
                     }
                     ui.add_enabled_ui(!self.busy, |ui| {
                         let resp = ui.add(primary_button(btn_label).wrap_mode(egui::TextWrapMode::Extend));
                         #[cfg(test)]
                         {
-                            self.reimagine_btn_rect = Some(resp.rect);
+                            self.seams.reimagine_btn_rect = Some(resp.rect);
                         }
                         if resp
                             .on_hover_text(tr(lang,
@@ -922,7 +922,7 @@ impl AutoShadeApp {
                 );
                 #[cfg(test)]
                 {
-                    self.prompt_rects.push(_field.rect);
+                    self.seams.prompt_rects.push(_field.rect);
                 }
                 egui::ComboBox::from_id_salt("adjust_quality")
                     .selected_text(tr(lang, ["high", "medium", "low"][self.adjust_quality.min(2)]))
@@ -950,7 +950,7 @@ impl AutoShadeApp {
                     ));
                 #[cfg(test)]
                 {
-                    self.adjust_btn_enabled = Some(resp.enabled());
+                    self.seams.adjust_btn_enabled = Some(resp.enabled());
                 }
                 if resp.clicked() {
                     self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::AdjustGenerated)]);
@@ -1057,7 +1057,7 @@ impl AutoShadeApp {
                     });
                     #[cfg(test)]
                     {
-                        self.fit_from_rect = Some(_menu.inner.rect);
+                        self.seams.fit_from_rect = Some(_menu.inner.rect);
                     }
                 });
                 if let Some(p) = pick {

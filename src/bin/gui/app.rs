@@ -368,93 +368,9 @@ pub(crate) struct AutoShadeApp {
     // (R25 P6: the global curves and a selected mask's can both be on screen
     // in one frame — see `CurveTarget`). Active channel is `curve_channel`.
     pub(crate) curve_drag: Option<(CurveTarget, usize)>,
+    /// Layout/behaviour probes for the window tests; see [`TestSeams`].
     #[cfg(test)]
-    pub(crate) curve_rect: Option<egui::Rect>,        // test seam: the editor square's last rect
-    #[cfg(test)]
-    pub(crate) strip_row_rect: Option<egui::Rect>,    // test seam: variant strip's inner row rect
-    #[cfg(test)]
-    pub(crate) strip_card_rect: Option<egui::Rect>,   // test seam: first variant card's column rect
-    #[cfg(test)]
-    pub(crate) strip_title_rect: Option<egui::Rect>,  // test seam: the painted "Variants" title rect
-    /// Test seam (R24-3): the active card's 「apply to Original」 button —
-    /// its rect and whether it was ENABLED, which is the whole point on a
-    /// pixel-state card (shown with the reason, not hidden).
-    #[cfg(test)]
-    pub(crate) strip_apply: Option<(egui::Rect, bool)>,
-    #[cfg(test)]
-    pub(crate) strip_name_rect: Option<egui::Rect>,   // test seam: the card's name widget (label or box)
-    /// Test seam (R24-4): the edit-state list's rows, in draw order —
-    /// `variant:<kind>` for a rendition card, `version:<n>` for a snapshot.
-    /// Strings, not a count: the ORDER (cards above versions) is the claim
-    /// the list makes.
-    #[cfg(test)]
-    pub(crate) edit_list_rows: Vec<String>,
-    /// Test seam (R24-5): what the edit-state list's ACTION line laid out per
-    /// card, as `"<i>:<glyphs>"` — the list surface has no rects of its own
-    /// (`strip_apply` stays the STRIP's, so a full frame drawing both cannot
-    /// silently retarget the older assertions).
-    #[cfg(test)]
-    pub(crate) edit_list_actions: Vec<String>,
-    #[cfg(test)]
-    pub(crate) reimagine_btn_rect: Option<egui::Rect>, // test seam: the ✨ Generate button's rect
-    #[cfg(test)]
-    pub(crate) fit_from_rect: Option<egui::Rect>, // test seam: the reverse-fit From menu's rect
-    #[cfg(test)]
-    pub(crate) adjust_btn_enabled: Option<bool>,      // actual egui response, including parent gates
-    #[cfg(test)]
-    #[cfg(test)]
-    #[cfg(test)]
-    pub(crate) brush_slider_rect: Option<egui::Rect>, // test seam: the last Brush size slider's rect
-    #[cfg(test)]
-    pub(crate) analysis_box_rect: Option<egui::Rect>, // test seam: the analysis box's visible rect
-    #[cfg(test)]
-    pub(crate) histogram_rect: Option<egui::Rect>, // test seam: the histogram readout's rect
-    /// Test seam (#14a): every prompt field laid out this frame, in draw order
-    /// (Direction, Reimagine, Generative Fill). A Vec, not three Options: the
-    /// width cap is ONE rule and the test asserts it over the whole set, so a
-    /// fourth prompt field added later is covered without touching the test.
-    #[cfg(test)]
-    pub(crate) prompt_rects: Vec<egui::Rect>,
-    /// Test seam (#4): was the AI section's body ENABLED this frame? The
-    /// mid-open editable gate (L15-2) that the AI area used to inherit from
-    /// `develop_panel` had to be rebuilt in its new host, and nothing but this
-    /// can tell a rebuilt gate from a comment about one.
-    #[cfg(test)]
-    pub(crate) ai_gate_enabled: Option<bool>,
-    #[cfg(test)]
-    pub(crate) adjust_edit_btn_enabled: Option<bool>,
-    /// Test seam: was the ADHERENCE slider enabled this frame? Same reason as
-    /// the gate above — the slider is wrapped in `add_enabled_ui(has_direction,
-    /// ...)`, and the falsifier named after that gate used to assert only that
-    /// a default app has an empty direction, which is true whether the wrapper
-    /// is there or not.
-    #[cfg(test)]
-    pub(crate) adherence_gate_enabled: Option<bool>,
-    /// Test seam: were the Direction field and the Style slider enabled this
-    /// frame, `(direction, style)`? The guide switch greys one of them.
-    #[cfg(test)]
-    pub(crate) guide_gate_enabled: Option<(bool, bool)>,
-    /// Test seam (R30): was the reference libraries' READ side enabled this
-    /// frame? At Style 0, or guided by the direction, the pipeline opens no
-    /// library at all (`req.library_style() > 0.0`), so the controls that feed
-    /// an analysis are drawn disabled — and nothing but this can tell a rebuilt
-    /// `add_enabled_ui(reads_a_library, …)` from a comment about one.
-    ///
-    /// ONE Option for the one wrapper around the read side (the search switch
-    /// and the reference-photo switch).
-    #[cfg(test)]
-    pub(crate) ai_library_read_enabled: Option<bool>,
-    /// Test seam (R30, user ruling): …and was the BUILD side still live?
-    /// Building a library is not reading one, so gate (a) must never reach the
-    /// folder pickers or the two Build buttons — a library nobody can build is
-    /// a library the Style slider can never be raised onto. Only
-    /// `style_build_inflight` may grey that row.
-    #[cfg(test)]
-    pub(crate) ai_library_build_enabled: Option<bool>,
-    /// Test seam: stands in for the local segmenter (`persist.rs`
-    /// `ai_mask_runner`) on the open and export paths.
-    #[cfg(test)]
-    pub(crate) ai_mask_stub: Option<crate::persist::AiMaskRunner>,
+    pub(crate) seams: TestSeams,
     // --- batch recipe copy / paste ---
     pub(crate) copied: Option<EditRecipe>,            // the recipe "clipboard" (in-app only)
     // WHICH photo the clipboard came from: pasting back onto that photo may
@@ -1782,51 +1698,8 @@ impl Default for AutoShadeApp {
             curve_channel: 0,
             curve_drag: None,
             #[cfg(test)]
-            curve_rect: None,
             #[cfg(test)]
-            strip_row_rect: None,
-            #[cfg(test)]
-            strip_card_rect: None,
-            #[cfg(test)]
-            strip_title_rect: None,
-            #[cfg(test)]
-            strip_apply: None,
-            #[cfg(test)]
-            strip_name_rect: None,
-            #[cfg(test)]
-            edit_list_rows: Vec::new(),
-            #[cfg(test)]
-            edit_list_actions: Vec::new(),
-            #[cfg(test)]
-            reimagine_btn_rect: None,
-            #[cfg(test)]
-            fit_from_rect: None,
-            #[cfg(test)]
-            adjust_btn_enabled: None,
-            #[cfg(test)]
-            #[cfg(test)]
-            #[cfg(test)]
-            brush_slider_rect: None,
-            #[cfg(test)]
-            analysis_box_rect: None,
-            #[cfg(test)]
-            histogram_rect: None,
-            #[cfg(test)]
-            prompt_rects: Vec::new(),
-            #[cfg(test)]
-            ai_gate_enabled: None,
-            #[cfg(test)]
-            adjust_edit_btn_enabled: None,
-            #[cfg(test)]
-            adherence_gate_enabled: None,
-            #[cfg(test)]
-            guide_gate_enabled: None,
-            #[cfg(test)]
-            ai_library_read_enabled: None,
-            #[cfg(test)]
-            ai_library_build_enabled: None,
-            #[cfg(test)]
-            ai_mask_stub: None,
+            seams: TestSeams::default(),
             copied: None,
             copied_from: None,
             paste_geometry: false,

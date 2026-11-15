@@ -832,7 +832,7 @@
         let _scrub = Scrub(vec![dir, dev, out.clone(), alpha_png]);
         let saved = EditRecipe { masks: vec![lightroom_sky()], ..Default::default() };
         std::fs::write(autoshade::store::recipe_target(&src), serde_json::to_string(&saved).unwrap()).unwrap();
-        let mut app = AutoShadeApp { ai_mask_stub: Some(white_alpha_runner), ..Default::default() };
+        let mut app = AutoShadeApp { seams: TestSeams { ai_mask_stub: Some(white_alpha_runner), ..Default::default() }, ..Default::default() };
         let ctx = egui::Context::default();
         let land = |app: &mut AutoShadeApp| {
             let start = std::time::Instant::now();
@@ -901,7 +901,7 @@
         let mut scrub = vec![dir, out.clone(), alpha_png];
         scrub.extend(devs);
         let _scrub = Scrub(scrub);
-        let mut app = AutoShadeApp { ai_mask_stub: Some(white_alpha_runner), ..Default::default() };
+        let mut app = AutoShadeApp { seams: TestSeams { ai_mask_stub: Some(white_alpha_runner), ..Default::default() }, ..Default::default() };
         let ctx = egui::Context::default();
         let land = |app: &mut AutoShadeApp| {
             let start = std::time::Instant::now();
@@ -937,7 +937,7 @@
         let face = export(&mut app, saved.clone(), "face.jpg");
         assert!(face > plain + 30.0, "the export carries the face mask, two stops up: {face} vs {plain}");
         // No face found: the intent is taken out and the line says why.
-        let mut app = AutoShadeApp { ai_mask_stub: Some(no_face_runner), ..Default::default() };
+        let mut app = AutoShadeApp { seams: TestSeams { ai_mask_stub: Some(no_face_runner), ..Default::default() }, ..Default::default() };
         app.open_path(bare.clone());
         land(&mut app);
         assert!(app.recipe.masks.is_empty(), "a face mask with no face to stand on is taken out: {:?}", app.recipe.masks);

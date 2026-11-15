@@ -186,7 +186,7 @@
             changed
         };
         let _ = run_pass(&mut app, vec![]);
-        let rect = app.curve_rect.expect("the mask editor records its square (test seam)");
+        let rect = app.seams.curve_rect.expect("the mask editor records its square (test seam)");
         let q = egui::pos2(rect.min.x + rect.width() * 0.25, rect.min.y + rect.height() * 0.5);
         let button = |pressed: bool| egui::Event::PointerButton {
             pos: q,

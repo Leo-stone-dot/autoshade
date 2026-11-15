@@ -179,7 +179,7 @@
         let ctx = egui::Context::default();
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
         let frame = |app: &mut AutoShadeApp| -> Option<bool> {
-            app.adherence_gate_enabled = None; // this frame's evidence only
+            app.seams.adherence_gate_enabled = None; // this frame's evidence only
             let _ = ctx.run(
                 egui::RawInput {
                     screen_rect: Some(egui::Rect::from_min_size(
@@ -194,7 +194,7 @@
                     });
                 },
             );
-            app.adherence_gate_enabled
+            app.seams.adherence_gate_enabled
         };
         // (1) no direction: the dial exists but cannot be moved.
         let mut app = AutoShadeApp::default();
@@ -245,7 +245,7 @@
         let ctx = egui::Context::default();
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
         let frame = |app: &mut AutoShadeApp| -> Option<(bool, bool)> {
-            app.guide_gate_enabled = None;
+            app.seams.guide_gate_enabled = None;
             let _ = ctx.run(
                 egui::RawInput {
                     screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 900.0))),
@@ -257,7 +257,7 @@
                     });
                 },
             );
-            app.guide_gate_enabled
+            app.seams.guide_gate_enabled
         };
         let mut app = AutoShadeApp::default();
         assert_eq!(frame(&mut app), Some((false, true)), "library: Direction greyed, Style live");
@@ -608,7 +608,7 @@
                     let drawn = DRAWN.with_borrow(|d| d.clone());
                     // The histogram readout used to be the one widget that grew
                     // with the panel without limit (user report 2026-09-27).
-                    let hist = app.histogram_rect.expect("the histogram readout was drawn");
+                    let hist = app.seams.histogram_rect.expect("the histogram readout was drawn");
                     assert!(
                         hist.width() <= crate::theme::FIELD_W_MAX + 0.5,
                         "{lang:?}, {controls_width} px, frame {frame}: the histogram is {:.1} px wide — past the {:.0} px readable ceiling",

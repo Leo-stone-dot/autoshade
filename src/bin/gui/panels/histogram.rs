@@ -22,7 +22,7 @@ impl AutoShadeApp {
         );
         #[cfg(test)]
         {
-            self.histogram_rect = Some(rect);
+            self.seams.histogram_rect = Some(rect);
         }
         let p = ui.painter_at(rect);
         p.rect_filled(rect, RADIUS_SM, egui::Color32::from_gray(16));
@@ -208,7 +208,7 @@ impl AutoShadeApp {
             // Test seam (the same convention as develop_count /
             // overlay_build_count): the headless driven test aims its
             // synthetic click with the square's screen rect.
-            self.curve_rect = Some(rect);
+            self.seams.curve_rect = Some(rect);
         }
         let p = ui.painter_at(rect);
         let accent = CURVE_CHANNELS[self.curve_channel].1;

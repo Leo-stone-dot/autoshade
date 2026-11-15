@@ -7665,7 +7665,10 @@ view and the compare/single switch), one `view` field; the app struct is at 166
 fields. `model::CropState` owns the crop overlay (armed,
 preset index and pending re-derive, guide style, drag in flight), one `crop`
 field, and the on-image mask knob drag joins `MaskEditState` (`masks.mask_drag`);
-the app struct is at 161 fields.
+the app struct is at 161 fields. The window tests' layout/behaviour probes
+(measured rects and gated-button states) live in `model::TestSeams`, a
+`#[cfg(test)]`-only struct behind one `seams` field, so a new test probe never
+enters the production shape; the app struct is at 140 fields and 2092 lines.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

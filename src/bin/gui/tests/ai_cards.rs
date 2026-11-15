@@ -369,7 +369,7 @@
                 app.paint_mask_changed(None);
                 draw_adjust_panel(&mut app);
                 let want = !busy && kind.on_ai_pixels() && (strokes || !prompt.trim().is_empty());
-                assert_eq!(app.adjust_btn_enabled, Some(want),
+                assert_eq!(app.seams.adjust_btn_enabled, Some(want),
                     "the adjust verb must stay disabled off AI pixels or without prompt/strokes (kind={kind:?}, prompt={prompt:?}, strokes={strokes}, busy={busy})");
             }
         }

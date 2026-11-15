@@ -483,6 +483,36 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// Layout/behaviour seams the window tests read: measured rects and the
+/// actual enabled state of gated buttons. Compiled only under `cfg(test)`, so
+/// a test's new probe never adds a field to `AutoShadeApp`'s production shape.
+#[cfg(test)]
+#[derive(Default)]
+pub(crate) struct TestSeams {
+    pub(crate) curve_rect: Option<egui::Rect>,
+    pub(crate) strip_row_rect: Option<egui::Rect>,
+    pub(crate) strip_card_rect: Option<egui::Rect>,
+    pub(crate) strip_title_rect: Option<egui::Rect>,
+    pub(crate) strip_apply: Option<(egui::Rect, bool)>,
+    pub(crate) strip_name_rect: Option<egui::Rect>,
+    pub(crate) edit_list_rows: Vec<String>,
+    pub(crate) edit_list_actions: Vec<String>,
+    pub(crate) reimagine_btn_rect: Option<egui::Rect>,
+    pub(crate) fit_from_rect: Option<egui::Rect>,
+    pub(crate) adjust_btn_enabled: Option<bool>,
+    pub(crate) brush_slider_rect: Option<egui::Rect>,
+    pub(crate) analysis_box_rect: Option<egui::Rect>,
+    pub(crate) histogram_rect: Option<egui::Rect>,
+    pub(crate) prompt_rects: Vec<egui::Rect>,
+    pub(crate) ai_gate_enabled: Option<bool>,
+    pub(crate) adjust_edit_btn_enabled: Option<bool>,
+    pub(crate) adherence_gate_enabled: Option<bool>,
+    pub(crate) guide_gate_enabled: Option<(bool, bool)>,
+    pub(crate) ai_library_read_enabled: Option<bool>,
+    pub(crate) ai_library_build_enabled: Option<bool>,
+    pub(crate) ai_mask_stub: Option<crate::persist::AiMaskRunner>,
+}
+
 /// The crop tool's state: whether the overlay is armed, the preset index and
 /// its pending re-derive, the guide style and the drag in flight. Extracted
 /// from `AutoShadeApp` so crop work does not add fields to the app struct.
