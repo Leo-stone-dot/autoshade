@@ -911,14 +911,14 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     fn a_recipe_swap_clears_stale_rationale_notes() {
         let mut app = AutoShadeApp::default();
         app.doc.recipe.rationale = "old english tail".into();
-        app.rationale_notes = vec![autoshade::rationale::Note::plain(
+        app.analysis.rationale_notes = vec![autoshade::rationale::Note::plain(
             autoshade::rationale::keys::FIT_NOTE_SAT_PEGGED,
         )];
         app.doc.recipe = EditRecipe { rationale: "a different develop".into(), ..Default::default() };
         app.resync_recipe_display();
-        assert_eq!(app.rationale, "a different develop");
+        assert_eq!(app.analysis.rationale, "a different develop");
         assert!(
-            app.rationale_notes.is_empty(),
+            app.analysis.rationale_notes.is_empty(),
             "stale notes must not survive a recipe swap — they rendered another rationale"
         );
     }
@@ -1014,5 +1014,5 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         assert_eq!(after_first, 1, "one script, one toast");
         app.disclose_undrawable_names_given(&[]);
         assert_eq!(app.chrome.toasts.len(), after_first, "the second open stays silent");
-        assert!(app.disclosed_scripts.contains("thai"));
+        assert!(app.analysis.disclosed_scripts.contains("thai"));
     }

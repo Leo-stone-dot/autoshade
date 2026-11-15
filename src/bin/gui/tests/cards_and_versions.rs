@@ -299,14 +299,24 @@
 
             },
 
-            // stale index into the OLD mask list
+            analysis: AnalysisSession {
+
+
+                // stale index into the OLD mask list
 rationale: "stale rationale".into(),
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.load_version(1);
         assert!((app.doc.recipe.exposure_ev - 0.75).abs() < 1e-3, "the version landed");
         assert_eq!(
-            app.rationale, "v1 marker rationale",
+            app.analysis.rationale, "v1 marker rationale",
             "the swap path resynced the rationale display"
         );
         assert_eq!(app.masks.sel_mask, None, "a stale mask selection cannot linger");

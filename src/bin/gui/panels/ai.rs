@@ -53,7 +53,7 @@ impl AutoShadeApp {
     /// inputs carry state", and a remembered dial or folder says nothing
     /// about this photo.
     pub(crate) fn ai_section_active(&self) -> bool {
-        self.verdict.is_some() || !self.ai.guidance.is_empty()
+        self.analysis.verdict.is_some() || !self.ai.guidance.is_empty()
     }
 
     /// The AI area — TWO first-level sections (user ruling 2026-10-20: the two
@@ -184,7 +184,7 @@ impl AutoShadeApp {
 
     /// Whether the last analysis left anything to read.
     fn has_analysis_output(&self) -> bool {
-        self.verdict.is_some() || !self.rationale.is_empty()
+        self.analysis.verdict.is_some() || !self.analysis.rationale.is_empty()
     }
 
     /// What one Analyze run wrote — the verdict, the rationale sentence and
@@ -192,7 +192,7 @@ impl AutoShadeApp {
     /// box and the full-text window, so the two can never disagree.
     fn analysis_output(&self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        if let Some((d, reasons)) = &self.verdict {
+        if let Some((d, reasons)) = &self.analysis.verdict {
             // Accept reads calm; anything else (Revise/Reject)
             // gets the warn colour so it can't be skimmed past.
             // Matched on the TYPED decision, never its rendered
@@ -228,15 +228,15 @@ impl AutoShadeApp {
         // surfaces); the split is a display decision, and on the fallback
         // path the working is still inside `shown`, so no box is drawn.
         let (working, tail): (Vec<_>, Vec<_>) =
-            self.rationale_notes.iter().partition(|n| is_working_note(n.key));
-        let localized = (!self.rationale_notes.is_empty())
+            self.analysis.rationale_notes.iter().partition(|n| is_working_note(n.key));
+        let localized = (!self.analysis.rationale_notes.is_empty())
             .then(|| {
                 let det: String = self
-                    .rationale_notes
+                    .analysis.rationale_notes
                     .iter()
                     .map(autoshade::rationale::render_one)
                     .collect();
-                self.rationale.strip_suffix(det.as_str()).map(|prose| {
+                self.analysis.rationale.strip_suffix(det.as_str()).map(|prose| {
                     let mut s = String::from(prose);
                     for n in &tail {
                         s.push_str(&trf(lang, n.key, &note_args(n)));
@@ -245,7 +245,7 @@ impl AutoShadeApp {
                 })
             })
             .flatten();
-        let shown = localized.as_deref().unwrap_or(&self.rationale);
+        let shown = localized.as_deref().unwrap_or(&self.analysis.rationale);
         if !shown.is_empty() {
             ui.label(
                 egui::RichText::new(format!("“{shown}”"))

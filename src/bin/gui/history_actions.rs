@@ -59,12 +59,12 @@ impl AutoShadeApp {
     }
 
     pub(crate) fn resync_recipe_display(&mut self) {
-        self.rationale = self.doc.recipe.rationale.clone();
+        self.analysis.rationale = self.doc.recipe.rationale.clone();
         // Typed notes described the PREVIOUS rationale — a swap without a
         // clear would render a stale zh text over a different develop. The
         // landings that produce fresh notes install them AFTER this call.
-        self.rationale_notes.clear();
-        self.verdict = None;
+        self.analysis.rationale_notes.clear();
+        self.analysis.verdict = None;
         // A wholesale recipe swap (undo/redo/Reset/version load/AI apply)
         // disarms EVERY canvas tool — an armed index-carrying tool would fire
         // into whatever now sits at its remembered index, and a live

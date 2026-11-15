@@ -497,7 +497,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     );
                     // AFTER the variant load (which cleared them): the
                     // fit rationale's typed copy, for draw-time zh.
-                    self.rationale_notes = out.rationale_notes;
+                    self.analysis.rationale_notes = out.rationale_notes;
                     self.done(note);
                 }
                 Err(e) => {

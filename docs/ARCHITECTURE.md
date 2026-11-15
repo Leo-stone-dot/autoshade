@@ -7583,7 +7583,9 @@ the meaning of "the photo's develop" for every client. The canvas
 textures and their identity are `CanvasPlates`
 ([`canvas_plates.rs`](../src/bin/gui/canvas_plates.rs)), and the
 latest-wins develop dispatcher's counters are `DevelopScheduler`
-([`scheduler.rs`](../src/bin/gui/scheduler.rs)). The Lens Blur pilot
+([`scheduler.rs`](../src/bin/gui/scheduler.rs)). The AI analysis session's
+decision word, rationale (raw text + typed notes) and disclosed scripts are
+`AnalysisSession` ([`analysis_session.rs`](../src/bin/gui/analysis_session.rs)). The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
 share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):

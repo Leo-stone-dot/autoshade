@@ -416,9 +416,16 @@
                         ..Default::default()
                     },
                     lang,
-                    verdict: has_verdict.then(|| (
+                    analysis: AnalysisSession {
+
+                        verdict: has_verdict.then(|| (
                         autoshade::advisor::Decision::Accept, vec!["ok".into()]
                     )),
+
+                        ..Default::default()
+
+                    },
+
                     ..Default::default()
                 };
                 let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
