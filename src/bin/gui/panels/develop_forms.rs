@@ -55,6 +55,34 @@ fn label(lang: Lang, id: CapabilityId) -> &'static str {
         CapabilityId::PerspectiveAspect => tr(lang, "Aspect"),
         CapabilityId::PerspectiveX => tr(lang, "X offset"),
         CapabilityId::PerspectiveY => tr(lang, "Y offset"),
+        CapabilityId::LensVignetting => tr(lang, "Lens vignetting"),
+        CapabilityId::LensVignettingMid => tr(lang, "Midpoint"),
+        CapabilityId::LensDistortion => tr(lang, "Distortion"),
+        CapabilityId::LensProfileDistortionScale => tr(lang, "Distortion amount"),
+        CapabilityId::LensProfileVignettingScale => tr(lang, "Vignetting amount"),
+        CapabilityId::CaRed => tr(lang, "Red / cyan"),
+        CapabilityId::CaBlue => tr(lang, "Blue / yellow"),
+        CapabilityId::DefringePurple => tr(lang, "Purple amount"),
+        CapabilityId::DefringePurpleLo => tr(lang, "Purple hue low"),
+        CapabilityId::DefringePurpleHi => tr(lang, "Purple hue high"),
+        CapabilityId::DefringeGreen => tr(lang, "Green amount"),
+        CapabilityId::DefringeGreenLo => tr(lang, "Green hue low"),
+        CapabilityId::DefringeGreenHi => tr(lang, "Green hue high"),
+    }
+}
+
+/// The one tooltip line a Hinted row carries (the disclosure the control needs
+/// because its number alone does not say what the ends mean).
+fn hint(lang: Lang, id: CapabilityId) -> Option<&'static str> {
+    match id {
+        CapabilityId::LensProfileDistortionScale | CapabilityId::LensProfileVignettingScale => {
+            Some(tr(lang, "100 = exactly what the profile says; 0 switches that component off."))
+        }
+        CapabilityId::DefringePurpleLo
+        | CapabilityId::DefringePurpleHi
+        | CapabilityId::DefringeGreenLo
+        | CapabilityId::DefringeGreenHi => Some(tr(lang, "A hue window corrects nothing until its Amount is above 0.")),
+        _ => None,
     }
 }
 
@@ -82,6 +110,23 @@ pub(crate) fn render_rows(
                 max,
                 if cap.kind == SliderKind::CompanionFine { SliderFeel::Fine } else { SliderFeel::Int },
             ),
+            SliderKind::Hinted => {
+                let mut current = capability::value(recipe, cap.id);
+                let dirty = AutoShadeApp::slider_hinted(
+                    ui,
+                    lang,
+                    text,
+                    &mut current,
+                    min,
+                    max,
+                    cap.reset,
+                    hint(lang, cap.id).unwrap_or(""),
+                );
+                if dirty {
+                    capability::set_value(recipe, cap.id, current);
+                }
+                dirty
+            }
             SliderKind::Plain | SliderKind::Fine => {
                 let mut current = capability::value(recipe, cap.id);
                 let dirty = if cap.kind == SliderKind::Fine {

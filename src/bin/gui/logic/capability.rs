@@ -19,6 +19,8 @@ pub(crate) enum SliderKind {
     Fine,
     CompanionInt,
     CompanionFine,
+    /// A plain field whose slider carries one disclosure line in its tooltip.
+    Hinted,
 }
 
 /// Which scalar the form edits — the handle the renderer's read/write pair is
@@ -70,6 +72,19 @@ pub(crate) enum CapabilityId {
     PerspectiveAspect,
     PerspectiveX,
     PerspectiveY,
+    LensVignetting,
+    LensVignettingMid,
+    LensDistortion,
+    LensProfileDistortionScale,
+    LensProfileVignettingScale,
+    CaRed,
+    CaBlue,
+    DefringePurple,
+    DefringePurpleLo,
+    DefringePurpleHi,
+    DefringeGreen,
+    DefringeGreenLo,
+    DefringeGreenHi,
 }
 
 impl CapabilityId {
@@ -165,6 +180,37 @@ pub(crate) const HDR_SDR: &[Capability] = &[
     cap!(SdrClarity, "sdr_clarity", 0.0, Plain),
 ];
 
+/// Lens correction's manual rows, above the profile-strength block.
+pub(crate) const LENS_MANUAL: &[Capability] = &[
+    cap!(LensVignetting, "lens_vignette", 0.0, Plain),
+    cap!(LensVignettingMid, "lens_vignette_mid", 50.0, Plain),
+    cap!(LensDistortion, "lens_distortion", 0.0, Plain),
+];
+
+/// The profile's own two strengths (a Hinted row: the tooltip says what 0 and
+/// 100 mean).
+pub(crate) const LENS_PROFILE: &[Capability] = &[
+    cap!(LensProfileDistortionScale, "lens_profile_distortion_scale", 100.0, Hinted),
+    cap!(LensProfileVignettingScale, "lens_profile_vignetting_scale", 100.0, Hinted),
+];
+
+/// The manual lateral CA pair.
+pub(crate) const LENS_CA: &[Capability] = &[
+    cap!(CaRed, "ca_r", 0.0, Plain),
+    cap!(CaBlue, "ca_b", 0.0, Plain),
+];
+
+/// Adobe's de-fringe block: two amounts plus the hue windows, whose neutrals
+/// are NOT zero (30/70 and 40/60).
+pub(crate) const LENS_DEFRINGE: &[Capability] = &[
+    cap!(DefringePurple, "defringe_purple", 0.0, Plain),
+    cap!(DefringePurpleLo, "defringe_purple_lo", 30.0, Hinted),
+    cap!(DefringePurpleHi, "defringe_purple_hi", 70.0, Hinted),
+    cap!(DefringeGreen, "defringe_green", 0.0, Plain),
+    cap!(DefringeGreenLo, "defringe_green_lo", 40.0, Hinted),
+    cap!(DefringeGreenHi, "defringe_green_hi", 60.0, Hinted),
+];
+
 /// The crop section's one scalar row (the box itself is a canvas tool).
 pub(crate) const CROP: &[Capability] = &[cap!(Straighten, "straighten_deg", 0.0, Fine)];
 
@@ -240,6 +286,19 @@ pub(crate) fn value(recipe: &EditRecipe, id: CapabilityId) -> f32 {
         CapabilityId::PerspectiveAspect => recipe.perspective_aspect,
         CapabilityId::PerspectiveX => recipe.perspective_x,
         CapabilityId::PerspectiveY => recipe.perspective_y,
+        CapabilityId::LensVignetting => recipe.lens_vignette,
+        CapabilityId::LensVignettingMid => recipe.lens_vignette_mid,
+        CapabilityId::LensDistortion => recipe.lens_distortion,
+        CapabilityId::LensProfileDistortionScale => recipe.lens_profile_distortion_scale,
+        CapabilityId::LensProfileVignettingScale => recipe.lens_profile_vignetting_scale,
+        CapabilityId::CaRed => recipe.ca_r,
+        CapabilityId::CaBlue => recipe.ca_b,
+        CapabilityId::DefringePurple => recipe.defringe_purple,
+        CapabilityId::DefringePurpleLo => recipe.defringe_purple_lo,
+        CapabilityId::DefringePurpleHi => recipe.defringe_purple_hi,
+        CapabilityId::DefringeGreen => recipe.defringe_green,
+        CapabilityId::DefringeGreenLo => recipe.defringe_green_lo,
+        CapabilityId::DefringeGreenHi => recipe.defringe_green_hi,
         other => unreachable!("companion row {other:?} is read through `EditRecipe::resolved`"),
     }
 }
@@ -282,6 +341,19 @@ pub(crate) fn set_value(recipe: &mut EditRecipe, id: CapabilityId, value: f32) {
         CapabilityId::PerspectiveAspect => recipe.perspective_aspect = value,
         CapabilityId::PerspectiveX => recipe.perspective_x = value,
         CapabilityId::PerspectiveY => recipe.perspective_y = value,
+        CapabilityId::LensVignetting => recipe.lens_vignette = value,
+        CapabilityId::LensVignettingMid => recipe.lens_vignette_mid = value,
+        CapabilityId::LensDistortion => recipe.lens_distortion = value,
+        CapabilityId::LensProfileDistortionScale => recipe.lens_profile_distortion_scale = value,
+        CapabilityId::LensProfileVignettingScale => recipe.lens_profile_vignetting_scale = value,
+        CapabilityId::CaRed => recipe.ca_r = value,
+        CapabilityId::CaBlue => recipe.ca_b = value,
+        CapabilityId::DefringePurple => recipe.defringe_purple = value,
+        CapabilityId::DefringePurpleLo => recipe.defringe_purple_lo = value,
+        CapabilityId::DefringePurpleHi => recipe.defringe_purple_hi = value,
+        CapabilityId::DefringeGreen => recipe.defringe_green = value,
+        CapabilityId::DefringeGreenLo => recipe.defringe_green_lo = value,
+        CapabilityId::DefringeGreenHi => recipe.defringe_green_hi = value,
         other => unreachable!("companion row {other:?} is written through `EditRecipe::set_resolved`"),
     }
 }
@@ -302,6 +374,10 @@ mod tests {
         NOISE_LUMA,
         NOISE_COLOR,
         TRANSFORM,
+        LENS_MANUAL,
+        LENS_PROFILE,
+        LENS_CA,
+        LENS_DEFRINGE,
     ];
 
     #[test]
@@ -361,6 +437,23 @@ mod tests {
                 "perspective_aspect",
                 "perspective_x",
                 "perspective_y",
+            ],
+        );
+        assert_eq!(names(LENS_MANUAL), ["lens_vignette", "lens_vignette_mid", "lens_distortion"]);
+        assert_eq!(
+            names(LENS_PROFILE),
+            ["lens_profile_distortion_scale", "lens_profile_vignetting_scale"],
+        );
+        assert_eq!(names(LENS_CA), ["ca_r", "ca_b"]);
+        assert_eq!(
+            names(LENS_DEFRINGE),
+            [
+                "defringe_purple",
+                "defringe_purple_lo",
+                "defringe_purple_hi",
+                "defringe_green",
+                "defringe_green_lo",
+                "defringe_green_hi",
             ],
         );
     }

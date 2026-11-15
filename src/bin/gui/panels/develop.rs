@@ -1675,9 +1675,9 @@ impl AutoShadeApp {
                 // behind them is a name collision, not a shorthand. This one
                 // is a falloff CORRECTION in linear light before any tonal
                 // work; that one is a creative darkening after the crop.
-                changed |= Self::slider(ui, lang, tr(lang, "Lens vignetting"), &mut self.recipe.lens_vignette, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Midpoint"), &mut self.recipe.lens_vignette_mid, 0.0, 100.0, 50.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Distortion"), &mut self.recipe.lens_distortion, -100.0, 100.0, 0.0);
+                // Manual vignetting / midpoint / distortion: one capability
+                // table (bands and resets from `logic::capability`).
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::LENS_MANUAL);
                 // --- manual lateral CA (R25 B3) -------------------------
                 // RENDERED, so NO disclosure line: these two fold onto the
                 // very per-channel radius LUT the profile CA above uses
@@ -1693,19 +1693,10 @@ impl AutoShadeApp {
                 // imported from Lightroom shows what it carries.
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "Profile correction strength")).weak().small());
-                {
-                    let r = &mut self.recipe;
-                    let hint = tr(lang, "100 = exactly what the profile says; 0 switches that component off.");
-                    changed |= Self::slider_hinted(ui, lang, tr(lang, "Distortion amount"), &mut r.lens_profile_distortion_scale, 0.0, 200.0, 100.0, hint);
-                    changed |= Self::slider_hinted(ui, lang, tr(lang, "Vignetting amount"), &mut r.lens_profile_vignetting_scale, 0.0, 200.0, 100.0, hint);
-                }
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::LENS_PROFILE);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "Chromatic aberration (manual)")).weak().small());
-                {
-                    let r = &mut self.recipe;
-                    changed |= Self::slider(ui, lang, tr(lang, "Red / cyan"), &mut r.ca_r, -100.0, 100.0, 0.0);
-                    changed |= Self::slider(ui, lang, tr(lang, "Blue / yellow"), &mut r.ca_b, -100.0, 100.0, 0.0);
-                }
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::LENS_CA);
                 // …and the rest of the same panel: Adobe's auto switch and the
                 // whole de-fringe block. Carried and unrendered until v1.5.0;
                 // the switch is an INSTRUCTION, so its tooltip says what the
@@ -1722,21 +1713,10 @@ impl AutoShadeApp {
                 }
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, "Defringe")).weak().small());
-                {
-                    let r = &mut self.recipe;
-                    // Adobe's own bands and Adobe's own neutrals: the amounts
-                    // rest at 0, the hue windows at 30/70 and 40/60 (this is
-                    // the one block in the recipe whose neutral is not zero,
-                    // and the reset target has to say so or double-click
-                    // would invent a 0..0 window).
-                    let window = tr(lang, "A hue window corrects nothing until its Amount is above 0.");
-                    changed |= Self::slider(ui, lang, tr(lang, "Purple amount"), &mut r.defringe_purple, 0.0, 20.0, 0.0);
-                    changed |= Self::slider_hinted(ui, lang, tr(lang, "Purple hue low"), &mut r.defringe_purple_lo, 0.0, 100.0, 30.0, window);
-                    changed |= Self::slider_hinted(ui, lang, tr(lang, "Purple hue high"), &mut r.defringe_purple_hi, 0.0, 100.0, 70.0, window);
-                    changed |= Self::slider(ui, lang, tr(lang, "Green amount"), &mut r.defringe_green, 0.0, 20.0, 0.0);
-                    changed |= Self::slider_hinted(ui, lang, tr(lang, "Green hue low"), &mut r.defringe_green_lo, 0.0, 100.0, 40.0, window);
-                    changed |= Self::slider_hinted(ui, lang, tr(lang, "Green hue high"), &mut r.defringe_green_hi, 0.0, 100.0, 60.0, window);
-                }
+                // Adobe's bands and neutrals: amounts rest at 0, the hue
+                // windows at 30/70 and 40/60 (the one block whose neutral is
+                // not zero — the row resets carry them).
+                changed |= crate::panels::develop_forms::render_rows(ui, lang, &mut self.recipe, crate::logic::capability::LENS_DEFRINGE);
                 ui.add_space(SPACE_SM);
                 explainer(ui, lang, tr(lang, "Vignette: positive brightens the corners (compensates falloff), negative darkens; a radial gain in linear light. Distortion: positive fixes barrel (wide-angle bulge), negative fixes pincushion (tele pinch); auto-scales to fill the frame, and masks / brush still position on the corrected image. Preview / export / XMP match. Manual CA, the auto-CA switch and de-fringe all render here too."));
             });
