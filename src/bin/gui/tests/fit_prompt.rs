@@ -154,7 +154,7 @@
         };
         let panel = body(include_str!("../panels/ai.rs"), "fn ai_reverse_fit(");
         assert!(panel.contains("self.fit_source_menu()"), "the panel builds its own source list again");
-        let layer = body(include_str!("../actions.rs"), "pub(crate) fn fit_prompt_layer(");
+        let layer = body(include_str!("../ai_start_actions.rs"), "pub(crate) fn fit_prompt_layer(");
         assert!(layer.contains("self.fit_source_menu()"), "the prompt builds its own source list again");
         assert!(layer.contains("self.start_fit()"), "the prompt runs a fit of its own");
     }

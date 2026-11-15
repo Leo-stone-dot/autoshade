@@ -263,7 +263,7 @@ mod tests {
         // `budget.rs` itself is the definition and its own tests, not a wiring
         // site.
         const CENSUS: [(&str, usize); 6] = [
-            ("actions.rs", 2),
+            ("ai_start_actions.rs", 2),
             ("open_actions.rs", 1),
             ("export.rs", 2),
             ("masks.rs", 1),

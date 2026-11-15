@@ -1016,7 +1016,7 @@
         // The worker halves run behind a segmentation call, so they are
         // pinned on the source (the config.rs literal-pin pattern): the fit
         // reads the negative once at the click and the persist links it.
-        let fit = include_str!("../actions.rs");
+        let fit = include_str!("../ai_start_actions.rs");
         assert!(fit.contains("let negative = self.fit_negative();"));
         assert!(
             fit.contains("(Some(p), Some(master)) => {")
@@ -1186,7 +1186,7 @@
         // a ◈ master is a camera frame, not AI pixels: it keeps calibration,
         // projects to a Lightroom XMP and never earns the AI caveats.
         assert!(!VariantKind::Denoised.on_ai_pixels());
-        let save = include_str!("../actions.rs");
+        let save = include_str!("../ai_start_actions.rs");
         assert!(
             save.contains("pixels: st.origin.clone().map(|o| (o, st.kind.on_ai_pixels())),"),
             "the save's pixel link no longer reads the card's kind"

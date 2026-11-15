@@ -339,7 +339,7 @@
         assert!(autoshade::library::DescribeSwitch::resolve_with(None, on.aip.style_describe, unset).on());
         assert!(!autoshade::library::DescribeSwitch::resolve_with(None, off.aip.style_describe, unset).on());
 
-        let actions = include_str!("../actions.rs");
+        let actions = concat!(include_str!("../actions.rs"), include_str!("../ai_start_actions.rs"));
         assert_eq!(
             actions.matches("DescribeSwitch::resolve(None, self.aip.style_describe)").count(),
             1,
