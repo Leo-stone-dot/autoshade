@@ -5,6 +5,7 @@ use crate::*;
 // The section ● predicate and the table it reads (R25 P0) — see
 // `develop_panel` and `dev_lens`.
 use autoshade::advisor::catalogue::{family_is_active, CONTROL_FAMILIES};
+use crate::logic::sections::{section_active, SectionId, SECTIONS};
 
 
 impl AutoShadeApp {
@@ -371,94 +372,44 @@ impl AutoShadeApp {
         // already found four of them one field short. `family_is_active` reads
         // the same table the AI's tool plan is built from, so a control that
         // joins a family joins its dot.
-        let (
-            presence_active,
-            detail_active,
-            hsl_active,
-            grade_active,
-            curves_active,
-            effects_active,
-            calibration_active,
-            transform_active,
-            hdr_active,
-        ) = {
-            let r = &self.doc.recipe;
-            let fam = |name: &str| {
-                CONTROL_FAMILIES
-                    .iter()
-                    .find(|f| f.name == name)
-                    .is_some_and(|f| family_is_active(f, r))
+        // The section table (`logic::sections`) owns the display order, the
+        // family set each ● reads, and which sections are registered custom
+        // widgets. This loop is the only place the panel enumerates them.
+        for section in SECTIONS {
+            let active = section_active(&self.doc.recipe, section);
+            changed |= match section.id {
+                SectionId::ToneWb => self.dev_tone_wb(ui),
+                SectionId::Presence => self.dev_presence(ui, active),
+                SectionId::Curves => self.dev_curves(ui, active),
+                SectionId::Hsl => self.dev_hsl(ui, active),
+                SectionId::Grading => self.dev_grading(ui, active),
+                SectionId::Calibration => self.dev_calibration(ui, active),
+                SectionId::Detail => self.dev_detail(ui, active),
+                SectionId::Effects => self.dev_effects(ui, active),
+                SectionId::LensBlur => {
+                    // A verb: it returns the actions its worker start needs and
+                    // the facade applies them (the section itself has no ●).
+                    let lens_actions = self.dev_lens_blur(ui);
+                    let touched = !lens_actions.is_empty();
+                    if touched {
+                        self.apply_actions(lens_actions);
+                    }
+                    touched
+                }
+                SectionId::Lens => self.dev_lens(ui),
+                SectionId::Transform => self.dev_transform(ui, active),
+                // Crop/straighten derives its own `framing` ● inside the section.
+                SectionId::Crop => self.dev_crop(ui),
+                SectionId::Masks => self.dev_masks(ui),
+                SectionId::Versions => self.dev_versions(ui),
+                SectionId::Stack => {
+                    self.dev_stack(ui);
+                    false
+                }
+                SectionId::Hdr => self.dev_hdr(ui, active),
+                SectionId::Export => self.dev_export(ui),
             };
-            (
-                fam("presence"),
-                // R25 B3: the Detail section holds BOTH halves — the two
-                // sliders the AI plans with and the eight carried shaping
-                // axes — so its ● is the OR of the two families. They are
-                // separate families because one is AI-visible and one is not
-                // (see `CONTROL_FAMILIES`), not because the panel splits them.
-                fam("detail") || fam("detail_effects"),
-                // v1.5.0: the Color Mixer section holds Lightroom's whole
-                // mixer — the colour bands, the B&W treatment that replaces
-                // them and the point colours — so its ● is the OR of the
-                // three families, for the Detail section's reason above.
-                fam("hsl") || fam("black_white") || fam("point_color"),
-                fam("color_grade"),
-                // v1.5.0: the Curves section holds the point curves AND the
-                // parametric curve — two families for Detail's reason (one is
-                // AI-visible, one is not), one section, so one ● for both.
-                fam("curves") || fam("parametric"),
-                // R25 B2 made `effects` the first family with no AI-visible
-                // member; it is planned with since 2026-10-21, and either
-                // way the section's ● comes from the same table.
-                fam("effects"),
-                fam("calibration"),
-                // v1.5.0 F6: the Transform section's own family. It has no
-                // AI-visible member either, so like `effects` it exists in the
-                // table for exactly this.
-                fam("transform"),
-                // v1.5.0 F8: likewise — the `hdr` family exists for this ●.
-                fam("hdr"),
-            )
-        };
-        changed |= self.dev_tone_wb(ui);
-        changed |= self.dev_presence(ui, presence_active);
-        changed |= self.dev_curves(ui, curves_active);
-        changed |= self.dev_hsl(ui, hsl_active);
-        changed |= self.dev_grading(ui, grade_active);
-        // v1.5.0: Lightroom's Calibration panel, which Lightroom lists last
-        // and this panel closes the colour group with — it is a colour
-        // control, and #14b groups by kind.
-        changed |= self.dev_calibration(ui, calibration_active);
-        changed |= self.dev_detail(ui, detail_active);
-        changed |= self.dev_effects(ui, effects_active);
-        // A migrated panel returns what the user did instead of mutating the
-        // recipe; the facade applies it (and the clamp below still runs once).
-        let lens_actions = self.dev_lens_blur(ui);
-        if !lens_actions.is_empty() {
-            self.apply_actions(lens_actions);
-            changed = true;
         }
-        changed |= self.dev_lens(ui);
-        // In Lightroom's own panel order (Transform follows Lens Corrections).
-        // R25 B4 drew this section read-only because nothing here moved a pixel;
-        // v1.5.0 F6 renders all of it, so the sliders are real and only the
-        // Upright solver's own bookkeeping is still carried verbatim.
-        changed |= self.dev_transform(ui, transform_active);
-        changed |= self.dev_crop(ui);
-        changed |= self.dev_masks(ui);
-        changed |= self.dev_versions(ui);
-        // v1.5.0 Track S. Not a develop control at all — a verb that makes a
-        // new negative out of several frames — and it sits here, after the
-        // version history and before the rendition/delivery pair, for that
-        // reason: it belongs to the PHOTOGRAPH's identity, which is what the
-        // sections above it are about, rather than to the file that leaves.
-        self.dev_stack(ui);
-        // v1.5.0 F8, beside Export and not beside Tone: what this section
-        // governs is the file that leaves the program. The rendition is the
-        // develop's LAST stage (`render::hdr`), and every control in it is
-        // about the mapping into SDR rather than about the photograph.
-        changed |= self.dev_hdr(ui, hdr_active);
-        changed |= self.dev_export(ui);
         });
 
         if changed {

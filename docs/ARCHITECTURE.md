@@ -7552,7 +7552,11 @@ tone-curve editor, the parametric curve, the colour mixer grid with its Point
 Color rows and the grading wheels — live in
 [`panels/develop_widgets.rs`](../src/bin/gui/panels/develop_widgets.rs). A table
 row reports its change as a
-`logic::command::Command` — `SetCapability` for a plain field, `SetCompanion`
+`logic::command::Command` — and the panel's SECTION list, the display order and
+the family set each ● reads, is a table too
+([`logic/sections.rs`](../src/bin/gui/logic/sections.rs): `SECTIONS`,
+`section_active`), where each row also registers whether it is a form or one
+of the custom widgets — `SetCapability` for a plain field, `SetCompanion`
 for the explicit-zero encoding — which the panel's `capability_rows` applies
 through `logic::command::apply`. The worker channel and the event-loop context workers
 wake are a `Services` struct
