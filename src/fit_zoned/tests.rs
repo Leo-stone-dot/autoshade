@@ -19,6 +19,7 @@ fn joint_fixture(warm_shift: f32) -> Vec<[f32; 3]> {
 /// The eight bucket weights must partition unity — every pixel counted
 /// exactly once across the family, so the shares read as frame fractions
 /// and the area weighting means what it says.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_joint_buckets_partition_unity() {
     let px = joint_fixture(0.0);
@@ -44,6 +45,7 @@ fn the_joint_buckets_partition_unity() {
 /// different SIZE and layout that hold the same value populations must
 /// read as matched. This is the property that makes the reading immune
 /// to the composition differences frame-global matching dies on.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_joint_family_matches_by_value_not_by_position() {
     let a = joint_fixture(0.0);
@@ -66,6 +68,7 @@ fn the_joint_family_matches_by_value_not_by_position() {
 }
 
 /// FAIL-OPEN: no evidence ⇒ no opinion, never "no problem".
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_joint_family_abstains_without_evidence() {
     // A frame with two pixels cannot clear the share floor on 8 buckets.
@@ -79,6 +82,7 @@ fn the_joint_family_abstains_without_evidence() {
     assert_eq!(joint_buckets(&[], &tiny).len(), 0);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn joint_far_classification_keeps_refusals_out_of_the_miss_note() {
     assert_eq!(
@@ -110,6 +114,7 @@ fn joint_far_classification_keeps_refusals_out_of_the_miss_note() {
 /// nx = 0.125/0.375/0.625/0.875 gives −0.25, 0.25, 0.75, 1.25, which clamp
 /// to 0, ¼, ¾, 1 — symmetric about the frame centre and reaching BOTH
 /// ends. At the refuted `x/w` the same raster reads 0, ½, 1, 1.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zone_moments_sample_on_the_renders_own_grid() {
     let mut m = GrayImage::new(2, 1);
@@ -118,6 +123,7 @@ fn zone_moments_sample_on_the_renders_own_grid() {
     assert_eq!(mask_weights(&m, 4, 1), vec![0.0, 0.25, 0.75, 1.0]);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zone_moments_use_only_the_weighted_pixels() {
     // Two distinct populations; a binary mask must reproduce the selected
@@ -146,6 +152,7 @@ fn zone_moments_use_only_the_weighted_pixels() {
     assert!(dead.luma_lin == 0.0 && dead.chroma == 0.0);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zone_dials_recover_a_known_channel_transform() {
     // Forward-transform a zone with known per-channel linear gains, then
@@ -190,6 +197,7 @@ fn zone_dials_recover_a_known_channel_transform() {
     assert!(d.exposure_ev.abs() < 1.0, "ev {}", d.exposure_ev);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zone_dials_are_neutral_for_matching_zones() {
     let px: Vec<[f32; 3]> = vec![[0.6, 0.63, 0.67], [0.55, 0.58, 0.62]];
@@ -204,6 +212,7 @@ fn zone_dials_are_neutral_for_matching_zones() {
     assert!(zone_sat_step(m1.chroma, m2.chroma).is_none(), "sat must converge");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zone_dials_turn_a_pale_sky_golden_through_the_engine() {
     // The acceptance geometry of the real failure (P21 ×
@@ -387,6 +396,7 @@ fn zero_evidence_hue_pair_with(
 /// Orange at all), so the old rule refused every same-layout recolour on
 /// the ground that it was a recolour. The cells can tell that case from a
 /// region whose layout moved, and this fixture is both halves of it.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zoned_color_gains_move_a_zero_evidence_hue_band_only_where_the_regions_cells_vouch_it() {
     let (src, tgt, mask) = zero_evidence_hue_pair(false);
@@ -440,6 +450,7 @@ fn zoned_color_gains_move_a_zero_evidence_hue_band_only_where_the_regions_cells_
 /// gain the zone's mean asks for drags one of those halves away from its
 /// own cell targets. The refusal is now a MEASUREMENT rather than a bare
 /// "zero evidence".
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_region_whose_cells_ask_for_opposite_moves_keeps_its_colour_refusal() {
     let (src, tgt, mask) = zero_evidence_hue_pair(true);
@@ -487,6 +498,7 @@ fn a_region_whose_cells_ask_for_opposite_moves_keeps_its_colour_refusal() {
 /// of it, and that share ships — warm, non-unity, with the sentence that
 /// prints both verdicts. The opposite-moves fixture above stays refused:
 /// its `aligned` share fails, and a smaller move is not what it asks for.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_move_the_cells_refuse_only_for_its_size_ships_at_the_share_they_vouch() {
     let (src, tgt, mask) = zero_evidence_hue_pair_with(false, true);
@@ -592,6 +604,7 @@ fn paired_hue_pair(two_ways: bool) -> (DynamicImage, DynamicImage, GrayImage) {
 /// lifted for the pixels that converge toward their counterparts. The
 /// pixels that do not keep the veto, and the mirror half of this test is
 /// the case where enough of them do that the refusal stands unchanged.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zoned_color_gains_move_a_one_sided_hue_band_where_the_regions_own_pixels_vouch_it() {
     let (src, tgt, mask) = paired_hue_pair(false);
@@ -654,6 +667,7 @@ fn zoned_color_gains_move_a_one_sided_hue_band_where_the_regions_own_pixels_vouc
     path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_region_of_only_unsupported_pixels_abstains_and_the_refusal_stands() {
     let (src, tgt, mask) = zero_evidence_hue_pair(false);
@@ -852,6 +866,7 @@ pub(super) fn neutral_report(src: &DynamicImage, tgt: &DynamicImage) -> fit::Fit
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn full_zone_in_atmosphere_frame_reads_structural_evidence() {
     let edge = 64u32;
@@ -1007,6 +1022,7 @@ fn legacy_zoned_fit(
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn layered_disabled_is_byte_identical_to_current_zoned_fit() {
     let (source, target, sky) = zoned_pair();
@@ -1175,7 +1191,7 @@ fn layered_disabled_is_byte_identical_to_current_zoned_fit() {
 /// compare against `legacy_zoned_fit` in the same process, are the
 /// equivalence check that does not age.
 #[test]
-#[ignore]
+#[ignore = "needs AUTOSHADE_LAYERED_HEAD_SEMANTIC/RANGE artifacts from a real fit run"]
 fn export_layered_head_equivalence_artifacts() {
     let layers = ZonedLayerOpts {
         field: false, spatial: false, free_masks: false, refine_masks: false, detail: false,
@@ -1253,6 +1269,7 @@ fn export_layered_head_equivalence_artifacts() {
 /// what the first assertions say. From the default up the field attaches,
 /// names itself, and is kept only if the frame it renders is measurably
 /// closer to the target than the frame without it.
+#[ignore = "real-machine probe: python/RMBG segmentation, ~60s each; run with --ignored"]
 #[test]
 fn the_colour_field_ships_from_the_default_strength_and_not_below() {
     let (source, target, sky) = zoned_pair();
@@ -1355,6 +1372,7 @@ fn the_colour_field_ships_from_the_default_strength_and_not_below() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn field_disabled_layer_is_byte_identical() {
     let (source, target, sky) = zoned_pair();
@@ -1391,6 +1409,7 @@ fn field_disabled_layer_is_byte_identical() {
     path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn field_stop_rule_skips_the_tile_producer_and_names_it() {
     let (current, target, width, height) = crate::fit_field::tests::two_band_pair();
@@ -1430,6 +1449,7 @@ fn field_stop_rule_skips_the_tile_producer_and_names_it() {
     path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn calibration_local_field_discloses_ceiling_and_realized_share() {
     let Some(root) = fit::calibration_corpus() else { return };
@@ -1546,6 +1566,7 @@ fn normalized_persisted_recipe(
     serde_json::to_vec(&value).unwrap()
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zone_divergence_uses_the_same_source_mask_on_both_sides() {
     // The gold pair: its sky population reads D well clear of the flat
@@ -1615,6 +1636,7 @@ fn zone_divergence_uses_the_same_source_mask_on_both_sides() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn atmosphere_zone_shrinks_gains_toward_unity_but_keeps_their_direction() {
     let original = [1.49f32, 0.83, 0.69];
@@ -1684,6 +1706,7 @@ fn atmosphere_zone_shrinks_gains_toward_unity_but_keeps_their_direction() {
 /// other's counterparts — which makes the pixel-scale refusal unmeasurable
 /// rather than correct. The cells are the measurement that premise leaves
 /// available, and this fixture supplies D 0.80 precisely to reach it.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_divergent_zone_is_still_attached_in_atmosphere_mode_and_its_colour_follows_its_cells() {
     let (src, tgt, sky_mask) = zoned_pair_gold();
@@ -1717,6 +1740,7 @@ fn a_divergent_zone_is_still_attached_in_atmosphere_mode_and_its_colour_follows_
     mask_path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn atmosphere_zone_skips_the_within_zone_cdf_solve() {
     let (src, tgt, sky_mask) = zoned_pair_gold();
@@ -1749,6 +1773,7 @@ fn atmosphere_zone_skips_the_within_zone_cdf_solve() {
     mask_path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_matching_zone_next_to_a_divergent_one_keeps_full_mode() {
     let (src, tgt, sky_mask) = zoned_pair();
@@ -1778,6 +1803,7 @@ fn a_matching_zone_next_to_a_divergent_one_keeps_full_mode() {
     mask_path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn semantic_regions_select_independent_modes_and_worst_confidence() {
     let (w, h) = (12u32, 4u32);
@@ -2030,6 +2056,7 @@ fn assert_gains_withheld(gains: Option<[f32; 3]>) {
 /// split, its additive dials stay at zero, and the cast zone keeps its
 /// direction. CI on the 2026-09-24 close-out read 0.99999994 here while
 /// the unity offset was added first.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_withheld_channel_is_exactly_unity_under_every_shrink() {
     let originals = vec![
@@ -2123,6 +2150,7 @@ fn note_number(note: &crate::rationale::Note, name: &str) -> f32 {
         .unwrap()
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn boundary_rim_is_measured_across_the_mask_transition_band() {
     let (pixels, weights, w, h) = boundary_fixture_pixels(0.12);
@@ -2136,6 +2164,7 @@ fn boundary_rim_is_measured_across_the_mask_transition_band() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn opposite_sign_zone_pair_exceeds_the_rim_budget_before_shrinking() {
     assert_eq!(ZONE_BOUNDARY_RIM_MAX, 0.012, "the measured calibration is pinned");
@@ -2147,6 +2176,7 @@ fn opposite_sign_zone_pair_exceeds_the_rim_budget_before_shrinking() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn rim_shrink_keeps_each_zones_direction_and_lands_inside_the_budget() {
     let (source, mask, path, mut report) = soft_zone_pair("zoned-rim-shrink", -0.65, 0.20);
@@ -2202,6 +2232,7 @@ fn rim_shrink_keeps_each_zones_direction_and_lands_inside_the_budget() {
 /// uncorrected render too, so the differential ruler charges nothing for
 /// it and the gate keeps the candidate at exactly k=1 - even though the
 /// magnitude of that bow is nearly twice the budget.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn same_sign_zone_pair_needs_no_shrink() {
     let (pixels, weights, w, h) = boundary_fixture_pixels(-0.02);
@@ -2248,6 +2279,7 @@ fn same_sign_zone_pair_needs_no_shrink() {
     assert_eq!(report.recipe.masks[1].exposure_ev, -0.90);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn every_accepted_fixture_zone_still_passes_the_boundary_gate() {
     let (src, tgt, sky_mask) = zoned_pair();
@@ -2484,6 +2516,7 @@ fn every_accepted_fixture_zone_still_passes_the_boundary_gate() {
 /// and drops every gain, so the k=0 render is REQUIRED to reproduce the
 /// reference. Handing the gate a reference the k=0 render cannot
 /// reproduce is how that bug is simulated here.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zero_dialled_mask_that_is_not_a_render_no_op_is_dropped_with_its_own_note() {
     let (pixels, line_weights, w, h) = boundary_fixture_pixels(0.0);
@@ -2529,6 +2562,7 @@ fn a_zero_dialled_mask_that_is_not_a_render_no_op_is_dropped_with_its_own_note()
     path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn boundary_gate_discloses_the_applied_shrink_and_measured_rim() {
     let (source, mask, path, mut report) = soft_zone_pair("zoned-rim-disclosure", -0.65, 0.20);
@@ -2576,6 +2610,7 @@ fn boundary_gate_discloses_the_applied_shrink_and_measured_rim() {
 /// MUTATION THIS KILLS: `frame_tol: 0.0` (or `SPATIAL_FRAME_REGRESSION_TOL`)
 /// on the semantic-region caller in `regions.rs` — the second run is then
 /// refused with `REGION_BOUNDARY_REFUSED`.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_region_inside_its_admitted_frame_budget_is_kept_by_the_boundary_gate() {
     let (src, tgt, mask) = zoned_pair();
@@ -2636,6 +2671,7 @@ fn a_region_inside_its_admitted_frame_budget_is_kept_by_the_boundary_gate() {
 /// shared shrink k=0 left 0.058 (budget 0.012, 817 measured
 /// transitions)". Supervisor mutation M-2-A (the absolute reading
 /// restored) goes red on the second assertion.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_boundary_gate_charges_the_correction_and_not_the_scene() {
     let (reference, rendered, weights, w, h) = boundary_arm(
@@ -2681,6 +2717,7 @@ fn the_boundary_gate_charges_the_correction_and_not_the_scene() {
 /// budget, so the old fast path kept it at k=1 and shipped a seam 2.5x
 /// the visibility line. Without this arm the whole change would be
 /// indistinguishable from raising the budget.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_rim_the_correction_introduced_is_charged_even_where_the_scene_hides_it() {
     let (reference, rendered, weights, w, h) = boundary_arm(
@@ -2728,6 +2765,7 @@ fn a_rim_the_correction_introduced_is_charged_even_where_the_scene_hides_it() {
 /// the same multiplier. Transporting the reference through the settled
 /// sky's own multiplier cancels that identically. Supervisor mutation
 /// M-2-B (the additive form) goes red here and nowhere else.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn one_multiply_over_the_whole_frame_introduces_no_rim() {
     let gain = 2.0f32;
@@ -2783,6 +2821,7 @@ fn one_multiply_over_the_whole_frame_introduces_no_rim() {
 /// round trip leaves up to 8.9e-08. Supervisor mutation M-2-D (the short
 /// circuit removed) goes red here and a tolerance-based assertion would
 /// not catch it.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_unchanged_render_introduces_exactly_zero_rim() {
     let row = boundary_row(0.20, 0.26, 0.40, 0.40);
@@ -2800,6 +2839,7 @@ fn an_unchanged_render_introduces_exactly_zero_rim() {
 /// while a 0.050 seam ships. Supervisor mutation M-2-C goes red here;
 /// this arm exists BECAUSE the specification predicted M-2-C would
 /// survive on a single-hump fixture.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_rim_is_one_argmax_on_the_difference_not_two_independent_maxima() {
     let (reference, rendered, weights, w, h) = boundary_arm(
@@ -2837,6 +2877,7 @@ fn the_rim_is_one_argmax_on_the_difference_not_two_independent_maxima() {
 /// second transition, land back up to a settled sky (0.6/0.8, then 1.0), so
 /// the line still crosses the feather twice; the readings are unchanged
 /// (8 transitions, rim 0.050).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_rim_percentile_ranks_by_magnitude_so_a_dark_seam_cannot_hide() {
     let (w, h) = (16u32, 4u32);
@@ -2883,6 +2924,7 @@ fn the_rim_percentile_ranks_by_magnitude_so_a_dark_seam_cannot_hide() {
 /// the fixture below therefore drives it by rendering to the reference
 /// exactly, which is the general case rather than the `k == 0.0` corner.
 /// Supervisor mutation M-4-A (the check deleted) goes red here.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_inert_zoned_correction_is_refused_rather_than_attached() {
     let (pixels, weights, w, h) = boundary_fixture_pixels(0.0);
@@ -3048,6 +3090,7 @@ fn zone_share(weights: &[f32]) -> f32 {
 /// untouched frame (nothing asked: the context rule bit for bit), the
 /// OPPOSITE dose (asked the other way: the context rule bit for bit) and
 /// half the dose (half asked: a larger k than none, smaller than whole).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_step_the_target_itself_carries_is_not_charged_as_a_seam() {
     let (source, _, weights, reference, candidate, path, _) =
@@ -3136,6 +3179,7 @@ fn a_step_the_target_itself_carries_is_not_charged_as_a_seam() {
 }
 
 /// R37. The unasked part of an introduced step, by cases.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_unasked_part_of_a_step_is_its_excess_over_what_the_target_carries() {
     assert_eq!(unasked(0.02, 0.03), 0.0, "inside what is asked");
@@ -3150,6 +3194,7 @@ fn the_unasked_part_of_a_step_is_its_excess_over_what_the_target_carries() {
 /// at least; both means a code or more; the target moving the
 /// correction's way; and the target's mean two standard errors from
 /// zero — else nothing.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_cell_share_needs_a_quorum_a_mean_its_noise_cannot_hide_and_a_code() {
     let cell = |asked: &[f32], made: f32| {
@@ -3204,6 +3249,7 @@ fn a_cell_share_needs_a_quorum_a_mean_its_noise_cannot_hide_and_a_code() {
 /// the gate shrank the push; now nothing is measured and it is kept whole.
 /// The footed transition is still charged — the guard is
 /// `a_narrow_feather_over_haze_is_charged_against_its_own_flat_context`.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_alpha_dip_inside_the_zone_is_not_read_as_a_boundary() {
     let (w, h) = HAZY;
@@ -3236,6 +3282,7 @@ fn an_alpha_dip_inside_the_zone_is_not_read_as_a_boundary() {
 /// and at the floor budget's x3 rate one code of rounding was the whole
 /// ceiling. One code introduced charges nothing; two charge exactly the
 /// ceiling (one code past the dead band, times ceiling / floor).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_one_code_colour_step_at_the_floor_budget_is_rounding_and_charges_nothing() {
     let floor = BOUNDARY_STEP_FLOOR;
@@ -3254,6 +3301,7 @@ fn a_one_code_colour_step_at_the_floor_budget_is_rounding_and_charges_nothing() 
 /// rows and none in the dips (it gives the dip the full treatment). Mixed,
 /// the cell's mean target step is 0.75 codes — under the one-code floor, so
 /// it asked nothing; footed only, 1.5 codes, the candidate's own: share 1.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_cell_share_is_read_from_footed_transitions_only() {
     let (w, h) = (96usize, 256usize);
@@ -3290,6 +3338,7 @@ fn a_cell_share_is_read_from_footed_transitions_only() {
 /// crossing, and a per-crossing rank of it refused, on 2026-09-11, a
 /// band set that improved the sky's deltaE 30.4 -> 25.4 and every worst
 /// seam and target step, for "regressing" one cell by that noise.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_target_referenced_cell_gap_reads_the_band_shape_not_the_texture() {
     let (w, h) = (192usize, 96usize);
@@ -3343,6 +3392,7 @@ fn a_target_referenced_cell_gap_reads_the_band_shape_not_the_texture() {
 /// this fixture is the shape that forced it: a two-to-three pixel
 /// segmentation feather over featureless haze, where the scalar ceiling
 /// let the shrink park a three-code seam and call it inside budget.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_narrow_feather_over_haze_is_charged_against_its_own_flat_context() {
     let (source, _, weights, reference, candidate, path, mut report) =
@@ -3403,6 +3453,7 @@ fn a_narrow_feather_over_haze_is_charged_against_its_own_flat_context() {
 /// one-code dead band, so at a saturated budget it is the raw colour LESS
 /// one code (measured 0.02745 raw, 0.02353 charged), not the raw bits; luma
 /// is still the raw reading bit for bit.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_hard_scene_edge_under_the_feather_saturates_the_budget_and_charges_nothing() {
     let (_, _, weights, reference, candidate, path, _) =
@@ -3436,6 +3487,7 @@ fn a_hard_scene_edge_under_the_feather_saturates_the_budget_and_charges_nothing(
 /// two 3-px baselines, narrow enough that `BOUNDARY_STEP_SHAPE` times its
 /// slope still covers the shortfall. Inside that window the charge nearly
 /// vanishes, which is what this test pins.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn widening_the_feather_first_buys_back_the_charge_the_budget_takes() {
     let (source, mask, weights, reference, candidate, narrow_path, mut narrow) =
@@ -3509,6 +3561,7 @@ fn widening_the_feather_first_buys_back_the_charge_the_budget_takes() {
 /// The colour ruler, on the arrangement a luma-only one cannot see: gains
 /// normalised to leave luma601 where it was. Without the per-channel
 /// difference in differences this zone reads as no seam at all.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_luma_preserving_colour_zone_is_a_seam_the_luma_ruler_cannot_see() {
     let (source, _, weights, reference, candidate, path, mut report) = hazy_feather(
@@ -3563,6 +3616,7 @@ fn a_luma_preserving_colour_zone_is_a_seam_the_luma_ruler_cannot_see() {
 /// luma's does not, so on grey the colour charge is the luma charge's rate
 /// applied to one code less (measured 0.0720 luma, 0.0600 colour) — never
 /// above it, so `gated()` on a grey fixture is still the luma charge.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_pure_exposure_zone_reads_the_same_in_colour_as_in_luma() {
     let (_, _, weights, reference, candidate, path, _) =
@@ -3578,6 +3632,7 @@ fn a_pure_exposure_zone_reads_the_same_in_colour_as_in_luma() {
     path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn local_quality_gate_rejects_texture_amplification_and_crushing() {
     let (w, h) = (16u32, 16u32);
@@ -3612,6 +3667,7 @@ fn local_quality_gate_rejects_texture_amplification_and_crushing() {
 /// while the same lift WITH its ripple tripled about the lifted mean is still
 /// amplification. Before 2026-10-19 the first read 3.0 and was dropped, which
 /// left the colour field to chase the lift unguarded.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn local_quality_gate_reads_a_pure_lift_as_unchanged_texture() {
     let (w, h) = (16u32, 16u32);
@@ -3631,6 +3687,7 @@ fn local_quality_gate_reads_a_pure_lift_as_unchanged_texture() {
     assert!((amp.texture_ratio - 3.0).abs() <= 1e-3 && !amp.passes(), "amplified lift: {amp:?}");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn local_quality_gate_passes_every_accepted_fixture_zone() {
     let (src, tgt, sky_mask) = zoned_pair();
@@ -3779,6 +3836,7 @@ fn run_strictly_better_zone(
 /// own verdict — the free-mask lesson, where a disclosure that never
 /// reached the note table was a disclosure that was not made. Deleting
 /// the note push leaves the predicate tests green and fails here.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_strictly_better_zone_attaches_and_publishes_its_own_arm() {
     let (accepted, report, frame_before, frame_after) =
@@ -3836,6 +3894,7 @@ fn a_strictly_better_zone_attaches_and_publishes_its_own_arm() {
 /// EVIDENCE gate withheld the colour before this gate could see it. At
 /// sat 2 the colour is admitted, the full move reads texture 0.419, the
 /// tone alone 0.845 (ev +2.50), and the absolute arm keeps it 0.942 → 0.716.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_colour_move_the_quality_gate_refuses_leaves_the_tone_to_ship_alone() {
     let (accepted, report, _, _) =
@@ -3879,6 +3938,7 @@ fn a_colour_move_the_quality_gate_refuses_leaves_the_tone_to_ship_alone() {
 /// as an atmosphere zone, attach WITHOUT the strictly-better disclosure
 /// (under the mutation the Full arm claims it and the note fires), and
 /// its report must name the Atmosphere mode.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_improving_atmosphere_zone_keeps_do_no_harm_and_never_the_absolute_arm() {
     let (accepted, report, _frame_before, _frame_after) =
@@ -3947,6 +4007,7 @@ fn an_improving_atmosphere_zone_keeps_do_no_harm_and_never_the_absolute_arm() {
 /// a real one-fifth gain, but far above the 0.015 `ZONE_TONAL_MATCHED`
 /// line. Relaxing the strict arm's frame condition to `+ 0.02` attaches
 /// this zone and fails here.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_strictly_better_zone_is_refused_when_the_frame_pays() {
     let (sat, ev, warm) = (4.0, 3.5, 1.4);
@@ -4033,6 +4094,7 @@ fn a_strictly_better_zone_is_refused_when_the_frame_pays() {
 /// refuses it, the gain being under `ZONE_MIN_ABS_GAIN` and nowhere near
 /// a halving — is KEPT, and the same-sized move away is REFUSED. The
 /// frame condition is the attachment's own tolerance, read at its edge.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_shrunk_correction_is_held_to_do_no_harm_not_to_the_arms() {
     let n = 64;
@@ -4086,6 +4148,7 @@ fn a_shrunk_correction_is_held_to_do_no_harm_not_to_the_arms() {
 /// left (helps) and darkens the right (harms: the target never asked).
 /// The right correction must go, the left must stay, `originals` must
 /// follow `accepted` in step and the refusal must be a typed note.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn refuse_shrunk_zones_judges_each_zone_against_the_shipped_set_without_it() {
     let edge = 64u32;
@@ -4170,6 +4233,7 @@ fn refuse_shrunk_zones_judges_each_zone_against_the_shipped_set_without_it() {
 /// the drift budget (0.021 → 0.0205). Neither ratio arm rescues a
 /// correction that stays high (0.507 → 0.280) or lands above the floor at
 /// sub-50% (0.040 → 0.025) — and with the frame paying, nothing does.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_zone_gate_halves_or_lands_matched() {
     // A frame that got WORSE: the third arm can never fire here, so every
@@ -4224,6 +4288,7 @@ fn the_zone_gate_halves_or_lands_matched() {
 /// refuse it (0.054 / 0.078 = 0.69 > 0.50; 0.054 is far above the 0.020
 /// floor); the absolute arm buys it because the gain is 0.024 and the
 /// frame did not pay. Deleting the arm fails the first assertion.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_strictly_better_arm_buys_a_gain_the_ratio_arms_refuse() {
     // The frame improved by the measured -0.00004.
@@ -4264,6 +4329,7 @@ fn the_strictly_better_arm_buys_a_gain_the_ratio_arms_refuse() {
 /// FRAME may not pay, and this is STRICTER than the semantic route's
 /// [`ZONE_GLOBAL_REGRESSION_TOL`], so relaxing the arm back to that
 /// tolerance fails here. Both are the mutations the batch pins.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_strictly_better_arm_charges_an_absolute_floor_and_a_still_frame() {
     let (fb, fa) = (0.09330f32, 0.09326f32);
@@ -4302,6 +4368,7 @@ fn the_strictly_better_arm_charges_an_absolute_floor_and_a_still_frame() {
 /// absolute-gain arm has no calibration on a bounded atmosphere move, so
 /// it must not reach that mode — an Atmosphere zone that got worse stays
 /// refused however still the frame is.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_absolute_arm_never_reaches_an_atmosphere_zone() {
     // The Atmosphere branch is `accepted_after <= accepted_before`, and
@@ -4326,6 +4393,7 @@ const UNMATCHED_TONAL: (f32, f32) = (1.0, 1.0);
 /// floor arm's companion; a 0.003 gain is under the absolute floor) while
 /// the frame improved 0.036988 -> 0.035177. Each of the four conditions is
 /// pinned failing on its own, and an earlier arm still wins first.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_distribution_arm_buys_a_reshape_the_moments_arms_cannot_see() {
     let (zb, za, ev, fb, fa) = (0.00911f32, 0.00609f32, 0.3104f32, 0.036988f32, 0.035177f32);
@@ -4353,6 +4421,7 @@ fn the_distribution_arm_buys_a_reshape_the_moments_arms_cannot_see() {
 /// R19: the SKIP/floor split itself, pinned — setting the skip back to
 /// the acceptance floor would silently re-decline the (0.012, 0.02]
 /// band untried (the regression this split exists to prevent).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_skip_line_sits_below_the_acceptance_floor() {
     assert!(zone_skips(0.009, 0.1), "the observed matched domain skips");
@@ -4368,6 +4437,7 @@ fn the_skip_line_sits_below_the_acceptance_floor() {
 /// the "dropped: needs ≤ 50%" outcome line was mistaken for a
 /// discarded win three rounds running). Identical frames: both zones
 /// match, nothing attaches, the raster is reclaimed.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_already_matched_zone_is_left_alone_and_says_so() {
     let (src, _tgt, sky_mask) = zoned_pair();
@@ -4406,6 +4476,7 @@ fn an_already_matched_zone_is_left_alone_and_says_so() {
 /// this pin does not name the producer keys it expects: it asserts that
 /// EVERY note the zoned pass added to the global report is still there
 /// afterwards, in the same order, whatever those notes turn out to be.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_rescored_zoned_report_still_carries_every_note_its_producers_wrote() {
     let (src, tgt, sky_mask) = zoned_pair();
@@ -4469,6 +4540,7 @@ fn a_rescored_zoned_report_still_carries_every_note_its_producers_wrote() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zoned_orchestration_attaches_the_sky_mask_and_improves_the_zone() {
     let (src, tgt, sky_mask) = zoned_pair();
@@ -4636,6 +4708,7 @@ fn zoned_orchestration_attaches_the_sky_mask_and_improves_the_zone() {
 /// MUTATION: make `ai_mask_xml` write the geometry's raw bit instead of
 /// the net, or drop `own_inverted` from the AI arm of `mask_weight`, and
 /// the land zone's two renders stop matching.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zone_survives_the_sidecar_round_trip_byte_for_byte() {
     let (src, tgt, sky_mask) = zoned_pair();
@@ -4772,6 +4845,7 @@ fn resynthesised_zone(target: bool) -> DynamicImage {
 /// 0.70 reads 0.50; at 0.35 and below the guard stays quiet but the
 /// Pixel-scale zone is dropped outright and renders the untouched source,
 /// so the comparison would no longer see a paired solve.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_full_zone_whose_pixels_do_not_pair_solves_its_tone_from_its_own_population() {
     let (src, tgt) = (resynthesised_zone(false), resynthesised_zone(true));
@@ -4868,6 +4942,7 @@ fn a_full_zone_whose_pixels_do_not_pair_solves_its_tone_from_its_own_population(
     path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn synthetic_zone_survives_luminance_with_one_sided_hue_refusal() {
     let (w, h) = (64u32, 64u32);
@@ -4948,6 +5023,7 @@ fn synthetic_zone_survives_luminance_with_one_sided_hue_refusal() {
 /// (the right half asks to be darker) fails `aligned`, is never asked for
 /// less of one move, keeps the refusal sentence and leaves every tone
 /// dial at zero.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn synthetic_zone_tone_verdict_is_named_by_luma_evidence_and_matches_the_recipe() {
     let (w, h) = (96u32, 96u32);
@@ -5082,6 +5158,7 @@ fn synthetic_zone_tone_verdict_is_named_by_luma_evidence_and_matches_the_recipe(
 /// also pins the share GATE never reading the confidence (supervisor
 /// mutation M-7b-D: compose the gate with confidence and the zero-field
 /// run drops the zones this asserts equal).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_identity_or_abstaining_field_leaves_the_zone_verdicts_unchanged() {
     // The synthetic zoned fixture, not the calibration corpus: its two
@@ -5185,6 +5262,7 @@ fn unsupported_knot_fixture(shifted: bool) -> DynamicImage {
 ///
 /// MUTATION (2026-09-02): delete the `if let Some(knots)` push that
 /// follows the solve — the note disappears and this test fails.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zone_that_cannot_support_a_tone_solve_says_so() {
     let (w, h) = (96u32, 96u32);
@@ -5323,6 +5401,7 @@ fn dilution_run(
 /// fires; the noisy pair carries no note and ships the squeezed map), and
 /// `fit::refine_tone_sliders_on` returning its input (the noisy pair's p10
 /// ships 0.039 above the target's).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_paired_tone_map_that_squeezes_the_zone_is_replaced_by_the_distribution_match() {
     let (note, shipped, target, controls, (p10, target_p10)) =
@@ -5382,6 +5461,7 @@ fn poisoned_bin_fixture() -> (DynamicImage, DynamicImage, GrayImage) {
     (build(false), build(true), sky_mask)
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zone_is_judged_by_its_own_members_not_the_frames_bins() {
     let (src, tgt, sky_mask) = poisoned_bin_fixture();
@@ -5433,6 +5513,7 @@ fn a_zone_is_judged_by_its_own_members_not_the_frames_bins() {
 /// structurally supported; the frame-wide verdict would still have vetoed
 /// it through the sky-poisoned bin. Judged by its own members it attaches
 /// with a real exposure move and no tone refusal.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_ground_zone_is_not_vetoed_by_the_sky_it_does_not_touch() {
     let (src, tgt, sky_mask) = poisoned_bin_fixture();
@@ -5495,6 +5576,7 @@ fn a_ground_zone_is_not_vetoed_by_the_sky_it_does_not_touch() {
 /// rerendered mid-tones retain only 10-33% structural survival, so the Full
 /// zone must read the carried structural model and withhold those ranges;
 /// the frame's blind ruler would allow them.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn calibration_land_zone_is_withheld_by_its_own_rerendered_mid_tones() {
     let Some(root) = fit::calibration_corpus() else { return };
@@ -5637,6 +5719,7 @@ fn poisoned_hue_fixture() -> (DynamicImage, DynamicImage, GrayImage) {
 /// instead of `ranges.hue`. The whole-frame identity stays green because
 /// over the whole frame the two are the same object; the band search below
 /// finds nothing and this test fails.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zones_scoped_hue_verdict_is_its_own_not_the_frames() {
     let (src, tgt, sky_mask) = poisoned_hue_fixture();
@@ -5687,6 +5770,7 @@ fn a_zones_scoped_hue_verdict_is_its_own_not_the_frames() {
 ///
 /// MUTATION: give the exit `ZONE_ALREADY_MATCHED` instead of
 /// `ZONE_NO_MOVEMENT_SURVIVED` and the key assertion below fails.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_neutral_solution_exit_is_reached_when_every_class_is_withheld() {
     let (src, tgt, sky_mask) = poisoned_hue_fixture();
@@ -5794,6 +5878,7 @@ fn the_neutral_solution_exit_is_reached_when_every_class_is_withheld() {
 /// with a darker, bluer target sky (0.30, 0.40, 0.62) brings the tie back:
 /// measured, both candidates finish at 0.026381 under the reference's
 /// ruler, so `multi >= two` again holds by equality and the branch runs.
+#[ignore = "real-machine probe: python/RMBG segmentation, ~60s each; run with --ignored"]
 #[test]
 fn the_multi_region_reject_branch_discloses_the_comparison_it_lost() {
     let (src, tgt) = {
@@ -5905,6 +5990,7 @@ fn the_multi_region_reject_branch_discloses_the_comparison_it_lost() {
 ///
 /// MUTATION: give `ZONE_NO_MOVEMENT_SURVIVED` the text of
 /// `ZONE_ALREADY_MATCHED` and both assertions below fail.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_neutral_solution_note_makes_no_claim_about_matching() {
     let rendered = crate::rationale::render_one(&crate::rationale::Note::new(
@@ -5961,6 +6047,7 @@ fn the_neutral_solution_note_makes_no_claim_about_matching() {
 /// no evidence (an abstention is never an admission). Until 2026-10-21 the
 /// one-sided band alone withheld it on a region whose pixels pair; the
 /// paired vouch now ships that recolour, which is the other test's claim.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zone_whose_movable_class_already_matches_is_left_alone() {
     let (w, h) = (16u32, 16u32);
@@ -6025,6 +6112,7 @@ fn a_zone_whose_movable_class_already_matches_is_left_alone() {
 /// accepted region on the finished frame. Until v1.17.1 it was taken before
 /// `replace_zone`, from the single sky zone's own residual, and the shipped
 /// confidence described a correction the recipe no longer carried.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zoned_fits_confidence_is_read_on_the_render_that_ships() {
     let Some(root) = fit::calibration_corpus() else { return };
@@ -6061,6 +6149,7 @@ fn a_zoned_fits_confidence_is_read_on_the_render_that_ships() {
     mask_path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn calibration_sky_zone_survives_luminance_with_partial_chroma_refusal() {
     let Some(root) = fit::calibration_corpus() else { return };
@@ -6209,6 +6298,7 @@ fn calibration_sky_zone_survives_luminance_with_partial_chroma_refusal() {
 /// The zone stage's verdict is bounded by BOTH stages: it may not raise
 /// the global fit's own claim, and the global fit may not keep a claim
 /// the zones contradict.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zoned_fits_confidence_comes_from_the_zones_it_accepted() {
     let (src, tgt, sky_mask) = zoned_pair();
@@ -6235,6 +6325,7 @@ fn a_zoned_fits_confidence_comes_from_the_zones_it_accepted() {
     mask_path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zoned_orchestration_corrects_the_land_through_the_inverted_raster() {
     // The first real-pair render's lesson: repainting ONLY the sky leaves
@@ -6333,6 +6424,7 @@ fn zoned_orchestration_corrects_the_land_through_the_inverted_raster() {
     mask_path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zoned_fit_survives_a_composition_share_mismatch() {
     // The real-pair failure geometry (2026-07-09): the generative target
@@ -6387,6 +6479,7 @@ fn zoned_fit_survives_a_composition_share_mismatch() {
     mask_path.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn zoned_orchestration_skips_a_degenerate_sky() {
     // An empty sky mask must skip BOTH zones: without a valid sky
@@ -6405,6 +6498,7 @@ fn zoned_orchestration_skips_a_degenerate_sky() {
     );
 }
 
+#[ignore = "real-machine probe: python/RMBG segmentation, ~60s each; run with --ignored"]
 #[test]
 fn zoned_fit_degrades_gracefully_without_python() {
     // A missing/broken python must yield the plain global fit plus an
@@ -6510,6 +6604,7 @@ fn loopback_segment_opts(
 
 /// `segmentation_input` is the one sizing rule: borrow through 2048 px on
 /// the long edge (2048 itself included), thumbnail above it.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn segmentation_input_downscales_only_above_the_edge() {
     let frame = |w, h| DynamicImage::ImageRgb8(RgbImage::from_pixel(w, h, image::Rgb([9, 9, 9])));
@@ -6529,6 +6624,7 @@ fn segmentation_input_downscales_only_above_the_edge() {
 /// single-class mask while the Python-layer identity test, which fed both
 /// modes the same file, stayed green. The stand-ins copy their input back
 /// as mask/plane, so the bytes each bridge returns ARE what it sent.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn multi_and_single_class_inputs_are_prepared_identically() {
     for (tag, w, h, ew, eh) in [
@@ -6579,6 +6675,7 @@ fn multi_and_single_class_inputs_are_prepared_identically() {
 /// R35 re-pinned this to the OVERFLOW of the 64-note cap, which its
 /// carrier and band notes made this fixture trip; R36 raised the cap to
 /// what a zoned fit actually carries and the original pin is back.
+#[ignore = "real-machine probe: python/RMBG segmentation, ~60s each; run with --ignored"]
 #[test]
 fn multi_segmentation_failure_keeps_the_legacy_zones_with_its_own_note() {
     let (src, tgt, sky) = zoned_pair();
@@ -6693,6 +6790,7 @@ fn multi_segmentation_failure_keeps_the_legacy_zones_with_its_own_note() {
 /// judges the sky partition on its own numbers, drops its anchor and runs
 /// the sequencer — plus one typed `SEMANTIC_REGIONS_NONE` note; not a
 /// fourth exit that rendered `{s}` placeholders and stranded the anchor.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn empty_semantic_region_set_hands_off_to_the_seeded_legacy_route() {
     let dir = crate::test_dir("seg-no-region");
@@ -6738,6 +6836,7 @@ fn empty_semantic_region_set_hands_off_to_the_seeded_legacy_route() {
 /// only when nothing kept references it, and a raster outside the store
 /// is never touched. The loopback arbitration test below exercises the
 /// call sites; this pins the rule itself on every branch.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn release_unselected_rasters_keeps_exactly_what_the_kept_recipe_references() {
     let dir = crate::test_dir("release-unselected");
@@ -6825,6 +6924,7 @@ fn release_unselected_rasters_keeps_exactly_what_the_kept_recipe_references() {
 /// raster gone; a win must beat it on the shared ruler. Either way no
 /// claim outlives the recipe that references it and no sidecar file
 /// survives the run.
+#[ignore = "real-machine probe: python/RMBG segmentation, ~60s each; run with --ignored"]
 #[test]
 fn loopback_multi_run_arbitrates_against_the_seeded_two() {
     let (src, tgt, _) = zoned_pair();
@@ -6919,6 +7019,7 @@ fn loopback_multi_run_arbitrates_against_the_seeded_two() {
 // Mutation guard: make `fit::append_finished_disclosure` an unconditional
 // early return. The required finished disclosure below then panics, so
 // deleting the disclosure cannot satisfy this test.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn unrepresented_note_is_derived_from_the_finished_zoned_render() {
     let (w, h) = (64u32, 64u32);
@@ -7072,6 +7173,7 @@ fn oklab_degrees_apart(a: [f32; 2], b: [f32; 2]) -> f32 {
 /// returns that direction and that amount, because the solve is the model's
 /// own least squares. The hue comes back on Lightroom's wheel to the tenth
 /// of a degree the recipe stores.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_tint_read_returns_the_tint_a_target_was_made_with() {
     let dir = crate::render::tint_push(231.0);
@@ -7111,6 +7213,7 @@ fn the_tint_read_returns_the_tint_a_target_was_made_with() {
 /// targets. The amount SHIPPED is not pinned: the boundary-continuity gate
 /// that runs after every zone may shrink the whole correction at the
 /// horizon (it does here, by its own sentence), and that verdict is its own.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zone_whose_target_is_one_tint_away_ships_that_tint_and_both_populations_converge() {
     let (dir, k) = (crate::render::tint_push(231.0), 0.5);
@@ -7186,6 +7289,7 @@ fn a_zone_whose_target_is_one_tint_away_ships_that_tint_and_both_populations_con
 /// at best land where the plain solve does, so the trial's margin keeps the
 /// plain one and the sky's tint amount stays ≤ 0.02 — the tint does not
 /// absorb what gains explain.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zone_whose_target_is_a_gains_recolour_does_not_read_as_a_tint() {
     let gains = [1.12, 1.0, 0.86];
@@ -7233,6 +7337,7 @@ fn a_zone_whose_target_is_a_gains_recolour_does_not_read_as_a_tint() {
 /// regresses past the tolerance; pinned — the zone's own render as its target
 /// at full weight, in pass A and in the support-free pass B alike — the
 /// re-solve holds the zone within it and the field still ships.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_zone_the_colour_field_regresses_is_pinned_and_the_field_still_ships() {
     pinned_zone_fixture(None);
@@ -7242,6 +7347,7 @@ fn a_zone_the_colour_field_regresses_is_pinned_and_the_field_still_ships() {
 /// pair's settled tile sat in content the evidence down-weights). The pin's
 /// full weight must reach the support-free pass B that most cells take, not
 /// pass A alone, or the re-solve hears the zone no better than the first.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_pinned_zone_is_heard_at_full_weight_by_both_field_solves() {
     pinned_zone_fixture(Some(0.1));

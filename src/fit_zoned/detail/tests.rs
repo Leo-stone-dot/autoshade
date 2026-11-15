@@ -55,6 +55,7 @@ fn image_of(px: &[[f32; 3]], w: u32, h: u32) -> DynamicImage {
     }))
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn band_readings_pair_identical_structure_at_unit_gain() {
     let img = textured(384, 256, 1.0, 1.0, None);
@@ -72,6 +73,7 @@ fn band_readings_pair_identical_structure_at_unit_gain() {
 /// whichever way the amount points — to within a few percent (box^3 is not
 /// a projection: the pass at +0.6 reads 1.577), which is why the solve is
 /// closed loop and not this number. The mid band is left where it was.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn band_readings_read_the_engines_own_gain_back() {
     let img = textured(384, 256, 1.0, 1.0, None);
@@ -91,6 +93,7 @@ fn band_readings_read_the_engines_own_gain_back() {
 /// A target whose fine structure is drawn from an independent field carries
 /// the same band energy and no pairing: the gate line separates it from a
 /// paired zone by a wide margin on both sides.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn band_readings_refuse_a_re_synthesised_texture() {
     let img = textured(384, 256, 1.0, 1.0, None);
@@ -106,6 +109,7 @@ fn band_readings_refuse_a_re_synthesised_texture() {
 }
 
 /// Weights select the zone: structure outside it is not read.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn band_readings_read_only_the_weighted_zone() {
     let (w, h) = (384u32, 256u32);
@@ -160,6 +164,7 @@ fn has_note(report: &FitReport, key: &str) -> bool {
 /// target's — on real renders, through the engine, with the sliders on
 /// Lightroom's integer scale. The softer target is built with the clarity
 /// radius because the texture slider has no negative half here (module doc).
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_detail_stage_solves_both_directions_on_real_renders() {
     let (w, h) = (384u32, 256u32);
@@ -209,6 +214,7 @@ fn the_detail_stage_solves_both_directions_on_real_renders() {
 
 /// A target whose texture was drawn, not developed, gets no slider and the
 /// sentence that says why.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_detail_stage_refuses_a_re_synthesised_zone() {
     let src = textured(384, 256, 1.0, 1.0, None);
@@ -224,6 +230,7 @@ fn the_detail_stage_refuses_a_re_synthesised_zone() {
 
 /// The asked gain is the slope on the shared structure, and only when the
 /// whole band agrees on the direction.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_asked_gain_is_the_slope_the_ratio_corroborates() {
     let reading = |r: f32, ratio: f32| BandReading { r, target: ratio * 0.01, render: 0.01 };
@@ -241,6 +248,7 @@ fn the_asked_gain_is_the_slope_the_ratio_corroborates() {
 
 /// A paired band may rise to the target's energy; an unpaired band may not
 /// rise past where it stood; neither is a push when it was not raised.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_energy_ceiling_follows_the_evidence() {
     let at = |render: f32, target: f32| BandReading { r: 0.0, target, render };
@@ -259,6 +267,7 @@ fn the_energy_ceiling_follows_the_evidence() {
 /// A target with far more mid-scale contrast than clarity +100 can make
 /// gets no slider: the solve runs to the stop, does not land, and says so —
 /// rather than shipping the stop as a match.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_detail_stage_refuses_what_the_slider_cannot_reach() {
     let (w, h) = (384u32, 256u32);
@@ -276,6 +285,7 @@ fn the_detail_stage_refuses_what_the_slider_cannot_reach() {
 
 /// An already-matched zone is left alone and says so; nothing is dialled
 /// for a hairline.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_detail_stage_leaves_a_matched_zone_alone() {
     let src = textured(384, 256, 1.0, 1.0, None);
@@ -291,6 +301,7 @@ fn the_detail_stage_leaves_a_matched_zone_alone() {
 /// A zone whose tone was refused has released its raster; the stage puts
 /// the alpha back for the sliders it ships, and takes it away again when it
 /// ships nothing.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_detail_stage_restores_a_released_raster_only_when_it_ships() {
     let src = textured(384, 256, 1.0, 1.0, None);
@@ -313,6 +324,7 @@ fn the_detail_stage_restores_a_released_raster_only_when_it_ships() {
 }
 
 /// The constants the module doc derives, pinned where they are read.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_detail_constants_are_the_calibrated_ones() {
     assert_eq!(DETAIL_EDGE, 768);

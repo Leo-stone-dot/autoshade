@@ -19,6 +19,7 @@ fn synthetic_field(width: u32, height: u32, remainder: Vec<f32>) -> LocalField {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn field_band_proposal_matches_a_two_band_remap() {
     let (width, height) = (144usize, 96usize);
@@ -35,6 +36,7 @@ fn field_band_proposal_matches_a_two_band_remap() {
     assert!(field.band_dispersion[1..].iter().all(|&d| d < 10.0 / 255.0));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn field_band_proposal_skips_a_spatially_structured_bin() {
     let (width, height) = (144usize, 96usize);
@@ -64,6 +66,7 @@ fn shape_probe(width: u32, height: u32) -> (Vec<[f32; 3]>, Vec<[f32; 3]>, fit::E
     (current, target, evidence)
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn field_shape_reads_a_bright_quadrant_as_tile_shaped() {
     let (width, height) = (64u32, 48u32);
@@ -81,6 +84,7 @@ fn field_shape_reads_a_bright_quadrant_as_tile_shaped() {
 
 /// The same bright quadrant, but every pixel inside it carries zero fit weight
 /// (no evidence / no support / clipped): an unmeasured region is not structure.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn field_shape_ignores_unmeasured_pixels() {
     let (width, height) = (64u32, 48u32);
@@ -94,6 +98,7 @@ fn field_shape_ignores_unmeasured_pixels() {
     assert_eq!(reading.shape, FieldShape::None, "{reading:?}");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn field_shape_reads_a_diagonal_ramp_as_linear() {
     let (width, height) = (64u32, 48u32);
@@ -148,6 +153,7 @@ fn field_probe(
 /// R34 §D4. The support-free solve is not trusted, it is TESTED: the cells of
 /// the repainted half vouch what their pixels cannot, so those cells — and no
 /// others — take pass B's vertices.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_cells_of_a_repainted_region_admit_the_support_free_field() {
     let (src, tgt) = (repainted_right_half(false), repainted_right_half(true));
@@ -192,6 +198,7 @@ fn the_cells_of_a_repainted_region_admit_the_support_free_field() {
 /// The per-zone do-no-harm judges EVERY mask the recipe carries. A Custom-role
 /// linear mask over the right half is hurt by a render that moves that half
 /// away from the target, and the check names it by the mask's own name.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn the_field_do_no_harm_judges_a_custom_region_mask_too() {
     let (src, tgt) = (repainted_right_half(false), repainted_right_half(true));
@@ -219,6 +226,7 @@ fn the_field_do_no_harm_judges_a_custom_region_mask_too() {
 
 /// A pair the field solver cannot fit (every evidence weight zero) says so
 /// in the report instead of leaving the field's absence unexplained.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn an_unsolvable_field_is_disclosed_not_silent() {
     let (src, tgt) = (repainted_right_half(false), repainted_right_half(true));
@@ -236,6 +244,7 @@ fn an_unsolvable_field_is_disclosed_not_silent() {
 /// …and the abstention that keeps the pre-R34 field byte for byte: a pair with
 /// nothing to recolour has no cell that moved closer to anything, so no cell
 /// is admitted and the shipped grid IS the analysis grid.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_field_no_cell_vouches_is_the_support_weighted_field_byte_for_byte() {
     let src = repainted_right_half(false);
@@ -249,6 +258,7 @@ fn a_field_no_cell_vouches_is_the_support_weighted_field_byte_for_byte() {
     assert_eq!(merged.grid, pass_a.grid, "so the shipped grid is the analysis grid");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn field_stop_and_realized_helpers_are_well_conditioned() {
     let field = synthetic_field(1, 1, vec![0.0]);
@@ -340,6 +350,7 @@ fn in_ninth(i: usize, w: u32, h: u32) -> bool {
 /// grid without a pairing, and inside one is read on the pairing: it takes
 /// pass B's vertices, and the render moves the smoothed ninth's mean toward
 /// its target.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_cell_the_pixel_evidence_cannot_read_is_read_on_its_region_pairing() {
     let (src, tgt) = (smoothed_top_right_ninth(false), smoothed_top_right_ninth(true));

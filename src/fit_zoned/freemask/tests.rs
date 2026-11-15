@@ -71,6 +71,7 @@ fn proposal_inputs(
     (source_px, target_px, evidence)
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_proposes_the_blob_the_tiles_cannot_box() {
     let truth = disc(221, 167, 64);
@@ -126,6 +127,7 @@ fn free_mask_proposes_the_blob_the_tiles_cannot_box() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_masks_never_merge_opposite_signs() {
     let left = disc(136, 192, 60);
@@ -149,6 +151,7 @@ fn free_masks_never_merge_opposite_signs() {
     }), "the opposite-sign regions do not touch");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_refuses_a_component_below_the_share_line() {
     let mut tiny = vec![false; (EDGE * EDGE) as usize];
@@ -164,6 +167,7 @@ fn free_mask_refuses_a_component_below_the_share_line() {
     assert_eq!(search.refusals[0].why, FreeMaskWhy::Footprint);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_refuses_replaced_content() {
     let region = (0..EDGE * EDGE).map(|i| {
@@ -197,6 +201,7 @@ fn free_mask_refuses_replaced_content() {
     assert!(report.notes.iter().all(|note| note.key != crate::rationale::keys::FIELD_MASK_ATTACHED));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_masks_eat_only_what_tiles_left() {
     let truth = disc(221, 167, 72);
@@ -293,6 +298,7 @@ const TILE_EXCLUSION_ALPHA: f32 = 0.110839844;
 /// alpha is pinned next door: drop the `* boundary.k` from `attach_tiles`'
 /// exclusion merge and `free_masks_eat_only_what_tiles_left` fails on the
 /// pinned 0.1586914 against a raw 1.0 — 1 of 150.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn a_tile_reserves_only_the_alpha_the_boundary_gate_left_it() {
     // The same disc, source and dose as `free_mask_proposes_the_blob_the_tiles_cannot_box`,
@@ -353,6 +359,7 @@ fn a_tile_reserves_only_the_alpha_the_boundary_gate_left_it() {
     std::fs::remove_dir_all(home_dir).ok();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_proposals_are_deterministic() {
     let truth = disc(221, 167, 64);
@@ -379,6 +386,7 @@ fn free_mask_proposals_are_deterministic() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_masks_never_merge_diagonal_same_sign_blobs() {
     let mut region = vec![false; (EDGE * EDGE) as usize];
@@ -392,6 +400,7 @@ fn free_masks_never_merge_diagonal_same_sign_blobs() {
     assert_eq!(search.proposals.len(), 2, "diagonal contact must not bridge 4-connectivity");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_cap_discloses_the_third_component() {
     let mut region = vec![false; (EDGE * EDGE) as usize];
@@ -406,6 +415,7 @@ fn free_mask_cap_discloses_the_third_component() {
     assert!(search.refusals.iter().any(|r| r.n == 3 && r.why == FreeMaskWhy::Cap), "missing cap refusal");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_refusal_keeps_refinement_and_typed_reason() {
     let truth = disc(221, 167, 64);
@@ -431,6 +441,7 @@ fn free_mask_refusal_keeps_refinement_and_typed_reason() {
     std::fs::remove_dir_all(dir).ok();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_attachment_emits_typed_note_with_improvement() {
     let truth = disc(221, 167, 64);
@@ -463,6 +474,7 @@ fn free_mask_attachment_emits_typed_note_with_improvement() {
     let _ = (source_px, target_px);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_bitmap_recipe_round_trip_and_xmp_loss_is_named() {
     let mut recipe = crate::recipe::EditRecipe::default();
@@ -485,6 +497,7 @@ fn free_mask_bitmap_recipe_round_trip_and_xmp_loss_is_named() {
     assert_eq!(losses[1].reason, crate::xmp::MaskLossReason::RasterNotEmbedded);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_layer_off_is_byte_identical() {
     let (current, target, width, height) = crate::fit_field::tests::two_band_pair();
@@ -545,6 +558,7 @@ fn free_mask_layer_off_is_byte_identical() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_masks_are_skipped_when_the_ceiling_is_met() {
     let source = textured_image();
@@ -646,6 +660,7 @@ fn cleanup_corpus_run(report: &fit::FitReport, home: &crate::store::OwnedRaster)
     home.remove();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn calibration_free_masks_disclose_every_component() {
     let Some(root) = fit::calibration_corpus() else { return };
@@ -670,6 +685,7 @@ fn calibration_free_masks_disclose_every_component() {
     cleanup_corpus_run(&report, &live_home);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn p36_remainder_is_realised_or_honestly_refused() {
     let Some(root) = fit::calibration_corpus() else { return };
@@ -729,6 +745,7 @@ fn p36_remainder_is_realised_or_honestly_refused() {
 /// producer reading is the disclosure that the field was re-priced after the
 /// last producer, so it is pinned by producer name here, and its absence is
 /// pinned when the layer is off.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_stage_publishes_its_own_realized_reading() {
     let (current, target, width, height) = crate::fit_field::tests::two_band_pair();
@@ -768,6 +785,7 @@ fn free_mask_stage_publishes_its_own_realized_reading() {
 /// fixture reaches the real branch: the field claims a remainder on a disc
 /// whose pixels already match the target, so the zone estimator answers
 /// ZONE_ALREADY_MATCHED and the stage must still write `zone-refused`.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn free_mask_real_zone_refusal_is_typed() {
     let truth = disc(221, 167, 64);
@@ -806,6 +824,7 @@ fn free_mask_real_zone_refusal_is_typed() {
 ///
 /// MUTATION: drop `FreeMaskWhy::Shrunk` (or any other variant) from the table
 /// in `push_refusal` and that variant's arm fails.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
 #[test]
 fn every_typed_free_mask_refusal_reaches_the_ledger_under_its_label() {
     use FreeMaskWhy::*;

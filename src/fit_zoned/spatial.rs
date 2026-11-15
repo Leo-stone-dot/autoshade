@@ -1204,6 +1204,7 @@ mod tests {
     /// preview's contour; this pins that it is the painted edge row by row, and
     /// that the carry keeps the edge on its content (a regressed carry parts
     /// the two again).
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_native_trial_gate_reads_the_edge_the_preview_paints() {
         use crate::recipe::{EditRecipe, LensProfile, LocalAdjustment};
@@ -1322,6 +1323,7 @@ mod tests {
     /// halves: rank pairing places the bright target members on the right,
     /// while support exists only on the left, so the bright tile reading
     /// reaches `target-share`.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn tile_requires_source_and_target_evidence_share() {
         let current = flat_pixels(64, 64, 100);
@@ -1377,6 +1379,7 @@ mod tests {
         assert_eq!(eligible(&target_missing, 0.0), Err("target-share"));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn changed_content_with_large_residual_cannot_become_a_tile() {
         let current = flat_pixels(64, 64, 30);
@@ -1404,6 +1407,7 @@ mod tests {
         assert_eq!(eligible(&reading, 0.0), Err("structural-divergence"));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn depth_three_never_attaches() {
         assert_eq!(SPATIAL_MAX_DEPTH, 2);
@@ -1442,6 +1446,7 @@ mod tests {
         assert!(visited.iter().all(|(reading, _, _)| reading.id.depth <= 2));
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn tile_bitmap_is_deterministic_and_partition_conserving() {
         let source = DynamicImage::ImageRgb8(RgbImage::new(101, 67));
@@ -1546,6 +1551,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn tiles_fit_the_current_render_not_the_global_source() {
         let fixture = current_render_fixture("current-render");
@@ -1577,6 +1583,7 @@ mod tests {
     /// note names the cap it was actually given. The `>= 1` guard keeps the
     /// falsifier honest — a fixture that attached nothing could not tell a
     /// respected cap from an ignored one.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn tile_attachment_cap_is_parameterized() {
         let fixture = current_render_fixture("cap");
@@ -1596,6 +1603,7 @@ mod tests {
         std::fs::remove_dir_all(&fixture.dir).ok();
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn tile_attachment_cannot_regress_the_composed_frame() {
         let (current, target, evidence) = localized_residual();
@@ -1619,6 +1627,7 @@ mod tests {
         assert_eq!(attachment.frame_regression_tol.to_bits(), 0.0f32.to_bits());
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn four_gradient_tiles_equal_integer_rasters_and_frozen_evidence_shares() {
         for (w, h) in [(384, 256), (385, 257), (2048, 1365)] {
@@ -1650,6 +1659,7 @@ mod tests {
         }
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn geometry_tiles_turn_every_intersection_with_the_image() {
         let source = DynamicImage::new_rgb8(385, 257);
@@ -1667,6 +1677,7 @@ mod tests {
         assert_eq!(recipe.masks[0].components.len(), 3);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_native_carrier_ships_on_equal_or_better_fidelity_and_never_on_worse() {
         assert!(native_carrier_fits(0.0300, 0.0300, 0.0200, 0.0200), "a tie goes to the native carrier");
@@ -1675,6 +1686,7 @@ mod tests {
         assert!(!native_carrier_fits(0.0300, 0.0300, 0.0200, 0.0201), "a worse frame keeps the raster");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn tile_refinement_compares_every_alpha_not_just_mass_or_core() {
         let hard = GrayImage::from_fn(32, 32, |x,_| Luma([if x < 16 { 255 } else { 0 }]));
@@ -1697,6 +1709,7 @@ mod tests {
     /// refused with the tone-withheld note. Scoping the veto over the
     /// estimator weights would drop those pixels from the population and let
     /// the tile through.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_tile_is_vetoed_over_the_raster_it_moves_not_its_estimator_weights() {
         let edge = fit::ANALYZE_EDGE;
@@ -1970,6 +1983,7 @@ mod tests {
     /// budget at all — handing the ruler the reference in its place changes
     /// no bit of the reading — and the accepted pair lands on these exact
     /// bits, with the kept step at or under the floor.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_scene_gradient_under_a_hard_raster_buys_no_budget() {
         const EV: f32 = 1.5;
@@ -2073,6 +2087,7 @@ mod tests {
         (source, target_pixels, report, path, geometry, reference, candidate)
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn tile_boundary_shrink_preserves_direction_and_budget() {
         let mut original = LocalAdjustment {
@@ -2224,6 +2239,7 @@ mod tests {
     /// `neither_a_collar_nor_a_persistent_ramp_funds_a_step_at_the_contour`
     /// and `a_scene_gradient_under_a_hard_raster_buys_no_budget`, now pin
     /// its absence.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn contextual_budget_charges_smooth_borders_and_leaves_textured_ones_alone() {
         const ARM_EV: f32 = 0.09;
@@ -2350,6 +2366,7 @@ mod tests {
     /// r2c0's edges on the module's 64-px fixtures put five in a cell. And
     /// +0.30 EV on purpose: half of it still asks four codes at grey 80, where
     /// half of the module's 0.09 EV dial asks one — the floor, a coin flip.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_tile_edge_the_target_itself_carries_is_not_charged_as_a_seam() {
         const EV: f32 = 0.30;
@@ -2461,6 +2478,7 @@ mod tests {
     /// de-trended out of the reading and the jump is what is left. Arm E
     /// still says the collar funds nothing; arm F now says a persistent ramp
     /// funds nothing either.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn neither_a_collar_nor_a_persistent_ramp_funds_a_step_at_the_contour() {
         let gate = |source: &DynamicImage,
@@ -2564,6 +2582,7 @@ mod tests {
     /// the raw step less one code — measured 0.05882 raw, 0.05490 charged —
     /// and on grey it can only sit at or under the luma charge, so `gated()`
     /// and every grey verdict are still the luma charge's.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_hard_familys_readings_are_untouched_by_the_soft_familys_charge() {
         let (_, _, _, path, geometry, reference, candidate) =
@@ -2593,6 +2612,7 @@ mod tests {
     /// reading, and a boundary that cannot be sampled is refused instead of
     /// passing on an empty one. Before the fix both halves were the same
     /// number — `rim 0.000` off `0` transitions — and it counted as a pass.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn hard_tile_mask_yields_a_measured_cross_boundary_step() {
         let (_, _, _, path, geometry, reference, candidate) =
@@ -2634,6 +2654,7 @@ mod tests {
     /// spatial.rs), and the disclosure is the refusal note rather than
     /// TILE_ATTACHED with a before/after pair nothing produced.
     /// Supervisor mutation M-4-B (the check deleted) goes red here.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn an_inert_bitmap_correction_is_refused_rather_than_attached() {
         let (source, target, mut report, path, geometry, reference, _candidate) =
@@ -2665,6 +2686,7 @@ mod tests {
         path.remove();
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn unmeasurable_boundary_is_refused_never_passed() {
         let (source, target, mut report, path, _, reference, candidate) =
@@ -2699,6 +2721,7 @@ mod tests {
         path.remove();
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn refined_mask_is_rechecked_by_rim_and_frame_gates() {
         let (source, target, mut report, path, geometry, reference, candidate) =
@@ -2724,6 +2747,7 @@ mod tests {
         path.remove();
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn bitmap_tile_xmp_loss_is_named_and_recipe_round_trip_is_lossless() {
         let mut recipe = crate::recipe::EditRecipe::default();
@@ -2750,6 +2774,7 @@ mod tests {
     /// The frame withholds luma bin 6 because a replaced sky dominates it; a
     /// pure-ground tile that owns a few of that bin's supported pixels must
     /// count them -- its reading is taken over its own population.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_tile_reading_keeps_the_mid_tones_the_frame_withheld() {
         let (w, h) = (fit::ANALYZE_EDGE, fit::ANALYZE_EDGE);
@@ -2817,6 +2842,7 @@ mod tests {
     /// MUTATION (2026-09-02): make `tile_evidence` skip its cache lookup
     /// (`if false { ... }`) and reads == computes, which fails here while
     /// every other tile test stays green.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_tile_evidence_cache_recomputes_each_node_once() {
         let Some(root) = fit::calibration_corpus() else { return };
@@ -2851,6 +2877,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn calibration_strong_r2c0_survives_derivation_and_changed_sky_does_not() {
         let Some(root) = fit::calibration_corpus() else { return };

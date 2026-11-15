@@ -1430,6 +1430,7 @@ mod tests {
         (dir.clone(), dir.join("manifest.json"))
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn multi_class_planes_are_normalised_and_ordered() {
         let (dir, manifest) = manifest_fixture("normalised");
@@ -1441,6 +1442,7 @@ mod tests {
         let _ = manifest;
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn single_class_sky_call_is_unchanged() {
         let Some(corpus) = crate::fit::calibration_corpus() else {
@@ -1517,6 +1519,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn malformed_multi_class_manifest_falls_back_as_one_layer() {
         let (dir, _) = manifest_fixture("bad");
@@ -1525,6 +1528,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn oversized_multi_manifest_is_refused() {
         let (dir, manifest) = manifest_fixture("oversized");
@@ -1535,6 +1539,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn linked_plane_path_is_refused() {
         let (dir, _manifest) = manifest_fixture("linked");
@@ -1558,6 +1563,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn multi_sidecar_plane_files_are_removed() {
         let (dir, manifest) = manifest_fixture("cleanup");
@@ -1585,6 +1591,7 @@ mod tests {
     /// process-wide model slot as every other model sidecar.
     /// MUTATION THIS KILLS: call `crate::run_sidecar_child` in `segment_file`
     /// without `crate::with_model_slot` around it.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn segment_file_waits_for_the_model_slot() {
         let dir = std::env::temp_dir().join(format!("autoshade-seg-test-slot-{}", std::process::id()));
@@ -1613,6 +1620,7 @@ mod tests {
     /// bare `exists()` guard) — the pre-claimed 0-byte mask file that
     /// `claim_raster`/`unique_out` create must NOT count as a written mask
     /// when the sidecar exits 0 without filling it.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_preclaimed_empty_mask_the_sidecar_never_fills_is_refused() {
         let dir = std::env::temp_dir()
@@ -1666,6 +1674,7 @@ mod tests {
     /// fails on the path case; dropping the `\r` from the split fails on the
     /// progress-bar case; treating an unknown deps word as `false` fails the
     /// last case and would silently re-derive every cached alpha.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_backend_label_survives_the_sidecar_line() {
         let mask_path = std::env::temp_dir().join(format!("autoshade-masks-{}/mask.png", std::process::id()));
@@ -1719,6 +1728,7 @@ mod tests {
     /// MUTATION-LINED: returning `Ok(SegmentReport::default())` instead of
     /// parsing `out.stdout`, or reverting the signature to `Result<()>`, fails
     /// here and in the GUI's `Msg::Segmented` arm.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_successful_run_hands_the_backend_label_back() {
         let dir = std::env::temp_dir()
@@ -1805,6 +1815,7 @@ mod tests {
     /// The marker's own gate: a file that is not one of ours is not read as
     /// provenance. The develop dir is not always written by this app (R28 2a),
     /// and "no marker" and "a marker saying nothing" must both mean UNKNOWN.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_foreign_file_at_the_marker_name_is_not_read_as_provenance() {
         assert!(BackendMarker::parse("backend=BiRefNet\nbirefnet-deps=ok\n").is_none(),
@@ -1831,6 +1842,7 @@ mod tests {
     /// infinite re-run loop — a model run per develop, forever, on a machine
     /// where it can never improve. Treating `None` as `true` turns rows 4 and 5
     /// true and re-derives every alpha on a machine that cannot answer.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_fallback_alpha_is_renewed_only_when_this_machine_gained_the_backend() {
         let marker_is_stale = |m: &BackendMarker, deps_now| renewal_verdict(Some(m), deps_now);
@@ -1877,6 +1889,7 @@ mod tests {
     ///
     /// MUTATION: make the `None` marker arm of `renewal_verdict` return `true`
     /// unconditionally and this fails.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn an_unmarked_cached_alpha_is_kept_when_this_machine_cannot_replace_it() {
         let dir = std::env::temp_dir()
@@ -1903,6 +1916,7 @@ mod tests {
 
     /// L08-8: exit 0 + changed bytes is still not a mask — a sidecar that
     /// writes garbage is refused, and the garbage does not persist.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_garbage_mask_from_the_sidecar_is_refused() {
         let dir = std::env::temp_dir()
@@ -1976,6 +1990,7 @@ mod tests {
         vec![crate::recipe::BrushStroke { dabs: dabs.into(), ..Default::default() }]
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn subtype_zero_prompt_is_reference_then_every_ordered_dab_only() {
         let strokes = vec![
@@ -2002,6 +2017,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn subtype_and_empty_dab_gates_preserve_every_legacy_prompt_path() {
         let hostile = gesture("d NaN 0.5");
@@ -2067,6 +2083,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn malformed_or_excessive_gesture_points_are_named_and_leave_the_mask_inert() {
         for dabs in ["d NaN 0.5".to_string(), "d 0.5".to_string(), "q 0.5".to_string()] {
@@ -2125,6 +2142,7 @@ mod tests {
         assert!(raster.is_none(), "a refused prompt must leave the adjustment inert");
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn quarter_turn_moves_reference_and_dabs_together_without_lens_unwarp() {
         let mut geometry = ai_geometry(0, 0.2, 0.3);
@@ -2162,6 +2180,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn scoped_gesture_cache_identity_tracks_only_exact_sent_points_and_gp_version() {
         let raw = roll("DSC0001.ARW");
@@ -2197,6 +2216,7 @@ mod tests {
         );
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn unaffected_ai_cache_keys_remain_exact_generation_two_bytes() {
         let raw = roll("DSC0001.ARW");
@@ -2278,6 +2298,7 @@ mod tests {
         PathBuf::from(std::fs::read_to_string(path_record).unwrap().trim())
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn prompt_file_payload_is_structured_and_cleaned_after_success() {
         let dir = std::env::temp_dir().join(format!(
@@ -2316,6 +2337,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn prompt_file_is_cleaned_and_sidecar_reason_disclosed_after_failure() {
         let dir = std::env::temp_dir().join(format!(
@@ -2357,6 +2379,7 @@ mod tests {
     /// `ai_cache_key`'s identity string (transcript in the batch report): two
     /// masks clicked on opposite sides of the same photo then share one cached
     /// alpha, so the second one silently renders the first one's selection.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_ai_cache_key_covers_the_photo_the_subtype_and_the_click() {
         let a = roll("DSC0001.ARW");
@@ -2389,6 +2412,7 @@ mod tests {
     /// MUTATION THIS CATCHES: drop the `t{quarter_turns}` field from
     /// `ai_cache_key`'s identity string and the four keys below collapse into
     /// one.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_ai_cache_key_separates_the_frames_even_at_the_rotation_fixed_point() {
         let a = roll("DSC0001.ARW");
@@ -2425,6 +2449,7 @@ mod tests {
     ///
     /// MUTATIONS THIS CATCHES: `AI_BACKEND_GENERATION = 1` (the swap without
     /// the bump), and `ai_cache_key_gen` ignoring its `generation` argument.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn the_backend_generation_is_in_the_key_and_the_birefnet_swap_bumped_it() {
         assert_eq!(
@@ -2448,6 +2473,7 @@ mod tests {
     ///
     /// MUTATION THIS CATCHES: drop the sequence from `staging_path` and the two
     /// paths below become the same file.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn two_staged_source_frames_never_share_a_name() {
         let p = roll("DSC0001.ARW");
@@ -2470,6 +2496,7 @@ mod tests {
     /// `*raster = Some(target)` regardless of the sidecar's verdict
     /// (transcript in the batch report): the mask then points at a 0-byte
     /// claim file and renders as nothing while the report claims a success.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_failed_segmentation_leaves_the_ai_mask_carried_and_says_why() {
         let mut cfg = Config::load();
@@ -2498,6 +2525,7 @@ mod tests {
 
     /// A recipe with no AI mask must not pay a RAW decode — the resolve pass is
     /// lazy in the strong sense, not just cached.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_recipe_without_an_ai_mask_does_no_work_at_all() {
         let cfg = Config::load();
@@ -2537,6 +2565,7 @@ mod tests {
     /// MUTATION: drop the `zone_owns_its_alpha` guard and the raster is
     /// re-pointed at a cache key under the (non-existent) photo, so the
     /// assertion below fails.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_zone_masks_own_alpha_is_never_re_segmented() {
         let cfg = Config::load();
@@ -2591,6 +2620,7 @@ mod tests {
     /// probes use it). This object arm creates its own synthetic fixture and
     /// runs it twice: legacy ReferencePoint-only, then gp1 multi-point. Both
     /// alphas must be soft/nonconstant and they must differ.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn seg_probe_object_backend_produces_a_usable_soft_mask() {
         let Some(gate_input) = crate::config::live_env("AUTOSHADE_SEG_PROBE") else { return };
@@ -2689,6 +2719,7 @@ mod tests {
     /// `AI_BACKEND_GENERATION` bump goes with it** — the two tables were run
     /// against each other on two photographs and the mask PNGs came out
     /// byte-identical, so no cached alpha changes and none needs re-deriving.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn seg_probe_sky_backend_produces_a_usable_soft_mask() {
         let Some(input) = crate::config::live_env("AUTOSHADE_SEG_PROBE") else { return };
@@ -2751,6 +2782,7 @@ mod tests {
     /// nor everything. On an interpreter WITHOUT those packages it still
     /// passes, through the U²-Net fallback tier, and the sidecar's stderr
     /// (forwarded by `segment_file`) is what tells the two runs apart.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn seg_probe_subject_backend_produces_a_usable_soft_mask() {
         let Some(input) = crate::config::live_env("AUTOSHADE_SEG_PROBE") else { return };
@@ -2801,6 +2833,7 @@ mod tests {
     /// shifted on the render. The photo here does not exist, so reading its
     /// preview would fail: the frame can only have come from the develop. A
     /// baked source is its own pixels, turned.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_raw_sources_mask_frame_is_its_sensor_develop_never_the_embedded_preview() {
         let raw = roll("_seg_frame_43_body.ARW");
@@ -2826,6 +2859,7 @@ mod tests {
     /// on under the old preview frame is not served for the sensor-develop
     /// frame, while a baked source's key — whose frame did not change — stays
     /// byte-identical.
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
     fn a_raw_sources_ai_cache_key_names_the_sensor_develop_frame() {
         let frame_path = roll("roll-0001.ARW");
