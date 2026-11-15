@@ -541,7 +541,7 @@
         }
         const CENSUS: [(&str, usize); 9] = [
             ("variant_actions.rs::load_active", 1),
-            ("actions.rs::rebind_paint_canvas", 1),
+            ("history_actions.rs::rebind_paint_canvas", 1),
             ("masks.rs::paint_imported_removals", 2),
             ("masks.rs::paint_mask_changed", 1),
             ("masks.rs::clear_mask", 1),
