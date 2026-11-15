@@ -7542,7 +7542,12 @@ store. `runtime.rs` is the only crossing: `apply_actions` routes the actions to
 `logic::*`, `run_effects` executes what comes back (a worker, a status line, a
 view flag), and `i18n::text` renders the `logic::UiText` key. The actions are
 closed per domain (`Look`, `Lens`, `Gallery`), so a panel can only ask for its
-own verbs. `logic/` is headless — no widget code, no rendered text — so a
+own verbs. A panel that has moved to the projection draws through `PanelView`
+([`panel_view.rs`](../src/bin/gui/panel_view.rs)): it receives `&mut Editor`,
+`&mut WorkspaceView`, the language and the test seams — never
+`&mut AutoShadeApp`. The histogram, the tone-curve editor and the clipping
+toggle they share are the first tenant. `logic/` is headless — no widget code,
+no rendered text — so a
 domain is tested by calling it. The develop panel's scalar controls are a
 trait registry too ([`controls.rs`](../src/bin/gui/controls.rs): `ControlWidget`,
 `TONE`, `PRESENCE`, `tables()`), where BEHAVIOUR IS POLYMORPHIC: a control is a
