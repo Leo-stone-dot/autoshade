@@ -53,7 +53,7 @@ impl AutoShadeApp {
     /// inputs carry state", and a remembered dial or folder says nothing
     /// about this photo.
     pub(crate) fn ai_section_active(&self) -> bool {
-        self.verdict.is_some() || !self.guidance.is_empty()
+        self.verdict.is_some() || !self.ai.guidance.is_empty()
     }
 
     /// The AI area — TWO first-level sections (user ruling 2026-10-20: the two
@@ -349,7 +349,7 @@ impl AutoShadeApp {
                 // shows the whole text on hover.
                 let _field = prompt_field(
                     ui,
-                    &mut self.guidance,
+                    &mut self.ai.guidance,
                     tr(lang, "e.g. warmer and moodier, lift the shadows"),
                 );
                 #[cfg(test)]
@@ -394,7 +394,7 @@ impl AutoShadeApp {
                 .clicked()
             {
                 let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Analyze);
-                intent.typed = self.guidance.clone();
+                intent.typed = self.ai.guidance.clone();
                 intent.region = self.overlay.region;
                 self.apply_actions(vec![logic::Action::Look(intent)]);
             }
@@ -438,7 +438,7 @@ impl AutoShadeApp {
                 // when the status is KNOWN and negative (never while it is still
                 // being read, which would flash a false warning every launch).
                 if matches!(
-                    self.style_info,
+                    self.ai.style_info,
                     Some(autoshade::library::Summary::Absent | autoshade::library::Summary::Unusable(_))
                 ) {
                     ui.label(
@@ -467,7 +467,7 @@ impl AutoShadeApp {
                     "How bold the AI's edit is — a different axis from Style, which asks how closely it copies your references. From 41% up the AI must decide each colour control explicitly; the default 65% (double-click to reset) leans a little bolder. Above 70% it is told to use its controls at a strength a viewer can see, and the visual review may run up to 3 rounds — the same ceiling 「Deep thinking」 raises it to; either one alone makes the worst case 17 API calls (10 carrying images). The clipping and white-point safeguards never loosen.",
                 ),
             );
-            let has_direction = by_direction && !self.guidance.trim().is_empty();
+            let has_direction = by_direction && !self.ai.guidance.trim().is_empty();
             ui.add_enabled_ui(has_direction, |ui| {
                 #[cfg(test)]
                 {
@@ -565,7 +565,7 @@ impl AutoShadeApp {
         // sub-area up reads this same answer, so a collapsed fold must not
         // starve it. Not in tests: a headless frame would spawn a worker
         // reading the developer's own store; tests set `style_info` directly.
-        if self.style_info.is_none() && !self.style_info_loading {
+        if self.ai.style_info.is_none() && !self.ai.style_info_loading {
             self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::RefreshLibraryStatus)]);
         }
         ui.add_space(SPACE_XS);
@@ -607,7 +607,7 @@ impl AutoShadeApp {
     /// Which library, how big, how old, and where — or why there is none.
     fn ai_library_status(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let line = match &self.style_info {
+        let line = match &self.ai.style_info {
             Some(autoshade::library::Summary::Built { photos, phrased, with_settings, dir, age }) => {
                 let mut t = trf(
                     lang,
@@ -657,7 +657,7 @@ impl AutoShadeApp {
     /// the BUILD side, live at every Style value; only a running build greys it.
     fn ai_library_build(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let building = self.style_build_inflight;
+        let building = self.ai.style_build_inflight;
         let mut pick = false;
         let mut build: Option<PathBuf> = None;
         ui.add_enabled_ui(!building, |ui| {
@@ -723,7 +723,7 @@ impl AutoShadeApp {
                     "A local model (Qwen3-VL-2B, 4.3 GB, downloaded once; builds get slower) writes a few phrases per photo about its GRADE — \"warm, faded, low contrast\" — which go to the AI beside each reference. Nothing leaves this machine and nothing is billed. Off = the references go without words.",
                 ));
         });
-        if let Some((stage, done, total)) = self.style_build_progress {
+        if let Some((stage, done, total)) = self.ai.style_build_progress {
             ui.label(
                 egui::RichText::new(trf(
                     lang,
@@ -748,7 +748,7 @@ impl AutoShadeApp {
     /// the references also go to the model as pictures.
     fn ai_library_use(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        let built = matches!(self.style_info, Some(autoshade::library::Summary::Built { .. }));
+        let built = matches!(self.ai.style_info, Some(autoshade::library::Summary::Built { .. }));
         ui.checkbox(&mut self.style_embed, tr(lang, "Search the library when analysing"))
             .on_hover_text(tr(lang,
                 "Each analysis measures this photo with a local model (SigLIP 2, 1.5 GB, downloaded once) and picks the closest references. Building a library turns this on, since the build has already downloaded the model.",

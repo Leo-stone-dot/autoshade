@@ -405,6 +405,10 @@
                 ("Direction", false, "warmer and moodier", true),
             ] {
                 let mut app = AutoShadeApp {
+                    ai: AiState {
+                        guidance: guidance.into(),
+                        ..Default::default()
+                    },
                     lang,
                     style_strength: 0.80,
                     grade_strength: 0.85,
@@ -412,7 +416,6 @@
                     verdict: has_verdict.then(|| (
                         autoshade::advisor::Decision::Accept, vec!["ok".into()]
                     )),
-                    guidance: guidance.into(),
                     ..Default::default()
                 };
                 let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));

@@ -7668,7 +7668,10 @@ field, and the on-image mask knob drag joins `MaskEditState` (`masks.mask_drag`)
 the app struct is at 161 fields. The window tests' layout/behaviour probes
 (measured rects and gated-button states) live in `model::TestSeams`, a
 `#[cfg(test)]`-only struct behind one `seams` field, so a new test probe never
-enters the production shape; the app struct is at 140 fields and 2092 lines.
+enters the production shape; the app struct is at 140 fields and 2092 lines. `model::AiState` owns the AI section's
+non-persisted state (library summary and build flight, the free-text direction,
+the Color Mixer and grade tab indices), one `ai` field; the app struct is at 134
+fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

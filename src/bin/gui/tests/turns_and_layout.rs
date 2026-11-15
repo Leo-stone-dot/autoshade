@@ -198,14 +198,14 @@
         };
         // (1) no direction: the dial exists but cannot be moved.
         let mut app = AutoShadeApp::default();
-        assert!(app.guidance.trim().is_empty(), "premise: the default app has no direction");
+        assert!(app.ai.guidance.trim().is_empty(), "premise: the default app has no direction");
         assert_eq!(frame(&mut app), Some(false), "a blank direction must leave the slider inert");
         // (2) whitespace is still blank - the gate trims.
-        app.guidance = "   \n\t ".into();
+        app.ai.guidance = "   \n\t ".into();
         assert_eq!(frame(&mut app), Some(false), "whitespace is not a direction");
         // (3) a real direction under the library guide: still inert — the
         // direction is not sent (library OR direction, 2026-10-14).
-        app.guidance = "warmer, moodier".into();
+        app.ai.guidance = "warmer, moodier".into();
         assert_eq!(app.guide, autoshade::pipeline::Guide::Library, "premise: the default guide");
         assert_eq!(frame(&mut app), Some(false), "a direction the library overrides has no dial");
         // (4) guided by that direction: live.

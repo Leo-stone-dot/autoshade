@@ -483,6 +483,34 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The AI section's non-persisted state: the reference library's summary and
+/// build flight, the free-text direction, and the Color Mixer / grade tab
+/// indices the panel remembers. Extracted from `AutoShadeApp` so AI-panel work
+/// does not add fields to the app struct.
+pub(crate) struct AiState {
+    pub(crate) style_info: Option<autoshade::library::Summary>,
+    pub(crate) style_info_loading: bool,
+    pub(crate) style_build_inflight: bool,
+    pub(crate) style_build_progress: Option<(autoshade::library::BuildStage, usize, usize)>,
+    pub(crate) guidance: String,
+    pub(crate) hsl_tab: usize,
+    pub(crate) grade_region: usize,
+}
+
+impl Default for AiState {
+    fn default() -> Self {
+        Self {
+            style_info: None,
+            style_info_loading: false,
+            style_build_inflight: false,
+            style_build_progress: None,
+            guidance: String::new(),
+            hsl_tab: 0,
+            grade_region: 0,
+        }
+    }
+}
+
 /// Layout/behaviour seams the window tests read: measured rects and the
 /// actual enabled state of gated buttons. Compiled only under `cfg(test)`, so
 /// a test's new probe never adds a field to `AutoShadeApp`'s production shape.
