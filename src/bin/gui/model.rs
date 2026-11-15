@@ -483,6 +483,20 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The undo history and the ●-baseline mirror: the two stacks, the committed
+/// step, and the recipe/strip/pixel-link the store last holds for the open
+/// card. Extracted from `AutoShadeApp` so history features do not add fields
+/// to the app struct.
+#[derive(Default)]
+pub(crate) struct HistoryState {
+    pub(crate) undo_stack: Vec<UndoStep>,
+    pub(crate) redo_stack: Vec<UndoStep>,
+    pub(crate) committed: UndoStep,
+    pub(crate) saved_recipe: EditRecipe,
+    pub(crate) saved_strip: Option<autoshade::store::VariantsRecord>,
+    pub(crate) pixels_on_disk: Option<PathBuf>,
+}
+
 /// The Export panel's dials, the delivery target and the save-denoise options
 /// they drive. Extracted from `AutoShadeApp` so export features do not add
 /// fields to the app struct.

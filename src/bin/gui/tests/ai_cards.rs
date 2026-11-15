@@ -906,7 +906,7 @@
             "…and shares the ▣ card's decoded pixels"
         );
         assert_eq!(
-            app.pixels_on_disk.as_deref(),
+            app.hist.pixels_on_disk.as_deref(),
             Some(master.as_path()),
             "the ● pixel mirror follows the persisted link"
         );
@@ -922,7 +922,7 @@
         let fitted = &app.variants[app.active];
         assert_eq!(fitted.kind, VariantKind::Fitted);
         assert_eq!(fitted.origin, None);
-        assert_eq!(app.pixels_on_disk, None);
+        assert_eq!(app.hist.pixels_on_disk, None);
     }
 
     /// 2026-09-15 (user decision): an AI denoise is NOT an in-place retouch

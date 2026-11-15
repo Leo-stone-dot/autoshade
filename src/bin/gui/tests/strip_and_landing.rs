@@ -284,15 +284,15 @@
             )),
         );
 
-        assert_eq!(app.undo_stack.len(), 2, "slider step + pixel step, not one folded step");
-        let undone = app.undo_stack.last().unwrap();
+        assert_eq!(app.hist.undo_stack.len(), 2, "slider step + pixel step, not one folded step");
+        let undone = app.hist.undo_stack.last().unwrap();
         assert_eq!(undone.recipe.exposure_ev, 0.5, "the slider edit is NOT in the pixel step");
         assert!(
             undone.base.as_ref().is_some_and(|b| std::sync::Arc::ptr_eq(b, &b0)),
             "one Ctrl+Z drops the retouch and keeps the slider move"
         );
         assert!(
-            app.committed.base.as_ref().is_some_and(|b| !std::sync::Arc::ptr_eq(b, &b0)),
+            app.hist.committed.base.as_ref().is_some_and(|b| !std::sync::Arc::ptr_eq(b, &b0)),
             "the head holds the retouched pixels"
         );
     }
@@ -467,8 +467,8 @@
             thumb: None,
         }];
         app.recipe = pre_era.clone();
-        app.committed = UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None };
-        app.undo_stack.push(UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None });
+        app.hist.committed = UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None };
+        app.hist.undo_stack.push(UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None });
         // Same-path FRESH reopen in flight: fact without request — refused.
         app.open_in_flight = true;
         app.open_same_path = true;
@@ -643,10 +643,29 @@
         let original_recipe = EditRecipe { exposure_ev: 0.4, ..Default::default() };
         let fitted_recipe = EditRecipe { contrast: 18.0, ..Default::default() };
         AutoShadeApp {
+            hist: HistoryState {
+                saved_recipe: original_recipe.clone(),
+                pixels_on_disk: None,
+                saved_strip: Some(autoshade::store::VariantsRecord {
+                v: 1,
+                active_kind: "original".into(),
+                active_pos: 0,
+                active_id: Some("card-x".into()),
+                active_name: Some("negative".into()),
+                others: vec![autoshade::store::VariantEntry {
+                    kind: "fitted".into(),
+                    recipe: fitted_recipe.clone(),
+                    origin: None,
+                    id: Some("card-y".into()),
+                    name: Some("fitted".into()),
+                    extra: Default::default(),
+                }],
+                extra: Default::default(),
+            }),
+                ..Default::default()
+            },
             src_path: Some(std::env::temp_dir().join(format!("autoshade-library-{}/__variant-baseline__.ARW", std::process::id()))),
             recipe: original_recipe.clone(),
-            saved_recipe: original_recipe.clone(),
-            pixels_on_disk: None,
             variants: vec![
                 Variant {
                     kind: VariantKind::Original,
@@ -668,22 +687,6 @@
                 },
             ],
             active: 0,
-            saved_strip: Some(autoshade::store::VariantsRecord {
-                v: 1,
-                active_kind: "original".into(),
-                active_pos: 0,
-                active_id: Some("card-x".into()),
-                active_name: Some("negative".into()),
-                others: vec![autoshade::store::VariantEntry {
-                    kind: "fitted".into(),
-                    recipe: fitted_recipe,
-                    origin: None,
-                    id: Some("card-y".into()),
-                    name: Some("fitted".into()),
-                    extra: Default::default(),
-                }],
-                extra: Default::default(),
-            }),
             ..Default::default()
         }
     }
@@ -704,7 +707,7 @@
             "the saved-active card is now background and resolves through recipe.json"
         );
         assert_eq!(
-            app.saved_strip.as_ref().and_then(|r| r.active_id.as_deref()),
+            app.hist.saved_strip.as_ref().and_then(|r| r.active_id.as_deref()),
             Some("card-x"),
             "viewing another card does not move the persisted selection"
         );
@@ -729,9 +732,9 @@
         assert!(app.pending_save_gate_dirty(), "the quit save list sees that edit");
 
         app.variants[app.active].recipe = app.recipe.clone();
-        app.saved_recipe = app.recipe.clone();
-        app.pixels_on_disk = app.active_variant().and_then(|v| v.origin.clone());
-        app.saved_strip = app.current_strip_record();
+        app.hist.saved_recipe = app.recipe.clone();
+        app.hist.pixels_on_disk = app.active_variant().and_then(|v| v.origin.clone());
+        app.hist.saved_strip = app.current_strip_record();
         assert!(!app.unsaved_marker_dirty(), "saving on card Y advances Y's baseline");
         assert_eq!(app.open_dirty_variants(), 0, "the whole strip is clean after that save");
 
@@ -797,7 +800,7 @@
     #[test]
     fn legacy_idless_strip_uses_kind_and_position_baselines() {
         let mut app = persisted_two_card_fixture();
-        let rec = app.saved_strip.as_mut().unwrap();
+        let rec = app.hist.saved_strip.as_mut().unwrap();
         rec.active_id = None;
         rec.others[0].id = None;
         let ctx = egui::Context::default();
@@ -821,11 +824,11 @@
         let original_origin = std::env::temp_dir().join(format!("autoshade-masters-{}/original-heal.png", std::process::id()));
         let generated_origin = std::env::temp_dir().join(format!("autoshade-masters-{}/generated.png", std::process::id()));
         app.variants[0].origin = Some(original_origin.clone());
-        app.pixels_on_disk = Some(original_origin);
+        app.hist.pixels_on_disk = Some(original_origin);
         app.variants[1].kind = VariantKind::Generated;
         app.variants[1].origin = Some(generated_origin.clone());
         app.variants[1].base = Some(Arc::new(image::DynamicImage::new_rgb8(4, 3)));
-        let entry = &mut app.saved_strip.as_mut().unwrap().others[0];
+        let entry = &mut app.hist.saved_strip.as_mut().unwrap().others[0];
         entry.kind = "generated".into();
         entry.origin = Some(generated_origin);
         let ctx = egui::Context::default();
@@ -887,10 +890,13 @@
             thumb: None,
         };
         let mut app = AutoShadeApp {
+            hist: HistoryState {
+                pixels_on_disk: Some(std::path::absolute(&master).unwrap()),
+                ..Default::default()
+            },
             src_path: Some(src.to_path_buf()),
             // The RELATIVE spelling, exactly as the retouch handler records it.
-            variants: vec![mk(master.clone()), mk(master.clone())],
-            pixels_on_disk: Some(std::path::absolute(&master).unwrap()),
+variants: vec![mk(master.clone()), mk(master.clone())],
             ..Default::default()
         };
         // Not persisted yet (no mirror): the background card IS unsaved work.
@@ -900,7 +906,7 @@
         // relative ./out spelling — same_master_opt must bridge them, or a
         // fully saved strip re-reports as unsaved (the original regression,
         // re-expressed against the v0.22 mirror).
-        app.saved_strip = Some(autoshade::store::VariantsRecord {
+        app.hist.saved_strip = Some(autoshade::store::VariantsRecord {
             extra: Default::default(),
             active_id: None,
             active_name: None,
@@ -925,7 +931,7 @@
         // Mirror follows the trivial strip (as a save would persist it) —
         // this half of the test pins the PIXELS spelling comparison in the
         // stash gate, not strip dirtiness.
-        app.saved_strip = None;
+        app.hist.saved_strip = None;
         app.open_path(std::env::temp_dir().join(format!("autoshade-library-{}/__autoshade_masterid_next__.ARW", std::process::id())));
         assert!(
             !app.nav_stash.contains_key(src),
@@ -980,6 +986,10 @@
         let master = dev.join("reimagine-1.png");
         std::fs::write(&master, b"png").unwrap();
         let mut app = AutoShadeApp {
+            hist: HistoryState {
+                pixels_on_disk: None,
+                ..Default::default()
+            },
             src_path: Some(src.to_path_buf()),
             variants: vec![
                 Variant {
@@ -1011,7 +1021,6 @@
                 },
             ],
             active: 2,
-            pixels_on_disk: None,
             ..Default::default()
         };
         // The exact pre-fix trap: unsaved strip, guard armed…
