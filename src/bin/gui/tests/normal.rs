@@ -414,8 +414,8 @@
         image::RgbImage::from_pixel(32, 24, image::Rgb([120, 90, 60])).save(&src).unwrap();
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-keys-export-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.exp_dest = ExportDest::LastUsed;
-        app.last_export_dir = Some(out.clone());
+        app.exp.dest = ExportDest::LastUsed;
+        app.exp.last_dir = Some(out.clone());
         let ctx = egui::Context::default();
         press(&mut app, &ctx, egui::Key::E);
         assert!(app.busy, "the workspace export started");
@@ -459,7 +459,7 @@
         let (mut app, src, _scrub) = normal_photo("applyall");
         let ctx = egui::Context::default();
         app.gal.gallery = vec![src.clone()];
-        app.exp_dest = ExportDest::Ask;
+        app.exp.dest = ExportDest::Ask;
         app.status = "Recipe pasted onto 1 photo".into();
         app.normal.folder_pick = Some(None);
         app.start_apply_to_folder();
@@ -482,18 +482,18 @@
     fn the_save_line_names_where_the_jpg_goes() {
         for lang in [Lang::En, Lang::Zh] {
             let mut app = app_in(lang);
-            app.exp_dest = ExportDest::LastUsed;
-            app.last_export_dir = Some(std::env::temp_dir().join("Deliveries"));
+            app.exp.dest = ExportDest::LastUsed;
+            app.exp.last_dir = Some(std::env::temp_dir().join("Deliveries"));
             let texts = normal_panel_texts(&mut app);
             let last = trf(lang, "Saves to the folder you last saved to: {folder}", &[("folder", "Deliveries")]);
             assert!(texts.contains(&last), "{lang:?}: {last:?}");
-            app.exp_dest = ExportDest::OutFolder;
+            app.exp.dest = ExportDest::OutFolder;
             let texts = normal_panel_texts(&mut app);
             let root = autoshade::config::delivery_root();
             let name = root.file_name().map_or_else(|| abs_display(&root), |n| n.to_string_lossy().into_owned());
             let out = trf(lang, "Saves to the app's output folder {folder} (change it in Settings ⚙)", &[("folder", &name)]);
             assert!(texts.contains(&out), "{lang:?}: {out:?}");
-            app.exp_dest = ExportDest::Ask;
+            app.exp.dest = ExportDest::Ask;
             let texts = normal_panel_texts(&mut app);
             assert!(texts.iter().any(|t| t == tr(lang, "Asks where to save each time")), "{lang:?}: ask");
         }
@@ -669,8 +669,8 @@
         let _scrub2 = Scrub(vec![autoshade::store::develop_dir(&src2)]);
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-numbered-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.exp_dest = ExportDest::LastUsed;
-        app.last_export_dir = Some(out.clone());
+        app.exp.dest = ExportDest::LastUsed;
+        app.exp.last_dir = Some(out.clone());
         let ctx = egui::Context::default();
         let names = ["_gui_normal_numbered.developed.jpg", "_gui_normal_numbered.developed-2.jpg", "_gui_normal_numbered.developed-3.jpg"];
         let mut sizes = Vec::new();
@@ -688,7 +688,7 @@
         // A file picked in the save window: replaced, not numbered.
         let picked = out.join(names[0]);
         let before = std::fs::read(&picked).unwrap();
-        app.exp_dest = ExportDest::Ask;
+        app.exp.dest = ExportDest::Ask;
         app.normal.file_pick = Some(Some(picked.clone()));
         app.recipe.exposure_ev = -1.5;
         app.start_normal_save();
@@ -700,8 +700,8 @@
         let fourth = out.join("_gui_normal_numbered.developed-4.jpg");
         assert!(!fourth.exists(), "a picked file is never numbered");
         // …while the app-made name is numbered again.
-        app.exp_dest = ExportDest::LastUsed;
-        app.last_export_dir = Some(out.clone());
+        app.exp.dest = ExportDest::LastUsed;
+        app.exp.last_dir = Some(out.clone());
         app.recipe.exposure_ev = 0.9;
         app.start_normal_save();
         land_all(&mut app, &ctx);
@@ -710,7 +710,7 @@
         app.gal.gallery = vec![src.clone(), src2.clone()];
         let all = std::env::temp_dir().join(format!("autoshade-gui-normal-numbered-all-{}", std::process::id()));
         let _scrub_all = Scrub(vec![all.clone()]);
-        app.last_export_dir = Some(all.clone());
+        app.exp.last_dir = Some(all.clone());
         for run in 0..2 {
             app.recipe.contrast = 10.0 * (run + 1) as f32;
             app.start_apply_to_folder();
@@ -755,8 +755,8 @@
         let (mut app, src, _scrub) = normal_photo("ownfolder");
         image::RgbImage::from_pixel(32, 24, image::Rgb([60, 90, 120])).save(&src).unwrap();
         let own = src.parent().unwrap().to_path_buf();
-        app.exp_dest = ExportDest::LastUsed;
-        app.last_export_dir = Some(own.clone());
+        app.exp.dest = ExportDest::LastUsed;
+        app.exp.last_dir = Some(own.clone());
         let ctx = egui::Context::default();
         app.recipe.exposure_ev = 0.3;
         app.start_normal_save();
@@ -823,7 +823,7 @@
         app.recipe.exposure_ev = -1.0;
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-applystash-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.exp_dest = ExportDest::Ask;
+        app.exp.dest = ExportDest::Ask;
         app.normal.folder_pick = Some(Some(out.clone()));
         app.gal.gallery = vec![src.clone(), other.clone()];
         let ctx = egui::Context::default();
@@ -862,8 +862,8 @@
         std::fs::create_dir_all(&refs).unwrap();
         let _scrub_refs = Scrub(vec![refs.clone()]);
         app.gal.gallery = vec![src.clone()];
-        app.exp_dest = ExportDest::LastUsed;
-        app.last_export_dir = Some(refs.clone());
+        app.exp.dest = ExportDest::LastUsed;
+        app.exp.last_dir = Some(refs.clone());
         app.apply_actions(vec![logic::Action::References(refs.clone())]);
         assert!(app.normal.building);
         assert!(app.busy, "the build is work: the buttons that start work wait for it");
@@ -975,8 +975,8 @@
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-lastdir-out-{}", std::process::id()));
         std::fs::create_dir_all(&out).unwrap();
         let _scrub_out = Scrub(vec![out.clone()]);
-        app.exp_dest = ExportDest::LastUsed;
-        app.last_export_dir = None;
+        app.exp.dest = ExportDest::LastUsed;
+        app.exp.last_dir = None;
         assert_eq!(app.export_dest_dir(), None, "nothing saved yet: the save window asks");
         app.normal.file_pick = Some(Some(out.join("picked.jpg")));
         app.start_normal_save();

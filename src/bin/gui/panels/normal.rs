@@ -377,7 +377,7 @@ impl AutoShadeApp {
         // or a dialog — the one destination setting the workspace's Export
         // reads. (A folder inside the photo library is a valid destination; a
         // save only refuses to REPLACE an existing photo.)
-        let place = match (self.exp_dest, self.export_dest_dir()) {
+        let place = match (self.exp.dest, self.export_dest_dir()) {
             (_, None) => tr(lang, "Asks where to save each time").to_string(),
             (ExportDest::LastUsed, Some(d)) => {
                 trf(lang, "Saves to the folder you last saved to: {folder}", &[("folder", &crate::normal_actions::folder_name(&d))])

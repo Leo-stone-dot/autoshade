@@ -1298,7 +1298,14 @@
             origin: None,
             thumb: None,
         };
-        let mut app = AutoShadeApp { save_denoise: true, save_denoise_strength: 0.35, ..Default::default() };
+        let mut app = AutoShadeApp {
+            exp: ExportState {
+                save_denoise: true,
+                save_denoise_strength: 0.35,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         for kind in [VariantKind::Original, VariantKind::Generated, VariantKind::Fitted, VariantKind::Edited] {
             app.variants = vec![card(kind)];
             app.active = 0;
@@ -1308,7 +1315,7 @@
         app.variants = vec![card(VariantKind::Denoised)];
         assert!(!app.export_denoise_applies());
         assert!(!app.export_summary(Lang::En).contains("AI Denoise"), "{}", app.export_summary(Lang::En));
-        app.save_denoise = false;
+        app.exp.save_denoise = false;
         app.variants = vec![card(VariantKind::Original)];
         assert!(!app.export_denoise_applies(), "unticked is unticked on any card");
         // The render reads the gate, not the raw checkbox.

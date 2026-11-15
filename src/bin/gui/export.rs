@@ -282,7 +282,7 @@ impl AutoShadeApp {
     /// denoised negative, so a second pass (SCUNet over a baked master) would
     /// only smooth it further (2026-09-15).
     pub(crate) fn export_denoise_applies(&self) -> bool {
-        self.save_denoise
+        self.exp.save_denoise
             && !self.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
     }
 
@@ -294,19 +294,19 @@ impl AutoShadeApp {
     /// the user then has to hunt for.
     pub(crate) fn export_summary(&self, lang: Lang) -> String {
         let mut parts: Vec<String> = Vec::new();
-        parts.push(tr(lang, self.exp_format.label()).to_string());
-        parts.push(if self.exp_long_edge == 0 {
+        parts.push(tr(lang, self.exp.format.label()).to_string());
+        parts.push(if self.exp.long_edge == 0 {
             tr(lang, "Original size").to_string()
         } else {
-            format!("{} px", self.exp_long_edge)
+            format!("{} px", self.exp.long_edge)
         });
-        if self.exp_format == ExportFormat::Jpeg {
-            parts.push(format!("q{:.0}", self.exp_quality));
+        if self.exp.format == ExportFormat::Jpeg {
+            parts.push(format!("q{:.0}", self.exp.quality));
         }
-        if self.exp_sharpen > 0.0 {
-            parts.push(format!("{} {:.0}", tr(lang, "Output sharpening"), self.exp_sharpen));
+        if self.exp.sharpen > 0.0 {
+            parts.push(format!("{} {:.0}", tr(lang, "Output sharpening"), self.exp.sharpen));
         }
-        parts.push(tr(lang, EXPORT_SPACES[(self.exp_space as usize).min(2)]).to_string());
+        parts.push(tr(lang, EXPORT_SPACES[(self.exp.space as usize).min(2)]).to_string());
         if self.export_denoise_applies() {
             // With its amount: the dial under the checkbox is the one number
             // that decides how much of the minutes-long sidecar result lands.
@@ -333,7 +333,7 @@ impl AutoShadeApp {
     /// variant exports under its reimagine stem (and its AI pixels), not the
     /// original's.
     pub(crate) fn export_file_name(&self) -> String {
-        self.export_file_name_as(self.exp_format.ext())
+        self.export_file_name_as(self.exp.format.ext())
     }
 
     /// [`export_file_name`](Self::export_file_name) with the container given
@@ -353,7 +353,7 @@ impl AutoShadeApp {
     /// [`export_dest_dir`] with the app's own state. Read by the single export,
     /// the batch render and both on-screen echoes, so all four name ONE place.
     pub(crate) fn export_dest_dir(&self) -> Option<PathBuf> {
-        export_dest_dir(self.exp_dest, self.last_export_dir.as_deref())
+        export_dest_dir(self.exp.dest, self.exp.last_dir.as_deref())
     }
 
     /// What the Export button will do this click — resolved BEFORE anything is
@@ -383,7 +383,7 @@ impl AutoShadeApp {
         // its own), captured at the click like every other export input.
         let denoise_strength = self.selected_denoise_strength(true);
         let export = self.export_opts();
-        self.start_render_with(out, export, denoise.then_some(denoise_strength), self.save_denoise, OutName::Guarded)
+        self.start_render_with(out, export, denoise.then_some(denoise_strength), self.exp.save_denoise, OutName::Guarded)
     }
 
     /// [`start_render_to`](Self::start_render_to) with the delivery options
@@ -557,11 +557,11 @@ impl AutoShadeApp {
     /// batch render.
     pub(crate) fn export_opts(&self) -> autoshade::render::ExportOpts {
         autoshade::render::ExportOpts {
-            long_edge: (self.exp_long_edge > 0).then_some(self.exp_long_edge),
-            sharpen: self.exp_sharpen.clamp(0.0, 100.0),
-            jpeg_quality: self.exp_quality.round().clamp(1.0, 100.0) as u8,
-            eight_bit: self.exp_format.eight_bit(),
-            color_space: match self.exp_space {
+            long_edge: (self.exp.long_edge > 0).then_some(self.exp.long_edge),
+            sharpen: self.exp.sharpen.clamp(0.0, 100.0),
+            jpeg_quality: self.exp.quality.round().clamp(1.0, 100.0) as u8,
+            eight_bit: self.exp.format.eight_bit(),
+            color_space: match self.exp.space {
                 1 => autoshade::render::ExportColorSpace::DisplayP3,
                 2 => autoshade::render::ExportColorSpace::AdobeRgb,
                 _ => autoshade::render::ExportColorSpace::Srgb,
@@ -588,7 +588,7 @@ impl AutoShadeApp {
         if targets.is_empty() {
             return;
         }
-        let ext = self.exp_format.ext().to_string();
+        let ext = self.exp.format.ext().to_string();
         let export = self.export_opts();
         let Some(dest) = self.export_dest_dir().or_else(|| self.pick_batch_folder()) else { return };
         self.start_batch_render_for(targets, ext, export, dest, false);
@@ -611,7 +611,7 @@ impl AutoShadeApp {
     /// started).
     pub(crate) fn pick_batch_folder(&self) -> Option<PathBuf> {
         let mut dlg = rfd::FileDialog::new();
-        if let Some(d) = self.last_export_dir.clone().filter(|d| d.is_dir()) {
+        if let Some(d) = self.exp.last_dir.clone().filter(|d| d.is_dir()) {
             dlg = dlg.set_directory(d);
         }
         dlg.pick_folder()
@@ -646,7 +646,7 @@ impl AutoShadeApp {
         // The root travels to the landing as a FACT (L12#4) alongside the
         // BatchNames that consumes it.
         let dest_fact = dest.clone();
-        self.batch_progress = Some((0, targets.len())); // the top-bar progress bar
+        self.exp.batch_progress = Some((0, targets.len())); // the top-bar progress bar
         // Interim BatchProgress ticks flow through this extra clone; the
         // TERMINAL Msg::Exported is owned by spawn_worker (panic-safe).
         let tx = self.tx.clone();
@@ -931,12 +931,12 @@ impl AutoShadeApp {
     /// when the render actually started: a target the read-only-library guard
     /// refuses must not become the remembered destination.
     pub(crate) fn export_to_chosen_path(&mut self) {
-        let ext = self.exp_format.ext();
+        let ext = self.exp.format.ext();
         let mut dlg =
             rfd::FileDialog::new().add_filter(ext, &[ext]).set_file_name(self.export_file_name());
         // Reopen where the last export landed (阶段4) — persisted in Prefs, so
         // it survives restarts.
-        if let Some(d) = self.last_export_dir.clone().filter(|d| d.is_dir()) {
+        if let Some(d) = self.exp.last_dir.clone().filter(|d| d.is_dir()) {
             dlg = dlg.set_directory(d);
         }
         let Some(p) = dlg.save_file() else { return };
@@ -945,7 +945,7 @@ impl AutoShadeApp {
         let p = normalize_export_target(p, ext);
         let dir = p.parent().map(|d| d.to_path_buf());
         if self.start_render_to(p) {
-            self.last_export_dir = dir;
+            self.exp.last_dir = dir;
         }
     }
 
@@ -979,10 +979,10 @@ impl AutoShadeApp {
     pub(crate) fn export_xmp_beside(&mut self) {
         let lang = self.lang;
         let Some(path) = self.src_path.clone() else { return };
-        let overwrite = self.xmp_beside_confirm;
+        let overwrite = self.exp.xmp_beside_confirm;
         match autoshade::store::export_xmp_beside(&path, overwrite) {
             Ok(to) => {
-                self.xmp_beside_confirm = false;
+                self.exp.xmp_beside_confirm = false;
                 // A file just landed in the user's PHOTO folder — the one place
                 // this app otherwise never writes. That is worth a toast, not
                 // just a status line that the next message scrolls away.
@@ -1010,7 +1010,7 @@ impl AutoShadeApp {
                 // ARM, do not write. The status says what the second click will
                 // do; the button says it too (develop.rs) so the armed state is
                 // visible even after the status line has moved on.
-                self.xmp_beside_confirm = true;
+                self.exp.xmp_beside_confirm = true;
                 let there = autoshade::store::xmp_beside_target(&path)
                     .map(|p| abs_display(&p))
                     .unwrap_or_default();
@@ -1023,7 +1023,7 @@ impl AutoShadeApp {
                 self.toast(ToastKind::Error, t);
             }
             Err(e) => {
-                self.xmp_beside_confirm = false;
+                self.exp.xmp_beside_confirm = false;
                 let t = trf(
                     lang,
                     "the .xmp could not be delivered: {err}",

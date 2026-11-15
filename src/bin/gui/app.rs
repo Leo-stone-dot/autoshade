@@ -138,19 +138,17 @@ pub(crate) struct AutoShadeApp {
     pub(crate) grade_region: usize,
     pub(crate) guidance: String, // free-text direction for the AI ("warmer, moodier")
     // Delivery format + depth (阶段4) — replaces the old save_jpeg bool.
-    pub(crate) exp_format: ExportFormat,
+    /// The Export panel's dials and delivery facts; see [`ExportState`].
+    pub(crate) exp: ExportState,
     // WHERE an export lands (R22-7) — the setting that replaced the
     // Export / Download… button pair. See [`ExportDest`].
-    pub(crate) exp_dest: ExportDest,
     // The folder the last export landed in; ExportDest::LastUsed delivers
     // there, and the ask-dialog reopens there.
-    pub(crate) last_export_dir: Option<PathBuf>,
     // The 「export .xmp beside the photo」 button is armed for a SECOND click:
     // a sidecar already sits beside this photo (Lightroom's own, or an earlier
     // copy) and the next click overwrites it. Session state, cleared on every
     // photo open and after the copy lands — a two-click confirm rather than a
     // modal, matching how the rest of this panel confirms in place.
-    pub(crate) xmp_beside_confirm: bool,
     // --- undo / redo (a drag is one step, committed on release). Each step
     // carries the recipe AND the active variant's pixel identity (base Arc +
     // origin), so a baked pixel retouch (heal / clone / denoise) is
@@ -231,17 +229,12 @@ pub(crate) struct AutoShadeApp {
     pub(crate) mask_name_buf: Option<(usize, String, String)>,
     // Arrow-key navigation: gallery index to scroll into view next frame.
     // --- settings / denoise ---
-    pub(crate) save_denoise: bool,     // run SCUNet AI denoise before the full-res render
     /// 「🤖 AI Denoise on export」's OWN strength (the Export fold's dial) and
     /// 「🤖 AI Denoise now」's OWN strength (the Detail fold's dial) — two
     /// timings of one denoiser, two dials, neither reaching the other (user
     /// decision 2026-09-12: a control sits in the fold whose verb reads it).
     /// RAW starts at the luminance-grain default; baked sources have
     /// separate saved choices, starting at SCUNet's unchanged 0.5.
-    pub(crate) save_denoise_strength: f32,
-    pub(crate) denoise_strength: f32,
-    pub(crate) baked_denoise_strength: f32,
-    pub(crate) baked_save_denoise_strength: f32,
     pub(crate) zoned_fit: bool,        // 反推 adds a sky-to-sky zoned correction (bitmap mask)
     pub(crate) zoned_four_regions: bool, // opt-in semantic expansion to up to four regions
     pub(crate) fit_ai_judge: bool,     // 反推 then asks the vision model to SCORE the match (paid, opt-in)
@@ -365,7 +358,6 @@ pub(crate) struct AutoShadeApp {
     pub(crate) overlay_stale: bool,                   // check/rebuild coverage next frame
     pub(crate) overlay_key: Option<OverlayKey>,       // skips work when coverage is unchanged
     pub(crate) hover_mask: Option<usize>,             // mask row under the cursor — previews its coverage
-    pub(crate) batch_progress: Option<(usize, usize)>, // (done, total) while a batch render runs
     // Cached masks-cleared develop the coverage's range weights are judged
     // on — reused while the global (non-mask) recipe is unchanged, so a
     // mask-slider drag rebuilds only the coverage map, not a second develop.
@@ -586,10 +578,6 @@ pub(crate) struct AutoShadeApp {
     pub(crate) open_same_path: bool,                  // the in-flight open targets the photo already open (recorded by open_path — keep_recipe is a REQUEST, not a fact)
     pub(crate) edge_before_flight: Option<u32>,       // armed by the px combo with its re-decode flight; a FAILED keep-flight reverts preview_edge to it (the canvas kept the old edge)
     // --- export pipeline (gap batch F + D2) ---
-    pub(crate) exp_long_edge: u32,                    // resize long edge in px; 0 = full resolution
-    pub(crate) exp_sharpen: f32,                      // output sharpening 0..100, post-resize
-    pub(crate) exp_quality: f32,                      // JPEG quality 1..100 (f32 for the shared slider)
-    pub(crate) exp_space: u8,                         // delivery color space: 0 sRGB / 1 Display P3 / 2 Adobe RGB
     // --- preview resolution (gap batch E) ---
     pub(crate) preview_edge: u32,                     // working-preview long edge: 1280 fluid / 2560 / 4096 detail
     // --- recipe versions (gap batch G): ./out/<stem>.v<N>.recipe.json ---
@@ -1381,7 +1369,7 @@ impl AutoShadeApp {
                 // Live batch-render progress, beside the spinner (its old home
                 // at the START of the toolbar shifted every control right by
                 // ~160px exactly while the user was waiting).
-                if let Some((done, total)) = self.batch_progress {
+                if let Some((done, total)) = self.exp.batch_progress {
                     ui.add(
                         egui::ProgressBar::new(done as f32 / total.max(1) as f32)
                             .desired_width(150.0)
@@ -1776,20 +1764,12 @@ impl Default for AutoShadeApp {
             hsl_tab: 0,
             grade_region: 0,
             guidance: String::new(),
-            exp_format: ExportFormat::Tiff16,
+            exp: ExportState::default(),
             // ./out — the CLI's and the batch renderer's own root; mirror
             // Prefs::default so a missing pref key means exactly this.
-            exp_dest: ExportDest::OutFolder,
-            last_export_dir: None,
-            xmp_beside_confirm: false,
             committed: UndoStep::default(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
-            save_denoise: false,
-            save_denoise_strength: autoshade::denoise::DEFAULT_STRENGTH_RAW,
-            denoise_strength: autoshade::denoise::DEFAULT_STRENGTH_RAW,
-            baked_denoise_strength: autoshade::denoise::DEFAULT_STRENGTH,
-            baked_save_denoise_strength: autoshade::denoise::DEFAULT_STRENGTH,
             zoned_fit: true,
             zoned_four_regions: false,
             // Paid opt-in (a vision call per fit) — mirror Prefs::default.
@@ -1965,10 +1945,6 @@ impl Default for AutoShadeApp {
             open_in_flight: false,
             open_same_path: false,
             edge_before_flight: None,
-            exp_long_edge: 0,
-            exp_sharpen: 0.0,
-            exp_quality: 95.0,
-            exp_space: 0,
             preview_edge: PREVIEW_EDGE,
             versions: Vec::new(),
             version_meta: HashMap::new(),
@@ -1983,7 +1959,6 @@ impl Default for AutoShadeApp {
             overlay_ref: None,
             overlay_build_count: 0,
             hover_mask: None,
-            batch_progress: None,
             show_clipping: false,
             last_rgb: None,
             clip_tex: None,
@@ -2301,15 +2276,15 @@ impl eframe::App for AutoShadeApp {
                 direction_adherence: self.direction_adherence,
                 // Both written: exp_format is the truth, save_jpeg keeps a
                 // pre-阶段4 build reading this prefs file sane.
-                save_jpeg: self.exp_format == ExportFormat::Jpeg,
-                exp_format: self.exp_format.pref_code(),
-                exp_dest: self.exp_dest.pref_code(),
-                last_export_dir: self.last_export_dir.clone(),
-                save_denoise: self.save_denoise,
-                save_denoise_strength: self.save_denoise_strength,
-                denoise_strength: self.denoise_strength,
-                baked_denoise_strength: self.baked_denoise_strength,
-                baked_save_denoise_strength: self.baked_save_denoise_strength,
+                save_jpeg: self.exp.format == ExportFormat::Jpeg,
+                exp_format: self.exp.format.pref_code(),
+                exp_dest: self.exp.dest.pref_code(),
+                last_export_dir: self.exp.last_dir.clone(),
+                save_denoise: self.exp.save_denoise,
+                save_denoise_strength: self.exp.save_denoise_strength,
+                denoise_strength: self.exp.denoise_strength,
+                baked_denoise_strength: self.exp.baked_denoise_strength,
+                baked_save_denoise_strength: self.exp.baked_save_denoise_strength,
                 zoned_fit: self.zoned_fit,
                 zoned_four_regions: self.zoned_four_regions,
                 fit_ai_judge: self.fit_ai_judge,
@@ -2321,10 +2296,10 @@ impl eframe::App for AutoShadeApp {
                 ask_fit_after_generate: self.ask_fit_after_generate,
                 adjust_quality: self.adjust_quality,
                 view_mode: self.view_mode,
-                exp_long_edge: self.exp_long_edge,
-                exp_sharpen: self.exp_sharpen,
-                exp_quality: self.exp_quality,
-                exp_space: self.exp_space,
+                exp_long_edge: self.exp.long_edge,
+                exp_sharpen: self.exp.sharpen,
+                exp_quality: self.exp.quality,
+                exp_space: self.exp.space,
                 preview_edge: self.preview_edge,
                 show_clipping: self.show_clipping,
                 lang: self.lang,

@@ -1479,7 +1479,7 @@ impl AutoShadeApp {
                     ui,
                     lang,
                     tr(lang, "AI denoise strength"),
-                    if denoise_raw { &mut self.denoise_strength } else { &mut self.baked_denoise_strength },
+                    if denoise_raw { &mut self.exp.denoise_strength } else { &mut self.exp.baked_denoise_strength },
                     1.0,
                     if denoise_raw { autoshade::denoise::DEFAULT_STRENGTH_RAW } else { autoshade::denoise::DEFAULT_STRENGTH },
                     tr(lang,
@@ -3552,11 +3552,11 @@ impl AutoShadeApp {
                 ui.horizontal(|ui| {
                     ui.label(tr(lang, "Destination"));
                     egui::ComboBox::from_id_salt("exp_dest")
-                        .selected_text(tr(lang, self.exp_dest.label()))
+                        .selected_text(tr(lang, self.exp.dest.label()))
                         .width(170.0)
                         .show_ui(ui, |ui| {
                             for d in ExportDest::ALL {
-                                ui.selectable_value(&mut self.exp_dest, d, tr(lang, d.label()));
+                                ui.selectable_value(&mut self.exp.dest, d, tr(lang, d.label()));
                             }
                         });
                 });
@@ -3576,44 +3576,44 @@ impl AutoShadeApp {
                 ui.horizontal(|ui| {
                     ui.label(tr(lang, "Format"));
                     egui::ComboBox::from_id_salt("save_fmt")
-                        .selected_text(tr(lang, self.exp_format.label()))
+                        .selected_text(tr(lang, self.exp.format.label()))
                         .width(130.0)
                         .show_ui(ui, |ui| {
                             for f in ExportFormat::ALL {
-                                ui.selectable_value(&mut self.exp_format, f, tr(lang, f.label()));
+                                ui.selectable_value(&mut self.exp.format, f, tr(lang, f.label()));
                             }
                         });
                 });
                 ui.horizontal(|ui| {
                     ui.label(tr(lang, "Long edge"));
                     egui::ComboBox::from_id_salt("exp_long_edge")
-                        .selected_text(if self.exp_long_edge == 0 {
+                        .selected_text(if self.exp.long_edge == 0 {
                             tr(lang, "Original size").to_string()
                         } else {
-                            format!("{} px", self.exp_long_edge)
+                            format!("{} px", self.exp.long_edge)
                         })
                         .width(110.0)
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.exp_long_edge, 0, tr(lang, "Original size"));
+                            ui.selectable_value(&mut self.exp.long_edge, 0, tr(lang, "Original size"));
                             for px in [1600u32, 2048, 2560, 3840, 5120] {
-                                ui.selectable_value(&mut self.exp_long_edge, px, format!("{px} px"));
+                                ui.selectable_value(&mut self.exp.long_edge, px, format!("{px} px"));
                             }
                         });
                 });
-                Self::slider(ui, lang, tr(lang, "Output sharpening"), &mut self.exp_sharpen, 0.0, 100.0, 0.0);
+                Self::slider(ui, lang, tr(lang, "Output sharpening"), &mut self.exp.sharpen, 0.0, 100.0, 0.0);
                 // Always allocated, merely disabled for TIFF — the old
                 // appear/disappear reflowed every control to its right.
-                ui.add_enabled_ui(self.exp_format == ExportFormat::Jpeg, |ui| {
-                    Self::slider(ui, lang, tr(lang, "JPEG quality"), &mut self.exp_quality, 60.0, 100.0, 95.0);
+                ui.add_enabled_ui(self.exp.format == ExportFormat::Jpeg, |ui| {
+                    Self::slider(ui, lang, tr(lang, "JPEG quality"), &mut self.exp.quality, 60.0, 100.0, 95.0);
                 });
                 ui.horizontal(|ui| {
                     ui.label(tr(lang, "Colour space"));
                     egui::ComboBox::from_id_salt("exp_space")
-                        .selected_text(tr(lang, EXPORT_SPACES[(self.exp_space as usize).min(2)]))
+                        .selected_text(tr(lang, EXPORT_SPACES[(self.exp.space as usize).min(2)]))
                         .width(170.0)
                         .show_ui(ui, |ui| {
                             for (i, name) in EXPORT_SPACES.iter().enumerate() {
-                                ui.selectable_value(&mut self.exp_space, i as u8, tr(lang, name));
+                                ui.selectable_value(&mut self.exp.space, i as u8, tr(lang, name));
                             }
                         });
                 });
@@ -3624,7 +3624,7 @@ impl AutoShadeApp {
                 // pixel until then, that one bakes a clean base into the current
                 // variant immediately. Same-named twins in two panels made the
                 // difference invisible until an export took minutes.
-                ui.checkbox(&mut self.save_denoise, tr(lang, "🤖 AI Denoise on export")).on_hover_text(
+                ui.checkbox(&mut self.exp.save_denoise, tr(lang, "🤖 AI Denoise on export")).on_hover_text(
                     ai_xref(lang, tr(lang, "AI denoise before developing, at the Export denoise strength below — a RAW on its sensor mosaic, an already-rendered image through its own denoiser — for high-ISO / astro (slow, GPU; needs the python sidecar). Batch render skips it, and so does a ◈ Denoised card, whose master is already denoised.")),
                 );
                 // The checkbox's OWN dial, directly under it (user decision
@@ -3633,12 +3633,12 @@ impl AutoShadeApp {
                 // disabled while the checkbox is off — the appear/disappear
                 // reflow rule the JPEG quality slider above follows.
                 let denoise_raw = self.denoise_uses_raw();
-                ui.add_enabled_ui(self.save_denoise, |ui| {
+                ui.add_enabled_ui(self.exp.save_denoise, |ui| {
                     Self::slider_pct_hinted(
                         ui,
                         lang,
                         tr(lang, "Export denoise strength"),
-                        if denoise_raw { &mut self.save_denoise_strength } else { &mut self.baked_save_denoise_strength },
+                        if denoise_raw { &mut self.exp.save_denoise_strength } else { &mut self.exp.baked_save_denoise_strength },
                         1.0,
                         if denoise_raw { autoshade::denoise::DEFAULT_STRENGTH_RAW } else { autoshade::denoise::DEFAULT_STRENGTH },
                         tr(lang,
@@ -3655,7 +3655,7 @@ impl AutoShadeApp {
                 // hand-off as "browse into %LOCALAPPDATA% yourself".
                 ui.add_space(SPACE_LG);
                 let raw = self.can_export_xmp_beside();
-                let label = if self.xmp_beside_confirm {
+                let label = if self.exp.xmp_beside_confirm {
                     tr(lang, "⚠ Overwrite the .xmp already there")
                 } else {
                     tr(lang, "Export .xmp beside the photo")
@@ -3667,7 +3667,7 @@ impl AutoShadeApp {
                     // line), so a baked PNG/TIFF's neighbouring .xmp belongs to
                     // some other program and must not be written over.
                     tr(lang, "RAW only — a baked PNG/TIFF has no Lightroom sidecar convention, so its neighbouring .xmp belongs to another program")
-                } else if self.xmp_beside_confirm {
+                } else if self.exp.xmp_beside_confirm {
                     tr(lang, "A .xmp already sits beside this photo (Lightroom's own, or an earlier copy) — clicking again replaces it")
                 } else {
                     tr(lang, "Copy this photo's stored Lightroom/ACR sidecar into the photo's own folder, where Lightroom reads it. Save the develop first — this delivers what is stored, not what is unsaved on the canvas.")

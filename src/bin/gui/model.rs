@@ -483,6 +483,47 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The Export panel's dials, the delivery target and the save-denoise options
+/// they drive. Extracted from `AutoShadeApp` so export features do not add
+/// fields to the app struct.
+pub(crate) struct ExportState {
+    pub(crate) format: ExportFormat,
+    pub(crate) dest: ExportDest,
+    pub(crate) last_dir: Option<PathBuf>,
+    pub(crate) xmp_beside_confirm: bool,
+    pub(crate) batch_progress: Option<(usize, usize)>,
+    pub(crate) long_edge: u32,
+    pub(crate) sharpen: f32,
+    pub(crate) quality: f32,
+    pub(crate) space: u8,
+    pub(crate) save_denoise: bool,
+    pub(crate) save_denoise_strength: f32,
+    pub(crate) denoise_strength: f32,
+    pub(crate) baked_denoise_strength: f32,
+    pub(crate) baked_save_denoise_strength: f32,
+}
+
+impl Default for ExportState {
+    fn default() -> Self {
+        Self {
+            format: ExportFormat::Tiff16,
+            dest: ExportDest::OutFolder,
+            last_dir: None,
+            xmp_beside_confirm: false,
+            batch_progress: None,
+            long_edge: 0,
+            sharpen: 0.0,
+            quality: 95.0,
+            space: 0,
+            save_denoise: false,
+            save_denoise_strength: autoshade::denoise::DEFAULT_STRENGTH_RAW,
+            denoise_strength: autoshade::denoise::DEFAULT_STRENGTH_RAW,
+            baked_denoise_strength: autoshade::denoise::DEFAULT_STRENGTH,
+            baked_save_denoise_strength: autoshade::denoise::DEFAULT_STRENGTH,
+        }
+    }
+}
+
 /// The gallery's own state: the folder scan, the bounded thumbnail cache, the
 /// selection, and the two measured rects the layout tests read. Extracted from
 /// `AutoShadeApp` so gallery features do not add fields to the app struct.

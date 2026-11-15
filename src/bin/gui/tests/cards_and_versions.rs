@@ -169,11 +169,14 @@
     #[test]
     fn export_opts_carries_every_dial_to_the_renderer() {
         let app = AutoShadeApp {
-            exp_long_edge: 2560,
-            exp_sharpen: 35.0,
-            exp_quality: 88.0,
-            exp_space: 1,
-            exp_format: ExportFormat::Png8,
+            exp: ExportState {
+                long_edge: 2560,
+                sharpen: 35.0,
+                quality: 88.0,
+                space: 1,
+                format: ExportFormat::Png8,
+                ..Default::default()
+            },
             ..Default::default()
         };
         let o = app.export_opts();
@@ -182,7 +185,13 @@
         assert_eq!(o.jpeg_quality, 88);
         assert!(o.eight_bit, "Png8 is 8-bit");
         assert!(matches!(o.color_space, autoshade::render::ExportColorSpace::DisplayP3));
-        let flat = AutoShadeApp { exp_long_edge: 0, ..Default::default() };
+        let flat = AutoShadeApp {
+            exp: ExportState {
+                long_edge: 0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         assert_eq!(flat.export_opts().long_edge, None, "0 = no resize");
     }
 

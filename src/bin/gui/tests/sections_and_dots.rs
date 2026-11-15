@@ -1080,14 +1080,17 @@
     fn the_export_header_carries_no_dot_whatever_the_delivery_settings() {
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             let mut app = AutoShadeApp {
+                exp: ExportState {
+                    format: ExportFormat::Jpeg,
+                    quality: 100.0,
+                    long_edge: 2048,
+                    sharpen: 1.0,
+                    space: 1,
+                    dest: ExportDest::Ask,
+                    save_denoise: true,
+                    ..Default::default()
+                },
                 lang,
-                exp_format: ExportFormat::Jpeg,
-                exp_quality: 100.0,
-                exp_long_edge: 2048,
-                exp_sharpen: 1.0,
-                exp_space: 1,
-                exp_dest: ExportDest::Ask,
-                save_denoise: true,
                 ..Default::default()
             };
             let title = tr(lang, "Export");

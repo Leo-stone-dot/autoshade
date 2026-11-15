@@ -545,7 +545,7 @@
             assert_eq!(prefs.prefs_era, 0, "a missing key must not inherit the current era");
             let mut app = AutoShadeApp::default();
             app.restore_prefs(prefs);
-            assert_eq!((app.denoise_strength, app.save_denoise_strength), (autoshade::denoise::DEFAULT_STRENGTH_RAW, autoshade::denoise::DEFAULT_STRENGTH_RAW),
+            assert_eq!((app.exp.denoise_strength, app.exp.save_denoise_strength), (autoshade::denoise::DEFAULT_STRENGTH_RAW, autoshade::denoise::DEFAULT_STRENGTH_RAW),
                 "era 0 must reset both denoise dials to the RAW blend default");
             for old in ["71", "65", "50"] {
                 assert!(app.status.contains(old), "{old} missing from {}", app.status);
@@ -577,7 +577,7 @@
         let mut app = AutoShadeApp::default();
         app.restore_prefs(Prefs { prefs_era: 2, denoise_strength: 0.65,
             save_denoise_strength: 0.5, ..Prefs::default() });
-        assert_eq!((app.denoise_strength, app.save_denoise_strength), (0.65, 0.5));
+        assert_eq!((app.exp.denoise_strength, app.exp.save_denoise_strength), (0.65, 0.5));
         assert_eq!(app.status, tr(Lang::En, "Open a photo, or open a folder to browse your library."));
         assert!(app.startup_note.is_none());
     }
@@ -590,21 +590,28 @@
         assert_eq!(prefs.prefs_era, 0);
         let mut app = AutoShadeApp::default();
         app.restore_prefs(prefs);
-        assert_eq!((app.denoise_strength, app.save_denoise_strength), (autoshade::denoise::DEFAULT_STRENGTH_RAW, autoshade::denoise::DEFAULT_STRENGTH_RAW));
+        assert_eq!((app.exp.denoise_strength, app.exp.save_denoise_strength), (autoshade::denoise::DEFAULT_STRENGTH_RAW, autoshade::denoise::DEFAULT_STRENGTH_RAW));
         assert_eq!(app.status, tr(Lang::En, "Open a photo, or open a folder to browse your library."));
     }
 
     #[test]
     fn saving_prefs_records_the_current_era_and_preserves_new_choices() {
         assert_eq!(Prefs::default().prefs_era, PREFS_ERA);
-        let mut app = AutoShadeApp { denoise_strength: 0.65, save_denoise_strength: 0.5, ..Default::default() };
+        let mut app = AutoShadeApp {
+            exp: ExportState {
+                denoise_strength: 0.65,
+                save_denoise_strength: 0.5,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let mut storage = PrefsMemory::default();
         eframe::App::save(&mut app, &mut storage);
         let saved: Prefs = eframe::get_value(&storage, eframe::APP_KEY).unwrap();
         assert_eq!(saved.prefs_era, PREFS_ERA);
         let mut reopened = AutoShadeApp::default();
         reopened.restore_prefs(saved);
-        assert_eq!((reopened.denoise_strength, reopened.save_denoise_strength), (0.65, 0.5));
+        assert_eq!((reopened.exp.denoise_strength, reopened.exp.save_denoise_strength), (0.65, 0.5));
         assert!(!reopened.status.contains("reset to"));
     }
 
@@ -622,8 +629,8 @@
         use autoshade::denoise::DEFAULT_STRENGTH_RAW as DEFAULT_STRENGTH;
         let app = AutoShadeApp::default();
         assert_eq!(DEFAULT_STRENGTH, 0.71);
-        assert_eq!(app.denoise_strength, DEFAULT_STRENGTH);
-        assert_eq!(app.save_denoise_strength, DEFAULT_STRENGTH);
+        assert_eq!(app.exp.denoise_strength, DEFAULT_STRENGTH);
+        assert_eq!(app.exp.save_denoise_strength, DEFAULT_STRENGTH);
         assert_eq!(Prefs::default().denoise_strength, DEFAULT_STRENGTH);
         assert_eq!(Prefs::default().save_denoise_strength, DEFAULT_STRENGTH);
         // Two keys, two values, and a file without them loads the default.
@@ -651,7 +658,14 @@
             "the Export fold's dial must exist: {seen:?}"
         );
         // The export echo carries the amount that will actually land.
-        let app = AutoShadeApp { save_denoise: true, save_denoise_strength: 0.35, ..Default::default() };
+        let app = AutoShadeApp {
+            exp: ExportState {
+                save_denoise: true,
+                save_denoise_strength: 0.35,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         assert!(
             app.export_summary(Lang::En).contains("AI Denoise 35%"),
             "{}",
@@ -665,7 +679,7 @@
         assert!(!now.contains("save_denoise_strength"), "「AI Denoise now」 must not read the Export dial");
         let export = include_str!("../export.rs");
         assert!(export.contains("let denoise_strength = self.selected_denoise_strength(true);"));
-        assert!(!export.contains("self.denoise_strength"), "the export must not read the Detail dial");
+        assert!(!export.contains("self.exp.denoise_strength"), "the export must not read the Detail dial");
         for (name, src) in [("panels/retouch.rs", now), ("export.rs", export)] {
             assert!(
                 !src.contains("None, 1.0)") && !src.contains("None, 0.5)"),
@@ -681,12 +695,12 @@
             app.restore_prefs(Prefs { prefs_era: 1, denoise_strength: 1.0,
                 save_denoise_strength: 1.0, lang, ..Prefs::default() });
             let default = autoshade::denoise::DEFAULT_STRENGTH_RAW;
-            assert_eq!((app.denoise_strength, app.save_denoise_strength), (default, default),
+            assert_eq!((app.exp.denoise_strength, app.exp.save_denoise_strength), (default, default),
                 "era 2 must reset both RAW dials to the luminance-grain default");
             assert!(app.status.contains("100"), "old values missing: {}", app.status);
             assert!(app.status.contains("71"), "new default missing: {}", app.status);
             assert!(app.status.contains("Lightroom"));
-            assert_eq!((app.baked_denoise_strength, app.baked_save_denoise_strength), (1.0, 1.0));
+            assert_eq!((app.exp.baked_denoise_strength, app.exp.baked_save_denoise_strength), (1.0, 1.0));
         }
         let mut app = AutoShadeApp::default();
         app.restore_prefs(Prefs { prefs_era: 1, denoise_strength: 0.45,
