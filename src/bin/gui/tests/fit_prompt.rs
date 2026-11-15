@@ -176,32 +176,7 @@
         assert_eq!(app.status, tr(Lang::En, "Reverse-fitting… (global + semantic/ranges + spatial tiles)"));
     }
 
-    /// While the question is up it owns the keyboard (D13): a tool key does
-    /// not reach the canvas behind it.
-    #[test]
-    fn the_open_prompt_swallows_canvas_shortcuts() {
-        let ctx = egui::Context::default();
-        let one = "out/_fit_prompt_test.reimagine.png";
-        let mut app = app_before_a_generation(Lang::En);
-        land(&mut app, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
-        assert!(app.fit.fit_prompt.is_some());
-        let input = egui::RawInput {
-            events: vec![egui::Event::Key {
-                key: egui::Key::R,
-                physical_key: None,
-                pressed: true,
-                repeat: false,
-                modifiers: egui::Modifiers::NONE,
-            }],
-            ..Default::default()
-        };
-        let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
-        assert!(!app.crop.mode, "R is dead under the prompt");
-    }
 
-    /// 「Don't ask again」 turns the pref off when the prompt closes, the pref
-    /// off means no question, and it round-trips through the prefs file — a
-    /// file written before the key existed keeps asking.
     #[test]
     fn the_ask_pref_turns_the_prompt_off_and_round_trips() {
         assert!(AutoShadeApp::default().fit.ask_fit_after_generate && Prefs::default().ask_fit_after_generate);

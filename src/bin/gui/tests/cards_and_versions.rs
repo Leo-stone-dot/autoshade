@@ -195,10 +195,9 @@
         assert_eq!(flat.export_opts().long_edge, None, "0 = no resize");
     }
 
-    /// L16-10: the glide runs through its production seam — the method the
-    /// update loop calls, not the pure helper alone.
     /// L16-11: the shortcut exclusivity gates, tested NEGATIVELY — deleting
-    /// the transient guard used to fail nothing.
+    /// the transient guard used to fail nothing. Covers the Settings window and
+    /// the reverse-fit question; Esc dismisses a transient instead of leaking.
     #[test]
     fn a_transient_window_swallows_canvas_shortcuts() {
         let ctx = egui::Context::default();
@@ -236,6 +235,17 @@
         let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
         assert!(!app.ui.show_settings, "Esc dismissed the transient");
         assert!(!app.crop.mode);
+
+        // The reverse-fit question is a transient too: R is dead under it
+        // (the prompt's own frame path is the same gate).
+        let one = "out/_fit_prompt_test.reimagine.png";
+        let mut prompt = app_before_a_generation(Lang::En);
+        land(&mut prompt, &ctx, reimagined(one), one, RetouchKind::NewGenerated);
+        assert!(prompt.fit.fit_prompt.is_some());
+        let mut input = egui::RawInput::default();
+        input.events.push(key(egui::Key::R));
+        let _ = ctx.run(input, |ctx| prompt.upd_shortcuts(ctx));
+        assert!(!prompt.crop.mode, "R is dead under the prompt");
     }
 
     /// L16-12: the display resync is exercised through a REAL swap path
