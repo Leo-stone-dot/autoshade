@@ -7,6 +7,48 @@ use crate::*;
 use autoshade::advisor::catalogue::{family_is_active, CONTROL_FAMILIES};
 use crate::panels::grade_wheel::{grade_wheel, GRADE_VIEWS};
 
+
+/// The label of a capability row, translated. Every key stays a literal tr()
+/// call so the i18n audit keeps seeing each one; only the choice of key is
+/// driven by the table.
+fn capability_label(lang: Lang, id: crate::logic::capability::CapabilityId) -> &'static str {
+    use crate::logic::capability::CapabilityId as Cap;
+    match id {
+        Cap::Exposure => tr(lang, "Exposure"),
+        Cap::Contrast => tr(lang, "Contrast"),
+        Cap::Highlights => tr(lang, "Highlights"),
+        Cap::Shadows => tr(lang, "Shadows"),
+        Cap::Whites => tr(lang, "Whites"),
+        Cap::Blacks => tr(lang, "Blacks"),
+        Cap::Texture => tr(lang, "Texture"),
+        Cap::Clarity => tr(lang, "Clarity"),
+        Cap::Dehaze => tr(lang, "Dehaze"),
+        Cap::Vibrance => tr(lang, "Vibrance"),
+        Cap::Saturation => tr(lang, "Saturation"),
+    }
+}
+
+/// One capability table -> one slider per row, in table order. The band and the
+/// reset value come from the row (the band from the core catalogue), so the
+/// panel no longer spells either.
+fn capability_rows(
+    ui: &mut egui::Ui,
+    lang: Lang,
+    recipe: &mut autoshade::recipe::EditRecipe,
+    table: &[crate::logic::capability::Capability],
+) -> bool {
+    let mut changed = false;
+    for cap in table {
+        let Some((min, max)) = cap.range() else { continue };
+        let mut current = crate::logic::capability::value(recipe, cap.id);
+        if AutoShadeApp::slider(ui, lang, capability_label(lang, cap.id), &mut current, min, max, cap.reset) {
+            crate::logic::capability::set_value(recipe, cap.id, current);
+            changed = true;
+        }
+    }
+    changed
+}
+
 impl AutoShadeApp {
     /// One labelled slider; double-click resets to `default` (the Lightroom
     /// gesture), hover + ↑/↓ nudges by a domain-appropriate step (Shift ×10 —
@@ -957,12 +999,10 @@ impl AutoShadeApp {
                 ui.add_enabled_ui(custom_wb, |ui| {
                     changed |= Self::slider(ui, lang, tr(lang, "Tint"), &mut r.tint, -150.0, 150.0, 0.0);
                 });
-                changed |= Self::slider(ui, lang, tr(lang, "Exposure"), &mut r.exposure_ev, -5.0, 5.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Contrast"), &mut r.contrast, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Highlights"), &mut r.highlights, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Shadows"), &mut r.shadows, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Whites"), &mut r.whites, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Blacks"), &mut r.blacks, -100.0, 100.0, 0.0);
+                // The tone band is a capability table row each: the panel owns
+                // the fold and the white balance controls above; the fields,
+                // bands and resets live in `logic::capability::TONE`.
+                changed |= capability_rows(ui, lang, &mut self.recipe, crate::logic::capability::TONE);
             });
         changed
     }
@@ -983,17 +1023,12 @@ impl AutoShadeApp {
             .id_salt("sec_presence")
             .default_open(true)
             , |ui| {
-                let r = &mut self.recipe;
                 // Lightroom's Basic-panel order inside Presence is Texture →
                 // Clarity → Dehaze, and the engine runs them in that order too
                 // (R25 B2 put the global texture stage between clarity and
-                // saturation). The label reuses the existing per-mask
-                // 「Texture / 纹理」 entry — same operator, same word.
-                changed |= Self::slider(ui, lang, tr(lang, "Texture"), &mut r.texture, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Clarity"), &mut r.clarity, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Dehaze"), &mut r.dehaze, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Vibrance"), &mut r.vibrance, -100.0, 100.0, 0.0);
-                changed |= Self::slider(ui, lang, tr(lang, "Saturation"), &mut r.saturation, -100.0, 100.0, 0.0);
+                // saturation). The rows live in `logic::capability::PRESENCE`;
+                // rows and order are one table.
+                changed |= capability_rows(ui, lang, &mut self.recipe, crate::logic::capability::PRESENCE);
             });
         changed
     }

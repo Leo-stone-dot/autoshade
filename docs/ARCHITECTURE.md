@@ -7527,7 +7527,15 @@ store. `runtime.rs` is the only crossing: `apply_actions` routes the actions to
 view flag), and `i18n::text` renders the `logic::UiText` key. The actions are
 closed per domain (`Look`, `Lens`, `Gallery`), so a panel can only ask for its
 own verbs. `logic/` is headless — no widget code, no rendered text — so a
-domain is tested by calling it. The Lens Blur pilot
+domain is tested by calling it. The develop panel's scalar controls are a
+capability table too ([`logic/capability.rs`](../src/bin/gui/logic/capability.rs):
+`TONE`, `PRESENCE`, `value`/`set_value`): one row names the recipe field, the
+core catalogue spelling and the double-click reset, the slider BAND is read
+from `advisor::catalogue::global_control` (the table `EditRecipe::clamp` is
+pinned to), and `panels/develop.rs` turns a table into sliders in one loop
+(`capability_rows`) — those two sections no longer spell a range by hand. The
+labels stay literal `tr()` calls per id, so the i18n audit still checks every
+key. The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
 share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
