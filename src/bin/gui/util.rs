@@ -6,6 +6,9 @@ use autoshade::recipe::MaskRole;
 /// Landing facts describe the finished recipe. The bounded note history
 /// can omit later attachments, and a truncated refinement census must never
 /// be presented as a complete kept/abstained count.
+pub(crate) use crate::logic::curve::{drag_point as drag_curve_point, insert_point as insert_curve_point};
+pub(crate) use crate::logic::fields::{analysis_model_on_flip, key_fingerprint, model_opts, normalize_export_target};
+
 pub(crate) fn fit_mask_notes(recipe: &EditRecipe, notes: &[autoshade::rationale::Note]) -> Vec<FitNote> {
     use autoshade::rationale::{keys, TRUNCATED_SENTINEL};
     let mut out = Vec::new();
@@ -30,20 +33,6 @@ pub(crate) fn fit_mask_notes(recipe: &EditRecipe, notes: &[autoshade::rationale:
     out
 }
 
-/// Build the option list for a model ComboBox: the live-fetched ids if we have
-/// them, else a grounded fallback; the current value is always included so a
-/// custom/manual id is never dropped from the menu.
-pub(crate) fn model_opts(fetched: &[String], fallback: &[&str], current: &str) -> Vec<String> {
-    let mut v: Vec<String> = if fetched.is_empty() {
-        fallback.iter().map(|s| s.to_string()).collect()
-    } else {
-        fetched.to_vec()
-    };
-    if !current.trim().is_empty() && !v.iter().any(|x| x == current) {
-        v.insert(0, current.to_string());
-    }
-    v
-}
 
 /// Every source type the app opens — ONE list shared by the file dialog, drag &
 /// drop, and any future association, so they can't drift apart.
@@ -798,34 +787,7 @@ pub(crate) fn curve_points_mut(
     })
 }
 
-/// Insert a curve control point keeping inputs sorted and UNIQUE — a second
-/// point at the same input overwrites instead of duplicating (the engine's
-/// piecewise-linear interp needs distinct inputs). Returns the point's index.
-pub(crate) fn insert_curve_point(pts: &mut Vec<CurvePoint>, input: u8, output: u8) -> usize {
-    match pts.binary_search_by_key(&input, |p| p.input) {
-        Ok(i) => {
-            pts[i].output = output;
-            i
-        }
-        Err(i) => {
-            pts.insert(i, CurvePoint { input, output });
-            i
-        }
-    }
-}
 
-/// Move point `i` to (input, output), clamping input STRICTLY between its
-/// neighbours so the control points always stay sorted with unique inputs.
-pub(crate) fn drag_curve_point(pts: &mut [CurvePoint], i: usize, input: u8, output: u8) {
-    let lo = if i > 0 { pts[i - 1].input.saturating_add(1) } else { 0 };
-    let hi = if i + 1 < pts.len() { pts[i + 1].input.saturating_sub(1) } else { 255 };
-    // lo > hi would need two neighbours ≤ 2 apart around an existing point —
-    // unreachable via insert/drag above; keep the current input if it happens.
-    if lo <= hi {
-        pts[i].input = input.clamp(lo, hi);
-    }
-    pts[i].output = output;
-}
 
 /// Drag-reorder bookkeeping: element `from` moves to sit before `insert`
 /// (both indices in the PRE-move order; `insert == len` appends). Returns the
@@ -953,57 +915,8 @@ pub(crate) fn same_base(a: &str, b: &str) -> bool {
     autoshade::config::same_endpoint(a, b)
 }
 
-/// The FORMAT dropdown owns the export container; a typed save-path only
-/// picks the name (the Lightroom model, L14-1): render_to_file derives its
-/// encoder from the extension, so "photo.png" typed under a JPEG-q60 export
-/// silently produced a PNG whose quality slider was ignored. Spellings of
-/// the SAME container (jpeg/jfif, tiff) are kept exactly as typed.
-pub(crate) fn normalize_export_target(mut p: std::path::PathBuf, ext: &str) -> std::path::PathBuf {
-    let typed = p.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase());
-    let same = matches!(
-        (ext, typed.as_deref()),
-        ("jpg", Some("jpg" | "jpeg" | "jfif")) | ("tif", Some("tif" | "tiff")) | ("png", Some("png"))
-    );
-    if !same {
-        p.set_extension(ext);
-    }
-    p
-}
 
-/// What the analysis model field should become when the provider radio flips
-/// (`None` = keep the user's value). Rewrites only what is KNOWN to belong to
-/// the other provider's vocabulary:
-///
-/// - API-ward, only CLI aliases are rewritten — a full `claude-*` id is
-///   legitimate on an OpenAI-compatible bridge.
-/// - OAuth-ward, anything that is neither an alias nor a `claude-*` id is
-///   swapped for `opus` — but the CLI accepts full ids as well as aliases
-///   (config.rs: "a claude alias/id"; claude.rs passes the value verbatim),
-///   so "not an alias" must not be read as "not a Claude model": a valid
-///   `claude-opus-4-6` used to be silently rewritten on every flip.
-pub(crate) fn analysis_model_on_flip(current: &str, to_api: bool) -> Option<&'static str> {
-    let m = current.trim();
-    let claude_alias = CLAUDE_ALIASES.contains(&m);
-    let claude_id = claude_alias || m.to_ascii_lowercase().starts_with("claude-");
-    if to_api && claude_alias {
-        Some("gpt-5.5")
-    } else if !to_api && !claude_id {
-        Some("opus")
-    } else {
-        None
-    }
-}
 
-/// In-memory stamp for "which credential fetched this pick-list": a plain
-/// `DefaultHasher`, session-local only — never persisted, never displayed,
-/// and deliberately not a cryptographic commitment (a collision merely keeps
-/// a stale pick-list until the next fetch).
-pub(crate) fn key_fingerprint(key: &str) -> u64 {
-    use std::hash::{Hash, Hasher};
-    let mut h = std::collections::hash_map::DefaultHasher::new();
-    key.hash(&mut h);
-    h.finish()
-}
 
 /// A model picker: a dropdown of `options` that writes the chosen id into `value`,
 /// next to a text field so any custom id can still be typed. Both edit `value`.

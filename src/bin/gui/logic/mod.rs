@@ -16,6 +16,8 @@ pub(crate) mod ai;
 pub(crate) mod cards;
 pub(crate) mod analysis_landing;
 pub(crate) mod crop;
+pub(crate) mod curve;
+pub(crate) mod fields;
 pub(crate) mod develop;
 pub(crate) mod export_landing;
 pub(crate) mod fit;
