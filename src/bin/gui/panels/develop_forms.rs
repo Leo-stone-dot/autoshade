@@ -106,16 +106,16 @@ pub(crate) fn render_rows(
         let Some((min, max)) = cap.range() else { continue };
         let text = label(lang, cap.id);
         let row_changed = match cap.kind {
-            SliderKind::CompanionInt | SliderKind::CompanionFine => AutoShadeApp::companion_slider(
-                ui,
-                lang,
-                text,
-                recipe,
-                cap.control,
-                min,
-                max,
-                if cap.kind == SliderKind::CompanionFine { SliderFeel::Fine } else { SliderFeel::Int },
-            ),
+            SliderKind::CompanionInt | SliderKind::CompanionFine => {
+                let feel = if cap.kind == SliderKind::CompanionFine { SliderFeel::Fine } else { SliderFeel::Int };
+                match AutoShadeApp::companion_slider_edit(ui, lang, text, recipe, cap.control, min, max, feel) {
+                    Some(value) => {
+                        out.push(Command::SetCompanion { name: cap.control, value });
+                        true
+                    }
+                    None => false,
+                }
+            }
             SliderKind::Hinted => {
                 let mut current = capability::value(recipe, cap.id);
                 let dirty = AutoShadeApp::slider_hinted(

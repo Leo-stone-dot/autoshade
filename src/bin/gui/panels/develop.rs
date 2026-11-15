@@ -53,36 +53,28 @@ impl AutoShadeApp {
 
     /// A COMPANION control's slider (`recipe::LR_COMPANION_DEFAULTS`, v1.5.0):
     /// it SHOWS what the engine renders — Lightroom's own default while the
-    /// recipe holds no value — and writes back through
-    /// `EditRecipe::set_resolved`, so a drag to 0 is a real 0 rather than
-    /// "absent". The reset (double- or right-click) and a drag that lands on
-    /// the default both return the control to absent, which renders the same
-    /// and lets Lightroom keep its own default in the sidecar.
+    /// recipe holds no value — and RETURNS the value to write; the caller routes
+    /// it through `logic::command::Command::SetCompanion`, which restores the
+    /// explicit-zero encoding (a drag to 0 is a real 0 rather than "absent", and
+    /// landing on the default returns the control to absent so the sidecar keeps
+    /// Lightroom's own value). None = the frame changed nothing.
     #[allow(clippy::too_many_arguments)] // `slider_impl`'s track + the recipe and the control name
-    pub(crate) fn companion_slider(
+    pub(crate) fn companion_slider_edit(
         ui: &mut egui::Ui,
         lang: Lang,
         label: &str,
-        recipe: &mut EditRecipe,
+        recipe: &autoshade::recipe::EditRecipe,
         name: &str,
         min: f32,
         max: f32,
         feel: SliderFeel,
-    ) -> bool {
+    ) -> Option<f32> {
         let default = autoshade::recipe::LR_COMPANION_DEFAULTS
             .iter()
             .find(|(n, _)| *n == name)
             .map_or(0.0, |(_, d)| *d);
         let mut shown = recipe.resolved(name);
-        let changed = Self::slider_impl(ui, lang, label, &mut shown, min, max, default, feel, "");
-        if changed {
-            if shown == default {
-                recipe.clear_resolved(name);
-            } else {
-                recipe.set_resolved(name, shown);
-            }
-        }
-        changed
+        Self::slider_impl(ui, lang, label, &mut shown, min, max, default, feel, "").then_some(shown)
     }
 
     /// The Sharpening amount's slider (v1.6.0): a COMPANION whose default is
