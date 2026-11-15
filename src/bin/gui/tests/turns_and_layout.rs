@@ -89,7 +89,7 @@
 
         // THE PINNED MODEL: named in the status, and no alarm raised.
         let mut ok = AutoShadeApp { busy: true, ..Default::default() };
-        ok.tx
+        ok.services.tx
             .send(Msg::Segmented(Ok((
                 "Subject".into(),
                 PathBuf::from("mask-subject.png"),
@@ -113,7 +113,7 @@
         // disclosure. The remedy travels with it.
         let mut degraded = AutoShadeApp { busy: true, ..Default::default() };
         degraded
-            .tx
+            .services.tx
             .send(Msg::Segmented(Ok((
                 "Subject".into(),
                 PathBuf::from("mask-subject.png"),
@@ -145,7 +145,7 @@
         // must not invent a model name for it.
         let mut silent = AutoShadeApp { busy: true, ..Default::default() };
         silent
-            .tx
+            .services.tx
             .send(Msg::Segmented(Ok((
                 "Sky".into(),
                 PathBuf::from("mask-sky.png"),

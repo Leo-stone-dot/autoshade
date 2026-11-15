@@ -575,12 +575,12 @@
         app.restore_prefs(Prefs { prefs_era: 0, denoise_strength: 0.65,
             save_denoise_strength: 0.5, ..Prefs::default() });
         assert!(app.chrome.startup_note.is_some());
-        app.tx.send(Msg::Folder(Box::new(Ok((PathBuf::new(), vec![], 0))))).unwrap();
+        app.services.tx.send(Msg::Folder(Box::new(Ok((PathBuf::new(), vec![], 0))))).unwrap();
         app.poll_workers(&egui::Context::default());
         assert!(app.status.contains("no photos found"), "{}", app.status);
         assert!(app.status.contains("reset to 71"), "{}", app.status);
         assert!(app.chrome.startup_note.is_none());
-        app.tx.send(Msg::Folder(Box::new(Ok((PathBuf::new(), vec![], 0))))).unwrap();
+        app.services.tx.send(Msg::Folder(Box::new(Ok((PathBuf::new(), vec![], 0))))).unwrap();
         app.poll_workers(&egui::Context::default());
         assert!(!app.status.contains("reset to"), "a later scan must not repeat the startup note");
     }

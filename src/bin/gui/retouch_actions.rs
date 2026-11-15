@@ -91,7 +91,7 @@ pub(crate) fn start_fill(&mut self) {
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
         let (epoch, flag) = self.arm_cancel();
-        let ptx = self.tx.clone();
+        let ptx = self.services.tx.clone();
         self.spawn_worker(
             move || {
                 // Progress heartbeats → status bar; the cancel flag stops the
@@ -180,7 +180,7 @@ pub(crate) fn start_adjust(&mut self) {
         let out_claim = out.clone();
         let out_panic = out.clone();
         let (epoch, flag) = self.arm_cancel();
-        let ptx = self.tx.clone();
+        let ptx = self.services.tx.clone();
         self.spawn_worker(
             move || {
                 autoshade::generative::set_worker_hooks(Some(autoshade::generative::WorkerHooks {
@@ -596,7 +596,7 @@ pub(crate) fn start_reimagine(&mut self) {
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
         let (epoch, flag) = self.arm_cancel();
-        let ptx = self.tx.clone();
+        let ptx = self.services.tx.clone();
         self.spawn_worker(
             move || {
                 // Progress heartbeats → status bar; the cancel flag stops the

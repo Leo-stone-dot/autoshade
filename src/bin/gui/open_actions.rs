@@ -144,7 +144,7 @@ impl AutoShadeApp {
         // through the ordinary Msg::Opened channel so the handler stays the one
         // place that resets per-photo state.
         if let Some(hit) = self.cached_base(&path, edge) {
-            let _ = self.tx.send(Msg::Opened(Box::new(Ok(hit))));
+            let _ = self.services.tx.send(Msg::Opened(Box::new(Ok(hit))));
             return;
         }
         self.spawn_worker(

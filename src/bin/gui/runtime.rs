@@ -218,8 +218,8 @@ impl AutoShadeApp {
         self.normal.building = true;
         self.normal.build_progress = None;
         self.normal.ref_dir = Some(dir.clone());
-        let tx = self.tx.clone();
-        let ctx = self.egui_ctx.clone();
+        let tx = self.services.tx.clone();
+        let ctx = self.services.egui_ctx.clone();
         self.spawn_worker(
             move || {
                 let progress = |p: autoshade::library::BuildProgress| {

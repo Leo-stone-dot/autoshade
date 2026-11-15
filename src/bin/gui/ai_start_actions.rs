@@ -726,8 +726,8 @@ impl AutoShadeApp {
         );
         // The progress channel is the app's own sender: `spawn_worker` delivers
         // ONE terminal message, and this build has to report while it runs.
-        let tx = self.tx.clone();
-        let ctx = self.egui_ctx.clone();
+        let tx = self.services.tx.clone();
+        let ctx = self.services.egui_ctx.clone();
         // Resolved HERE, on the UI thread: a preference flipped mid-build must
         // not change what this build is doing.
         let describe = autoshade::library::DescribeSwitch::resolve(None, self.aip.style_describe);

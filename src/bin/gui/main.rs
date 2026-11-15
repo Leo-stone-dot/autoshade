@@ -13,7 +13,6 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -36,6 +35,7 @@ mod landing_persist;
 use i18n::{tr, trf, Lang};
 
 mod model;
+mod services;
 mod persist;
 // The PORTABLE half of the quit guard: its state machine, and the
 // process-wide slots the delegate method reads through. Compiled and tested on
@@ -77,6 +77,7 @@ mod side_panel;
 mod window_chrome;
 mod workers;
 use model::*;
+use services::*;
 use persist::*;
 use buttons::*;
 use headings::*;

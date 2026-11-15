@@ -649,7 +649,7 @@ impl AutoShadeApp {
         self.exp.batch_progress = Some((0, targets.len())); // the top-bar progress bar
         // Interim BatchProgress ticks flow through this extra clone; the
         // TERMINAL Msg::Exported is owned by spawn_worker (panic-safe).
-        let tx = self.tx.clone();
+        let tx = self.services.tx.clone();
         // In-memory state outranks disk WHOLESALE — recipes AND pixel
         // identities, for every photo that has any: the nav stash holds work
         // navigated away from, and the open photo's live canvas outranks even

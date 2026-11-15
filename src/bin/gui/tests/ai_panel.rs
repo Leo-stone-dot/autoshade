@@ -487,7 +487,7 @@
             ..Default::default()
         };
         assert!(!app.aip.style_embed, "premise: the search ships off");
-        app.tx
+        app.services.tx
             .send(Msg::StyleBuilt(Box::new(StyleBuildOutcome::Saved { total: 412, dir: dir.clone(), phrased: 0 })))
             .unwrap();
         app.poll_workers(&ctx);
@@ -511,7 +511,7 @@
                 lang,
                 ..Default::default()
             };
-            app.tx
+            app.services.tx
                 .send(Msg::StyleBuilt(Box::new(StyleBuildOutcome::Saved { total: 412, dir: dir.clone(), phrased: 400 })))
                 .unwrap();
             app.poll_workers(&ctx);
@@ -526,7 +526,7 @@
             },
             ..Default::default()
         };
-        app.tx
+        app.services.tx
             .send(Msg::StyleBuilt(Box::new(StyleBuildOutcome::Failed { err: "read the folder: access denied".into() })))
             .unwrap();
         app.poll_workers(&ctx);
@@ -543,7 +543,7 @@
             },
             ..Default::default()
         };
-        app.tx.send(Msg::StyleBuildProgress { stage, done: 40, total: 300 }).unwrap();
+        app.services.tx.send(Msg::StyleBuildProgress { stage, done: 40, total: 300 }).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.ai.style_build_progress, Some((stage, 40, 300)));
         assert!(app.status.contains("40") && app.status.contains("300"), "{}", app.status);

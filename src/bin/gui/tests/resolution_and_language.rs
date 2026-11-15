@@ -69,7 +69,7 @@
             }],
             ..Default::default()
         };
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 Arc::new(image::DynamicImage::new_rgb8(8, 6)),
                 Default::default(),
@@ -123,7 +123,7 @@
             }],
             ..Default::default()
         };
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 Arc::new(image::DynamicImage::new_rgb8(8, 6)),
                 Default::default(),
@@ -421,7 +421,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         };
         app.hist.undo_stack.push(step());
         app.hist.redo_stack.push(step());
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed")))))
             .unwrap();
         app.poll_workers(&ctx);

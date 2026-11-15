@@ -227,7 +227,7 @@
         // Return: simulate the Opened result for the original photo.
         app.src_path = Some(old.clone());
         let base = Arc::new(image::DynamicImage::new_rgb8(8, 6));
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 base,
                 Default::default(),
@@ -727,7 +727,7 @@
         let mut app = AutoShadeApp { src_path: Some(src.clone()), ..Default::default() };
         let ctx = egui::Context::default();
         let ai_px = Arc::new(image::DynamicImage::new_rgb8(6, 4));
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 Arc::new(image::DynamicImage::new_rgb8(6, 4)),
                 (autoshade::pipeline::CanvasStart { base_curve: vec![[0.0, 0.0], [0.5, 0.62], [1.0, 1.0]] }, Default::default()),
@@ -866,7 +866,7 @@
         ai_px: &Arc<image::DynamicImage>,
         master: &std::path::Path,
     ) {
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 Arc::new(image::DynamicImage::new_rgb8(6, 4)),
                 (autoshade::pipeline::CanvasStart { base_curve: vec![[0.0, 0.0], [0.5, 0.62], [1.0, 1.0]] }, Default::default()),

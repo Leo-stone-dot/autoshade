@@ -197,14 +197,14 @@
             stamp: None,
             img: Box::new(Err(anyhow::anyhow!("open image {}: not found", o.display()))),
         };
-        app.tx.send(lost(&gone)).unwrap();
+        app.services.tx.send(lost(&gone)).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.variants[0].origin, None, "the ▣ card let go of the deleted master");
         assert_eq!(app.active_source_path(), Some(photo.clone()), "AI denoise now reads the photo");
         assert_eq!(app.variants[1].origin.as_deref(), Some(gone.as_path()), "a ◈ card keeps its link");
 
         app.variants[0].origin = Some(broken.clone());
-        app.tx.send(lost(&broken)).unwrap();
+        app.services.tx.send(lost(&broken)).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.variants[0].origin.as_deref(), Some(broken.as_path()), "an undecodable master is kept");
         let _ = std::fs::remove_dir_all(&dir);
@@ -361,7 +361,7 @@
         let rel = PathBuf::from("out").join("_r22_abs.developed.tif");
         let abs = std::path::absolute(&rel).unwrap();
         assert_ne!(abs, rel, "fixture: the path must actually be relative");
-        app.tx
+        app.services.tx
             .send(Msg::Exported(Ok(ExportOutcome::Single { out: rel, relooked: false, warn: None })))
             .unwrap();
         app.poll_workers(&ctx);
@@ -392,7 +392,7 @@
             exp: ExportState { last_dir: Some(kept.clone()), ..Default::default() },
             ..Default::default()
         };
-        app.tx
+        app.services.tx
             .send(Msg::Exported(Ok(ExportOutcome::Batch {
                 ok: 0,
                 errs: vec![format!(
@@ -417,7 +417,7 @@
         let landed = std::env::temp_dir().join(format!("autoshade-deliver-{}/tripB", std::process::id()));
         let mut ok_app = AutoShadeApp { busy: true, ..Default::default() };
         ok_app
-            .tx
+            .services.tx
             .send(Msg::Exported(Ok(ExportOutcome::Batch {
                 ok: 2,
                 errs: Vec::new(),

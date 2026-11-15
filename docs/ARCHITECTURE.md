@@ -7548,7 +7548,11 @@ Color rows and the grading wheels — live in
 row reports its change as a
 `logic::command::Command` — `SetCapability` for a plain field, `SetCompanion`
 for the explicit-zero encoding — which the panel's `capability_rows` applies
-through `logic::command::apply`. The Lens Blur pilot
+through `logic::command::apply`. The worker channel and the event-loop context workers
+wake are a `Services` struct
+([`services.rs`](../src/bin/gui/services.rs)) the app holds — infrastructure,
+not photo state, so replacing the executor or the loop touches neither the
+document nor the panels. The Lens Blur pilot
 ([`logic/lens_blur.rs`](../src/bin/gui/logic/lens_blur.rs): `estimate_depth` and
 `landed`) is the shape the other panels migrate to, and the four AI-look verbs
 share one protocol there ([`logic/look.rs`](../src/bin/gui/logic/look.rs):
