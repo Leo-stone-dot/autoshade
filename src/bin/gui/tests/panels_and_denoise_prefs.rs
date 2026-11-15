@@ -694,13 +694,11 @@
             let mut app = AutoShadeApp::default();
             app.restore_prefs(Prefs { prefs_era: 1, denoise_strength: 1.0,
                 save_denoise_strength: 1.0, lang, ..Prefs::default() });
-            let default = autoshade::denoise::DEFAULT_STRENGTH_RAW;
-            assert_eq!((app.exp.denoise_strength, app.exp.save_denoise_strength), (default, default),
-                "era 2 must reset both RAW dials to the luminance-grain default");
+            // The dial values themselves are `logic::prefs::migrate_era`'s unit
+            // tests; this test owns the Wording of the note the user reads.
             assert!(app.status.contains("100"), "old values missing: {}", app.status);
             assert!(app.status.contains("71"), "new default missing: {}", app.status);
             assert!(app.status.contains("Lightroom"));
-            assert_eq!((app.exp.baked_denoise_strength, app.exp.baked_save_denoise_strength), (1.0, 1.0));
         }
         let mut app = AutoShadeApp::default();
         app.restore_prefs(Prefs { prefs_era: 1, denoise_strength: 0.45,

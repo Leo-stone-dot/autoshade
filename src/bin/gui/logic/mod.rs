@@ -30,6 +30,7 @@ pub(crate) mod paste;
 pub(crate) mod mask_place;
 pub(crate) mod mask_refine;
 pub(crate) mod pick;
+pub(crate) mod prefs;
 pub(crate) mod portrait;
 pub(crate) mod recipes;
 pub(crate) mod settings;
