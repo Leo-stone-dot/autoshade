@@ -318,7 +318,7 @@ impl AutoShadeApp {
 
     /// Match a live card to a persisted card. Stable IDs are authoritative
     /// when both sides carry one; an id-less legacy side falls back to kind +
-    /// strip position, mirroring [`Self::version_is_from`]'s ID-first rule.
+    /// strip position, mirroring [`version_is_from`]'s ID-first rule.
     fn persisted_identity_matches(
         live: &Variant,
         live_position: usize,

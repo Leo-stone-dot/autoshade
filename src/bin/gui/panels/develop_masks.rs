@@ -422,7 +422,7 @@ impl AutoShadeApp {
             let enabled = field.enabled;
             if ui
                 .add_enabled_ui(enabled, |ui| {
-                    Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_AMOUNT), &mut field.amount, 1.0, 1.0)
+                    slider_pct(ui, lang, tr(lang, K_DEVELOP_AMOUNT), &mut field.amount, 1.0, 1.0)
                 })
                 .inner
             {
@@ -498,25 +498,25 @@ impl AutoShadeApp {
         // the key "Light" already means the light THEME.
         let group = |ui: &mut egui::Ui, title: &str| sub_caption(ui, title);
         group(ui, tr(lang, K_DEVELOP_TONE));
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_EXPOSURE), &mut m.exposure_ev, -5.0, 5.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_CONTRAST), &mut m.contrast, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_HIGHLIGHTS), &mut m.highlights, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_SHADOWS), &mut m.shadows, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_WHITES), &mut m.whites, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_BLACKS), &mut m.blacks, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_EXPOSURE), &mut m.exposure_ev, -5.0, 5.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_CONTRAST), &mut m.contrast, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_HIGHLIGHTS), &mut m.highlights, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_SHADOWS), &mut m.shadows, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_WHITES), &mut m.whites, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_BLACKS), &mut m.blacks, -100.0, 100.0, 0.0);
         // Texture / Clarity / Dehaze come out of the old
         // 「More (XMP/Lightroom only)」 fold: R22-3 put all three ON the
         // engine (render::apply_masks), so that title became a lie and
         // the fold merely hid three working sliders one level deep.
         group(ui, tr(lang, K_DEVELOP_DETAIL));
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_TEXTURE), &mut m.texture, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_CLARITY), &mut m.clarity, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_DEHAZE), &mut m.dehaze, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_TEXTURE), &mut m.texture, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_CLARITY), &mut m.clarity, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_DEHAZE), &mut m.dehaze, -100.0, 100.0, 0.0);
         // R23-1b. SIGNED, unlike the global 0..150 Sharpening: this is
         // ACR's local band, and its negative half (soften) is what
         // throws a background back — the tooltip says so, because the
         // two controls share a name and not a range.
-        changed |= Self::slider_hinted(
+        changed |= slider_hinted(
             ui,
             lang,
             tr(lang, K_DEVELOP_SHARPNESS),
@@ -526,13 +526,13 @@ impl AutoShadeApp {
             0.0,
             tr(lang, K_DEVELOP_SHARPENS_INSIDE_THE_MASK_WHEN_POSITIVE_AND_SOFTE),
         );
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_NOISE_REDUCTION), &mut m.noise_reduction, 0.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_NOISE_REDUCTION), &mut m.noise_reduction, 0.0, 100.0, 0.0);
         group(ui, tr(lang, K_DEVELOP_COLOR));
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_SATURATION), &mut m.saturation, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_SATURATION), &mut m.saturation, -100.0, 100.0, 0.0);
         // R23-1b: a hue ROTATION of everything the mask covers — the
         // one colour move the global 8-band mixer cannot make, because
         // that one acts on a band everywhere in the frame.
-        changed |= Self::slider_hinted(
+        changed |= slider_hinted(
             ui,
             lang,
             tr(lang, K_DEVELOP_HUE_SHIFT),
@@ -560,8 +560,8 @@ impl AutoShadeApp {
             K_DEVELOP_A_RELATIVE_WARM_COOL_SHIFT_100_AROUND_A_FIXED_55,
             &[("k", &temp_k)],
         );
-        changed |= Self::slider_hinted(ui, lang, tr(lang, K_DEVELOP_TEMP_SHIFT), &mut m.temperature, -100.0, 100.0, 0.0, &temp_hint);
-        changed |= Self::slider_hinted(
+        changed |= slider_hinted(ui, lang, tr(lang, K_DEVELOP_TEMP_SHIFT), &mut m.temperature, -100.0, 100.0, 0.0, &temp_hint);
+        changed |= slider_hinted(
             ui,
             lang,
             tr(lang, K_DEVELOP_TINT_SHIFT),
@@ -576,7 +576,7 @@ impl AutoShadeApp {
         // toward which hue. Last in the group because the render
         // applies it last (`render::apply_masks`); engine-rendered and
         // carried by the sidecar, and the hue does nothing at 0.
-        changed |= Self::slider_hinted(
+        changed |= slider_hinted(
             ui,
             lang,
             tr(lang, K_DEVELOP_COLOR_TINT),
@@ -586,7 +586,7 @@ impl AutoShadeApp {
             0.0,
             tr(lang, K_DEVELOP_LIGHTROOM_S_MASK_COLOR_SWATCH_SHIFTS_EVERY_COLOU),
         );
-        changed |= Self::slider_hinted(
+        changed |= slider_hinted(
             ui,
             lang,
             tr(lang, K_DEVELOP_COLOR_TINT_HUE),
@@ -826,7 +826,7 @@ impl AutoShadeApp {
         {
             let mut geo_ch = false;
             ui.horizontal(|ui| {
-                geo_ch |= Self::slider_pct(
+                geo_ch |= slider_pct(
                     ui,
                     lang,
                     tr(lang, K_DEVELOP_EDGE_FEATHER),
@@ -848,7 +848,7 @@ impl AutoShadeApp {
             // drag to the very left snapped the knob to +180 — the
             // ellipse never moved, the knob teleported (L15-6; the
             // hue-slider rule).
-            geo_ch |= Self::slider(
+            geo_ch |= slider(
                 ui,
                 lang,
                 tr(lang, K_DEVELOP_ANGLE),
@@ -1174,9 +1174,9 @@ impl AutoShadeApp {
                     // All three on LR's 0..100 display track (storage
                     // stays the 0..1 fraction — see slider_pct).
                     let mut f = ((*lo - *lo_outer) + (*hi_outer - *hi)) * 0.5;
-                    let ch_lo = Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_LUM_LOW), lo, 1.0, 0.0);
-                    let ch_hi = Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_LUM_HIGH), hi, 1.0, 1.0);
-                    let ch_f = Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_FEATHER), &mut f, 0.5, 0.1);
+                    let ch_lo = slider_pct(ui, lang, tr(lang, K_DEVELOP_LUM_LOW), lo, 1.0, 0.0);
+                    let ch_hi = slider_pct(ui, lang, tr(lang, K_DEVELOP_LUM_HIGH), hi, 1.0, 1.0);
+                    let ch_f = slider_pct(ui, lang, tr(lang, K_DEVELOP_FEATHER), &mut f, 0.5, 0.1);
                     if ch_lo || ch_hi || ch_f {
                         // CLAMP the edited endpoint at the other, never
                         // swap: the active slider stays bound to its
@@ -1210,7 +1210,7 @@ impl AutoShadeApp {
                             want_pick = true;
                         }
                     });
-                    changed |= Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_TOLERANCE), amount, 1.0, 0.5);
+                    changed |= slider_pct(ui, lang, tr(lang, K_DEVELOP_TOLERANCE), amount, 1.0, 0.5);
                 }
                 None => {}
             }
@@ -1224,7 +1224,7 @@ impl AutoShadeApp {
         }
         let m = &mut self.editor.doc_mut().recipe.masks[i];
         // LR's 0..100 display track (storage stays 0..1 — slider_pct).
-        changed |= Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_AMOUNT), &mut m.amount, 1.0, 1.0);
+        changed |= slider_pct(ui, lang, tr(lang, K_DEVELOP_AMOUNT), &mut m.amount, 1.0, 1.0);
         changed
     }
 

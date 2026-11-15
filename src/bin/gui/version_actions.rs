@@ -5,13 +5,6 @@
 use crate::*;
 
 impl AutoShadeApp {
-    /// Recipe snapshot path for version `n` — `v<n>.recipe.json` in the photo's
-    /// central develop dir (gap batch G, ≈ Lightroom virtual copies: cheap
-    /// parametric versions, never touching the library or the working
-    /// `recipe.json`).
-    pub(crate) fn version_path(src: &std::path::Path, n: u32) -> PathBuf {
-        autoshade::store::version_target(src, n)
-    }
 
     /// Re-point every stored mask index (selection, colour-range sampler,
     /// redraw target) after the mask list changed shape — delete, drag-drop
@@ -108,21 +101,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// Does version metadata `m` name the given variant as its source
-    /// (R24-2)? The ID is authoritative when both sides have one — a card
-    /// renamed or re-kinded since the snapshot still matches. KIND is the
-    /// fallback for a record written before ids existed on this photo (or
-    /// for a card whose own id was never recorded). A record with neither —
-    /// or no record at all — is UNATTRIBUTED and matches nothing: the filter
-    /// is "only this variant", and quietly including everything unknown
-    /// would make it a checkbox that does not filter.
-    pub(crate) fn version_is_from(
-        m: Option<&autoshade::store::VersionMetaEntry>,
-        active_id: &str,
-        active_kind: Option<VariantKind>,
-    ) -> bool {
-        crate::logic::version::is_from(m, active_id, active_kind.map(|k| k.store_str()))
-    }
 
     /// Commit a pending version rename to ITS OWN photo and number — the
     /// version half of the `commit_mask_name_buf` rule (U10): a name still
@@ -279,7 +257,7 @@ impl AutoShadeApp {
     pub(crate) fn load_version(&mut self, n: u32) {
         let lang = self.lang;
         let Some(src) = self.editor.photo().src_path.clone() else { return };
-        let p = Self::version_path(&src, n);
+        let p = version_path(&src, n);
         // ONE NoWait lock across the whole snapshot read: the version file,
         // the mask re-anchor probes and the raster detach copies are separate
         // file touches, and delete_version sweeps v<N>.* rasters FIRST and
@@ -473,4 +451,28 @@ impl AutoShadeApp {
             }
         }
     }
+}
+
+/// Recipe snapshot path for version `n` — `v<n>.recipe.json` in the photo's
+/// central develop dir (gap batch G, ≈ Lightroom virtual copies: cheap
+/// parametric versions, never touching the library or the working
+/// `recipe.json`).
+pub(crate) fn version_path(src: &std::path::Path, n: u32) -> PathBuf {
+    autoshade::store::version_target(src, n)
+}
+
+/// Does version metadata `m` name the given variant as its source
+/// (R24-2)? The ID is authoritative when both sides have one — a card
+/// renamed or re-kinded since the snapshot still matches. KIND is the
+/// fallback for a record written before ids existed on this photo (or
+/// for a card whose own id was never recorded). A record with neither —
+/// or no record at all — is UNATTRIBUTED and matches nothing: the filter
+/// is "only this variant", and quietly including everything unknown
+/// would make it a checkbox that does not filter.
+pub(crate) fn version_is_from(
+    m: Option<&autoshade::store::VersionMetaEntry>,
+    active_id: &str,
+    active_kind: Option<VariantKind>,
+) -> bool {
+    crate::logic::version::is_from(m, active_id, active_kind.map(|k| k.store_str()))
 }

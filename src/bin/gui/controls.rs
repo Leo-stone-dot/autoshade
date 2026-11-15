@@ -117,8 +117,8 @@ impl ControlWidget for Plain {
         let mut current = self.read(recipe);
         let text = tr(lang, self.label());
         let dirty = match self.kind {
-            ControlKind::Fine => AutoShadeApp::slider_fine(ui, lang, text, &mut current, min, max, reset),
-            _ => AutoShadeApp::slider(ui, lang, text, &mut current, min, max, reset),
+            ControlKind::Fine => slider_fine(ui, lang, text, &mut current, min, max, reset),
+            _ => slider(ui, lang, text, &mut current, min, max, reset),
         };
         if dirty {
             out.push(CapabilityChange { control: self.id, value: current });
@@ -179,7 +179,7 @@ impl ControlWidget for Hinted {
         let Some(((min, max), reset)) = self.band_and_reset() else { return false };
         let mut current = self.read(recipe);
         let hint = self.hint().map_or("", |hint| tr(lang, hint));
-        let dirty = AutoShadeApp::slider_hinted(
+        let dirty = slider_hinted(
             ui,
             lang,
             tr(lang, self.label()),
@@ -248,7 +248,7 @@ impl ControlWidget for Companion {
         } else {
             SliderFeel::Int
         };
-        match AutoShadeApp::companion_slider_edit(ui, lang, tr(lang, self.label), recipe, self.id, min, max, feel) {
+        match companion_slider_edit(ui, lang, tr(lang, self.label), recipe, self.id, min, max, feel) {
             Some(value) => {
                 out.push(CapabilityChange { control: self.id, value });
                 true
@@ -605,7 +605,7 @@ mod tests {
                 out: &mut Vec<CapabilityChange>,
             ) -> bool {
                 let mut value = self.read(recipe);
-                let dirty = AutoShadeApp::slider(ui, Lang::En, "Fake", &mut value, -5.0, 5.0, 0.0);
+                let dirty = slider(ui, Lang::En, "Fake", &mut value, -5.0, 5.0, 0.0);
                 if dirty {
                     out.push(CapabilityChange { control: "exposure_ev", value });
                 }

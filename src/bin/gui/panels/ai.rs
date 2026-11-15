@@ -415,7 +415,7 @@ impl AutoShadeApp {
                 // other stored fraction (Amount, feathers, tolerance), resets to the
                 // shared default, and keeps the explanation as the tooltip's first
                 // line instead of on a separate label.
-                Self::slider_pct_hinted(
+                slider_pct_hinted(
                     ui,
                     lang,
                     tr(lang, K_AI_STYLE),
@@ -449,7 +449,7 @@ impl AutoShadeApp {
             // half existed, so "lean on my habits" was the only dial there was and it
             // bought MORE restraint. Same helper as Style, so it gets the same 0..100
             // track, double-click reset and ↑/↓ nudge.
-            Self::slider_pct_hinted(
+            slider_pct_hinted(
                 ui,
                 lang,
                 tr(lang, K_AI_STRENGTH),
@@ -468,7 +468,7 @@ impl AutoShadeApp {
                     // comment cannot keep the wrapper here.
                     self.seams.adherence_gate_enabled = Some(ui.is_enabled());
                 }
-                Self::slider_pct_hinted(
+                slider_pct_hinted(
                     ui,
                     lang,
                     tr(lang, K_AI_ADHERENCE),
@@ -937,26 +937,6 @@ impl AutoShadeApp {
             });
     }
 
-    /// Sub-area ⑤ — REVERSE-FIT (local; the AI review is paid): turn the
-    /// freshly generated look back into an
-    /// editable recipe — how the low-res experiment becomes a full-res, XMP-able
-    ///「反推」variant. A PEER of the generation sub-area, not a row inside it:
-    /// its own switches (the optional AI review, and zoned fit — which used to
-    /// live in Settings, two panels from the button it changes) are settings for
-    /// this verb, and burying them one fold deeper than the verb was the
-    /// scattering this panel exists to end.
-    ///
-    /// R30 gave it a header of its own (it was a `group_caption` under a
-    /// separator) and left it OPEN by default: the fit and the extract are
-    /// local and free, and the one paid switch inside — 「AI review」 — is
-    /// what the header's 「AI 打分付费」 half names.
-    /// What the reverse-fit does, in one sentence: the fold's verb says it on
-    /// hover and the fit prompt says it in its body.
-    pub(crate) fn fit_explainer(lang: Lang) -> &'static str {
-        tr(lang,
-            K_AI_STATISTICAL_FIT_REVERSE_THE_FRESHLY_GENERATED_LO,
-        )
-    }
 
     fn ai_reverse_fit(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
@@ -1109,7 +1089,7 @@ impl AutoShadeApp {
             // folds up — the last place anyone looking at this row would look. Same
             // helper as the Analysis dials: 0..100 track, double-click reset, hover
             // nudge, the explanation as the tooltip.
-            Self::slider_pct_hinted(
+            slider_pct_hinted(
                 ui,
                 lang,
                 tr(lang, K_AI_REVERSE_FIT_STRENGTH),
@@ -1126,7 +1106,7 @@ impl AutoShadeApp {
                 if primary_in(ui, cell, can, tr(lang, K_AI_REVERSE_FIT_RECIPE))
                     .on_hover_text(format!(
                         "{}{}",
-                        Self::fit_explainer(lang),
+                        fit_explainer(lang),
                         tr(lang, K_AI_USES_THE_REVERSE_FIT_STRENGTH_DIAL_ABOVE_AS_ITS),
                     ))
                     .clicked()
@@ -1219,4 +1199,25 @@ fn is_working_note(key: autoshade::text::Key) -> bool {
 /// A note's args as the `(key, value)` slice `trf` takes.
 fn note_args(n: &autoshade::rationale::Note) -> Vec<(&str, &str)> {
     n.args.iter().map(|(k, v)| (*k, v.as_str())).collect()
+}
+
+/// Sub-area ⑤ — REVERSE-FIT (local; the AI review is paid): turn the
+/// freshly generated look back into an
+/// editable recipe — how the low-res experiment becomes a full-res, XMP-able
+///「反推」variant. A PEER of the generation sub-area, not a row inside it:
+/// its own switches (the optional AI review, and zoned fit — which used to
+/// live in Settings, two panels from the button it changes) are settings for
+/// this verb, and burying them one fold deeper than the verb was the
+/// scattering this panel exists to end.
+///
+/// R30 gave it a header of its own (it was a `group_caption` under a
+/// separator) and left it OPEN by default: the fit and the extract are
+/// local and free, and the one paid switch inside — 「AI review」 — is
+/// what the header's 「AI 打分付费」 half names.
+/// What the reverse-fit does, in one sentence: the fold's verb says it on
+/// hover and the fit prompt says it in its body.
+pub(crate) fn fit_explainer(lang: Lang) -> &'static str {
+    tr(lang,
+        K_AI_STATISTICAL_FIT_REVERSE_THE_FRESHLY_GENERATED_LO,
+    )
 }

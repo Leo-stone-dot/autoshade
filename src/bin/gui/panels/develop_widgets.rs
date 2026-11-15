@@ -23,46 +23,11 @@ impl AutoShadeApp {
             .default_open(false)
             , |ui| {
                 changed |= self.panel_view(&mut Vec::new()).curve_editor(ui);
-                changed |= Self::parametric_curve(ui, lang, &mut self.editor.doc_mut().recipe);
+                changed |= parametric_curve(ui, lang, &mut self.editor.doc_mut().recipe);
             });
         changed
     }
 
-    /// Lightroom's parametric tone curve (v1.5.0), under the point curve in
-    /// the order the engine composes them (`render::build_tone_lut`: the point
-    /// curve bends what these regions made). The four regions in the panel's
-    /// top-down order, then the three splits — each bounded by its neighbours,
-    /// the way Lightroom's own split handles stop short of each other, so a
-    /// drag can never cross two splits and the sliders always show the layout
-    /// the curve renders (`EditRecipe::parametric_splits`).
-    fn parametric_curve(ui: &mut egui::Ui, lang: Lang, r: &mut EditRecipe) -> bool {
-        use autoshade::recipe::{PARAMETRIC_SPLITS, PARAMETRIC_SPLIT_GAP};
-        sub_caption(ui, tr(lang, K_DEVELOP_PARAMETRIC_CURVE));
-        let mut changed = false;
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_HIGHLIGHTS), &mut r.param_highlights, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_LIGHTS), &mut r.param_lights, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_DARKS), &mut r.param_darks, -100.0, 100.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_SHADOWS), &mut r.param_shadows, -100.0, 100.0, 0.0);
-        let gap = PARAMETRIC_SPLIT_GAP;
-        let mut splits = r.parametric_splits();
-        let mut moved = false;
-        let labels = [tr(lang, K_DEVELOP_SHADOW_SPLIT), tr(lang, K_DEVELOP_MIDTONE_SPLIT), tr(lang, K_DEVELOP_HIGHLIGHT_SPLIT)];
-        for (i, label) in labels.into_iter().enumerate() {
-            // The reset lands inside the room the neighbours leave: a reset
-            // must not cross them either (`slider_impl` resets unclamped).
-            let (lo, hi, reset) =
-                crate::logic::slider::split_bounds(i, splits, gap, PARAMETRIC_SPLITS);
-            // Whole numbers whatever the room: the sidecar writes integers,
-            // and a narrow range would otherwise pick the fractional feel.
-            moved |= Self::slider_impl(ui, lang, label, &mut splits[i], lo, hi, reset, SliderFeel::Int, "");
-        }
-        if moved {
-            r.param_shadow_split = splits[0];
-            r.param_midtone_split = splits[1];
-            r.param_highlight_split = splits[2];
-        }
-        changed || moved
-    }
 
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
@@ -140,7 +105,7 @@ impl AutoShadeApp {
                         let (rect, _) = ui
                             .allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
                         ui.painter().rect_filled(rect, 2.0, HSL_SWATCH[b]);
-                        changed |= Self::slider(ui, lang, tr(lang, name), v, -100.0, 100.0, 0.0);
+                        changed |= slider(ui, lang, tr(lang, name), v, -100.0, 100.0, 0.0);
                     });
                 }
                 changed |= self.point_color_rows(ui);
@@ -232,13 +197,13 @@ impl AutoShadeApp {
                     ("Luminance", &mut p.lum_scale),
                 ] {
                     let mut shown = *shift * 100.0;
-                    if Self::slider(ui, lang, tr(lang, name), &mut shown, -100.0, 100.0, 0.0) {
+                    if slider(ui, lang, tr(lang, name), &mut shown, -100.0, 100.0, 0.0) {
                         *shift = shown / 100.0;
                         changed = true;
                     }
                 }
                 let mut range = p.range_amount;
-                if Self::slider_pct(ui, lang, tr(lang, K_DEVELOP_RANGE), &mut range, 1.0, 0.5) {
+                if slider_pct(ui, lang, tr(lang, K_DEVELOP_RANGE), &mut range, 1.0, 0.5) {
                     p.set_range(range);
                     changed = true;
                 }
@@ -288,7 +253,7 @@ impl AutoShadeApp {
                     ui.vertical(|ui| {
                         ui.set_width(width);
                         c |= grade_wheel(ui, lang, title, (width - 8.0).min(170.0), h, s);
-                        c |= Self::slider(ui, lang, tr(lang, K_DEVELOP_LUMINANCE), l, -100.0, 100.0, 0.0);
+                        c |= slider(ui, lang, tr(lang, K_DEVELOP_LUMINANCE), l, -100.0, 100.0, 0.0);
                     });
                     c
                 };
@@ -322,4 +287,40 @@ impl AutoShadeApp {
             });
         changed
     }
+}
+
+/// Lightroom's parametric tone curve (v1.5.0), under the point curve in
+/// the order the engine composes them (`render::build_tone_lut`: the point
+/// curve bends what these regions made). The four regions in the panel's
+/// top-down order, then the three splits — each bounded by its neighbours,
+/// the way Lightroom's own split handles stop short of each other, so a
+/// drag can never cross two splits and the sliders always show the layout
+/// the curve renders (`EditRecipe::parametric_splits`).
+pub(crate) fn parametric_curve(ui: &mut egui::Ui, lang: Lang, r: &mut EditRecipe) -> bool {
+    use autoshade::recipe::{PARAMETRIC_SPLITS, PARAMETRIC_SPLIT_GAP};
+    sub_caption(ui, tr(lang, K_DEVELOP_PARAMETRIC_CURVE));
+    let mut changed = false;
+    changed |= slider(ui, lang, tr(lang, K_DEVELOP_HIGHLIGHTS), &mut r.param_highlights, -100.0, 100.0, 0.0);
+    changed |= slider(ui, lang, tr(lang, K_DEVELOP_LIGHTS), &mut r.param_lights, -100.0, 100.0, 0.0);
+    changed |= slider(ui, lang, tr(lang, K_DEVELOP_DARKS), &mut r.param_darks, -100.0, 100.0, 0.0);
+    changed |= slider(ui, lang, tr(lang, K_DEVELOP_SHADOWS), &mut r.param_shadows, -100.0, 100.0, 0.0);
+    let gap = PARAMETRIC_SPLIT_GAP;
+    let mut splits = r.parametric_splits();
+    let mut moved = false;
+    let labels = [tr(lang, K_DEVELOP_SHADOW_SPLIT), tr(lang, K_DEVELOP_MIDTONE_SPLIT), tr(lang, K_DEVELOP_HIGHLIGHT_SPLIT)];
+    for (i, label) in labels.into_iter().enumerate() {
+        // The reset lands inside the room the neighbours leave: a reset
+        // must not cross them either (`slider_impl` resets unclamped).
+        let (lo, hi, reset) =
+            crate::logic::slider::split_bounds(i, splits, gap, PARAMETRIC_SPLITS);
+        // Whole numbers whatever the room: the sidecar writes integers,
+        // and a narrow range would otherwise pick the fractional feel.
+        moved |= slider_impl(ui, lang, label, &mut splits[i], lo, hi, reset, SliderFeel::Int, "");
+    }
+    if moved {
+        r.param_shadow_split = splits[0];
+        r.param_midtone_split = splits[1];
+        r.param_highlight_split = splits[2];
+    }
+    changed || moved
 }

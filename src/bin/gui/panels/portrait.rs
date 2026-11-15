@@ -216,16 +216,11 @@ impl AutoShadeApp {
         ui.separator();
     }
 
-    /// A group's sub-heading.
-    fn portrait_group(ui: &mut egui::Ui, title: &str) {
-        ui.add_space(SPACE_MD);
-        ui.label(egui::RichText::new(title).strong());
-    }
 
     /// Group 1 — the people and the background, and the AI portrait look.
     fn portrait_people(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        Self::portrait_group(ui, tr(lang, K_PORTRAIT_PEOPLE_AND_BACKGROUND));
+        portrait_group(ui, tr(lang, K_PORTRAIT_PEOPLE_AND_BACKGROUND));
         let ready = self.editor.photo().src_path.is_some() && self.editor.photo().base_preview.is_some() && !self.workspace.busy() && !self.workspace.tools().analyze_inflight;
         let mut find = false;
         let mut look = false;
@@ -238,7 +233,7 @@ impl AutoShadeApp {
                 .on_hover_text(tr(lang, K_PORTRAIT_THE_AI_LOOKS_AT_THIS_PHOTO_AND_GIVES_IT_A_PORTRA))
                 .clicked();
         });
-        Self::slider_pct_hinted(
+        slider_pct_hinted(
             ui,
             lang,
             tr(lang, K_NORMAL_LOOK_STRENGTH),
@@ -267,7 +262,7 @@ impl AutoShadeApp {
     /// Group 2 — the skin: soften, warmth, colour, the guardrail switch.
     fn portrait_skin(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
-        Self::portrait_group(ui, tr(lang, K_PORTRAIT_SKIN));
+        portrait_group(ui, tr(lang, K_PORTRAIT_SKIN));
         let gate = self.portrait_face_gate(lang);
         let guarded = self.keep_skin_on();
         let mut changed = false;
@@ -276,14 +271,14 @@ impl AutoShadeApp {
             let m = skin_target(&mut self.editor.doc_mut().recipe).unwrap_or(&mut probe);
             let mut soften = soften_of(m);
             let soft_max = logic::portrait::reach(guarded, -autoshade::face::SKIN_TEXTURE_MIN, 100.0);
-            if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SOFTEN_SKIN), &mut soften, 0.0, soft_max, 0.0, tr(lang, K_PORTRAIT_SMOOTHS_THE_SKIN_S_FINE_TEXTURE_THE_FACE_S_SHAPE)) {
+            if slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SOFTEN_SKIN), &mut soften, 0.0, soft_max, 0.0, tr(lang, K_PORTRAIT_SMOOTHS_THE_SKIN_S_FINE_TEXTURE_THE_FACE_S_SHAPE)) {
                 set_soften(m, soften);
                 changed = true;
             }
             let warm = logic::portrait::reach(guarded, autoshade::face::SKIN_TEMPERATURE_MAX, 100.0);
-            changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SKIN_WARMTH), &mut m.temperature, -warm, warm, 0.0, tr(lang, K_PORTRAIT_COOLER_TO_THE_LEFT_WARMER_TO_THE_RIGHT_ON_THE_SK));
+            changed |= slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SKIN_WARMTH), &mut m.temperature, -warm, warm, 0.0, tr(lang, K_PORTRAIT_COOLER_TO_THE_LEFT_WARMER_TO_THE_RIGHT_ON_THE_SK));
             let rich = logic::portrait::reach(guarded, autoshade::face::SKIN_SATURATION_MAX, 100.0);
-            changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SKIN_COLOUR_INTENSITY), &mut m.saturation, -100.0, rich, 0.0, tr(lang, K_PORTRAIT_PALER_TO_THE_LEFT_RICHER_TO_THE_RIGHT_ON_THE_SKI));
+            changed |= slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SKIN_COLOUR_INTENSITY), &mut m.saturation, -100.0, rich, 0.0, tr(lang, K_PORTRAIT_PALER_TO_THE_LEFT_RICHER_TO_THE_RIGHT_ON_THE_SKI));
         });
         let mut on = guarded;
         let flipped = ui
@@ -319,7 +314,7 @@ impl AutoShadeApp {
     /// Group 3 — the eyes: brighten, crisp.
     fn portrait_eyes(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
-        Self::portrait_group(ui, tr(lang, K_PORTRAIT_EYES));
+        portrait_group(ui, tr(lang, K_PORTRAIT_EYES));
         let gate = self.portrait_face_gate(lang).or_else(|| {
             (!self.editor.doc().recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP))
         });
@@ -327,9 +322,9 @@ impl AutoShadeApp {
         ui.add_enabled_ui(gate.is_none(), |ui| {
             let mut probe = LocalAdjustment::default();
             let m = role_mask(&mut self.editor.doc_mut().recipe, MaskRole::Eyes).unwrap_or(&mut probe);
-            changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_BRIGHTEN_EYES), &mut m.exposure_ev, 0.0, EYES_BRIGHTEN_MAX_EV, 0.0, tr(lang, K_PORTRAIT_LIFTS_THE_EYES_A_LITTLE));
+            changed |= slider_hinted(ui, lang, tr(lang, K_PORTRAIT_BRIGHTEN_EYES), &mut m.exposure_ev, 0.0, EYES_BRIGHTEN_MAX_EV, 0.0, tr(lang, K_PORTRAIT_LIFTS_THE_EYES_A_LITTLE));
             let mut crisp = crisp_of(m);
-            if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_CRISP_EYES), &mut crisp, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_BRINGS_OUT_THE_DETAIL_IN_THE_EYES)) {
+            if slider_hinted(ui, lang, tr(lang, K_PORTRAIT_CRISP_EYES), &mut crisp, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_BRINGS_OUT_THE_DETAIL_IN_THE_EYES)) {
                 set_crisp(m, crisp);
                 changed = true;
             }
@@ -344,7 +339,7 @@ impl AutoShadeApp {
     /// darken / fade on the background mask.
     fn portrait_background(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
-        Self::portrait_group(ui, tr(lang, K_PORTRAIT_BACKGROUND));
+        portrait_group(ui, tr(lang, K_PORTRAIT_BACKGROUND));
         let mut changed = false;
         let subject = subject_raster(&self.editor.doc().recipe);
         if self.editor.doc().recipe.lens_blur.is_none() {
@@ -357,8 +352,8 @@ impl AutoShadeApp {
                 self.apply_actions(vec![logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth)]);
             }
         } else if let Some(lb) = self.editor.doc_mut().recipe.lens_blur.as_mut() {
-            changed |= Self::slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut lb.amount, 0.0, 100.0, 50.0);
-            changed |= Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SHARP_RANGE), &mut lb.range, 0.0, 100.0, 10.0, tr(lang, K_PORTRAIT_HOW_DEEP_THE_SHARP_PART_OF_THE_PICTURE_IS_AROUND));
+            changed |= slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut lb.amount, 0.0, 100.0, 50.0);
+            changed |= slider_hinted(ui, lang, tr(lang, K_PORTRAIT_SHARP_RANGE), &mut lb.range, 0.0, 100.0, 10.0, tr(lang, K_PORTRAIT_HOW_DEEP_THE_SHARP_PART_OF_THE_PICTURE_IS_AROUND));
             let mut keep = lb.protect.is_some();
             let toggled = ui
                 .add_enabled(subject.is_some() || keep, egui::Checkbox::new(&mut keep, tr(lang, K_PORTRAIT_KEEP_THE_PERSON_SHARP)))
@@ -376,12 +371,12 @@ impl AutoShadeApp {
             let mut probe = LocalAdjustment::default();
             let m = role_mask(&mut self.editor.doc_mut().recipe, MaskRole::Background).unwrap_or(&mut probe);
             let mut darken = darken_of(m);
-            if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_DARKEN_BACKGROUND), &mut darken, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_EVERYTHING_BUT_THE_PERSON_A_LITTLE_DARKER)) {
+            if slider_hinted(ui, lang, tr(lang, K_PORTRAIT_DARKEN_BACKGROUND), &mut darken, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_EVERYTHING_BUT_THE_PERSON_A_LITTLE_DARKER)) {
                 set_darken(m, darken);
                 changed = true;
             }
             let mut fade = fade_of(m);
-            if Self::slider_hinted(ui, lang, tr(lang, K_PORTRAIT_FADE_BACKGROUND_COLOUR), &mut fade, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_EVERYTHING_BUT_THE_PERSON_A_LITTLE_GREYER)) {
+            if slider_hinted(ui, lang, tr(lang, K_PORTRAIT_FADE_BACKGROUND_COLOUR), &mut fade, 0.0, 100.0, 0.0, tr(lang, K_PORTRAIT_EVERYTHING_BUT_THE_PERSON_A_LITTLE_GREYER)) {
                 set_fade(m, fade);
                 changed = true;
             }
@@ -391,4 +386,10 @@ impl AutoShadeApp {
         }
         changed
     }
+}
+
+/// A group's sub-heading.
+pub(crate) fn portrait_group(ui: &mut egui::Ui, title: &str) {
+    ui.add_space(SPACE_MD);
+    ui.label(egui::RichText::new(title).strong());
 }

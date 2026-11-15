@@ -79,11 +79,11 @@ impl AutoShadeApp {
         // touch, the recipe change goes through the action.
         ui.add_enabled_ui(enabled, |ui| {
             let mut next = amount;
-            if Self::slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut next, 0.0, 100.0, 50.0) {
+            if slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut next, 0.0, 100.0, 50.0) {
                 actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetBlurAmount(next)));
             }
             let mut next = range;
-            if Self::slider(ui, lang, tr(lang, K_LENS_FOCUS_RANGE), &mut next, 0.0, 100.0, 10.0) {
+            if slider(ui, lang, tr(lang, K_LENS_FOCUS_RANGE), &mut next, 0.0, 100.0, 10.0) {
                 actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusRange(next)));
             }
         });

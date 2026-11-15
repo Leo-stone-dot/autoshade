@@ -338,7 +338,7 @@ impl AutoShadeApp {
         // The radius is live tool state, never a recipe field: no dirty flag,
         // no redevelop — a change only flashes the ring on the canvas.
         let mut radius = self.workspace.masks().brush;
-        if Self::slider_hinted(
+        if slider_hinted(
             ui,
             lang,
             tr(lang, K_RETOUCH_BRUSH_SIZE),
@@ -356,7 +356,7 @@ impl AutoShadeApp {
         // (the inner ring on the canvas marks where the fade starts); Flow is
         // how much one pass lays down, so a low flow builds up stroke by
         // stroke. The defaults are the hard full-strength brush of before.
-        Self::slider_pct_hinted(
+        slider_pct_hinted(
             ui,
             lang,
             tr(lang, K_DEVELOP_FEATHER),
@@ -365,7 +365,7 @@ impl AutoShadeApp {
             0.0,
             tr(lang, K_RETOUCH_HOW_SOFT_THE_BRUSH_EDGE_IS_0_A_HARD_EDGE_100_FAD),
         );
-        Self::slider_pct_hinted(
+        slider_pct_hinted(
             ui,
             lang,
             tr(lang, K_RETOUCH_FLOW),
@@ -451,7 +451,7 @@ impl AutoShadeApp {
                     remove = Some(i);
                 }
             });
-            changed |= Self::slider_pct_hinted(
+            changed |= slider_pct_hinted(
                 ui,
                 lang,
                 tr(lang, K_RETOUCH_LAYER_OPACITY),

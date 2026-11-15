@@ -78,6 +78,7 @@ mod export;
 mod masks;
 mod normal_actions;
 mod panel_view;
+mod sliders;
 mod panels;
 mod portrait_actions;
 mod recipe_actions;
@@ -104,6 +105,10 @@ use theme::*;
 use util::*;
 use app::*;
 use panel_view::*;
+use sliders::*;
+use panels::ai::fit_explainer;
+use version_actions::version_is_from;
+
 use side_panel::*;
 
 

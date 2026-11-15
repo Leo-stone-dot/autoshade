@@ -220,7 +220,7 @@ impl AutoShadeApp {
             let name = dir.file_name().map_or_else(|| abs_display(dir), |n| n.to_string_lossy().into_owned());
             ui.label(egui::RichText::new(trf(lang, K_NORMAL_CHOSEN, &[("name", &name)])).weak().small());
         }
-        Self::slider_pct_hinted(
+        slider_pct_hinted(
             ui,
             lang,
             tr(lang, K_NORMAL_LOOK_STRENGTH),
@@ -265,10 +265,10 @@ impl AutoShadeApp {
         panel_heading(ui, tr(lang, K_NORMAL_FINE_TUNE), false, |_| {});
         let mut changed = false;
         let r = &mut self.editor.doc_mut().recipe;
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_BRIGHTNESS), &mut r.exposure_ev, -5.0, 5.0, 0.0);
-        changed |= Self::slider(ui, lang, tr(lang, K_DEVELOP_CONTRAST), &mut r.contrast, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_BRIGHTNESS), &mut r.exposure_ev, -5.0, 5.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_DEVELOP_CONTRAST), &mut r.contrast, -100.0, 100.0, 0.0);
         let mut warmth = r.warmth();
-        if Self::slider_hinted(
+        if slider_hinted(
             ui,
             lang,
             tr(lang, K_NORMAL_WARMTH),
@@ -282,7 +282,7 @@ impl AutoShadeApp {
             r.temperature_k = Some(kelvin);
             changed = true;
         }
-        changed |= Self::slider(ui, lang, tr(lang, K_NORMAL_VIVIDNESS), &mut r.saturation, -100.0, 100.0, 0.0);
+        changed |= slider(ui, lang, tr(lang, K_NORMAL_VIVIDNESS), &mut r.saturation, -100.0, 100.0, 0.0);
         let back = self.workspace.normal()
             .result
             .as_ref()

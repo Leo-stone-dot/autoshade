@@ -141,7 +141,7 @@ impl AutoShadeApp {
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .open(&mut open)
             .show(ctx, |ui| {
-                ui.label(Self::fit_explainer(lang));
+                ui.label(fit_explainer(lang));
                 // The landing's own reading, without its ` · ` joint.
                 ui.label(egui::RichText::new(fidelity.trim_start_matches(" · ")).small().weak());
                 if let Some(to) = &to {
