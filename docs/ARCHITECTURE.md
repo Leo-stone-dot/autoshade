@@ -7575,7 +7575,9 @@ static helpers the panels use (`fit_explainer`, `parametric_curve`,
 `portrait_group`, `version_path`, `version_is_from`). Pure QUERIES live on the
 aggregate that owns their state, not on the app: `Editor::active_variant`,
 `Editor::persisted_card_for`, `Editor::geom_ctx`, `WorkspaceView::export_opts`,
-`WorkspaceView::normal_line_text` and their kin. The labels are text RESOURCES
+`WorkspaceView::normal_line_text` and their kin; the user-facing alert doors
+(`WorkspaceView::toast`, `done`, `fail`) are the workspace's too, not the app's.
+The labels are text RESOURCES
 (Android/iOS model): one dotted key per string, its English and Chinese text in
 `resources/strings/{en,zh-Hans}.toml`, compiled by `scripts/gen_text.py` into
 the `K_…` constants (`autoshade::text`); `scripts/check_text.py` keeps the
