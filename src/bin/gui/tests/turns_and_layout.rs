@@ -481,24 +481,14 @@
         app
     }
 
-    /// R38: every button in the vocabulary (`buttons.rs`) stands exactly one
-    /// row tall, icon-only verbs are squares of that row, and no label wraps
-    /// inside its grid cell — rendered at the default panel widths in both
-    /// languages with the widest rows armed: a second variant card, a mask
-    /// brush session, a raster mask selected with a component, a colour
-    /// field, a Point Color swatch, a version, a reference, a
-    /// multi-selection. The helpers fill the registry themselves, so a button
-    /// that bypasses the vocabulary is simply not here; the count floor keeps
-    /// the pin from passing on an empty registry.
-    ///
-    /// Three frames, with both side panels' widths as witnesses. A cell or a
-    /// scoped widget laid past its line's end stands outside the panel and
-    /// widens an auto-fitting panel every frame (R19's runaway, met again as
-    /// +47 px/frame while this vocabulary went in), so a panel that holds
-    /// its default width for three frames has no overflowing row anywhere
-    /// in it — the strongest form of the witness, not merely "stable".
+    /// The buttons' geometry, in one place: at the default panel widths a row
+    /// stands exactly one line tall (glyph buttons square), no panel grows past
+    /// its default, and every row-filling button shares the prompts' readable
+    /// ceiling — the histogram readout included (user report 2026-09-27).
     #[test]
-    fn every_button_stands_one_row_tall_at_the_default_widths() {
+    fn every_button_keeps_its_row_and_the_readable_ceiling() {
+        {
+
         use crate::buttons::DRAWN;
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             let ctx = egui::Context::default();
@@ -578,13 +568,9 @@
                 "{lang:?}: the primary verbs are on screen"
             );
         }
-    }
+        }
+        {
 
-    /// The panel stays free to grow for the curve and HSL editors, while every
-    /// row-filling button shares the prompts' readable ceiling. Three frames
-    /// also catch a row that asks for more than it has and grows the panel.
-    #[test]
-    fn a_button_row_never_grows_past_the_readable_width() {
         use crate::buttons::DRAWN;
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             for controls_width in [800.0, 1600.0] {
@@ -660,6 +646,7 @@
                     );
                 }
             }
+        }
         }
     }
 
