@@ -221,7 +221,7 @@ impl AutoShadeApp {
     /// strip deep-comparing recipes, so it is asked last.
     pub(crate) fn quit_state(&self) -> crate::quit::QuitState {
         crate::quit::QuitState::from_app(self.busy, self.discard_requested, || {
-            self.mask_name_buf.is_some()
+            self.masks.mask_name_buf.is_some()
                 || self.version_name_buf.is_some()
                 || self.variant_name_buf.is_some()
                 || !self.nav_stash.is_empty()
@@ -368,7 +368,7 @@ impl AutoShadeApp {
         // across, a same-index mask / same-number version / same-card rename
         // box on the NEXT photo skipped the reseed and greeted it pre-filled
         // with the previous photo's text.
-        self.mask_name_buf = None;
+        self.masks.mask_name_buf = None;
         self.version_name_buf = None;
         self.variant_name_buf = None;
         // An armed strip ✕ dies with the photo too — the index it named
@@ -1148,25 +1148,25 @@ impl AutoShadeApp {
             self.base_preview = Some(base);
             // A fresh transparent paint mask sized to THIS base (a generated
             // raster and the source neutral can differ in dimensions).
-            self.mask_paint = Some(image::RgbaImage::new(mw, mh));
+            self.masks.mask_paint = Some(image::RgbaImage::new(mw, mh));
             self.paint_mask_changed(Some(false));
             // Every tool's area is per card, like the canvas itself.
-            self.paint_store = Default::default();
+            self.masks.paint_store = Default::default();
             self.overlay.mask_tex = None;
             self.overlay.mask_dirty = false;
-            self.paint_last = None;
+            self.masks.paint_last = None;
         }
         self.reset_history(); // you can't undo across variants
         self.overlay.region = None;
         self.overlay.region_drag = None;
-        self.sel_mask = None;
-        self.sel_component = None;
+        self.masks.sel_mask = None;
+        self.masks.sel_component = None;
         // Same boundary rule as open_path: the rename buffer belongs to the
         // variant it was typed on (M15). The strip's own rename box is keyed
         // by CARD ID, not by what is on screen, so it deliberately survives
         // a switch — but an armed ✕ does not: it named an index in the strip
         // the user has just moved away from (R24-4).
-        self.mask_name_buf = None;
+        self.masks.mask_name_buf = None;
         self.variant_delete_confirm = None;
         self.overlay.overlay_ref = None;
         self.overlay.overlay_stale = true;
@@ -1801,18 +1801,18 @@ impl AutoShadeApp {
     /// forgotten: a dangling index used to make the range sampler write into
     /// whatever mask slid under it.
     pub(crate) fn remap_mask_indices(&mut self, f: impl Fn(usize) -> Option<usize>) {
-        let sel_before = self.sel_mask;
-        self.sel_mask = self.sel_mask.and_then(&f);
+        let sel_before = self.masks.sel_mask;
+        self.masks.sel_mask = self.masks.sel_mask.and_then(&f);
         // Component selection is meaningful only while the SAME mask stays
         // selected under the same index-space; a moved/vanished mask drops it
         // (its component list travelled with the mask, but every canvas tool
         // re-derives from sel_mask — a stale pair here was the same class of
         // bug as the dangling range sampler).
-        if self.sel_mask != sel_before || self.sel_mask.is_none() {
-            self.sel_component = None;
+        if self.masks.sel_mask != sel_before || self.masks.sel_mask.is_none() {
+            self.masks.sel_component = None;
         }
         self.range_picking = self.range_picking.and_then(&f);
-        self.placing_mask = self.placing_mask.take().and_then(|(k, t)| match t {
+        self.masks.placing_mask = self.masks.placing_mask.take().and_then(|(k, t)| match t {
             PlaceTarget::NewMask => Some((k, PlaceTarget::NewMask)),
             // A vanished redraw target degrades to a NEW mask placement (the
             // pre-v0.22 `Option<usize>` behaviour, kept); a vanished
@@ -1829,8 +1829,8 @@ impl AutoShadeApp {
         // reorder its seed-guard (name-at-seed must still match) correctly
         // refused to cross-commit — but the SAME mask at its new index then
         // failed the match as well, and the typed rename silently died.
-        self.mask_name_buf =
-            self.mask_name_buf.take().and_then(|(j, o, b)| Some((f(j)?, o, b)));
+        self.masks.mask_name_buf =
+            self.masks.mask_name_buf.take().and_then(|(j, o, b)| Some((f(j)?, o, b)));
         // The mask-brush session carries its TARGET index: 「Apply」 bakes the
         // stroke into `mask_brush.0`, so after a delete/reorder it painted
         // whatever mask slid under the stale slot — the dangling-range-sampler
@@ -1839,10 +1839,10 @@ impl AutoShadeApp {
         // like Esc (gray buffer AND paint canvas — see disarm_tools: fill/heal
         // would inherit the strokes as a phantom retouch selection). Not a
         // new-mask fallback: that would resurrect a just-deleted mask.
-        if let Some((target, erase)) = self.mask_brush {
+        if let Some((target, erase)) = self.masks.mask_brush {
             match target.map(&f) {
-                None => self.mask_brush = Some((None, erase)),
-                Some(Some(j)) => self.mask_brush = Some((Some(j), erase)),
+                None => self.masks.mask_brush = Some((None, erase)),
+                Some(Some(j)) => self.masks.mask_brush = Some((Some(j), erase)),
                 Some(None) => {
                     self.end_mask_brush();
                 }
@@ -2341,17 +2341,17 @@ impl AutoShadeApp {
     /// pin) deliberately survives — samples stay for resuming, like paint.
     pub(crate) fn disarm_tools(&mut self) {
         self.set_crop_mode(false);
-        self.paint_mode = false;
+        self.masks.paint_mode = false;
         self.clone_mode = false;
         self.wb_picking = false;
         self.range_picking = None;
         self.point_color_picking = false;
         self.lens_focus_picking = false;
-        self.placing_mask = None;
-        self.place_start = None;
+        self.masks.placing_mask = None;
+        self.masks.place_start = None;
         self.crop_drag = None;
         self.mask_drag = None;
-        self.paint_last = None;
+        self.masks.paint_last = None;
         self.end_mask_brush();
         // A preset change armed for the crop tool must die with it — the
         // flag survived Esc / Done / a hold-B detour and rewrote the box as
@@ -2368,9 +2368,9 @@ impl AutoShadeApp {
     /// session was actually live, so a caller whose teardown is NOT
     /// user-initiated can disclose the discarded strokes.
     pub(crate) fn end_mask_brush(&mut self) -> bool {
-        if self.mask_brush.take().is_some() {
-            self.mask_brush_gray = None;
-            self.paint_mode = false;
+        if self.masks.mask_brush.take().is_some() {
+            self.masks.mask_brush_gray = None;
+            self.masks.paint_mode = false;
             self.clear_mask();
             // The owner's area the session displaced comes back (2026-09-27).
             self.unstash_owner_area();
@@ -2393,16 +2393,16 @@ impl AutoShadeApp {
     /// user paint), for the caller's disclosure.
     pub(crate) fn disarm_selection_bound_tools(&mut self, keep: Option<usize>) -> bool {
         if matches!(
-            self.placing_mask,
+            self.masks.placing_mask,
             Some((_, PlaceTarget::Redraw(j) | PlaceTarget::Component(j, _))) if Some(j) != keep
         ) {
-            self.placing_mask = None;
-            self.place_start = None;
+            self.masks.placing_mask = None;
+            self.masks.place_start = None;
         }
         // The colour sampler drops unconditionally — its 💧 label lives on
         // the row that was just left (the first fix of this class).
         self.range_picking = None;
-        if matches!(self.mask_brush, Some((Some(j), _)) if Some(j) != keep) {
+        if matches!(self.masks.mask_brush, Some((Some(j), _)) if Some(j) != keep) {
             return self.end_mask_brush();
         }
         false
@@ -2411,12 +2411,12 @@ impl AutoShadeApp {
     /// Any canvas tool armed? (the once-hand-written OR list)
     pub(crate) fn tool_armed(&self) -> bool {
         self.crop_mode
-            || self.paint_mode
+            || self.masks.paint_mode
             || self.clone_mode
             || self.wb_picking
             || self.range_picking.is_some()
             || self.point_color_picking
-            || self.placing_mask.is_some()
+            || self.masks.placing_mask.is_some()
     }
 
     /// Commit a pending mask-rename buffer to its own mask (the same
@@ -2425,14 +2425,14 @@ impl AutoShadeApp {
     /// runs while the TextEdit still holds focus — without this it saved the
     /// old name and the advanced baseline dropped the rename.
     pub(crate) fn commit_mask_name_buf(&mut self) {
-        if let Some((j, orig, buf)) = self.mask_name_buf.clone()
+        if let Some((j, orig, buf)) = self.masks.mask_name_buf.clone()
             && let Some(prev) = self.recipe.masks.get_mut(j)
             && prev.name == orig
             && buf != orig
         {
             prev.name = buf.clone();
             // Re-seed so the panel's own lost-focus commit stays a no-op.
-            self.mask_name_buf = Some((j, buf.clone(), buf));
+            self.masks.mask_name_buf = Some((j, buf.clone(), buf));
         }
     }
 
@@ -2449,7 +2449,7 @@ impl AutoShadeApp {
         // crop/rotate drag would re-apply its stale start angle over the
         // freshly restored recipe on the very next drag frame.
         self.disarm_tools();
-        self.mask_name_buf = None; // stale (index, text) must not cross-commit
+        self.masks.mask_name_buf = None; // stale (index, text) must not cross-commit
         // A curve-point drag in flight when the recipe is swapped (Ctrl+Z
         // mid-drag) kept mutating point i of the RESTORED curve on the next
         // drag frame (M17).
@@ -2459,11 +2459,11 @@ impl AutoShadeApp {
         // panel would silently deselect anyway; do it deterministically).
         // Same-index-different-mask after undo is a known cosmetic residue —
         // mask identity isn't tracked across history steps.
-        self.sel_mask = self.sel_mask.filter(|&i| i < self.recipe.masks.len());
+        self.masks.sel_mask = self.masks.sel_mask.filter(|&i| i < self.recipe.masks.len());
         // The component selection rides on the mask's OWN list, which the
         // swap can also reshape — same deterministic bound.
-        self.sel_component = self.sel_component.filter(|&c| {
-            self.sel_mask
+        self.masks.sel_component = self.masks.sel_component.filter(|&c| {
+            self.masks.sel_mask
                 .and_then(|i| self.recipe.masks.get(i))
                 .is_some_and(|m| c < m.components.len())
         });
@@ -2595,13 +2595,13 @@ impl AutoShadeApp {
             );
             self.toast(ToastKind::Error, t.to_string());
         }
-        self.mask_paint = Some(image::RgbaImage::new(w, h));
+        self.masks.mask_paint = Some(image::RgbaImage::new(w, h));
         self.paint_mask_changed(Some(false));
         // The other tools' areas were in the old frame too.
-        self.paint_store = Default::default();
+        self.masks.paint_store = Default::default();
         self.overlay.mask_tex = None;
         self.overlay.mask_dirty = false;
-        self.paint_last = None;
+        self.masks.paint_last = None;
     }
 
     /// May the photographer turn this photo right now? (Drives both the
@@ -2626,7 +2626,7 @@ impl AutoShadeApp {
             && self.base_preview.is_some()
             && !self.busy
             && !self.open_in_flight
-            && !self.paint_mode
+            && !self.masks.paint_mode
             && self.overlay.region.is_none()
             && self.variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
             // A fill layer is pixels in the frame it was made in, like a
@@ -3937,13 +3937,13 @@ impl AutoShadeApp {
         }
         self.recipe.masks.insert(i + 1, clone);
         self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
-        self.sel_mask = Some(i + 1);
-        self.sel_component = None;
+        self.masks.sel_mask = Some(i + 1);
+        self.masks.sel_component = None;
         self.overlay.overlay_stale = true;
         // The remap maps an armed Redraw(i)/brush(i) to ITSELF (s > i is false
         // at s == i) while the selection jumps to the copy — armed on the
         // original, pointed at the duplicate. Selection moved ⇒ same rule.
-        if self.disarm_selection_bound_tools(self.sel_mask) {
+        if self.disarm_selection_bound_tools(self.masks.sel_mask) {
             let t = tr(
                 self.lang,
                 "the raster-edit brush session ended — you selected another mask; its unbaked strokes were discarded",

@@ -616,6 +616,10 @@
         };
         let scrub = Scrub(vec![mask_path.clone()]);
         let app = AutoShadeApp {
+            masks: MaskEditState {
+                sel_mask: Some(0),
+                ..Default::default()
+            },
             source_preview: Some(base.clone()),
             base_preview: Some(base),
             variants: vec![Variant {
@@ -628,7 +632,6 @@
                 thumb: None,
             }],
             recipe,
-            sel_mask: Some(0),
             ..AutoShadeApp::default()
         };
         (app, scrub)

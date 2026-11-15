@@ -6,13 +6,16 @@
     #[test]
     fn clearing_the_brush_clears_what_apply_would_bake() {
         let mut app = AutoShadeApp {
-            mask_paint: Some(image::RgbaImage::from_pixel(4, 4, image::Rgba([255, 64, 64, 160]))),
-            mask_brush_gray: Some(image::GrayImage::from_pixel(4, 4, image::Luma([255]))),
+            masks: MaskEditState {
+                mask_paint: Some(image::RgbaImage::from_pixel(4, 4, image::Rgba([255, 64, 64, 160]))),
+                mask_brush_gray: Some(image::GrayImage::from_pixel(4, 4, image::Luma([255]))),
+                ..Default::default()
+            },
             ..Default::default()
         };
         app.clear_mask();
         assert!(
-            app.mask_brush_gray.unwrap().pixels().all(|p| p[0] == 0),
+            app.masks.mask_brush_gray.unwrap().pixels().all(|p| p[0] == 0),
             "Apply after Clear must bake nothing"
         );
     }
@@ -527,7 +530,7 @@
     }
 
     fn painted_pixels(app: &AutoShadeApp) -> usize {
-        app.mask_paint.as_ref().map_or(0, |m| m.pixels().filter(|p| p[3] > 10).count())
+        app.masks.mask_paint.as_ref().map_or(0, |m| m.pixels().filter(|p| p[3] > 10).count())
     }
 
     /// User report 2026-10-13: 「操作感觉也不连贯」. A press on the canvas inks
@@ -539,8 +542,14 @@
     #[test]
     fn a_brush_press_inks_before_the_pointer_moves_or_lifts() {
         let fresh = || {
-            let mut app = AutoShadeApp { paint_mode: true, ..Default::default() };
-            app.mask_paint = Some(image::RgbaImage::new(1024, 768));
+            let mut app = AutoShadeApp {
+                masks: MaskEditState {
+                    paint_mode: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            app.masks.mask_paint = Some(image::RgbaImage::new(1024, 768));
             app
         };
         let press = |pos| egui::Event::PointerButton {
@@ -595,8 +604,14 @@
             shapes.iter().for_each(|c| walk(&c.shape, r, &mut out));
             out
         }
-        let mut app = AutoShadeApp { paint_mode: true, ..Default::default() };
-        app.mask_paint = Some(image::RgbaImage::new(1024, 768));
+        let mut app = AutoShadeApp {
+            masks: MaskEditState {
+                paint_mode: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        app.masks.mask_paint = Some(image::RgbaImage::new(1024, 768));
         app.set_brush(57.0, 0.0);
         let ctx = egui::Context::default();
         let (_, _, canvas) = paint_frame(&mut app, &ctx, vec![], 0.0);
@@ -615,7 +630,7 @@
         assert!(rings(&shapes, 57.0).is_empty(), "the flash ring outlived its second");
         // The range clamps.
         app.set_brush(10_000.0, 6.0);
-        assert_eq!(app.brush, crate::panels::retouch::BRUSH_R_MAX);
+        assert_eq!(app.masks.brush, crate::panels::retouch::BRUSH_R_MAX);
     }
 
     /// User report 2026-10-13: 「UI 现在最上方 -□x 条，太丑了」. On Windows the

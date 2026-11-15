@@ -678,7 +678,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // would have baked the old photo's strokes into this
                         // photo's mask list).
                         self.rebind_paint_canvas(mw, mh);
-                        self.paint_mode = false;
+                        self.masks.paint_mode = false;
                         if let Some((bimg, borigin, generated)) = pixels {
                             // Restore the baked pixel master (persisted
                             // pixels.json, or this session's stash): the
@@ -848,8 +848,8 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // carried across an open, the new photo arrived
                         // with every tool locked out (M21).
                         self.before_latch = false;
-                        self.sel_mask = None;
-                        self.sel_component = None;
+                        self.masks.sel_mask = None;
+                        self.masks.sel_component = None;
                         self.overlay.overlay_ref = None; // the reference develop belongs to ONE base
                         self.overlay.overlay_stale = true;
                         self.curve_drag = None; // curve_channel is a UI pref, keep it

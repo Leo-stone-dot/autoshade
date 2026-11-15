@@ -101,7 +101,7 @@
         app.hist.saved_recipe = app.recipe.clone();
         let old = std::path::PathBuf::from("out/_rename_old.arw");
         app.src_path = Some(old.clone());
-        app.mask_name_buf = Some((0, "sky".into(), "sky gradient".into()));
+        app.masks.mask_name_buf = Some((0, "sky".into(), "sky gradient".into()));
 
         app.open_path(std::path::PathBuf::from("out/_rename_new.arw"));
         assert_eq!(
@@ -123,7 +123,7 @@
         // 2026-09-13 a generated card no longer refuses — it saves like any
         // other — so the empty-path return is the disk-free door).
         app.src_path = None;
-        app.mask_name_buf = Some((0, "sky gradient".into(), "sky gradient 2".into()));
+        app.masks.mask_name_buf = Some((0, "sky gradient".into(), "sky gradient 2".into()));
         app.save_xmp();
         assert_eq!(
             app.recipe.masks[0].name, "sky gradient 2",

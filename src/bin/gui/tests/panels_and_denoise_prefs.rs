@@ -77,7 +77,7 @@
                 seen
             };
             // ① a mask selected: the group captions and the engine-only note.
-            app.sel_mask = Some(0);
+            app.masks.sel_mask = Some(0);
             let seen = frame(&mut app);
             assert!(
                 seen.iter().any(|t| t == group),
@@ -110,7 +110,7 @@
                 "{lang:?}: the Color tint pair must follow {tint_shift:?} in the colour group: {seen:?}"
             );
             // ② nothing selected (one click on the selected row): the hint.
-            app.sel_mask = None;
+            app.masks.sel_mask = None;
             let seen = frame(&mut app);
             assert!(
                 seen.iter().any(|t| t == hint),
@@ -142,7 +142,7 @@
             app.recipe.masks =
                 vec![autoshade::recipe::LocalAdjustment { name: "sky".into(), ..Default::default() }];
             // ① selected → the fourth group caption is drawn.
-            app.sel_mask = Some(0);
+            app.masks.sel_mask = Some(0);
             let seen = tall_frame(&mut app, |a, ui| {
                 a.develop_panel(ui);
             });
@@ -153,7 +153,7 @@
             // ② nothing selected → no per-mask curve group. (The global
             //    「Curves」 section is a different caption on purpose, so this
             //    negative cannot be satisfied by it.)
-            app.sel_mask = None;
+            app.masks.sel_mask = None;
             let seen = tall_frame(&mut app, |a, ui| {
                 a.develop_panel(ui);
             });

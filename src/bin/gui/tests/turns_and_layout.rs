@@ -469,9 +469,9 @@
         app.recipe.point_colors.push(autoshade::recipe::PointColor::sampled(0.9, 0.7, 0.5));
         // A histogram, so the readout's width can be pinned (2026-09-27).
         app.histogram = Some(vec![[0.5; 4]; 256]);
-        app.sel_mask = Some(0);
+        app.masks.sel_mask = Some(0);
         app.start_mask_brush(None);
-        assert!(app.mask_brush.is_some(), "{lang:?}: the brush session armed");
+        assert!(app.masks.mask_brush.is_some(), "{lang:?}: the brush session armed");
         app
     }
 
@@ -862,12 +862,12 @@
         app.base_preview = Some(plate.clone());
         app.source_preview = Some(plate);
         app.base_turns = 0;
-        app.mask_paint = Some(image::RgbaImage::new(8, 6));
+        app.masks.mask_paint = Some(image::RgbaImage::new(8, 6));
         app.recipe.quarter_turns = 1;
         app.sync_base_turns(&ctx);
         assert_eq!(app.base_preview.as_ref().unwrap().dimensions(), (6, 8));
         assert_eq!(
-            app.mask_paint.as_ref().unwrap().dimensions(),
+            app.masks.mask_paint.as_ref().unwrap().dimensions(),
             (6, 8),
             "the paint canvas follows the plate's frame"
         );
@@ -1006,7 +1006,7 @@
     #[test]
     fn each_tool_keeps_its_own_painted_area() {
         let paint = |app: &mut AutoShadeApp| {
-            app.mask_paint.as_mut().unwrap().put_pixel(1, 1, image::Rgba([255, 64, 64, 160]));
+            app.masks.mask_paint.as_mut().unwrap().put_pixel(1, 1, image::Rgba([255, 64, 64, 160]));
             app.paint_mask_changed(Some(true));
         };
         let mut app = AutoShadeApp {
@@ -1014,10 +1014,10 @@
             ..Default::default()
         };
         app.rebind_paint_canvas(8, 6);
-        assert_eq!(app.paint_owner, BrushOwner::Fill, "Fill's area is the canvas by default");
+        assert_eq!(app.masks.paint_owner, BrushOwner::Fill, "Fill's area is the canvas by default");
 
         app.arm_brush(BrushOwner::Heal);
-        assert!(app.paint_mode && app.brush_armed(BrushOwner::Heal) && !app.brush_armed(BrushOwner::Fill));
+        assert!(app.masks.paint_mode && app.brush_armed(BrushOwner::Heal) && !app.brush_armed(BrushOwner::Fill));
         paint(&mut app);
         assert!(app.area_painted(BrushOwner::Heal));
         assert!(!app.area_painted(BrushOwner::Fill) && !app.area_painted(BrushOwner::Adjust));
@@ -1034,7 +1034,7 @@
 
         // The Stamp arms through clone_mode and takes the paint flag down.
         app.arm_brush(BrushOwner::Stamp);
-        assert!(app.clone_mode && !app.paint_mode && app.brush_armed(BrushOwner::Stamp));
+        assert!(app.clone_mode && !app.masks.paint_mode && app.brush_armed(BrushOwner::Stamp));
         paint(&mut app);
         assert!(app.area_painted(BrushOwner::Stamp) && app.area_painted(BrushOwner::Heal));
 
@@ -1052,9 +1052,9 @@
         assert!(app.area_painted(BrushOwner::Adjust), "Adjust's strokes wait in the store");
         assert!(!app.brush_armed(BrushOwner::Adjust), "a session belongs to no tool");
         app.disarm_brush();
-        assert!(app.mask_brush.is_none() && !app.paint_mode);
+        assert!(app.masks.mask_brush.is_none() && !app.masks.paint_mode);
         assert!(
-            app.has_painted_mask() && app.paint_owner == BrushOwner::Adjust,
+            app.has_painted_mask() && app.masks.paint_owner == BrushOwner::Adjust,
             "the session's end restores Adjust's area"
         );
 
@@ -1073,5 +1073,5 @@
         // A plate rebind starts every tool blank.
         app.rebind_paint_canvas(8, 6);
         assert!(!app.area_painted(BrushOwner::Adjust) && !app.area_painted(BrushOwner::Stamp));
-        assert!(app.paint_store.iter().all(Option::is_none));
+        assert!(app.masks.paint_store.iter().all(Option::is_none));
     }

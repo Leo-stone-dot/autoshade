@@ -483,6 +483,56 @@ pub(crate) enum RetouchKind {
 
 pub(crate) use crate::logic::retouch::RetouchNote;
 
+/// The painting tools and the mask list's edit state: the brush dials, the
+/// paint buffer and its per-owner stash, the mask-brush session, and the
+/// selected mask/component plus the placement gesture. Extracted from
+/// `AutoShadeApp` so mask/paint work does not add fields to the app struct.
+pub(crate) struct MaskEditState {
+    pub(crate) mask_name_buf: Option<(usize, String, String)>,
+    pub(crate) paint_mode: bool,
+    pub(crate) brush: f32,
+    pub(crate) brush_resized_at: Option<f64>,
+    pub(crate) brush_feather: f32,
+    pub(crate) brush_flow: f32,
+    pub(crate) mask_paint: Option<image::RgbaImage>,
+    pub(crate) mask_painted: std::cell::Cell<Option<bool>>,
+    pub(crate) paint_owner: BrushOwner,
+    pub(crate) paint_store: [Option<PaintArea>; BrushOwner::COUNT],
+    pub(crate) paint_last: Option<(f32, f32)>,
+    pub(crate) mask_brush: Option<(Option<usize>, bool)>,
+    pub(crate) mask_brush_gray: Option<image::GrayImage>,
+    pub(crate) sel_mask: Option<usize>,
+    pub(crate) placing_mask: Option<(MaskKind, PlaceTarget)>,
+    pub(crate) sel_component: Option<usize>,
+    pub(crate) component_mode: autoshade::recipe::MaskCombine,
+    pub(crate) place_start: Option<(f32, f32)>,
+}
+
+impl Default for MaskEditState {
+    fn default() -> Self {
+        Self {
+            mask_name_buf: None,
+            paint_mode: false,
+            brush: 30.0,
+            brush_resized_at: None,
+            brush_feather: 0.0,
+            brush_flow: 1.0,
+            mask_paint: None,
+            mask_painted: std::cell::Cell::new(None),
+            paint_owner: BrushOwner::Fill,
+            paint_store: Default::default(),
+            paint_last: None,
+            mask_brush: None,
+            mask_brush_gray: None,
+            sel_mask: None,
+            placing_mask: None,
+            sel_component: None,
+            component_mode: autoshade::recipe::MaskCombine::Add,
+            place_start: None,
+        }
+    }
+}
+
 /// The mask-coverage overlay and the box-selected AI region: the texture, its
 /// rebuild key/throttle, the dirty sub-rect, the shown switch, the hovered row
 /// and the cached range reference, plus the region gesture. Extracted from

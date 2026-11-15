@@ -222,7 +222,8 @@ pub(crate) struct AutoShadeApp {
     // a rename is ONE undo step, not one per key; the seed-time name lets a
     // pending rename commit safely when the selection jumps rows (commit only
     // while masks[i].name still equals the seed — index shifts can't misfire).
-    pub(crate) mask_name_buf: Option<(usize, String, String)>,
+    /// The painting tools and mask-edit state; see [`MaskEditState`].
+    pub(crate) masks: MaskEditState,
     // Arrow-key navigation: gallery index to scroll into view next frame.
     // --- settings / denoise ---
     /// 「🤖 AI Denoise on export」's OWN strength (the Export fold's dial) and
@@ -290,19 +291,10 @@ pub(crate) struct AutoShadeApp {
     // second release of a Fit↔1:1 double-click restores it — the pair's
     // FIRST release already ran the plain-click clear (M18).
     // --- retouch: mask painting + generative fill + heal ---
-    pub(crate) paint_mode: bool,                      // brush-paint a mask (pauses box-select)
-    pub(crate) brush: f32,                            // brush radius in After-image display px
-    pub(crate) brush_resized_at: Option<f64>,         // when the radius last changed (the ring's size flash)
-    pub(crate) brush_feather: f32,                    // brush edge softness 0..=1 (every brush)
-    pub(crate) brush_flow: f32,                       // brush strength per pass 0..=1 (every brush)
-    pub(crate) mask_paint: Option<image::RgbaImage>,  // painted overlay (red where painted), at preview res
     // Presence is independent of the texture upload flag: None means one
     // scan is due after a change; Some is an O(1) answer on every frame.
-    pub(crate) mask_painted: std::cell::Cell<Option<bool>>,
     /// Whose area the canvas holds (`BrushOwner`); the other tools' areas
     /// wait in `paint_store`, by `BrushOwner::slot` (None = blank).
-    pub(crate) paint_owner: BrushOwner,
-    pub(crate) paint_store: [Option<PaintArea>; BrushOwner::COUNT],
     // (straighten, distortion, (profile distortion, profile CA), (ca_r, ca_b)) at build.
     // The manual CA pair is part of the KEY, not just of the composed profile
     // it feeds: the two bools say whether CA is on, never how far, so moving
@@ -312,18 +304,15 @@ pub(crate) struct AutoShadeApp {
     // (canvas px, [x0,y0,x1,y1] half-open). With no geometry active, only
     // this sub-rectangle is uploaded (set_partial) — brushing used to clone
     // + re-upload the WHOLE canvas on every pointer move.
-    pub(crate) paint_last: Option<(f32, f32)>,        // last brush point in mask px (line fill)
     /// A LOCAL-ADJUSTMENT brush session rides the same paint canvas as
     /// fill/heal: `(target, erase)` — target `None` = the strokes become a
     /// NEW Bitmap mask on Apply; `Some(i)` = they edit mask `i`'s raster
     /// (seeded below). While `Some`, `paint_mode` is also true so every
     /// existing paint affordance (dispatch, cursor, Esc, `[`/`]`) works.
-    pub(crate) mask_brush: Option<(Option<usize>, bool)>,
     /// The brush session's WEIGHT buffer — greyscale source of truth the
     /// Apply bakes to a raster. The RGBA canvas is only its display: seeding
     /// an existing raster through the canvas' 8-bit alpha and back would
     /// drift soft edges by a rounding step per edit cycle.
-    pub(crate) mask_brush_gray: Option<image::GrayImage>,
     pub(crate) fill_prompt: String,                   // generative-fill instruction
     pub(crate) fill_quality: usize,                   // 0=high 1=medium 2=low
     pub(crate) fill_fullres: bool,                    // composite onto the full-res develop
@@ -379,14 +368,9 @@ pub(crate) struct AutoShadeApp {
     pub(crate) crop_drag: Option<(u8, egui::Pos2, [f32; 4], f32)>,
     pub(crate) mask_drag: Option<(u8, (f32, f32))>, // on-image mask knob drag: (handle, last pos in ORIG norm)
     // --- manual local adjustments (masks) ---
-    pub(crate) sel_mask: Option<usize>,               // selected recipe.masks index (overlay + sliders)
-    pub(crate) placing_mask: Option<(MaskKind, PlaceTarget)>, // next image drag defines a mask / redraw / component
     /// Which of the selected mask's COMPONENTS the canvas tools target:
     /// `None` = the base geometry. Reset whenever the mask selection moves.
-    pub(crate) sel_component: Option<usize>,
     /// The combine mode the panel's "add shape" buttons will arm next.
-    pub(crate) component_mode: autoshade::recipe::MaskCombine,
-    pub(crate) place_start: Option<(f32, f32)>,       // placement drag origin, full-frame normalized
     // --- tone-curve editor ---
     pub(crate) curve_channel: usize,                  // CURVE_CHANNELS index: 0=master 1=R 2=G 3=B
     // The control point being dragged, WITH the curve set it belongs to
@@ -699,7 +683,7 @@ impl AutoShadeApp {
             let mut brush_delta: f32 = 0.0;
             // [ / ] belong to the active brush tool; when none is armed the
             // keys stay unconsumed (free for egui / future bindings).
-            let brush_tool = self.paint_mode || self.clone_mode;
+            let brush_tool = self.masks.paint_mode || self.clone_mode;
             let crop_tool = self.crop_mode;
             // ↑/↓ walk the library ONLY while the pointer is off the controls
             // panel: over it, the same keys nudge a hovered slider — and this
@@ -881,18 +865,18 @@ impl AutoShadeApp {
                 self.toggle_brush_key();
             }
             if do_linear && self.src_path.is_some() {
-                let armed = matches!(self.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
+                let armed = matches!(self.masks.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
                 self.disarm_tools();
                 if !armed {
-                    self.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
+                    self.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
                     self.status = tr(self.lang, "Drag on the image to draw a linear gradient (start fully applied → end unaffected; Shift = axis lock)").into();
                 }
             }
             if do_radial && self.src_path.is_some() {
-                let armed = matches!(self.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
+                let armed = matches!(self.masks.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
                 self.disarm_tools();
                 if !armed {
-                    self.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
+                    self.masks.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
                     self.status = tr(self.lang, "Drag on the image to draw a radial (elliptical) area").into();
                 }
             }
@@ -916,7 +900,7 @@ impl AutoShadeApp {
                 // fifty presses across the range.
                 let now = ctx.input(|i| i.time);
                 let factor = if brush_delta > 0.0 { 1.15 } else { 1.0 / 1.15 };
-                self.set_brush((self.brush * factor).round(), now);
+                self.set_brush((self.masks.brush * factor).round(), now);
             }
             if do_cheatsheet {
                 self.show_shortcuts = !self.show_shortcuts;
@@ -1789,18 +1773,8 @@ impl Default for AutoShadeApp {
             photo_as_shot: None,
             before_start: EditRecipe::default(),
             confirm_quit: false,
-            mask_name_buf: None,
+            masks: MaskEditState::default(),
             overlay: OverlayState::default(),
-            paint_mode: false,
-            brush: 30.0,
-            brush_resized_at: None,
-            brush_feather: 0.0,
-            brush_flow: 1.0,
-            mask_paint: None,
-            mask_painted: std::cell::Cell::new(None),
-            paint_owner: BrushOwner::Fill,
-            paint_store: Default::default(),
-            paint_last: None,
             fill_prompt: String::new(),
             fill_quality: 0,
             fill_fullres: false,
@@ -1825,13 +1799,6 @@ impl Default for AutoShadeApp {
             before_latch: false,
             crop_drag: None,
             mask_drag: None,
-            sel_mask: None,
-            placing_mask: None,
-            sel_component: None,
-            component_mode: autoshade::recipe::MaskCombine::Add,
-            mask_brush: None,
-            mask_brush_gray: None,
-            place_start: None,
             curve_channel: 0,
             curve_drag: None,
             #[cfg(test)]

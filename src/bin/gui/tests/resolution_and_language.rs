@@ -512,16 +512,16 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // Session open on mask 2, deleting mask 0 shifts it to 1 — the stroke
         // must keep committing into the SAME mask, not whatever slid under
         // index 2.
-        app.mask_brush = Some((Some(2), false));
-        app.mask_brush_gray = Some(image::GrayImage::new(4, 4));
-        app.paint_mode = true;
+        app.masks.mask_brush = Some((Some(2), false));
+        app.masks.mask_brush_gray = Some(image::GrayImage::new(4, 4));
+        app.masks.paint_mode = true;
         app.recipe.masks.remove(0);
         app.remap_mask_indices(|s| match s {
             0 => None,
             s => Some(s - 1),
         });
-        assert_eq!(app.mask_brush, Some((Some(1), false)), "target follows its mask");
-        assert!(app.mask_brush_gray.is_some(), "a surviving session keeps its buffer");
+        assert_eq!(app.masks.mask_brush, Some((Some(1), false)), "target follows its mask");
+        assert!(app.masks.mask_brush_gray.is_some(), "a surviving session keeps its buffer");
 
         // Deleting the session's OWN mask ends it like Esc: buffer gone,
         // paint mode disarmed — never a new-mask fallback that would
@@ -531,14 +531,14 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             1 => None,
             s => Some(s),
         });
-        assert_eq!(app.mask_brush, None, "a vanished target ends the session");
-        assert!(app.mask_brush_gray.is_none(), "the weight buffer dies with it");
-        assert!(!app.paint_mode, "paint mode disarms with the dead session");
+        assert_eq!(app.masks.mask_brush, None, "a vanished target ends the session");
+        assert!(app.masks.mask_brush_gray.is_none(), "the weight buffer dies with it");
+        assert!(!app.masks.paint_mode, "paint mode disarms with the dead session");
 
         // A NEW-mask session carries no index and survives any remap.
-        app.mask_brush = Some((None, true));
+        app.masks.mask_brush = Some((None, true));
         app.remap_mask_indices(|_| None);
-        assert_eq!(app.mask_brush, Some((None, true)));
+        assert_eq!(app.masks.mask_brush, Some((None, true)));
     }
 
     #[test]
@@ -563,7 +563,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // The user is mid-typing "sky gradient" when a reverse-fit lands and
         // push_variant auto-switches: the switch's M15 boundary clear used to
         // discard the buffer, and the outgoing variant snapshotted "old".
-        app.mask_name_buf = Some((0, "old".into(), "sky gradient".into()));
+        app.masks.mask_name_buf = Some((0, "old".into(), "sky gradient".into()));
         app.push_variant(
             Variant {
                 id: String::new(),
