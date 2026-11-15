@@ -319,7 +319,7 @@ impl AutoShadeApp {
         }
         // The switch is the Retouch panel's denoise: the preview shows it.
         let mut lines = vec![tr(lang, K_NORMAL_IT_TAKES_A_MOMENT_THE_PREVIEW_THEN_SHOWS_THE_RES).to_string()];
-        if self.workspace.normal().denoise_ready != Some(true) && !self.denoise_uses_raw() {
+        if self.workspace.normal().denoise_ready != Some(true) && !self.editor.denoise_uses_raw() {
             lines.push(trf(
                 lang,
                 K_NORMAL_THE_FIRST_TIME_THE_NOISE_MODEL_IS_DOWNLOADED_ABO,

@@ -577,7 +577,7 @@ impl AutoShadeApp {
                 // One verb, two ways in (2026-10-12): a painted area is
                 // regenerated as before; with none, the words alone go to the
                 // model and it chooses where (`start_fill`).
-                let painted = self.area_painted(BrushOwner::Fill);
+                let painted = self.workspace.area_painted(BrushOwner::Fill);
                 let (verb, hint) = if painted {
                     (
                         tr(lang, K_RETOUCH_REMOVE_FILL),

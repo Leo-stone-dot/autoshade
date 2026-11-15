@@ -67,7 +67,7 @@ pub(crate) fn start_fill(&mut self) {
         // finds where (`generative::auto_fill_onto`; user request 2026-10-12,
         // 「跟原先的涂抹后ai生成一个道理，只不过省去了涂抹这一步骤」). Only an empty
         // box over an empty canvas has nothing to go on.
-        let mask_png = self.export_area_png(BrushOwner::Fill);
+        let mask_png = self.workspace.export_area_png(BrushOwner::Fill);
         if mask_png.is_none() && prompt.is_empty() {
             self.workspace.set_status(tr(lang, K_ACTIONS_WRITE_WHAT_TO_CHANGE_E_G_REMOVE_THE_WIRES_ON_THE).into());
             return;
@@ -166,7 +166,7 @@ pub(crate) fn start_adjust(&mut self) {
         }
         let lang = self.lang;
         let prompt = self.workspace.genai().adjust_prompt.trim().to_string();
-        let mask_png = self.export_area_png(BrushOwner::Adjust);
+        let mask_png = self.workspace.export_area_png(BrushOwner::Adjust);
         let region = mask_png.is_some();
         let Some(out) = unique_out(&src, "adjust") else {
             self.workspace.set_status(tr(lang, K_ACTIONS_OVER_999_RETOUCH_MASTERS_FOR_THIS_PHOTO_CLEAN_UP).into());
@@ -239,7 +239,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)
         let mask_png = if use_mask {
-            match self.export_area_png(BrushOwner::Heal) {
+            match self.workspace.export_area_png(BrushOwner::Heal) {
                 Some(b) => Some(b),
                 None => {
                     self.workspace.set_status(tr(lang, K_ACTIONS_PAINT_THE_SPOTS_FIRST_PAINT_AREA_IN_THIS_SECTION).into());
@@ -488,7 +488,7 @@ pub(crate) fn start_clone(&mut self) {
             self.workspace.set_status(tr(lang, K_ACTIONS_ALT_CLICK_TO_SET_THE_CLONE_SOURCE_FIRST).into());
             return;
         };
-        let Some(mask_png) = self.export_area_png(BrushOwner::Stamp) else {
+        let Some(mask_png) = self.workspace.export_area_png(BrushOwner::Stamp) else {
             self.workspace.set_status(tr(lang, K_ACTIONS_BRUSH_THE_AREA_TO_CLONE_OVER_FIRST).into());
             return;
         };

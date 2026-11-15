@@ -422,12 +422,12 @@
         app.editor.photo_mut().base_preview = Some(b0);
         app.reset_history();
         app.editor.doc_mut().recipe.exposure_ev = 0.4;
-        assert!(app.unsaved_marker_dirty(), "the edit is unsaved before Ctrl+S");
+        assert!(app.editor.unsaved_marker_dirty(), "the edit is unsaved before Ctrl+S");
         let ctx = egui::Context::default();
         press(&mut app, &ctx, egui::Key::S);
         assert!(!app.workspace.normal_mut().delivering, "not the Save group's delivery");
         assert!(!app.workspace.busy());
-        assert!(!app.unsaved_marker_dirty(), "the develop was saved: {}", app.workspace.status());
+        assert!(!app.editor.unsaved_marker_dirty(), "the develop was saved: {}", app.workspace.status());
     }
 
     /// 「Apply this look to every photo in the folder」 settles the jpgs'

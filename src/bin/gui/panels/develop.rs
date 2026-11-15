@@ -711,7 +711,7 @@ impl AutoShadeApp {
                     ui.add_space(SPACE_SM);
                     changed |= self.capability_rows(ui, crate::controls::NOISE_COLOR);
                 }
-                let denoise_raw = self.denoise_uses_raw();
+                let denoise_raw = self.editor.denoise_uses_raw();
                 // AI denoise as an ACTIVE op: run now, see it on canvas —
                 // export-time denoise (the Export section toggle) stays for
                 // batch/full-res workflows, but nobody should have to export
@@ -1718,7 +1718,7 @@ impl AutoShadeApp {
                 // and neither reaches the other. Always allocated, merely
                 // disabled while the checkbox is off — the appear/disappear
                 // reflow rule the JPEG quality slider above follows.
-                let denoise_raw = self.denoise_uses_raw();
+                let denoise_raw = self.editor.denoise_uses_raw();
                 ui.add_enabled_ui(self.workspace.exp().save_denoise, |ui| {
                     slider_pct_hinted(
                         ui,

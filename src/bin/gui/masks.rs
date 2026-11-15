@@ -169,14 +169,6 @@ impl AutoShadeApp {
     }
 
 
-    /// PNG bytes of the EXPORT mask: painted → transparent (regenerate / heal
-    /// here), unpainted → opaque. None if nothing is painted — mirrors the web.
-    pub(crate) fn export_mask_png(&self) -> Option<Vec<u8>> {
-        if !self.workspace.has_painted_mask() {
-            return None;
-        }
-        export_png_of(self.workspace.masks().mask_paint.as_ref()?)
-    }
 
     pub(crate) fn clear_mask(&mut self) {
         if let Some(m) = &mut self.workspace.masks_mut().mask_paint {
@@ -306,35 +298,7 @@ impl AutoShadeApp {
         }
     }
 
-    /// Whether `owner`'s area has strokes (the export's alpha > 10 predicate),
-    /// memoised per area exactly as `has_painted_mask` memoises the canvas'.
-    pub(crate) fn area_painted(&self, owner: BrushOwner) -> bool {
-        if owner == self.workspace.masks().paint_owner && self.workspace.masks().mask_brush.is_none() {
-            return self.workspace.has_painted_mask();
-        }
-        self.workspace.masks().paint_store[owner.slot()].as_ref().is_some_and(|a| {
-            if let Some(p) = a.painted.get() {
-                return p;
-            }
-            #[cfg(test)]
-            self.workspace.overlay().mask_presence_scans.set(self.workspace.overlay().mask_presence_scans.get() + 1);
-            let p = a.canvas.pixels().any(|px| px[3] > 10);
-            a.painted.set(Some(p));
-            p
-        })
-    }
 
-    /// PNG bytes of `owner`'s EXPORT mask (see `export_mask_png`); None when
-    /// nothing is painted there.
-    pub(crate) fn export_area_png(&self, owner: BrushOwner) -> Option<Vec<u8>> {
-        if owner == self.workspace.masks().paint_owner && self.workspace.masks().mask_brush.is_none() {
-            return self.export_mask_png();
-        }
-        if !self.area_painted(owner) {
-            return None;
-        }
-        export_png_of(&self.workspace.masks().paint_store[owner.slot()].as_ref()?.canvas)
-    }
 
     /// Arm a mask-brush session: `target = None` paints a NEW Bitmap mask on
     /// Apply; `Some(i)` edits mask `i`'s raster — seeded into the canvas (as
@@ -651,7 +615,7 @@ impl AutoShadeApp {
 
 /// PNG bytes of one canvas' EXPORT mask: painted → transparent (regenerate /
 /// heal here), unpainted → opaque — the alpha > 10 predicate of `has_painted_mask`.
-fn export_png_of(m: &image::RgbaImage) -> Option<Vec<u8>> {
+pub(crate) fn export_png_of(m: &image::RgbaImage) -> Option<Vec<u8>> {
     let (w, h) = (m.width(), m.height());
     let mut out = image::RgbaImage::new(w, h);
     for (x, y, p) in m.enumerate_pixels() {

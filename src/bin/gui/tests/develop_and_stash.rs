@@ -758,7 +758,7 @@
         assert_eq!(app.editor.doc().recipe.saturation, 0.0);
         assert!(app.editor.doc().recipe.base_curve.is_empty(), "calibration stripped on AI pixels");
         assert!(app.editor.session().hist.saved_recipe.is_noop(), "the ● baseline agrees");
-        assert!(!app.unsaved_marker_dirty(), "a clean open: {}", app.workspace.status());
+        assert!(!app.editor.unsaved_marker_dirty(), "a clean open: {}", app.workspace.status());
         assert!(
             !app.workspace.status().contains("(XMP)"),
             "nothing was restored from the projection: {}",

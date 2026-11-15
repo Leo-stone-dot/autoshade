@@ -794,7 +794,7 @@ impl AutoShadeApp {
                 // an unsaved heal is work even under an untouched recipe. It sits FIRST
                 // — before the batch bar and the status text — so neither can
                 // ever push it out of view at narrow widths.
-                if self.unsaved_marker_dirty() {
+                if self.editor.unsaved_marker_dirty() {
                     ui.label(
                         egui::RichText::new(tr(self.lang, K_APP_UNSAVED))
                             .color(ui.visuals().warn_fg_color),
@@ -1223,7 +1223,7 @@ impl AutoShadeApp {
             // so the last boundary before the quit decision flushes the lot.
             self.commit_pending_names();
             self.fork_edited_card();
-            let unsaved_open = self.quit_guard_open_dirty();
+            let unsaved_open = self.editor.quit_guard_open_dirty();
             if self.workspace.busy() {
                 // A running export / retouch / paid AI generation dies with
                 // the process — the ✕ used to bypass every guard mid-flight.

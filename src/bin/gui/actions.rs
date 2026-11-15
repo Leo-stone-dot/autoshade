@@ -172,15 +172,10 @@ impl AutoShadeApp {
         }
     }
 
-    /// The active card's actual pixels choose the path, including generated
-    /// masters under a RAW original. An unopened app displays the RAW dials.
-    pub(crate) fn denoise_uses_raw(&self) -> bool {
-        crate::logic::noise::uses_raw(self.editor.active_source_path().as_deref())
-    }
 
     pub(crate) fn selected_denoise_strength(&self, on_export: bool) -> f32 {
         crate::logic::noise::selected_strength(
-            self.denoise_uses_raw(),
+            self.editor.denoise_uses_raw(),
             on_export,
             self.workspace.exp().denoise_strength,
             self.workspace.exp().save_denoise_strength,
@@ -214,7 +209,7 @@ impl AutoShadeApp {
                 || self.workspace.cards().version_name_buf.is_some()
                 || self.workspace.cards().variant_name_buf.is_some()
                 || !self.workspace.open().nav_stash.is_empty()
-                || self.quit_guard_open_dirty()
+                || self.editor.quit_guard_open_dirty()
                 || self.inactive_dirty_variants() > 0
         })
     }
@@ -338,39 +333,10 @@ impl AutoShadeApp {
 
 
 
-    fn active_canvas_dirty(&self) -> bool {
-        if self.editor.photo().src_path.is_none() || self.editor.active_variant().is_none() {
-            return false;
-        }
-        self.editor.active_baseline().is_none_or(|saved| {
-            dirty_vs(&self.editor.doc().recipe, saved.recipe)
-                || !same_master_opt(
-                    self.editor.active_variant().and_then(|v| v.origin.as_deref()),
-                    saved.origin,
-                )
-        })
-    }
 
-    /// Per-frame status-bar consumer of [`Self::active_baseline`].
-    pub(crate) fn unsaved_marker_dirty(&self) -> bool {
-        self.active_canvas_dirty()
-    }
 
-    /// Window-close consumer of [`Self::active_baseline`].
-    pub(crate) fn quit_guard_open_dirty(&self) -> bool {
-        self.active_canvas_dirty()
-    }
 
-    /// Navigation-stash consumer: active canvas plus this photo's strip work.
-    pub(crate) fn nav_stash_gate_dirty(&self) -> bool {
-        self.active_canvas_dirty() || self.editor.open_dirty_variants() > 0
-    }
 
-    /// Quit-dialog `PendingSave` consumer: the same open-photo state as the
-    /// navigation stash, without counting other photos' stash entries.
-    pub(crate) fn pending_save_gate_dirty(&self) -> bool {
-        self.active_canvas_dirty() || self.editor.open_dirty_variants() > 0
-    }
 
 
     pub(crate) fn inactive_dirty_variants(&self) -> usize {
@@ -633,7 +599,7 @@ impl AutoShadeApp {
         if self.editor.active_source_path().is_none() || self.workspace.busy() {
             return;
         }
-        let name = self.export_file_name_as("jpg");
+        let name = self.editor.export_file_name_as("jpg");
         let (out, how) = match self.workspace.export_dest_dir() {
             Some(dir) => (dir.join(name), OutName::Numbered),
             None => {

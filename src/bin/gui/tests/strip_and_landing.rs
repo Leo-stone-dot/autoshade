@@ -733,10 +733,10 @@
         let ctx = egui::Context::default();
         app.switch_variant(1, &ctx);
 
-        assert!(!app.unsaved_marker_dirty(), "the ● marker predicate stays clean");
-        assert!(!app.quit_guard_open_dirty(), "the window-close predicate stays clean");
-        assert!(!app.nav_stash_gate_dirty(), "the navigation-stash gate stays clean");
-        assert!(!app.pending_save_gate_dirty(), "the PendingSave gate stays clean");
+        assert!(!app.editor.unsaved_marker_dirty(), "the ● marker predicate stays clean");
+        assert!(!app.editor.quit_guard_open_dirty(), "the window-close predicate stays clean");
+        assert!(!app.editor.nav_stash_gate_dirty(), "the navigation-stash gate stays clean");
+        assert!(!app.editor.pending_save_gate_dirty(), "the PendingSave gate stays clean");
         assert_eq!(
             app.editor.open_dirty_variants(),
             0,
@@ -762,10 +762,10 @@
         let ctx = egui::Context::default();
         app.switch_variant(1, &ctx);
         app.editor.doc_mut().recipe.contrast = 27.0;
-        assert!(app.unsaved_marker_dirty(), "editing the switched-to card is dirty");
-        assert!(app.quit_guard_open_dirty(), "the close guard sees that edit");
-        assert!(app.nav_stash_gate_dirty(), "the nav gate sees that edit");
-        assert!(app.pending_save_gate_dirty(), "the quit save list sees that edit");
+        assert!(app.editor.unsaved_marker_dirty(), "editing the switched-to card is dirty");
+        assert!(app.editor.quit_guard_open_dirty(), "the close guard sees that edit");
+        assert!(app.editor.nav_stash_gate_dirty(), "the nav gate sees that edit");
+        assert!(app.editor.pending_save_gate_dirty(), "the quit save list sees that edit");
 
         let active = app.editor.active();
         let recipe = app.editor.doc().recipe.clone();
@@ -773,14 +773,14 @@
         app.editor.session_mut().hist.saved_recipe = app.editor.doc().recipe.clone();
         app.editor.session_mut().hist.pixels_on_disk = app.editor.active_variant().and_then(|v| v.origin.clone());
         app.editor.session_mut().hist.saved_strip = app.editor.current_strip_record();
-        assert!(!app.unsaved_marker_dirty(), "saving on card Y advances Y's baseline");
+        assert!(!app.editor.unsaved_marker_dirty(), "saving on card Y advances Y's baseline");
         assert_eq!(app.editor.open_dirty_variants(), 0, "the whole strip is clean after that save");
 
         app.switch_variant(0, &ctx);
-        assert!(!app.unsaved_marker_dirty(), "card X now resolves from saved_strip.others");
-        assert!(!app.quit_guard_open_dirty(), "switching back does not arm close");
-        assert!(!app.nav_stash_gate_dirty(), "switching back does not arm navigation");
-        assert!(!app.pending_save_gate_dirty(), "switching back adds no PendingSave");
+        assert!(!app.editor.unsaved_marker_dirty(), "card X now resolves from saved_strip.others");
+        assert!(!app.editor.quit_guard_open_dirty(), "switching back does not arm close");
+        assert!(!app.editor.nav_stash_gate_dirty(), "switching back does not arm navigation");
+        assert!(!app.editor.pending_save_gate_dirty(), "switching back adds no PendingSave");
         assert_eq!(app.editor.open_dirty_variants(), 0, "both persisted cards still match");
     }
 
@@ -798,19 +798,19 @@
         });
         pushed.editor.doc_mut().active = 2;
         pushed.editor.doc_mut().recipe = EditRecipe::default();
-        assert!(pushed.unsaved_marker_dirty(), "a pushed active card has no baseline");
+        assert!(pushed.editor.unsaved_marker_dirty(), "a pushed active card has no baseline");
         assert!(pushed.editor.open_dirty_variants() > 0, "the pushed card is absent on disk");
-        assert!(pushed.nav_stash_gate_dirty(), "navigation protects the pushed card");
-        assert!(pushed.pending_save_gate_dirty(), "quit Save-all includes the pushed card");
+        assert!(pushed.editor.nav_stash_gate_dirty(), "navigation protects the pushed card");
+        assert!(pushed.editor.pending_save_gate_dirty(), "quit Save-all includes the pushed card");
 
         let mut deleted = persisted_two_card_fixture();
         deleted.editor.doc_mut().variants.remove(1);
-        assert!(!deleted.unsaved_marker_dirty(), "the surviving active card itself is clean");
+        assert!(!deleted.editor.unsaved_marker_dirty(), "the surviving active card itself is clean");
         assert!(deleted.editor.open_dirty_variants() > 0, "a persisted card was deleted live");
-        assert!(deleted.nav_stash_gate_dirty(), "navigation protects the deletion");
-        assert!(deleted.pending_save_gate_dirty(), "quit Save-all persists the deletion");
+        assert!(deleted.editor.nav_stash_gate_dirty(), "navigation protects the deletion");
+        assert!(deleted.editor.pending_save_gate_dirty(), "quit Save-all persists the deletion");
         assert!(
-            deleted.quit_guard_open_dirty() || deleted.inactive_dirty_variants() > 0,
+            deleted.editor.quit_guard_open_dirty() || deleted.inactive_dirty_variants() > 0,
             "the complete quit guard remains armed for a deletion"
         );
     }
@@ -831,16 +831,16 @@
         let ctx = egui::Context::default();
         app.switch_variant(1, &ctx);
 
-        assert!(!app.unsaved_marker_dirty(), "pixels.json belongs to card X, not card Y");
-        assert!(!app.quit_guard_open_dirty(), "the quit pixel half uses Y's entry");
-        assert!(!app.nav_stash_gate_dirty(), "the nav pixel half uses Y's entry");
-        assert!(!app.pending_save_gate_dirty(), "PendingSave uses Y's entry");
+        assert!(!app.editor.unsaved_marker_dirty(), "pixels.json belongs to card X, not card Y");
+        assert!(!app.editor.quit_guard_open_dirty(), "the quit pixel half uses Y's entry");
+        assert!(!app.editor.nav_stash_gate_dirty(), "the nav pixel half uses Y's entry");
+        assert!(!app.editor.pending_save_gate_dirty(), "PendingSave uses Y's entry");
 
         app.editor.doc_mut().variants[1].origin = Some(std::env::temp_dir().join(format!("autoshade-masters-{}/generated-edited.png", std::process::id())));
-        assert!(app.unsaved_marker_dirty(), "changing Y's origin re-arms the marker");
-        assert!(app.quit_guard_open_dirty(), "changing Y's origin re-arms close");
-        assert!(app.nav_stash_gate_dirty(), "changing Y's origin re-arms navigation");
-        assert!(app.pending_save_gate_dirty(), "changing Y's origin re-arms Save-all");
+        assert!(app.editor.unsaved_marker_dirty(), "changing Y's origin re-arms the marker");
+        assert!(app.editor.quit_guard_open_dirty(), "changing Y's origin re-arms close");
+        assert!(app.editor.nav_stash_gate_dirty(), "changing Y's origin re-arms navigation");
+        assert!(app.editor.pending_save_gate_dirty(), "changing Y's origin re-arms Save-all");
     }
 
     #[test]
@@ -850,12 +850,12 @@
         app.switch_variant(1, &ctx);
         app.editor.doc_mut().variants[1].name = Some("new fitted name".into());
 
-        assert!(!app.unsaved_marker_dirty(), "the canvas develop itself did not change");
+        assert!(!app.editor.unsaved_marker_dirty(), "the canvas develop itself did not change");
         assert!(app.editor.open_dirty_variants() > 0, "the card name's only home changed");
-        assert!(app.nav_stash_gate_dirty(), "navigation protects the rename");
-        assert!(app.pending_save_gate_dirty(), "Save-all includes the rename");
+        assert!(app.editor.nav_stash_gate_dirty(), "navigation protects the rename");
+        assert!(app.editor.pending_save_gate_dirty(), "Save-all includes the rename");
         assert!(
-            app.quit_guard_open_dirty() || app.inactive_dirty_variants() > 0,
+            app.editor.quit_guard_open_dirty() || app.inactive_dirty_variants() > 0,
             "the complete quit guard remains armed for the rename"
         );
     }

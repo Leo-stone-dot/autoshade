@@ -12,7 +12,7 @@
         assert_eq!(strip_kinds(&app), vec![VariantKind::Original, VariantKind::Generated]);
         assert_eq!(app.editor.doc().active, 1);
         assert!(app.editor.doc().recipe.is_noop(), "premise: the ✨ card is pristine");
-        assert!(!app.unsaved_marker_dirty(), "premise: a clean open — {}", app.workspace.status());
+        assert!(!app.editor.unsaved_marker_dirty(), "premise: a clean open — {}", app.workspace.status());
         assert!(!app.fork_edited_card(), "a neutral recipe on the ✨ card forks nothing");
         assert_eq!(app.editor.doc().variants.len(), 2);
 
@@ -42,7 +42,7 @@
         assert!(app.editor.session().dirty, "…and its pending develop still runs");
         assert!(!app.fork_edited_card(), "an ✎ card never forks");
         assert_eq!(app.editor.doc().variants.len(), 3);
-        assert!(app.unsaved_marker_dirty(), "a new card is unsaved work");
+        assert!(app.editor.unsaved_marker_dirty(), "a new card is unsaved work");
         assert!(app.workspace.chrome().toasts.iter().any(|t| t.text.contains("✎")), "said by toast");
 
     }
@@ -129,7 +129,7 @@
         assert!(generated);
         assert_eq!(origin, master);
         assert!(!autoshade::pipeline::xmp_target(&src).exists(), "no projection over AI pixels");
-        assert!(!app.unsaved_marker_dirty(), "the landing saved the forked strip: {}", app.workspace.status());
+        assert!(!app.editor.unsaved_marker_dirty(), "the landing saved the forked strip: {}", app.workspace.status());
     }
 
     /// 2026-10-01 (user decision, replacing 2026-09-15's new-card landing): a
@@ -370,7 +370,7 @@
                 app.paint_mask_changed(None);
                 let strokes = alpha > 10;
                 assert_eq!(app.workspace.has_painted_mask(), strokes);
-                assert_eq!(app.export_mask_png().is_some(), strokes);
+                assert_eq!(app.workspace.export_mask_png().is_some(), strokes);
                 let text = draw_adjust_panel(&mut app);
                 let painted = tr(lang, K_AI_PAINTED_AREA_ONLY);
                 let whole = tr(lang, K_AI_WHOLE_IMAGE_PAINT_AN_AREA_TO_LIMIT_IT);
@@ -489,7 +489,7 @@
             assert!(app.workspace.masks().mask_paint.as_ref().unwrap().pixels().any(|p| p[3] > 10), "the real brush added paint");
             five_frames(&mut app, &ctx, true, "a brush stroke limits the adjust to the painted area");
             assert_eq!(app.workspace.overlay().mask_presence_scans.get(), empty_scans, "adding paint needs no presence scan");
-            assert!(app.export_area_png(BrushOwner::Adjust).is_some());
+            assert!(app.workspace.export_area_png(BrushOwner::Adjust).is_some());
 
             // 「Clear area」 is the fold's eraser (the retouch brushes have no
             // erase mode): the canvas is known blank, so nothing scans.
@@ -497,7 +497,7 @@
             assert!(app.workspace.masks().mask_paint.as_ref().unwrap().pixels().all(|p| p[3] <= 10), "clearing removed every stroke");
             five_frames(&mut app, &ctx, false, "clearing the area must return the adjust fold to whole image");
             assert_eq!(app.workspace.overlay().mask_presence_scans.get(), empty_scans, "a cleared area needs no scan");
-            assert!(app.export_area_png(BrushOwner::Adjust).is_none());
+            assert!(app.workspace.export_area_png(BrushOwner::Adjust).is_none());
 
             stroke(&mut app, drag);
             assert!(app.workspace.has_painted_mask());
@@ -653,7 +653,7 @@
         assert!(app.editor.doc().variants[1].recipe.is_noop(), "the ✨ card is pristine");
         assert_eq!(app.editor.doc().variants[1].id, "gen-1", "…and keeps the record's identity");
         assert_eq!(app.editor.doc().variants[1].name.as_deref(), Some("sky"), "…and its name");
-        assert!(app.unsaved_marker_dirty(), "the split is unsaved work until Ctrl+S");
+        assert!(app.editor.unsaved_marker_dirty(), "the split is unsaved work until Ctrl+S");
         assert_eq!(
             app.workspace.chrome().toasts.iter().filter(|t| t.text.contains("separate cards")).count(),
             1,
@@ -666,7 +666,7 @@
 
         // Ctrl+S persists the split; the same door then reopens it as it is.
         app.save_xmp();
-        assert!(!app.unsaved_marker_dirty(), "{}", app.workspace.status());
+        assert!(!app.editor.unsaved_marker_dirty(), "{}", app.workspace.status());
         assert_eq!(saved_strip_of(&src).active_kind, "edited");
         let mut again = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
      src_path: Some(src.clone()),
@@ -682,7 +682,7 @@
         assert_eq!(again.editor.doc().active, 2);
         assert_eq!(again.editor.doc().recipe.contrast, 7.0);
         assert!(again.editor.doc().variants[1].recipe.is_noop());
-        assert!(!again.unsaved_marker_dirty(), "a split strip reopens clean: {}", again.workspace.status());
+        assert!(!again.editor.unsaved_marker_dirty(), "a split strip reopens clean: {}", again.workspace.status());
         assert!(
             !again.workspace.chrome().toasts.iter().any(|t| t.text.contains("separate cards")),
             "…and silently"
@@ -708,7 +708,7 @@
         assert!(!app.workspace.status().contains("Reverse-fit"), "no refusal: {}", app.workspace.status());
         assert!(app.workspace.status().contains("AI-generated pixels"), "{}", app.workspace.status());
         assert!(!xp.exists(), "the stale projection is retired by the commit");
-        assert!(!app.unsaved_marker_dirty(), "{}", app.workspace.status());
+        assert!(!app.editor.unsaved_marker_dirty(), "{}", app.workspace.status());
         assert_eq!(saved_strip_of(&src).active_kind, "generated");
 
         // An edit → ✎; Ctrl+S saves THAT card's develop.
@@ -743,7 +743,7 @@
             vec!["original", "generated"]
         );
         assert!(!xp.exists(), "still no projection over AI pixels");
-        assert!(!app.unsaved_marker_dirty(), "{}", app.workspace.status());
+        assert!(!app.editor.unsaved_marker_dirty(), "{}", app.workspace.status());
     }
 
     /// The reverse-fit reads the ✨ card's raster, never an ✎ card: the fit

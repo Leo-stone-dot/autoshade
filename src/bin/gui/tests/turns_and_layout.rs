@@ -996,28 +996,28 @@
         app.arm_brush(BrushOwner::Heal);
         assert!(app.workspace.masks().paint_mode && app.workspace.brush_armed(BrushOwner::Heal) && !app.workspace.brush_armed(BrushOwner::Fill));
         paint(&mut app);
-        assert!(app.area_painted(BrushOwner::Heal));
-        assert!(!app.area_painted(BrushOwner::Fill) && !app.area_painted(BrushOwner::Adjust));
+        assert!(app.workspace.area_painted(BrushOwner::Heal));
+        assert!(!app.workspace.area_painted(BrushOwner::Fill) && !app.workspace.area_painted(BrushOwner::Adjust));
 
         // Fill's turn: a blank canvas, and Heal's strokes wait in the store
         // with their memo — reading them back scans nothing.
         let scans = app.workspace.overlay().mask_presence_scans.get();
         app.arm_brush(BrushOwner::Fill);
         assert!(!app.workspace.has_painted_mask(), "Fill sees its own blank area, not Heal's strokes");
-        assert!(app.area_painted(BrushOwner::Heal), "Heal's strokes survive off the canvas");
+        assert!(app.workspace.area_painted(BrushOwner::Heal), "Heal's strokes survive off the canvas");
         assert_eq!(app.workspace.overlay().mask_presence_scans.get(), scans, "a stored memo answers without a scan");
-        assert!(app.export_area_png(BrushOwner::Heal).is_some());
-        assert!(app.export_area_png(BrushOwner::Fill).is_none());
+        assert!(app.workspace.export_area_png(BrushOwner::Heal).is_some());
+        assert!(app.workspace.export_area_png(BrushOwner::Fill).is_none());
 
         // The Stamp arms through clone_mode and takes the paint flag down.
         app.arm_brush(BrushOwner::Stamp);
         assert!(app.workspace.tools().clone_mode && !app.workspace.masks().paint_mode && app.workspace.brush_armed(BrushOwner::Stamp));
         paint(&mut app);
-        assert!(app.area_painted(BrushOwner::Stamp) && app.area_painted(BrushOwner::Heal));
+        assert!(app.workspace.area_painted(BrushOwner::Stamp) && app.workspace.area_painted(BrushOwner::Heal));
 
         // Clearing one tool's area leaves the others'.
         app.clear_area(BrushOwner::Heal);
-        assert!(!app.area_painted(BrushOwner::Heal) && app.area_painted(BrushOwner::Stamp));
+        assert!(!app.workspace.area_painted(BrushOwner::Heal) && app.workspace.area_painted(BrushOwner::Stamp));
         app.arm_brush(BrushOwner::Heal);
         assert!(!app.workspace.has_painted_mask(), "Heal comes back blank");
 
@@ -1026,7 +1026,7 @@
         paint(&mut app);
         app.start_mask_brush(None);
         assert!(!app.workspace.has_painted_mask(), "the session starts on its own blank canvas");
-        assert!(app.area_painted(BrushOwner::Adjust), "Adjust's strokes wait in the store");
+        assert!(app.workspace.area_painted(BrushOwner::Adjust), "Adjust's strokes wait in the store");
         assert!(!app.workspace.brush_armed(BrushOwner::Adjust), "a session belongs to no tool");
         app.disarm_brush();
         assert!(app.workspace.masks().mask_brush.is_none() && !app.workspace.masks().paint_mode);
@@ -1045,6 +1045,6 @@
 
         // A plate rebind starts every tool blank.
         app.rebind_paint_canvas(8, 6);
-        assert!(!app.area_painted(BrushOwner::Adjust) && !app.area_painted(BrushOwner::Stamp));
+        assert!(!app.workspace.area_painted(BrushOwner::Adjust) && !app.workspace.area_painted(BrushOwner::Stamp));
         assert!(app.workspace.masks().paint_store.iter().all(Option::is_none));
     }

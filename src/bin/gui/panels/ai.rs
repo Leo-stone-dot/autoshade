@@ -878,7 +878,7 @@ impl AutoShadeApp {
     /// Generated and Edited both read AI pixels; the negative never does.
     pub(crate) fn can_adjust(&self) -> bool {
         !self.workspace.busy() && self.editor.active_on_ai_pixels()
-            && (self.area_painted(BrushOwner::Adjust) || !self.workspace.genai().adjust_prompt.trim().is_empty())
+            && (self.workspace.area_painted(BrushOwner::Adjust) || !self.workspace.genai().adjust_prompt.trim().is_empty())
     }
 
     fn ai_adjust(&mut self, ui: &mut egui::Ui) {
@@ -912,7 +912,7 @@ impl AutoShadeApp {
                 self.brush_row(ui, BrushOwner::Adjust);
                 let note = if !self.editor.active_on_ai_pixels() {
                     tr(lang, K_AI_SELECT_A_AI_GENERATED_CARD_OR_ITS_EDIT_FIRST)
-                } else if self.area_painted(BrushOwner::Adjust) {
+                } else if self.workspace.area_painted(BrushOwner::Adjust) {
                     tr(lang, K_AI_PAINTED_AREA_ONLY)
                 } else {
                     tr(lang, K_AI_WHOLE_IMAGE_PAINT_AN_AREA_TO_LIMIT_IT)

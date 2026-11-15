@@ -10,6 +10,7 @@
 
 use crate::*;
 use crate::export::export_dest_dir;
+use crate::masks::export_png_of;
 use crate::panels::normal::NormalLine;
 use crate::panels::portrait::PortraitLine;
 
@@ -732,4 +733,45 @@ impl WorkspaceView {
     pub(crate) fn brush_tip(&self) -> BrushTip {
         BrushTip { feather: self.masks().brush_feather, flow: self.masks().brush_flow }
 }
+}
+
+impl WorkspaceView {
+    /// Whether `owner`'s area has strokes (the export's alpha > 10 predicate),
+    /// memoised per area exactly as `has_painted_mask` memoises the canvas'.
+    pub(crate) fn area_painted(&self, owner: BrushOwner) -> bool {
+        if owner == self.masks().paint_owner && self.masks().mask_brush.is_none() {
+            return self.has_painted_mask();
+        }
+        self.masks().paint_store[owner.slot()].as_ref().is_some_and(|a| {
+            if let Some(p) = a.painted.get() {
+                return p;
+            }
+            #[cfg(test)]
+            self.overlay().mask_presence_scans.set(self.overlay().mask_presence_scans.get() + 1);
+            let p = a.canvas.pixels().any(|px| px[3] > 10);
+            a.painted.set(Some(p));
+            p
+        })
+    }
+
+    /// PNG bytes of the EXPORT mask: painted → transparent (regenerate / heal
+    /// here), unpainted → opaque. None if nothing is painted — mirrors the web.
+    pub(crate) fn export_mask_png(&self) -> Option<Vec<u8>> {
+        if !self.has_painted_mask() {
+            return None;
+        }
+        export_png_of(self.masks().mask_paint.as_ref()?)
+    }
+
+    /// PNG bytes of `owner`'s EXPORT mask (see `export_mask_png`); None when
+    /// nothing is painted there.
+    pub(crate) fn export_area_png(&self, owner: BrushOwner) -> Option<Vec<u8>> {
+        if owner == self.masks().paint_owner && self.masks().mask_brush.is_none() {
+            return self.export_mask_png();
+        }
+        if !self.area_painted(owner) {
+            return None;
+        }
+        export_png_of(&self.masks().paint_store[owner.slot()].as_ref()?.canvas)
+    }
 }

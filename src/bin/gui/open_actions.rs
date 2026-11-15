@@ -69,7 +69,7 @@ impl AutoShadeApp {
             // active canvas alone on navigation. THIS photo's strip only:
             // the cross-photo sum (inactive_dirty_variants) belongs to the
             // quit dialog, and using it here chain-stashed clean photos.
-            if self.nav_stash_gate_dirty() {
+            if self.editor.nav_stash_gate_dirty() {
                 let others: Vec<StashedVariant> = self.editor.doc().variants
                     .iter()
                     .enumerate()

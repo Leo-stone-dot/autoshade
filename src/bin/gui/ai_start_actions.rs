@@ -241,7 +241,7 @@ impl AutoShadeApp {
             // clean canvas over an unpersisted strip must still be listed,
             // or Save-all had nothing to write and the guard's re-check
             // bounced the close forever (the v0.21 dead-button livelock).
-            if self.pending_save_gate_dirty() {
+            if self.editor.pending_save_gate_dirty() {
                 let pix = origin.map(|o| (o, self.editor.active_on_ai_pixels()));
                 pending.push(PendingSave {
                     photo: p,

@@ -333,21 +333,9 @@ impl AutoShadeApp {
     /// variant exports under its reimagine stem (and its AI pixels), not the
     /// original's.
     pub(crate) fn export_file_name(&self) -> String {
-        self.export_file_name_as(self.workspace.exp().format.ext())
+        self.editor.export_file_name_as(self.workspace.exp().format.ext())
     }
 
-    /// [`export_file_name`](Self::export_file_name) with the container given
-    /// (Normal's Save group always delivers a jpg).
-    pub(crate) fn export_file_name_as(&self, ext: &str) -> String {
-        let src = self.editor.active_source_path();
-        let stem = src
-            .as_deref()
-            .and_then(|p| p.file_stem())
-            .and_then(|s| s.to_str())
-            .unwrap_or("out")
-            .to_string();
-        format!("{stem}.developed.{ext}")
-    }
 
 
     /// What the Export button will do this click — resolved BEFORE anything is

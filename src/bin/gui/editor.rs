@@ -455,3 +455,58 @@ impl Editor {
         p.circle_filled(c, 2.0, egui::Color32::WHITE);
     }
 }
+
+impl Editor {
+    /// The active card's actual pixels choose the path, including generated
+    /// masters under a RAW original. An unopened app displays the RAW dials.
+    pub(crate) fn denoise_uses_raw(&self) -> bool {
+        crate::logic::noise::uses_raw(self.active_source_path().as_deref())
+    }
+
+    /// [`export_file_name`](Self::export_file_name) with the container given
+    /// (Normal's Save group always delivers a jpg).
+    pub(crate) fn export_file_name_as(&self, ext: &str) -> String {
+        let src = self.active_source_path();
+        let stem = src
+            .as_deref()
+            .and_then(|p| p.file_stem())
+            .and_then(|s| s.to_str())
+            .unwrap_or("out")
+            .to_string();
+        format!("{stem}.developed.{ext}")
+    }
+
+    pub(crate) fn active_canvas_dirty(&self) -> bool {
+        if self.photo().src_path.is_none() || self.active_variant().is_none() {
+            return false;
+        }
+        self.active_baseline().is_none_or(|saved| {
+            dirty_vs(&self.doc().recipe, saved.recipe)
+                || !same_master_opt(
+                    self.active_variant().and_then(|v| v.origin.as_deref()),
+                    saved.origin,
+                )
+        })
+    }
+
+    /// Per-frame status-bar consumer of [`Self::active_baseline`].
+    pub(crate) fn unsaved_marker_dirty(&self) -> bool {
+        self.active_canvas_dirty()
+    }
+
+    /// Window-close consumer of [`Self::active_baseline`].
+    pub(crate) fn quit_guard_open_dirty(&self) -> bool {
+        self.active_canvas_dirty()
+    }
+
+    /// Navigation-stash consumer: active canvas plus this photo's strip work.
+    pub(crate) fn nav_stash_gate_dirty(&self) -> bool {
+        self.active_canvas_dirty() || self.open_dirty_variants() > 0
+    }
+
+    /// Quit-dialog `PendingSave` consumer: the same open-photo state as the
+    /// navigation stash, without counting other photos' stash entries.
+    pub(crate) fn pending_save_gate_dirty(&self) -> bool {
+        self.active_canvas_dirty() || self.open_dirty_variants() > 0
+    }
+}
