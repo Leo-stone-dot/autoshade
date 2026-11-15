@@ -7590,12 +7590,15 @@ not photo state, so replacing the executor or the loop touches neither the
 document nor the panels. The composition root's own state is TWO aggregates:
 `Editor` ([`editor.rs`](../src/bin/gui/editor.rs)) owns everything a save,
 render or undo means — the `Document`, the `EditorSession`, `PhotoPixels`, the
-`CanvasPlates`, the `DevelopScheduler` and the `AnalysisSession` — and
-`WorkspaceView` ([`workspace.rs`](../src/bin/gui/workspace.rs)) owns what the
-renderer remembers and never persists (folds, tabs, windows, the gallery scan,
-tool arming, transient status). `AutoShadeApp` itself holds `Editor`,
-`WorkspaceView`, `Services`, the persisted AI prefs, the language and the test
-seams. The undo/redo history and the dirty flag are an
+`CanvasPlates`, the `DevelopScheduler` and the `AnalysisSession` — and its six
+fields are PRIVATE: reads go through `doc()`/`photo()`/…, and the multi-step
+transitions (active-variant sync, the switch/push card flush, history-stack
+moves, variant insertion) are methods on the aggregate that own their
+invariant. `WorkspaceView` ([`workspace.rs`](../src/bin/gui/workspace.rs)) owns
+what the renderer remembers and never persists (folds, tabs, windows, the
+gallery scan, tool arming, transient status). `AutoShadeApp` itself holds
+`Editor`, `WorkspaceView`, `Services`, the persisted AI prefs, the language and
+the test seams. The undo/redo history and the dirty flag are an
 `EditorSession` ([`session.rs`](../src/bin/gui/session.rs)): per-photo
 session state that dies when another source opens and is never persisted.
 The open photo's decoded plates are `PhotoPixels`
