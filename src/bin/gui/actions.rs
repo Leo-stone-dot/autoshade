@@ -45,7 +45,10 @@ impl AutoShadeApp {
     pub(crate) fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // The REAL event-loop context replaces default()'s headless one:
         // workers wake the loop through this clone (see `spawn_worker`).
-        let mut app = Self { egui_ctx: cc.egui_ctx.clone(), ..Self::default() };
+        let mut app = Self {
+            services: Services { egui_ctx: cc.egui_ctx.clone(), ..Services::default() },
+            ..Self::default()
+        };
         if let Some(prefs) =
             cc.storage.and_then(|s| eframe::get_value::<Prefs>(s, eframe::APP_KEY))
         {
@@ -125,7 +128,7 @@ impl AutoShadeApp {
         // default before prefs were readable (same shape as the greeting).
         app.ui.theme = prefs.theme;
         app.ui.accent = prefs.accent;
-        install_look(&app.egui_ctx, app.ui.theme, app.ui.accent);
+        install_look(&app.services.egui_ctx, app.ui.theme, app.ui.accent);
         // The greeting was set by default() BEFORE the language was known —
         // re-issue it, or a Chinese install opens with one English line.
         app.status =

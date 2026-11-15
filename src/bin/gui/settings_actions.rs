@@ -347,7 +347,7 @@ impl AutoShadeApp {
             "Preparing the Python environment (uv)… the download is a few gigabytes",
         )
         .into();
-        let tx = self.tx.clone();
+        let tx = self.services.tx.clone();
         self.spawn_worker(
             move || {
                 // uv writes pip's progress to stderr; each line lands in the

@@ -586,7 +586,7 @@
         let master = std::path::PathBuf::from("out/_gui_normal_denoise.denoise.png");
         let note = RetouchNote::Denoised { out: master.clone(), on_mosaic: false };
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
-        app.tx.send(Msg::Retouched(app.tools.gen_epoch, Box::new(done))).unwrap();
+        app.services.tx.send(Msg::Retouched(app.tools.gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.variants[app.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         assert_eq!(app.active_source_path().as_deref(), Some(master.as_path()), "…and is what a save renders");
@@ -912,7 +912,7 @@
         let master = std::path::PathBuf::from("out/_gui_normal_denoise_undo.denoise.png");
         let note = RetouchNote::Denoised { out: master.clone(), on_mosaic: false };
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
-        app.tx.send(Msg::Retouched(app.tools.gen_epoch, Box::new(done))).unwrap();
+        app.services.tx.send(Msg::Retouched(app.tools.gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.variants[app.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         let denoised = app.variants[app.active].base.clone().unwrap();

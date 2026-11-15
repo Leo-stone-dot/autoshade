@@ -55,14 +55,8 @@ pub(crate) struct AutoShadeApp {
     /// The status chrome (toasts, histogram, title, clipping); see [`ChromeState`].
     pub(crate) chrome: ChromeState,
     pub(crate) busy: bool, // an analyze/export thread is running
-    pub(crate) rx: Option<Receiver<Msg>>,
-    pub(crate) tx: Sender<Msg>,
-    /// Clone of the runtime egui context, installed at creation
-    /// (`actions.rs::new`). Worker spawn and completion request repaints
-    /// through it: a plain mpsc send does not wake the event loop, and the
-    /// 100 ms pump's gate (`poll_workers`) runs BEFORE any panel can start a
-    /// fetch in the same frame. Tests get the headless default.
-    pub(crate) egui_ctx: egui::Context,
+    /// The worker channel and the event-loop context (see [`Services`]).
+    pub(crate) services: Services,
     // TYPED, not a baked string: the decision word + reasons are rendered
     // (and translated) at draw time, so a language switch re-renders them.
     pub(crate) verdict: Option<(autoshade::advisor::Decision, Vec<String>)>,
@@ -1500,7 +1494,6 @@ impl AutoShadeApp {
 
 impl Default for AutoShadeApp {
     fn default() -> Self {
-        let (tx, rx) = std::sync::mpsc::channel();
         Self {
             src_path: None,
             base_preview: None,
@@ -1518,9 +1511,7 @@ impl Default for AutoShadeApp {
             status: "Open a photo, or open a folder to browse your library.".into(),
             chrome: ChromeState::default(),
             busy: false,
-            rx: Some(rx),
-            tx,
-            egui_ctx: egui::Context::default(),
+            services: Services::default(),
             verdict: None,
             disclosed_scripts: HashSet::new(),
             rationale: String::new(),

@@ -219,7 +219,7 @@
             ),
             "fixture: 108 MP must be over the mask budget"
         );
-        app.tx
+        app.services.tx
             .send(Msg::MaskRefined(Ok(MaskRefineOutcome::OverBudget { w: 12_000, h: 9_000 })))
             .unwrap();
         app.poll_workers(&ctx);
@@ -378,7 +378,7 @@
         app.cards.keep_recipe = true;
         app.open.open_same_path = false; // stale request, cross-photo fact
         let base = Arc::new(image::DynamicImage::new_rgb8(8, 6));
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 base.clone(),
                 Default::default(),
@@ -395,7 +395,7 @@
         app.variants = vec![mk(), mk()];
         app.cards.keep_recipe = true;
         app.open.open_same_path = true;
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 base,
                 Default::default(),
@@ -416,7 +416,7 @@
         app.variants = vec![mk(), mk()];
         app.cards.keep_recipe = false;
         app.open.open_same_path = true;
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 Arc::new(image::DynamicImage::new_rgb8(8, 6)),
                 Default::default(),
@@ -549,7 +549,7 @@ status: "decoding … ".to_string(),
 
         // (1) The re-decode FAILED: the photo and its canvas are untouched.
         let mut app = armed(None, None);
-        app.tx.send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed"))))).unwrap();
+        app.services.tx.send(Msg::Opened(Box::new(Err(anyhow::anyhow!("decode failed"))))).unwrap();
         app.poll_workers(&ctx);
         assert_eq!(app.genai.preview_edge, 1280, "a failed keep-flight puts the switch back");
         assert!(app.src_path.is_some(), "…and leaves the still-open photo alone");
@@ -570,7 +570,7 @@ status: "decoding … ".to_string(),
         let mut app = armed(Some(old_raster.clone()), Some(master.clone()));
         app.base_preview = Some(old_raster.clone());
         app.source_preview = Some(old_source.clone()); // the OLD-edge decode
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 fresh(),
                 Default::default(),
@@ -613,7 +613,7 @@ status: "decoding … ".to_string(),
         let mut app = armed(Some(old_raster.clone()), Some(rel));
         app.base_preview = Some(old_raster.clone());
         let master = fresh();
-        app.tx
+        app.services.tx
             .send(Msg::Opened(Box::new(Ok((
                 fresh(),
                 Default::default(),

@@ -18,14 +18,14 @@ impl AutoShadeApp {
         body: impl FnOnce() -> Msg + Send + 'static,
         on_panic: impl FnOnce(anyhow::Error) -> Msg + Send + 'static,
     ) {
-        let tx = self.tx.clone();
-        let ctx = self.egui_ctx.clone();
+        let tx = self.services.tx.clone();
+        let ctx = self.services.egui_ctx.clone();
         // Starting a worker schedules the next frame itself: the repaint
         // pump's gate (`poll_workers`, at the top of update) has already run
         // by the time a panel can start one in the same frame, so without
         // this the "fetching…"/busy state is not drawn and the 100 ms pump
         // never re-arms until the next input event.
-        self.egui_ctx.request_repaint();
+        self.services.egui_ctx.request_repaint();
         std::thread::spawn(move || {
             // This body's panic is CONTAINED by the `catch_unwind` below.
             // Declared, so the panic hook does not announce a crash over an
@@ -63,7 +63,7 @@ impl AutoShadeApp {
         // Drain a bounded batch each frame so a burst of thumbnails doesn't take
         // one-per-frame to land (try_recv borrow is released before we mutate).
         for _ in 0..64 {
-            let Some(msg) = self.rx.as_ref().and_then(|rx| rx.try_recv().ok()) else { break };
+            let Some(msg) = self.services.rx.as_ref().and_then(|rx| rx.try_recv().ok()) else { break };
             match msg {
                 Msg::Opened(boxed) => {
                     self.on_opened(ctx, lang, boxed);

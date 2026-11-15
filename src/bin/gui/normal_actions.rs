@@ -85,7 +85,7 @@ impl AutoShadeApp {
     fn show_card_keeping_look(&mut self, idx: usize) {
         let look = self.recipe.clone();
         let history = self.take_look_history();
-        let ctx = self.egui_ctx.clone();
+        let ctx = self.services.egui_ctx.clone();
         self.switch_variant(idx, &ctx);
         if self.active == idx {
             self.recipe = look;
