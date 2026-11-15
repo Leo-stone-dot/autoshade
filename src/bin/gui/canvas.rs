@@ -234,7 +234,7 @@ impl AutoShadeApp {
         let target = self
             .overlay.hover_mask
             .filter(|&i| i < self.recipe.masks.len())
-            .or_else(|| self.sel_mask.filter(|&i| i < self.recipe.masks.len()));
+            .or_else(|| self.masks.sel_mask.filter(|&i| i < self.recipe.masks.len()));
         let Some(i) = target else {
             self.overlay.mask_overlay_tex = None;
             self.overlay.overlay_key = None;
@@ -519,7 +519,7 @@ impl AutoShadeApp {
             }
         } else if self.crop_mode {
             tr(lang, "Crop — drag corners/edges to resize, inside to move, outside to rotate · Esc to exit")
-        } else if let Some((kind, _)) = self.placing_mask {
+        } else if let Some((kind, _)) = self.masks.placing_mask {
             match kind {
                 MaskKind::Linear => tr(lang, "Linear gradient — drag from the fully-applied side to the unaffected side (Shift = axis lock) · Esc to exit"),
                 MaskKind::Radial => tr(lang, "Radial gradient — drag to draw an elliptical area · Esc to exit"),
@@ -532,11 +532,11 @@ impl AutoShadeApp {
             tr(lang, "Point Color eyedropper — click the colour to adjust · Esc to exit")
         } else if self.clone_mode {
             tr(lang, "Stamp — Alt+click to set the source · drag to brush the area to cover · Esc to exit")
-        } else if self.paint_mode {
-            if self.mask_brush.is_some() {
+        } else if self.masks.paint_mode {
+            if self.masks.mask_brush.is_some() {
                 tr(lang, "Mask brush — paint to select · 「Erase」 removes · 「Apply」 bakes · Esc cancels")
             } else {
-                match self.paint_owner {
+                match self.masks.paint_owner {
                     BrushOwner::Fill => tr(lang, "Brush — paint the area to remove or fill · Esc to exit"),
                     BrushOwner::Heal => tr(lang, "Brush — paint the area to heal · Esc to exit"),
                     BrushOwner::Stamp => tr(lang, "Brush — paint the area to clone over · Esc to exit"),
@@ -753,7 +753,7 @@ impl AutoShadeApp {
         } else if (space || zoom_pan) && resp.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
         } else if resp.hovered()
-            && (self.paint_mode || self.placing_mask.is_some() || self.crop_mode)
+            && (self.masks.paint_mode || self.masks.placing_mask.is_some() || self.crop_mode)
         {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
         }
@@ -765,7 +765,7 @@ impl AutoShadeApp {
         // --- tool dispatch (one active interaction at a time) -----------------
         if self.crop_mode {
             self.handle_crop(ui, &resp, xf, tex_size);
-        } else if self.placing_mask.is_some() {
+        } else if self.masks.placing_mask.is_some() {
             self.handle_place_mask(ui, &resp, xf);
         } else if self.wb_picking {
             self.handle_wb_pick(ui, &resp, xf);
@@ -788,7 +788,7 @@ impl AutoShadeApp {
             if !ui.input(|i| i.modifiers.alt) {
                 self.draw_brush_cursor(ui, &resp, rect);
             }
-        } else if self.paint_mode {
+        } else if self.masks.paint_mode {
             self.handle_paint(&resp, xf);
             self.ensure_mask_tex(ui.ctx());
             if let Some(t) = &self.overlay.mask_tex {
@@ -840,10 +840,10 @@ impl AutoShadeApp {
         // knobs target THAT shape — the same geometry the edit handler
         // mutates (sel_target_geometry).
         if !self.crop_mode
-            && self.placing_mask.is_none()
-            && let Some(m) = self.sel_mask.and_then(|i| self.recipe.masks.get(i))
+            && self.masks.placing_mask.is_none()
+            && let Some(m) = self.masks.sel_mask.and_then(|i| self.recipe.masks.get(i))
         {
-            let target = match self.sel_component {
+            let target = match self.masks.sel_component {
                 Some(c) if c < m.components.len() => &m.components[c].geometry,
                 _ => &m.mask,
             };
@@ -1081,9 +1081,9 @@ impl AutoShadeApp {
     /// selected COMPONENT when one is selected (and still in bounds), else
     /// the selected mask's base geometry.
     pub(crate) fn sel_target_geometry(&self) -> Option<&MaskGeometry> {
-        let i = self.sel_mask.filter(|&i| i < self.recipe.masks.len())?;
+        let i = self.masks.sel_mask.filter(|&i| i < self.recipe.masks.len())?;
         let m = &self.recipe.masks[i];
-        match self.sel_component {
+        match self.masks.sel_component {
             Some(c) if c < m.components.len() => Some(&m.components[c].geometry),
             _ => Some(&m.mask),
         }
@@ -1154,11 +1154,11 @@ impl AutoShadeApp {
         {
             let cur = orig_at(p);
             // The knob's geometry is the logic layer's (`logic/mask_edit`).
-            if let Some(mask) = self.sel_mask {
+            if let Some(mask) = self.masks.sel_mask {
                 self.apply_actions(vec![logic::Action::MaskEdit(
                     logic::mask_edit::MaskEditAction::Drag {
                         mask,
-                        component: self.sel_component,
+                        component: self.masks.sel_component,
                         handle: h,
                         last,
                         cur,
@@ -1470,7 +1470,7 @@ impl AutoShadeApp {
     /// bounding box of a radial. Commits into `recipe.masks` — the SAME field
     /// the AI writes, so render + XMP need nothing new.
     pub(crate) fn handle_place_mask(&mut self, ui: &egui::Ui, resp: &egui::Response, xf: ViewXform) {
-        let Some((kind, target)) = self.placing_mask else { return };
+        let Some((kind, target)) = self.masks.placing_mask else { return };
         // Mask geometry lives in the ORIGINAL frame (the engine composites
         // masks before the geometric remap) — map pointer positions out of the view.
         let (dims, deg, dist) = self.geom_ctx();
@@ -1485,9 +1485,9 @@ impl AutoShadeApp {
             // Anchor at the PRESS ORIGIN: drag_started fires ~6 px in, and
             // that lead-in shortened every gradient / shifted tiny radials.
             let start = ui.input(|i| i.pointer.press_origin()).unwrap_or(p);
-            self.place_start = Some(xf.to_norm(start));
+            self.masks.place_start = Some(xf.to_norm(start));
         }
-        let Some(sv) = self.place_start else { return };
+        let Some(sv) = self.masks.place_start else { return };
         let Some(p) = resp.interact_pointer_pos() else { return };
         let mut ev = xf.to_norm(p);
         // LR: Shift locks a linear gradient to horizontal / vertical.
@@ -1577,17 +1577,17 @@ impl AutoShadeApp {
             match committed.selection {
                 logic::mask_place::Selection::Keep => {}
                 logic::mask_place::Selection::Mask(i) => {
-                    self.sel_mask = Some(i);
-                    self.sel_component = None;
+                    self.masks.sel_mask = Some(i);
+                    self.masks.sel_component = None;
                 }
                 logic::mask_place::Selection::Component(i, c) => {
-                    self.sel_mask = Some(i);
-                    self.sel_component = Some(c);
+                    self.masks.sel_mask = Some(i);
+                    self.masks.sel_component = Some(c);
                 }
             }
             self.run_effects(committed.effects);
-            self.placing_mask = None;
-            self.place_start = None;
+            self.masks.placing_mask = None;
+            self.masks.place_start = None;
             self.overlay.overlay_stale = true;
         }
     }
@@ -1632,7 +1632,7 @@ impl AutoShadeApp {
             if xform_now == IDENTITY_XFORM && !stale_xform && self.overlay.mask_dirty {
                 let rect = self.overlay.mask_dirty_rect;
                 if let (Some(m), Some(tex), Some([x0, y0, x1, y1])) =
-                    (&self.mask_paint, &mut self.overlay.mask_tex, rect)
+                    (&self.masks.mask_paint, &mut self.overlay.mask_tex, rect)
                     && tex.size() == [m.width() as usize, m.height() as usize]
                     && x1 > x0
                     && y1 > y0
@@ -1667,7 +1667,7 @@ impl AutoShadeApp {
             {
                 return; // mask_dirty stays armed; retried next frame
             }
-            if let Some(m) = &self.mask_paint {
+            if let Some(m) = &self.masks.mask_paint {
                 let ci = if xform_now != IDENTITY_XFORM {
                     // Alpha-preserving RGBA twins: the RGB16 photo paths
                     // flatten transparency to opaque, which turned the whole

@@ -7656,7 +7656,10 @@ stacks, the committed step and the ●-baseline mirror (`saved_recipe`,
 204 fields. `model::OverlayState` owns the mask-coverage
 overlay and the AI region (texture, rebuild key/throttle, dirty sub-rect, shown
 switch, hovered row, cached range reference, region gesture), one `overlay`
-field; the app struct is at 189 fields.
+field; the app struct is at 189 fields. `model::MaskEditState` owns the painting and
+mask-edit state (brush dials, paint buffer and per-owner stash, mask-brush
+session, selected mask/component, placement gesture), one `masks` field; the
+app struct is at 172 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

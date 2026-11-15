@@ -41,12 +41,12 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
             let photo_stem = self.src_path.clone().map(|p| autoshade::pipeline::stem(&p).to_owned());
             let landed =
                 logic::segmented::apply(&mut self.recipe, &label, &path, &backend, photo_stem.as_deref());
-            self.sel_mask = Some(landed.selection);
+            self.masks.sel_mask = Some(landed.selection);
             // The landing MOVED the selection — index-armed tools bound to
             // another row die with it, exactly like the row-click sites
             // (Codex L06-1: this async door was missed and a stranded brush
             // baked into the old mask).
-            if self.disarm_selection_bound_tools(self.sel_mask) {
+            if self.disarm_selection_bound_tools(self.masks.sel_mask) {
                 let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
                 self.toast(ToastKind::Error, t);
             }
@@ -84,10 +84,10 @@ pub(crate) fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRef
             };
             let landed = logic::mask_refine::apply(&mut self.recipe, &outcome);
             if let Some(i) = landed.selection {
-                self.sel_mask = Some(i);
+                self.masks.sel_mask = Some(i);
                 // Same rule as the segmentation landing: the selection
                 // moved, selection-bound tools on another row follow it.
-                if self.disarm_selection_bound_tools(self.sel_mask) {
+                if self.disarm_selection_bound_tools(self.masks.sel_mask) {
                     let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
                     self.toast(ToastKind::Error, t);
                 }

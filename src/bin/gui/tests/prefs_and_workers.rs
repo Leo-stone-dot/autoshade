@@ -763,7 +763,7 @@
     }
 
     /// #9 (user report after the v0.27 trial): "画笔大小的滑杆不见了". It was
-    /// never deleted — the app's ONE brush radius (`self.brush`) had its only
+    /// never deleted — the app's ONE brush radius (`self.masks.brush`) had its only
     /// slider in the Retouch panel, next to Fill / Heal / Stamp, while the
     /// mask brush is armed from Develop → Local Masks and paints in a session
     /// whose row carried ⌫ / ✓ / ✕ and nothing else. So the control existed in
@@ -784,7 +784,7 @@
             // A plate is what start_mask_brush sizes its buffers against.
             app.base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
             app.start_mask_brush(None);
-            assert!(app.mask_brush.is_some(), "{lang:?}: the brush session armed");
+            assert!(app.masks.mask_brush.is_some(), "{lang:?}: the brush session armed");
             let input = || egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
@@ -845,22 +845,22 @@
             ..Default::default()
         };
         app.arm_brush(BrushOwner::Fill);
-        assert!(app.paint_mode && app.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
+        assert!(app.masks.paint_mode && app.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
         assert!(!app.crop_mode && !app.clone_mode, "the other tools are disarmed");
         app.arm_brush(BrushOwner::Stamp);
-        assert!(app.clone_mode && !app.paint_mode, "the Stamp paints through clone_mode");
+        assert!(app.clone_mode && !app.masks.paint_mode, "the Stamp paints through clone_mode");
         assert!(app.brush_armed(BrushOwner::Stamp) && !app.brush_armed(BrushOwner::Fill));
         // Phase 2: a live session + the brush put away = a cancel, not an orphan.
         app.start_mask_brush(None);
         assert!(
-            app.mask_brush.is_some() && app.mask_brush_gray.is_some() && app.paint_mode,
+            app.masks.mask_brush.is_some() && app.masks.mask_brush_gray.is_some() && app.masks.paint_mode,
             "sanity: the session is live and painting through paint_mode"
         );
         app.disarm_brush();
         assert!(
-            app.mask_brush.is_none(),
+            app.masks.mask_brush.is_none(),
             "the session outlived its own paint flag — its Apply row would bake stale weights"
         );
-        assert!(app.mask_brush_gray.is_none(), "the weight buffer goes with it");
-        assert!(!app.paint_mode && !app.clone_mode, "and the flags stay off");
+        assert!(app.masks.mask_brush_gray.is_none(), "the weight buffer goes with it");
+        assert!(!app.masks.paint_mode && !app.clone_mode, "and the flags stay off");
     }

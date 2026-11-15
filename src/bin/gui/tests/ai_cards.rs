@@ -344,7 +344,13 @@
     #[test]
     fn the_adjust_verb_is_disabled_off_ai_pixels_and_with_no_prompt_and_no_strokes() {
         // The fold's own area is the live canvas here.
-        let mut app = AutoShadeApp { paint_owner: BrushOwner::Adjust, ..Default::default() };
+        let mut app = AutoShadeApp {
+            masks: MaskEditState {
+                paint_owner: BrushOwner::Adjust,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         // Off AI pixels, empty AI input, and useful AI input are the three
         // states. Both Generated and Edited count; busy still disables them.
         for kind in [VariantKind::Original, VariantKind::Fitted, VariantKind::Denoised,
@@ -359,7 +365,7 @@
             {
                 app.adjust_prompt = prompt.into();
                 app.busy = busy;
-                app.mask_paint = strokes.then(|| image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, 160])));
+                app.masks.mask_paint = strokes.then(|| image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, 160])));
                 app.paint_mask_changed(None);
                 draw_adjust_panel(&mut app);
                 let want = !busy && kind.on_ai_pixels() && (strokes || !prompt.trim().is_empty());
@@ -370,7 +376,7 @@
         // The starter uses the same rule before claiming output or spawning.
         app.busy = false;
         app.adjust_prompt.clear();
-        app.mask_paint = None;
+        app.masks.mask_paint = None;
         app.paint_mask_changed(Some(false));
         app.src_path = Some(PathBuf::from("adjust-guard.png"));
         app.start_adjust();
@@ -385,11 +391,11 @@
                 id: new_variant_id(), name: None, kind: VariantKind::Generated,
                 recipe: EditRecipe::default(), base: None, origin: None, thumb: None,
             }];
-            app.paint_owner = BrushOwner::Adjust; // the fold's own area is the live canvas here
+            app.masks.paint_owner = BrushOwner::Adjust; // the fold's own area is the live canvas here
             // The same >10 alpha predicate as export: a faint/erased mask
             // is whole-image mode, even though the mask buffer exists.
             for alpha in [0, 10, 11, 160] {
-                app.mask_paint = Some(image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, alpha])));
+                app.masks.mask_paint = Some(image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, alpha])));
                 app.paint_mask_changed(None);
                 let strokes = alpha > 10;
                 assert_eq!(app.has_painted_mask(), strokes);
@@ -490,7 +496,7 @@
             let empty_scans = app.overlay.mask_presence_scans.get();
 
             stroke(&mut app, drag);
-            assert!(app.mask_paint.as_ref().unwrap().pixels().any(|p| p[3] > 10), "the real brush added paint");
+            assert!(app.masks.mask_paint.as_ref().unwrap().pixels().any(|p| p[3] > 10), "the real brush added paint");
             five_frames(&mut app, &ctx, true, "a brush stroke limits the adjust to the painted area");
             assert_eq!(app.overlay.mask_presence_scans.get(), empty_scans, "adding paint needs no presence scan");
             assert!(app.export_area_png(BrushOwner::Adjust).is_some());
@@ -498,7 +504,7 @@
             // 「Clear area」 is the fold's eraser (the retouch brushes have no
             // erase mode): the canvas is known blank, so nothing scans.
             app.clear_area(BrushOwner::Adjust);
-            assert!(app.mask_paint.as_ref().unwrap().pixels().all(|p| p[3] <= 10), "clearing removed every stroke");
+            assert!(app.masks.mask_paint.as_ref().unwrap().pixels().all(|p| p[3] <= 10), "clearing removed every stroke");
             five_frames(&mut app, &ctx, false, "clearing the area must return the adjust fold to whole image");
             assert_eq!(app.overlay.mask_presence_scans.get(), empty_scans, "a cleared area needs no scan");
             assert!(app.export_area_png(BrushOwner::Adjust).is_none());
@@ -548,9 +554,9 @@
         let mut sources = Vec::new();
         walk_rs(&root, &mut sources);
         assert!(sources.len() >= 6, "expected the split GUI module tree");
-        let replace = concat!("self.", "mask_paint = Some(");
+        let replace = concat!("self.", "masks.mask_paint = Some(");
         let dirty = concat!("self.", "overlay.mask_dirty = true");
-        let mutations = [replace, dirty, concat!("self.", "mask_paint.as_mut()"), concat!("&mut self.", "mask_paint")];
+        let mutations = [replace, dirty, concat!("self.", "masks.mask_paint.as_mut()"), concat!("&mut self.", "masks.mask_paint")];
         let mut found: std::collections::BTreeMap<String, usize> = Default::default();
         for path in sources {
             let text = std::fs::read_to_string(&path).expect("GUI source readable");

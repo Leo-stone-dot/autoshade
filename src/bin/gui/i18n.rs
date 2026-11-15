@@ -2093,7 +2093,7 @@ static ZH_ENTRIES: &[(&str, &str)] = &[
     ("Strokes remove from the selection instead of adding",
         "笔画从选区中移除而非添加"),
     // R22-3 (#9): the mask-brush session grew its own Brush size slider, and
-    // both sliders drive the one `self.brush` — the tooltip says so.
+    // both sliders drive the one `self.masks.brush` — the tooltip says so.
     ("One radius for every brush: the mask brush and the Fill / Heal / Stamp brush are the same size ([ / ] move it too)",
         "所有画笔共用一个半径：蒙版画笔与填充 / 修复 / 图章的笔刷是同一个大小（[ / ] 也能调）"),
     ("✓ Apply", "✓ 应用"),

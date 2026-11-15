@@ -275,9 +275,13 @@
         .unwrap();
 
         let mut app = AutoShadeApp {
+            masks: MaskEditState {
+                sel_mask: Some(3),
+                ..Default::default()
+            },
             src_path: Some(src.clone()),
-            sel_mask: Some(3), // stale index into the OLD mask list
-            rationale: "stale rationale".into(),
+            // stale index into the OLD mask list
+rationale: "stale rationale".into(),
             ..Default::default()
         };
         app.load_version(1);
@@ -286,7 +290,7 @@
             app.rationale, "v1 marker rationale",
             "the swap path resynced the rationale display"
         );
-        assert_eq!(app.sel_mask, None, "a stale mask selection cannot linger");
+        assert_eq!(app.masks.sel_mask, None, "a stale mask selection cannot linger");
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&dev);
     }

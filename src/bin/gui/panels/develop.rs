@@ -2103,19 +2103,19 @@ impl AutoShadeApp {
             // non-wrapping row overran the default panel width in English.
             ui.horizontal(|ui| {
                 let cell = columns(ui, 3);
-                let lin_armed = matches!(self.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
+                let lin_armed = matches!(self.masks.placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
                 if toggle_in(ui, cell, lin_armed, tr(lang, "＋ Linear")).on_hover_text(tr(lang, "Drag on the image: start = fully-applied side, end = unaffected side (Shift = horizontal/vertical)")).clicked() {
                     self.disarm_tools();
                     if !lin_armed {
-                        self.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
+                        self.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
                         self.status = tr(lang, "Drag on the image to draw a linear gradient (start fully applied → end unaffected; Shift = axis lock)").into();
                     }
                 }
-                let rad_armed = matches!(self.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
+                let rad_armed = matches!(self.masks.placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
                 if toggle_in(ui, cell, rad_armed, tr(lang, "＋ Radial")).on_hover_text(tr(lang, "Drag on the image to draw an elliptical area")).clicked() {
                     self.disarm_tools();
                     if !rad_armed {
-                        self.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
+                        self.masks.placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
                         self.status = tr(lang, "Drag on the image to draw a radial (elliptical) area").into();
                     }
                 }
@@ -2123,7 +2123,7 @@ impl AutoShadeApp {
                 // Bitmap mask (the raster carrier + bilinear sampler + cache
                 // all pre-existed; this wires the paint canvas into
                 // recipe.masks — see start_mask_brush / commit_mask_brush).
-                let brush_armed = matches!(self.mask_brush, Some((None, _)));
+                let brush_armed = matches!(self.masks.mask_brush, Some((None, _)));
                 if toggle_in(ui, cell, brush_armed, tr(lang, "🖌 Brush"))
                     .on_hover_text(tr(lang, "Paint a free-form mask (drag the 「Brush size」 slider, or press [ / ]); 「Apply」 bakes it into a new mask"))
                     .clicked()
@@ -2140,14 +2140,14 @@ impl AutoShadeApp {
             // Brush-session controls (create OR raster-edit): erase toggle +
             // the bake/cancel pair. Lives up here so it is visible whichever
             // row armed the session.
-            if let Some((target, erase)) = self.mask_brush {
+            if let Some((target, erase)) = self.masks.mask_brush {
                 ui.horizontal(|ui| {
                     let cell = columns(ui, 3);
                     if toggle_in(ui, cell, erase, tr(lang, "Erase"))
                         .on_hover_text(tr(lang, "Strokes remove from the selection instead of adding"))
                         .clicked()
                     {
-                        self.mask_brush = Some((target, !erase));
+                        self.masks.mask_brush = Some((target, !erase));
                     }
                     if primary_in(ui, cell, true, tr(lang, "✓ Apply")).clicked() {
                         self.commit_mask_brush();
@@ -2157,7 +2157,7 @@ impl AutoShadeApp {
                     }
                 });
                 // #9: the radius belongs AT THE TOOL. This is the same
-                // `self.brush` the Retouch panel's slider drives (and the
+                // `self.masks.brush` the Retouch panel's slider drives (and the
                 // `[` / `]` keys) — one session block covers both arms, the
                 // 「＋ Brush」 above and 「🖌 Edit raster」 down in the mask row.
                 // Outside the row closure: that closure holds `&mut self`.
@@ -2313,7 +2313,7 @@ impl AutoShadeApp {
                         {
                             toggle_eye = Some(i);
                         }
-                        let mut row = ui.selectable_label(self.sel_mask == Some(i), label);
+                        let mut row = ui.selectable_label(self.masks.sel_mask == Some(i), label);
                         if !dead.is_empty() {
                             row = row.on_hover_text(trf(
                                 self.lang,
@@ -2325,10 +2325,10 @@ impl AutoShadeApp {
                             self.overlay.hover_mask = Some(i);
                         }
                         if row.clicked() {
-                            self.sel_mask =
-                                if self.sel_mask == Some(i) { None } else { Some(i) };
+                            self.masks.sel_mask =
+                                if self.masks.sel_mask == Some(i) { None } else { Some(i) };
                             // Component selection belongs to ONE mask's list.
-                            self.sel_component = None;
+                            self.masks.sel_component = None;
                             self.overlay.overlay_stale = true; // coverage follows the selection
                             // EVERY index-armed tool follows the selection —
                             // the colour sampler was fixed first, then the
@@ -2338,7 +2338,7 @@ impl AutoShadeApp {
                             // selected-mask block (L06#3). The single owner
                             // sits beside remap_mask_indices; the brush
                             // teardown discards user paint, so it is said.
-                            if self.disarm_selection_bound_tools(self.sel_mask) {
+                            if self.disarm_selection_bound_tools(self.masks.sel_mask) {
                                 let t = tr(
                                     self.lang,
                                     "the raster-edit brush session ended — you selected another mask; its unbaked strokes were discarded",
@@ -2474,7 +2474,7 @@ impl AutoShadeApp {
                 }
             }
             // Selected mask: its full slider set.
-            if let Some(i) = self.sel_mask.filter(|&i| i < self.recipe.masks.len()) {
+            if let Some(i) = self.masks.sel_mask.filter(|&i| i < self.recipe.masks.len()) {
                 ui.add_space(SPACE_MD);
                 ui.horizontal(|ui| {
                     // The name edits a LOCAL buffer and commits one recipe
@@ -2486,8 +2486,8 @@ impl AutoShadeApp {
                     // rename commits to ITS OWN mask first — but only while
                     // that mask's name still equals the seed-time snapshot, so
                     // index shifts (delete/reorder) can never cross-commit.
-                    if self.mask_name_buf.as_ref().is_none_or(|(j, ..)| *j != i) {
-                        if let Some((j, orig, buf)) = self.mask_name_buf.take()
+                    if self.masks.mask_name_buf.as_ref().is_none_or(|(j, ..)| *j != i) {
+                        if let Some((j, orig, buf)) = self.masks.mask_name_buf.take()
                             && let Some(prev) = self.recipe.masks.get_mut(j)
                             && prev.name == orig
                             && buf != orig
@@ -2496,7 +2496,7 @@ impl AutoShadeApp {
                             changed = true;
                         }
                         let cur = self.recipe.masks[i].name.clone();
-                        self.mask_name_buf = Some((i, cur.clone(), cur));
+                        self.masks.mask_name_buf = Some((i, cur.clone(), cur));
                     }
                     // R38: the name takes what the row leaves after the verbs
                     // beside it (↻ Redraw when the geometry has one, then
@@ -2530,7 +2530,7 @@ impl AutoShadeApp {
                     // outside `desired_width`, so it comes off the budget too.
                     let name_margin = egui::Margin::symmetric(4, 2);
                     let name_resp = {
-                        let buf = &mut self.mask_name_buf.as_mut().expect("seeded above").2;
+                        let buf = &mut self.masks.mask_name_buf.as_mut().expect("seeded above").2;
                         ui.add(
                             egui::TextEdit::singleline(buf)
                                 .margin(name_margin)
@@ -2541,7 +2541,7 @@ impl AutoShadeApp {
                         )
                     };
                     if name_resp.lost_focus()
-                        && let Some((_, orig, buf)) = self.mask_name_buf.as_mut()
+                        && let Some((_, orig, buf)) = self.masks.mask_name_buf.as_mut()
                         && *buf != self.recipe.masks[i].name
                     {
                         self.recipe.masks[i].name = buf.clone();
@@ -2571,7 +2571,7 @@ impl AutoShadeApp {
                     };
                     if let Some(kind) = kind {
                         let redraw_armed = matches!(
-                            self.placing_mask,
+                            self.masks.placing_mask,
                             Some((k, PlaceTarget::Redraw(j))) if k == kind && j == i
                         );
                         if ui
@@ -2581,7 +2581,7 @@ impl AutoShadeApp {
                         {
                             self.disarm_tools();
                             if !redraw_armed {
-                                self.placing_mask = Some((kind, PlaceTarget::Redraw(i)));
+                                self.masks.placing_mask = Some((kind, PlaceTarget::Redraw(i)));
                                 self.status =
                                     tr(lang, "Re-drag this mask's area on the image").into();
                             }
@@ -2706,7 +2706,7 @@ impl AutoShadeApp {
                     // wrapping wherever the panel width fell.
                     ui.horizontal(|ui| {
                         let cell = columns(ui, 2);
-                        let edit_armed = matches!(self.mask_brush, Some((Some(j), _)) if j == i);
+                        let edit_armed = matches!(self.masks.mask_brush, Some((Some(j), _)) if j == i);
                         if toggle_in(ui, cell, edit_armed, tr(lang, "🖌 Edit raster"))
                             .on_hover_text(tr(lang, "Brush-edit this mask: paint adds, 「Erase」 removes, 「Apply」 bakes"))
                             .clicked()
@@ -2784,7 +2784,7 @@ impl AutoShadeApp {
                             autoshade::recipe::MaskCombine::Intersect => tr(lang, "∩ Intersect"),
                         };
                         egui::ComboBox::from_id_salt("comp_mode")
-                            .selected_text(mode_label(self.component_mode))
+                            .selected_text(mode_label(self.masks.component_mode))
                             .width(96.0)
                             .show_ui(ui, |ui| {
                                 for m in [
@@ -2792,12 +2792,12 @@ impl AutoShadeApp {
                                     autoshade::recipe::MaskCombine::Subtract,
                                     autoshade::recipe::MaskCombine::Intersect,
                                 ] {
-                                    ui.selectable_value(&mut self.component_mode, m, mode_label(m));
+                                    ui.selectable_value(&mut self.masks.component_mode, m, mode_label(m));
                                 }
                             });
-                        let mode = self.component_mode;
+                        let mode = self.masks.component_mode;
                         let lin_armed = matches!(
-                            self.placing_mask,
+                            self.masks.placing_mask,
                             Some((MaskKind::Linear, PlaceTarget::Component(j, _))) if j == i
                         );
                         if ui
@@ -2807,13 +2807,13 @@ impl AutoShadeApp {
                         {
                             self.disarm_tools();
                             if !lin_armed {
-                                self.placing_mask =
+                                self.masks.placing_mask =
                                     Some((MaskKind::Linear, PlaceTarget::Component(i, mode)));
                                 self.status = tr(lang, "Drag on the image: the new shape composes onto this mask").into();
                             }
                         }
                         let rad_armed = matches!(
-                            self.placing_mask,
+                            self.masks.placing_mask,
                             Some((MaskKind::Radial, PlaceTarget::Component(j, _))) if j == i
                         );
                         if ui
@@ -2823,7 +2823,7 @@ impl AutoShadeApp {
                         {
                             self.disarm_tools();
                             if !rad_armed {
-                                self.placing_mask =
+                                self.masks.placing_mask =
                                     Some((MaskKind::Radial, PlaceTarget::Component(i, mode)));
                                 self.status = tr(lang, "Drag on the image: the new shape composes onto this mask").into();
                             }
@@ -2847,13 +2847,13 @@ impl AutoShadeApp {
                                 MaskGeometry::Brush { .. } => tr(lang, "Brush"),
                                 MaskGeometry::AiMask { .. } => tr(lang, "AI"),
                             };
-                            let selected = self.sel_component == Some(c);
+                            let selected = self.masks.sel_component == Some(c);
                             if ui
                                 .selectable_label(selected, format!("{icon} {kind}"))
                                 .on_hover_text(tr(lang, "Select to drag this shape's knobs on the image (the base mask's knobs come back when deselected)"))
                                 .clicked()
                             {
-                                self.sel_component = if selected { None } else { Some(c) };
+                                self.masks.sel_component = if selected { None } else { Some(c) };
                             }
                             let mut mode = comp.mode;
                             egui::ComboBox::from_id_salt(("comp_row_mode", c))
@@ -2884,7 +2884,7 @@ impl AutoShadeApp {
                     }
                     if let Some(c) = del_comp {
                         self.recipe.masks[i].components.remove(c);
-                        self.sel_component = match self.sel_component {
+                        self.masks.sel_component = match self.masks.sel_component {
                             Some(s) if s == c => None,
                             Some(s) if s > c => Some(s - 1),
                             other => other,

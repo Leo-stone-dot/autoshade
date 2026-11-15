@@ -116,31 +116,31 @@
         app.recipe.masks =
             vec![autoshade::recipe::LocalAdjustment::default(), Default::default()];
 
-        app.placing_mask = Some((MaskKind::Linear, PlaceTarget::Redraw(0)));
-        app.place_start = Some((0.5, 0.5));
+        app.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::Redraw(0)));
+        app.masks.place_start = Some((0.5, 0.5));
         assert!(!app.disarm_selection_bound_tools(Some(1)), "no brush session died");
-        assert!(app.placing_mask.is_none(), "an armed Redraw dies with its row");
-        assert!(app.place_start.is_none(), "…and its gesture anchor with it");
+        assert!(app.masks.placing_mask.is_none(), "an armed Redraw dies with its row");
+        assert!(app.masks.place_start.is_none(), "…and its gesture anchor with it");
 
-        app.placing_mask = Some((
+        app.masks.placing_mask = Some((
             MaskKind::Radial,
             PlaceTarget::Component(0, autoshade::recipe::MaskCombine::Add),
         ));
         app.disarm_selection_bound_tools(None); // same-row deselect
-        assert!(app.placing_mask.is_none(), "deselecting disarms too");
+        assert!(app.masks.placing_mask.is_none(), "deselecting disarms too");
 
         // NewMask is NOT selection-bound — browsing the list keeps it armed;
         // non-mask tools (crop) are none of this helper's business.
-        app.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
+        app.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
         app.crop_mode = true;
         app.disarm_selection_bound_tools(Some(1));
-        assert!(app.placing_mask.is_some(), "a NewMask placement survives");
+        assert!(app.masks.placing_mask.is_some(), "a NewMask placement survives");
         assert!(app.crop_mode, "non-mask tools survive");
 
         // The kept row's own arming survives.
-        app.placing_mask = Some((MaskKind::Linear, PlaceTarget::Redraw(1)));
+        app.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::Redraw(1)));
         app.disarm_selection_bound_tools(Some(1));
-        assert!(app.placing_mask.is_some(), "the selected row keeps its arming");
+        assert!(app.masks.placing_mask.is_some(), "the selected row keeps its arming");
     }
 
     /// L06#5: the plate under the canvas was replaced — a live brush
@@ -157,15 +157,15 @@
         };
         app.start_mask_brush(None);
         assert!(
-            app.mask_brush.is_some() && app.mask_brush_gray.is_some() && app.paint_mode,
+            app.masks.mask_brush.is_some() && app.masks.mask_brush_gray.is_some() && app.masks.paint_mode,
             "fixture: a session is armed"
         );
 
         app.rebind_paint_canvas(16, 16);
-        assert!(app.mask_brush.is_none(), "the session dies with the plate");
-        assert!(app.mask_brush_gray.is_none(), "no weight buffer left to bake");
-        assert!(!app.paint_mode);
-        let m = app.mask_paint.as_ref().expect("a fresh canvas at the new size");
+        assert!(app.masks.mask_brush.is_none(), "the session dies with the plate");
+        assert!(app.masks.mask_brush_gray.is_none(), "no weight buffer left to bake");
+        assert!(!app.masks.paint_mode);
+        let m = app.masks.mask_paint.as_ref().expect("a fresh canvas at the new size");
         assert_eq!((m.width(), m.height()), (16, 16));
 
         app.recipe.masks =
@@ -175,11 +175,11 @@
             app.disarm_selection_bound_tools(Some(1)),
             "an off-selection brush session dies, and says so (return drives the toast)"
         );
-        assert!(app.mask_brush.is_none());
+        assert!(app.masks.mask_brush.is_none());
 
         app.start_mask_brush(Some(1));
         assert!(!app.disarm_selection_bound_tools(Some(1)));
-        assert!(app.mask_brush.is_some(), "the selected row keeps its session");
+        assert!(app.masks.mask_brush.is_some(), "the selected row keeps its session");
     }
 
     /// R22 #2: the full-resolution mask refine refuses a source whose own

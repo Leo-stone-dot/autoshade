@@ -15,21 +15,21 @@ impl AutoShadeApp {
     /// view transform so painting stays accurate at any zoom, and the brush
     /// radius converts display px → canvas px by the current pixel scale.
     pub(crate) fn handle_paint(&mut self, resp: &egui::Response, xf: ViewXform) {
-        let brush = self.brush;
+        let brush = self.masks.brush;
         let tip = self.brush_tip();
         let (dims, deg, dist) = self.geom_ctx();
         // Mask-brush session: strokes write the display canvas AND the
         // greyscale weight buffer; erase clears both.
-        let erase = self.mask_brush.is_some_and(|(_, e)| e);
+        let erase = self.masks.mask_brush.is_some_and(|(_, e)| e);
         let display_px = if erase {
             image::Rgba([0, 0, 0, 0])
         } else {
             image::Rgba([255, 64, 64, 160])
         };
         let gray_v: u8 = if erase { 0 } else { 255 };
-        let mut gray = self.mask_brush_gray.take();
-        let Some(m) = self.mask_paint.as_mut() else {
-            self.mask_brush_gray = gray;
+        let mut gray = self.masks.mask_brush_gray.take();
+        let Some(m) = self.masks.mask_paint.as_mut() else {
+            self.masks.mask_brush_gray = gray;
             return;
         };
         let (mw, mh) = (m.width() as f32, m.height() as f32);
@@ -91,7 +91,7 @@ impl AutoShadeApp {
             if let Some(p) = resp.interact_pointer_pos().or(resp.hover_pos()) {
                 let cur = to_mask(p);
                 let r = brush_at(p);
-                match self.paint_last {
+                match self.masks.paint_last {
                     Some(prev) => {
                         stamped = stamp_line_px(m, prev, cur, r, display_px, tip);
                         if let Some(g) = gray.as_mut() {
@@ -110,8 +110,8 @@ impl AutoShadeApp {
                         grow(&mut self.overlay.mask_dirty_rect, start, cur, r);
                     }
                 }
-                grow(&mut self.overlay.mask_dirty_rect, self.paint_last.unwrap_or(cur), cur, r);
-                self.paint_last = Some(cur);
+                grow(&mut self.overlay.mask_dirty_rect, self.masks.paint_last.unwrap_or(cur), cur, r);
+                self.masks.paint_last = Some(cur);
             }
         } else {
             // No stroke is in flight while the button is up — clearing here
@@ -119,9 +119,9 @@ impl AutoShadeApp {
             // Esc / hold-B / an Alt source-pick, whose drag_stopped frame
             // never reaches this handler and used to leave a stale anchor
             // that drew a full-width connecting streak into the next stroke.
-            self.paint_last = None;
+            self.masks.paint_last = None;
         }
-        self.mask_brush_gray = gray;
+        self.masks.mask_brush_gray = gray;
         if stamped {
             if erase {
                 self.paint_mask_changed(None);
@@ -265,7 +265,7 @@ impl AutoShadeApp {
     /// model. The result lands in the Direction box (ready to reimagine OTHER
     /// photos with the same look) and is saved to ./out/<stem>.style.txt.
         /// The brush-radius slider, rendered wherever a brush is actually IN USE
-    /// (#9). There is exactly ONE radius in the app — `self.brush`, also
+    /// (#9). There is exactly ONE radius in the app — `self.masks.brush`, also
     /// driven by the `[` / `]` keys (see the shortcut in app.rs) — and until
     /// R22 its only slider lived in the Retouch panel, beside Fill / Heal /
     /// Stamp. The mask brush, which starts from Develop → Local Masks and
@@ -284,21 +284,21 @@ impl AutoShadeApp {
     /// marks the centre with a minus.
     pub(crate) fn draw_brush_cursor(&self, ui: &egui::Ui, resp: &egui::Response, rect: egui::Rect) {
         let now = ui.input(|i| i.time);
-        let resized = self.brush_resized_at.is_some_and(|t| now - t < BRUSH_SIZE_FLASH_S);
+        let resized = self.masks.brush_resized_at.is_some_and(|t| now - t < BRUSH_SIZE_FLASH_S);
         let Some(c) = resp.hover_pos().or_else(|| resized.then(|| rect.center())) else { return };
         if resp.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::None);
         }
         let p = ui.painter_at(rect);
-        let r = self.brush;
+        let r = self.masks.brush;
         p.circle_stroke(c, r, egui::Stroke::new(3.0, egui::Color32::from_black_alpha(150)));
         p.circle_stroke(c, r, egui::Stroke::new(1.25, egui::Color32::from_white_alpha(235)));
         // Lightroom's second ring: where the feather starts to fade.
-        let inner = r * (1.0 - self.brush_feather);
-        if self.brush_feather > 0.005 && inner > 2.0 {
+        let inner = r * (1.0 - self.masks.brush_feather);
+        if self.masks.brush_feather > 0.005 && inner > 2.0 {
             p.circle_stroke(c, inner, egui::Stroke::new(1.0, egui::Color32::from_white_alpha(140)));
         }
-        if self.mask_brush.is_some_and(|(_, erase)| erase) {
+        if self.masks.mask_brush.is_some_and(|(_, erase)| erase) {
             let s = (r * 0.35).clamp(3.0, 8.0);
             p.line_segment([c - egui::vec2(s, 0.0), c + egui::vec2(s, 0.0)], egui::Stroke::new(1.5, egui::Color32::WHITE));
         } else {
@@ -318,13 +318,13 @@ impl AutoShadeApp {
     /// The tip every brush paints with: the Feather and Flow dials beside
     /// Brush size (both shared by every brush, as the radius is).
     pub(crate) fn brush_tip(&self) -> BrushTip {
-        BrushTip { feather: self.brush_feather, flow: self.brush_flow }
+        BrushTip { feather: self.masks.brush_feather, flow: self.masks.brush_flow }
     }
 
     /// Set the one brush radius, clamped to its range, and flash the ring.
     pub(crate) fn set_brush(&mut self, radius: f32, now: f64) {
-        self.brush = radius.clamp(BRUSH_R_MIN, BRUSH_R_MAX);
-        self.brush_resized_at = Some(now);
+        self.masks.brush = radius.clamp(BRUSH_R_MIN, BRUSH_R_MAX);
+        self.masks.brush_resized_at = Some(now);
     }
 
     pub(crate) fn brush_size_slider(&mut self, ui: &mut egui::Ui) {
@@ -336,7 +336,7 @@ impl AutoShadeApp {
         let before = ui.cursor();
         // The radius is live tool state, never a recipe field: no dirty flag,
         // no redevelop — a change only flashes the ring on the canvas.
-        let mut radius = self.brush;
+        let mut radius = self.masks.brush;
         if Self::slider_hinted(
             ui,
             lang,
@@ -359,7 +359,7 @@ impl AutoShadeApp {
             ui,
             lang,
             tr(lang, "Feather"),
-            &mut self.brush_feather,
+            &mut self.masks.brush_feather,
             1.0,
             0.0,
             tr(lang, "How soft the brush edge is: 0 = a hard edge, 100 = fading from the centre. The inner ring on the image marks where the fade starts."),
@@ -368,7 +368,7 @@ impl AutoShadeApp {
             ui,
             lang,
             tr(lang, "Flow"),
-            &mut self.brush_flow,
+            &mut self.masks.brush_flow,
             1.0,
             1.0,
             tr(lang, "How much one pass lays down: 100 = full strength at once; lower builds up gradually as you paint over the same place."),
