@@ -521,7 +521,7 @@
                     app.upd_top_bar(ctx);
                     let gallery = egui::SidePanel::left("gallery")
                         .default_width(240.0)
-                        .show(ctx, |ui| app.gallery_panel(ui));
+                        .show(ctx, |ui| app.draw_panel(|view| view.gallery_panel(ui)));
                     let controls = egui::SidePanel::left("controls").default_width(320.0).show(ctx, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             app.ai_panel(ui);
@@ -535,7 +535,7 @@
                     egui::Window::new(tr(lang, K_APP_SETTINGS))
                         .id(egui::Id::new("settings_window"))
                         .default_width(480.0)
-                        .show(ctx, |ui| app.settings_ui(ui));
+                        .show(ctx, |ui| app.draw_panel(|view| view.settings_ui(ui)));
                     widths.push([gallery.response.rect.width(), controls.response.rect.width()]);
                     rects.push([gallery.response.rect, controls.response.rect]);
                 });
@@ -601,7 +601,7 @@
                             ctx.memory_mut(|m| m.set_everything_is_visible(true));
                             let gallery = egui::SidePanel::left("gallery")
                                 .default_width(800.0)
-                                .show(ctx, |ui| app.gallery_panel(ui));
+                                .show(ctx, |ui| app.draw_panel(|view| view.gallery_panel(ui)));
                             let controls = controls_panel(ctx, &mut app, controls_width);
                             widths.push([gallery.response.rect.width(), controls.width()]);
                         },
@@ -915,7 +915,7 @@
                     app.upd_top_bar(ctx);
                     let gallery = egui::SidePanel::left("gallery")
                         .default_width(240.0)
-                        .show(ctx, |ui| app.gallery_panel(ui));
+                        .show(ctx, |ui| app.draw_panel(|view| view.gallery_panel(ui)));
                     let controls = egui::SidePanel::left("controls").default_width(320.0).show(ctx, |ui| {
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             let y0 = ui.min_rect().top();

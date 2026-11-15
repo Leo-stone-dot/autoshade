@@ -547,7 +547,7 @@ impl AutoShadeApp {
                     .clicked()
                 {
                     let ctx = ui.ctx().clone();
-                    self.panel_view().toggle_clipping(&ctx); // instant — no redevelop
+                    self.panel_view(&mut Vec::new()).toggle_clipping(&ctx); // instant — no redevelop
                 }
                 ui.label(egui::RichText::new(format!("{:.0}%", scale * 100.0)).weak().small());
                 // --- preview resolution (gap batch E): 1:1 that actually

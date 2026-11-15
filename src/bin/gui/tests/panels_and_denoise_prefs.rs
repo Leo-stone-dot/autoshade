@@ -180,7 +180,7 @@
             };
             let _ = ctx.run(input, |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    changed |= app.panel_view().curve_editor_for(ui, CurveTarget::Mask(0));
+                    changed |= app.panel_view(&mut Vec::new()).curve_editor_for(ui, CurveTarget::Mask(0));
                 });
             });
             changed
@@ -213,7 +213,7 @@
         let mut drew = true;
         let _ = ctx.run(egui::RawInput::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
-                drew = app.panel_view().curve_editor_for(ui, CurveTarget::Mask(0));
+                drew = app.panel_view(&mut Vec::new()).curve_editor_for(ui, CurveTarget::Mask(0));
             });
         });
         assert!(!drew, "a stale mask index must not report an edit");
@@ -797,7 +797,7 @@
     fn settings_offer_the_managed_python_environment() {
         for lang in [Lang::En, Lang::Zh] {
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            let seen = tall_frame(&mut app, |a, ui| a.settings_ui(ui));
+            let seen = tall_frame(&mut app, |a, ui| a.draw_panel(|view| view.settings_ui(ui)));
             assert!(
                 seen.contains(&tr(lang, K_SETTINGS_MANAGED_PYTHON).to_string()),
                 "{lang:?}: the managed environment row is drawn"
@@ -834,7 +834,7 @@
 
             // The Settings row repeats it, for the interpreter the launch found.
             let mut app = AutoShadeApp { workspace:  { let mut view = WorkspaceView::default(); *view.ui_mut() = ShellState { python_check: Some(bad), ..Default::default() }; view } , lang, ..Default::default() };
-            let seen = tall_frame(&mut app, |a, ui| a.settings_ui(ui));
+            let seen = tall_frame(&mut app, |a, ui| a.draw_panel(|view| view.settings_ui(ui)));
             assert!(
                 seen.iter().any(|t| t.contains("Python27")),
                 "{lang:?}: the Settings row names the wrong interpreter"

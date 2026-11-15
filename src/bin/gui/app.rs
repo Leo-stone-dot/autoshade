@@ -42,14 +42,22 @@ pub(crate) struct AutoShadeApp {
 impl AutoShadeApp {
     /// The projection a panel draws through: the edit, the view state, the
     /// language and the test seams — never the app itself.
-    pub(crate) fn panel_view(&mut self) -> PanelView<'_> {
+    pub(crate) fn panel_view<'a>(&'a mut self, actions: &'a mut Vec<logic::Action>) -> PanelView<'a, 'a> {
         PanelView {
             editor: &mut self.editor,
             workspace: &mut self.workspace,
             lang: self.lang,
+            actions,
             #[cfg(test)]
             seams: &mut self.seams,
         }
+    }
+
+    /// Draw one projected panel and run the intents it reported.
+    pub(crate) fn draw_panel(&mut self, draw: impl FnOnce(&mut PanelView<'_, '_>)) {
+        let mut actions = Vec::new();
+        draw(&mut self.panel_view(&mut actions));
+        self.apply_actions(actions);
     }
 
     /// One update() phase — body extracted verbatim from the eframe
@@ -391,7 +399,7 @@ impl AutoShadeApp {
             }
             if do_clip {
                 // Instant: rebuilt from the retained frame, no redevelop (J).
-                self.panel_view().toggle_clipping(ctx);
+                self.panel_view(&mut Vec::new()).toggle_clipping(ctx);
             }
             if nav != 0 && !self.workspace.busy() && !self.workspace.gal().gallery.is_empty() {
                 // Nothing selected yet: either arrow ENTERS the gallery at its
@@ -914,7 +922,7 @@ impl AutoShadeApp {
         // (LR's panel-hiding grammar); all state lives on, only layout skips.
         if !self.workspace.ui().panels_hidden {
             egui::SidePanel::left("gallery").default_width(240.0).show(ctx, |ui| {
-                self.gallery_panel(ui);
+                self.draw_panel(|view| view.gallery_panel(ui));
             });
 
             let controls = controls_side_panel(ctx, |ui| self.controls_column(ui));
@@ -1045,7 +1053,7 @@ impl AutoShadeApp {
                 .show(ctx, |ui| {
                     egui::ScrollArea::vertical()
                         .max_height(max_h)
-                        .show(ui, |ui| self.settings_ui(ui));
+                        .show(ui, |ui| self.draw_panel(|view| view.settings_ui(ui)));
                 });
             if !open {
                 self.workspace.ui_mut().show_settings = false;

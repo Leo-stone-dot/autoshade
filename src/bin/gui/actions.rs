@@ -251,20 +251,7 @@ impl AutoShadeApp {
     }
 
     pub(crate) fn toast(&mut self, kind: ToastKind, text: impl Into<String>) {
-        let text = text.into();
-        // An identical LIVE toast refreshes instead of duplicating: undoing
-        // through a washed history region fires the same repair disclosure
-        // once per healed step, and five copies evicted still-live ERROR
-        // toasts from the ring. The refresh MOVES it to the back — it is
-        // the newest content, and refreshing in place left it first in
-        // line for eviction, the exact loss the dedup exists to prevent.
-        if let Some(i) = self.workspace.chrome().toasts.iter().position(|t| t.text == text && t.kind == kind) {
-            self.workspace.chrome_mut().toasts.remove(i);
-        }
-        self.workspace.chrome_mut().toasts.push(Toast { text, kind, born: Instant::now() });
-        if self.workspace.chrome().toasts.len() > 5 {
-            self.workspace.chrome_mut().toasts.remove(0); // keep the stack readable
-        }
+        self.workspace.chrome_mut().toast(kind, text);
     }
 
     /// A worker finished successfully: status line + a success toast, unbusy.

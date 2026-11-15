@@ -973,7 +973,7 @@
             (crate::i18n::Lang::Zh, "分割脚本", "浏览…"),
         ] {
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            let seen = tall_frame(&mut app, |a, ui| a.settings_ui(ui));
+            let seen = tall_frame(&mut app, |a, ui| a.draw_panel(|view| view.settings_ui(ui)));
             let at = seen.iter().position(|t| t == heading).unwrap_or_else(|| {
                 panic!("{lang:?}: the sidecar heading was not drawn: {seen:?}")
             });

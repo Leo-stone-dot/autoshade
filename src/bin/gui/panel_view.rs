@@ -7,15 +7,27 @@
 
 use crate::*;
 
-pub(crate) struct PanelView<'a> {
+pub(crate) struct PanelView<'a, 'b> {
     pub(crate) editor: &'a mut Editor,
     pub(crate) workspace: &'a mut WorkspaceView,
     pub(crate) lang: Lang,
+    /// The frame's action sink: a panel reports intents, the app runs them.
+    pub(crate) actions: &'b mut Vec<logic::Action>,
     #[cfg(test)]
     pub(crate) seams: &'a mut TestSeams,
 }
 
-impl PanelView<'_> {
+impl PanelView<'_, '_> {
+    /// A toast: the renderer's only user-facing alert door.
+    pub(crate) fn toast(&mut self, kind: ToastKind, text: impl Into<String>) {
+        self.workspace.chrome_mut().toast(kind, text);
+    }
+
+    /// Report a batch of intents.
+    pub(crate) fn act_all(&mut self, actions: impl IntoIterator<Item = logic::Action>) {
+        self.actions.extend(actions);
+    }
+
     /// Toggle the clipping overlay (the J overlay and the histogram's corner
     /// triangles share it). At rest it drops the layer; once on it rebuilds
     /// from the retained RGB frame, so the toggle is instant — no redevelop.

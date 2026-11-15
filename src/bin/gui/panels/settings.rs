@@ -4,7 +4,7 @@ use crate::*;
 
 
 
-impl AutoShadeApp {
+impl PanelView<'_, '_> {
     pub(crate) fn settings_ui(&mut self, ui: &mut egui::Ui) {
         let mut do_save = false;
         let mut fetch: Option<ModelRole> = None;
@@ -136,7 +136,7 @@ impl AutoShadeApp {
             ))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Settings(
+            self.act_all(vec![logic::Action::Settings(
                 logic::settings::SettingsAction::ImportLegacyFolder,
             )]);
         }
@@ -172,7 +172,7 @@ impl AutoShadeApp {
             });
         }
         if browse_delivery {
-            self.apply_actions(vec![logic::Action::Settings(
+            self.act_all(vec![logic::Action::Settings(
                 logic::settings::SettingsAction::PickDeliveryFolder,
             )]);
         }
@@ -298,7 +298,7 @@ impl AutoShadeApp {
             ))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Settings(
+            self.act_all(vec![logic::Action::Settings(
                 logic::settings::SettingsAction::InstallPython,
             )]);
         }
@@ -650,12 +650,12 @@ impl AutoShadeApp {
             .small(),
         );
         if do_save {
-            self.apply_actions(vec![logic::Action::Settings(
+            self.act_all(vec![logic::Action::Settings(
                 logic::settings::SettingsAction::SaveForm,
             )]);
         }
         if let Some(role) = fetch {
-            self.apply_actions(vec![logic::Action::Settings(
+            self.act_all(vec![logic::Action::Settings(
                 logic::settings::SettingsAction::FetchModels(match role {
                     ModelRole::Analysis => logic::settings::ModelSide::Analysis,
                     ModelRole::Image => logic::settings::ModelSide::Image,

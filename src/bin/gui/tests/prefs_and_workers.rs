@@ -647,7 +647,7 @@
             let _ = ctx.run(input, |ctx| {
                 egui::SidePanel::left("library")
                     .default_width(260.0)
-                    .show(ctx, |ui| app.gallery_panel(ui));
+                    .show(ctx, |ui| app.draw_panel(|view| view.gallery_panel(ui)));
             });
             let slot = app.workspace.gal().gallery_slot_rect.expect("the gallery records its thumb slot (test seam)");
             let draw = app.workspace.gal().gallery_thumb_rect.expect("the gallery records the drawn image (test seam)");

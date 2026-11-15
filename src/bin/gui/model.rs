@@ -613,6 +613,25 @@ pub(crate) struct ChromeState {
     pub(crate) clip_tex: Option<egui::TextureHandle>,
 }
 
+impl ChromeState {
+    /// Push a toast, refreshing an identical LIVE one instead of duplicating:
+    /// undoing through a washed history region fires the same repair
+    /// disclosure once per healed step, and five copies evicted still-live
+    /// ERROR toasts from the ring. The refresh MOVES it to the back — it is
+    /// the newest content, and refreshing in place left it first in line for
+    /// eviction, the exact loss the dedup exists to prevent.
+    pub(crate) fn toast(&mut self, kind: ToastKind, text: impl Into<String>) {
+        let text = text.into();
+        if let Some(i) = self.toasts.iter().position(|t| t.text == text && t.kind == kind) {
+            self.toasts.remove(i);
+        }
+        self.toasts.push(Toast { text, kind, born: std::time::Instant::now() });
+        if self.toasts.len() > 5 {
+            self.toasts.remove(0); // keep the stack readable
+        }
+    }
+}
+
 impl Default for ChromeState {
     fn default() -> Self {
         Self {

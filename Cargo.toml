@@ -55,6 +55,9 @@ slow-tests = []
 [profile.test]
 opt-level = 2
 
+[profile.dev]
+debug = "line-tables-only"
+
 [dependencies]
 anyhow = "1.0.103"
 base64 = "0.22"
