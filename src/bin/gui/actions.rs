@@ -3408,7 +3408,7 @@ impl AutoShadeApp {
         match autoshade::recipe_library::create(&name, &entry) {
             Ok(()) => {
                 self.refresh_recipes();
-                self.recipe_sel = Some(name.clone());
+                self.rlib.recipe_sel = Some(name.clone());
                 let base = trf(self.lang, "Imported 「{name}」", &[("name", &name)]);
                 let text = if losses.is_empty() {
                     base

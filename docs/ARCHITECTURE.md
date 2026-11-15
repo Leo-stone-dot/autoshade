@@ -7685,7 +7685,10 @@ the current-only filter, the delete confirmation, the keep-recipe flag), one
 core state. The app struct is at 103 fields. `model::FitState` owns the reverse-fit dials and
 dialog state (zoned/four-region, AI judge, deep think, retry, ask-after-generate,
 reference path/label, prompt), one `fit` field; six of the dials are `Prefs`
-fields and the save/load code maps between them. The app struct is at 95 fields.
+fields and the save/load code maps between them. The app struct is at 95 fields. `model::RecipeLibraryState` owns the named-recipe
+panel (open switch, loaded list and its read/filter/selection, name field,
+inline rename and delete-armed rows, preview texture), one `rlib` field; the app
+struct is at 87 fields.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
