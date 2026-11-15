@@ -301,3 +301,36 @@ mod tests {
         assert_eq!(rotate_angle(-40.0, -20.0), -45.0);
     }
 }
+
+#[cfg(test)]
+mod noop_tests {
+    use super::*;
+
+    #[test]
+    fn a_free_preset_keeps_the_box_and_emits_nothing() {
+        let mut recipe = EditRecipe::default();
+        let effects = apply(&mut recipe, CropAction::Preset { current: None, aspect_px: None, tex: (4000.0, 3000.0) });
+        assert!(effects.is_empty(), "free means the box is untouched");
+        assert!(recipe.crop.is_none());
+    }
+
+    #[test]
+    fn a_zero_delta_drag_is_not_an_edit() {
+        let mut recipe = EditRecipe { crop: Some(Crop { left: 0.1, top: 0.1, right: 0.9, bottom: 0.9 }), ..Default::default() };
+        let start = [0.1, 0.1, 0.9, 0.9];
+        let effects = apply(
+            &mut recipe,
+            CropAction::Drag { handle: 4, start, delta: (0.0, 0.0), aspect_px: None, tex: (4000.0, 3000.0) },
+        );
+        assert!(effects.is_empty(), "a stationary drag records no step");
+        assert_eq!(recipe.crop, Some(Crop { left: 0.1, top: 0.1, right: 0.9, bottom: 0.9 }));
+    }
+
+    #[test]
+    fn a_rotate_that_lands_on_the_same_angle_is_not_an_edit() {
+        let mut recipe = EditRecipe { straighten_deg: 3.0, ..Default::default() };
+        let effects = apply(&mut recipe, CropAction::Rotate { base_deg: 3.0, raw_delta_deg: 0.0 });
+        assert!(effects.is_empty());
+        assert_eq!(recipe.straighten_deg, 3.0);
+    }
+}

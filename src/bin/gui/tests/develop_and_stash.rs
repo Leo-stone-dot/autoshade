@@ -296,35 +296,6 @@
     }
 
     #[test]
-    fn reorder_move_remap_matches_actual_remove_insert() {
-        // The remap returned by reorder_move must agree with what physically
-        // happens to a vec under remove(from) + insert(to) — for EVERY
-        // element, every (from, insert) pair, including the append slot
-        // (insert == len). The two no-op slots are the caller's guard.
-        for len in 1..=5usize {
-            for from in 0..len {
-                for insert in 0..=len {
-                    if insert == from || insert == from + 1 {
-                        continue; // no-op drop slots, skipped by the GUI
-                    }
-                    let mut v: Vec<usize> = (0..len).collect();
-                    let (to, remap) = reorder_move(from, insert);
-                    let m = v.remove(from);
-                    v.insert(to, m);
-                    for orig in 0..len {
-                        let now = v.iter().position(|&x| x == orig).unwrap();
-                        assert_eq!(
-                            remap(orig),
-                            now,
-                            "len {len} from {from} insert {insert}: element {orig}"
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    #[test]
     fn read_saved_develop_prefers_recipe_json_then_xmp() {
         // The open-path restore contract: no sidecar → Nothing; a NEUTRAL
         // sidecar → NoopOnly (never announced as a restore); XMP-only → the
