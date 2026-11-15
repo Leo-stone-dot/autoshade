@@ -42,7 +42,7 @@
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.recipe.masks = vec![
+            app.doc.recipe.masks = vec![
                 autoshade::recipe::LocalAdjustment {
                     mask: autoshade::recipe::MaskGeometry::Radial {
                         top: 0.2, left: 0.2, bottom: 0.8, right: 0.8,
@@ -139,7 +139,7 @@
             [(crate::i18n::Lang::En, "Curve"), (crate::i18n::Lang::Zh, "曲线")]
         {
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.recipe.masks =
+            app.doc.recipe.masks =
                 vec![autoshade::recipe::LocalAdjustment { name: "sky".into(), ..Default::default() }];
             // ① selected → the fourth group caption is drawn.
             app.masks.sel_mask = Some(0);
@@ -165,7 +165,7 @@
 
         // ③ the driven half: a click in the MASK editor lands in the mask.
         let mut app = AutoShadeApp::default();
-        app.recipe.masks =
+        app.doc.recipe.masks =
             vec![autoshade::recipe::LocalAdjustment { name: "sky".into(), ..Default::default() }];
         let ctx = egui::Context::default();
         let run_pass = |app: &mut AutoShadeApp, events: Vec<egui::Event>| -> bool {
@@ -198,18 +198,18 @@
         let released = run_pass(&mut app, vec![button(false)]);
         assert!(pressed || released, "the mask editor must report the edit");
         assert_eq!(
-            app.recipe.masks[0].main_curve.len(),
+            app.doc.recipe.masks[0].main_curve.len(),
             1,
             "the click adds one point to the MASK's master curve"
         );
         assert!(
-            app.recipe.tone_curve.is_empty(),
+            app.doc.recipe.tone_curve.is_empty(),
             "the mask editor wrote into the GLOBAL tone curve: {:?}",
-            app.recipe.tone_curve
+            app.doc.recipe.tone_curve
         );
         // ④ a target that no longer addresses a mask draws nothing rather
         //    than falling through to the global curves.
-        app.recipe.masks.clear();
+        app.doc.recipe.masks.clear();
         let mut drew = true;
         let _ = ctx.run(egui::RawInput::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -217,7 +217,7 @@
             });
         });
         assert!(!drew, "a stale mask index must not report an edit");
-        assert!(app.recipe.tone_curve.is_empty(), "…and must not touch the global curves");
+        assert!(app.doc.recipe.tone_curve.is_empty(), "…and must not touch the global curves");
     }
 
     /// Every text one frame drew, nested `Shape::Vec` included — the way to read
@@ -271,7 +271,7 @@
             // 2) A plain Lightroom heal: the summary, and NO ✨ verb — the
             //    pixels were copied, so there is nothing for a model to redo.
             let mut copied = AutoShadeApp { lang, ..Default::default() };
-            copied.recipe.retouch = vec![area(SpotOrigin::LightroomHeal)];
+            copied.doc.recipe.retouch = vec![area(SpotOrigin::LightroomHeal)];
             let seen = tall_frame(&mut copied, |a, ui| a.retouch_panel(ui));
             assert!(
                 seen.iter().any(|t| t == tr(lang, "Imported removal")),
@@ -284,7 +284,7 @@
 
             // 3) One Adobe-synthesised area among them: the verb appears.
             let mut invented = AutoShadeApp { lang, ..Default::default() };
-            invented.recipe.retouch = vec![
+            invented.doc.recipe.retouch = vec![
                 area(SpotOrigin::LightroomHeal),
                 area(SpotOrigin::LightroomGenerative),
             ];
@@ -338,7 +338,7 @@
             // 2) A stored control with the MODE OFF — renders nothing, and
             //    must still be visible.
             let mut stored = AutoShadeApp { lang, ..Default::default() };
-            stored.recipe.sdr_brightness = 40.0;
+            stored.doc.recipe.sdr_brightness = 40.0;
             let seen = tall_frame(&mut stored, |a, ui| {
                 a.develop_panel(ui);
             });
@@ -349,7 +349,7 @@
 
             // 3) …and so does the mode by itself.
             let mut on = AutoShadeApp { lang, ..Default::default() };
-            on.recipe.hdr_edit = true;
+            on.doc.recipe.hdr_edit = true;
             let seen = tall_frame(&mut on, |a, ui| {
                 a.develop_panel(ui);
             });

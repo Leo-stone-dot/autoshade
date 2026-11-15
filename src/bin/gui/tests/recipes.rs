@@ -38,7 +38,17 @@ fn app_with(photo: &std::path::Path, recipe: EditRecipe) -> AutoShadeApp {
 
         },
 
-        recipe,
+        doc: Document {
+
+
+            recipe,
+
+
+            ..Default::default()
+
+
+        },
+
         ..Default::default()
     }
 }
@@ -116,7 +126,7 @@ fn a_taken_or_illegal_name_is_refused_and_nothing_is_written() {
     let first = std::fs::read_to_string(&path).unwrap();
 
     // The field clears after a save: type the same name again to ask for it.
-    app.recipe.exposure_ev = -2.0;
+    app.doc.recipe.exposure_ev = -2.0;
     app.rlib.recipe_name_buf = name.clone();
     app.save_current_recipe();
     assert!(app.status.contains("already exists"), "{}", app.status);
@@ -142,10 +152,10 @@ fn applying_a_recipe_to_the_canvas_is_an_unsaved_edit() {
     recipe_library::create(&name, &EditRecipe { exposure_ev: 0.9, contrast: 21.0, ..Default::default() }).unwrap();
 
     let mut app = app_with(&photo, EditRecipe::default());
-    app.session.hist.saved_recipe = app.recipe.clone();
+    app.session.hist.saved_recipe = app.doc.recipe.clone();
     app.apply_recipe_to_open(&name);
-    assert!((app.recipe.exposure_ev - 0.9).abs() < 1e-6, "{}", app.recipe.exposure_ev);
-    assert_eq!(app.recipe.contrast, 21.0);
+    assert!((app.doc.recipe.exposure_ev - 0.9).abs() < 1e-6, "{}", app.doc.recipe.exposure_ev);
+    assert_eq!(app.doc.recipe.contrast, 21.0);
     assert!(app.session.dirty, "the canvas is an unsaved edit");
     assert!(!autoshade::store::recipe_target(&photo).exists(), "nothing was written to the store");
     assert!(app.status.contains("Applied recipe"), "{}", app.status);
@@ -206,7 +216,7 @@ fn rename_moves_the_file_and_update_keeps_the_name() {
     app.rlib.recipes_loaded = true;
     app.refresh_recipes();
 
-    app.recipe.contrast = 44.0;
+    app.doc.recipe.contrast = 44.0;
     app.update_recipe_from_open(&from);
     let back = recipe_library::read(&from).unwrap();
     assert_eq!(back.contrast, 44.0, "the content was replaced");

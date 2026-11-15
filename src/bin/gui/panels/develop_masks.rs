@@ -17,7 +17,7 @@ impl AutoShadeApp {
         // #14b, group 3: masks and the pixel-level tools they reach.
         group_caption(ui, tr(lang, "Local & Pixel"));
         // --- 局部调整: manual masks — the SAME recipe.masks the AI writes -----
-        let n_masks = self.recipe.masks.len();
+        let n_masks = self.doc.recipe.masks.len();
         let n_masks_s = n_masks.to_string();
         card_fold(ui, egui::CollapsingHeader::new(section_title(
             &trf(lang, "Local Masks ({n})", &[("n", &n_masks_s)]),
@@ -49,7 +49,7 @@ impl AutoShadeApp {
             for i in 0..n_masks {
                 let row_resp = ui
                     .horizontal(|ui| {
-                        let m = &self.recipe.masks[i];
+                        let m = &self.doc.recipe.masks[i];
                         let kind = match m.range {
                             Some(RangeMask::Luminance { .. }) => {
                                 tr(self.lang, "Luminance range")
@@ -187,14 +187,14 @@ impl AutoShadeApp {
                 // captured at drag start, and the list can shrink mid-drag
                 // (Ctrl+Z, an async AI result) — a stale `from` would panic
                 // in Vec::remove.
-                && from < self.recipe.masks.len()
-                && insert <= self.recipe.masks.len()
+                && from < self.doc.recipe.masks.len()
+                && insert <= self.doc.recipe.masks.len()
                 && insert != from
                 && insert != from + 1
             {
                 let (to, remap) = reorder_move(from, insert);
-                let m = self.recipe.masks.remove(from);
-                self.recipe.masks.insert(to, m);
+                let m = self.doc.recipe.masks.remove(from);
+                self.doc.recipe.masks.insert(to, m);
                 self.remap_mask_indices(|s| Some(remap(s)));
                 self.overlay.overlay_stale = true;
                 changed = true;
@@ -202,12 +202,12 @@ impl AutoShadeApp {
             if let Some(i) = toggle_eye {
                 // A recipe mutation like any slider: develop + overlay follow,
                 // and commit_if_settled makes it one undo step.
-                self.recipe.masks[i].enabled = !self.recipe.masks[i].enabled;
+                self.doc.recipe.masks[i].enabled = !self.doc.recipe.masks[i].enabled;
                 self.overlay.overlay_stale = true;
                 changed = true;
             }
             if let Some(i) = delete {
-                self.recipe.masks.remove(i);
+                self.doc.recipe.masks.remove(i);
                 self.remap_mask_indices(|s| {
                     if s == i {
                         None
@@ -371,11 +371,11 @@ impl AutoShadeApp {
         // stack position to drag. Three controls, which are the three
         // questions a user actually has about it — is it on, how much of
         // it, and get rid of it.
-        if self.recipe.colour_field.is_some() {
+        if self.doc.recipe.colour_field.is_some() {
             ui.add_space(SPACE_XS);
             let mut remove_field = false;
             ui.horizontal(|ui| {
-                let field = self.recipe.colour_field.as_mut().expect("just checked");
+                let field = self.doc.recipe.colour_field.as_mut().expect("just checked");
                 if glyph_toggle(ui, field.enabled, "👁")
                     .on_hover_text(tr(
                         lang,
@@ -407,7 +407,7 @@ impl AutoShadeApp {
                     remove_field = true;
                 }
             });
-            let field = self.recipe.colour_field.as_mut().expect("just checked");
+            let field = self.doc.recipe.colour_field.as_mut().expect("just checked");
             // Through the shared slider (its look, reset to the solved
             // field's full amount, ↑/↓) — it was the one bare egui slider.
             let enabled = field.enabled;
@@ -420,7 +420,7 @@ impl AutoShadeApp {
                 changed = true;
             }
             if remove_field {
-                self.recipe.colour_field = None;
+                self.doc.recipe.colour_field = None;
                 changed = true;
             }
         }
@@ -434,7 +434,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         let mut changed = false;
         // Selected mask: its full slider set.
-        if let Some(i) = self.masks.sel_mask.filter(|&i| i < self.recipe.masks.len()) {
+        if let Some(i) = self.masks.sel_mask.filter(|&i| i < self.doc.recipe.masks.len()) {
             let coverage = self.dev_mask_geometry_and_range(ui, i);
             // Any edit up to here — geometry, range, Amount — can move the
             // coverage wash (the overlay key carries them all); the key
@@ -479,7 +479,7 @@ impl AutoShadeApp {
     fn dev_mask_adjustments(&mut self, ui: &mut egui::Ui, i: usize) -> bool {
         let lang = self.lang;
         let mut changed = false;
-        let m = &mut self.recipe.masks[i];
+        let m = &mut self.doc.recipe.masks[i];
         // Lightroom's own three groups for a mask's adjustments (user
         // decision 8 of the 17-feedback triage): Tone / Detail /
         // Color, weak captions in the Color-Grading "All regions"
@@ -645,14 +645,14 @@ impl AutoShadeApp {
             // index shifts (delete/reorder) can never cross-commit.
             if self.masks.mask_name_buf.as_ref().is_none_or(|(j, ..)| *j != i) {
                 if let Some((j, orig, buf)) = self.masks.mask_name_buf.take()
-                    && let Some(prev) = self.recipe.masks.get_mut(j)
+                    && let Some(prev) = self.doc.recipe.masks.get_mut(j)
                     && prev.name == orig
                     && buf != orig
                 {
                     prev.name = buf;
                     changed = true;
                 }
-                let cur = self.recipe.masks[i].name.clone();
+                let cur = self.doc.recipe.masks[i].name.clone();
                 self.masks.mask_name_buf = Some((i, cur.clone(), cur));
             }
             // R38: the name takes what the row leaves after the verbs
@@ -662,7 +662,7 @@ impl AutoShadeApp {
             // this row, it ran 100 px past the panel — and the panel
             // widened to fit, taking every row below it along.
             let has_redraw = matches!(
-                self.recipe.masks[i].mask,
+                self.doc.recipe.masks[i].mask,
                 MaskGeometry::Linear { .. } | MaskGeometry::Radial { .. }
             );
             let reserve = {
@@ -699,15 +699,15 @@ impl AutoShadeApp {
             };
             if name_resp.lost_focus()
                 && let Some((_, orig, buf)) = self.masks.mask_name_buf.as_mut()
-                && *buf != self.recipe.masks[i].name
+                && *buf != self.doc.recipe.masks[i].name
             {
-                self.recipe.masks[i].name = buf.clone();
+                self.doc.recipe.masks[i].name = buf.clone();
                 // Re-baseline the seed: a SECOND rename in this row
                 // must still cross-commit correctly on a row switch.
                 *orig = buf.clone();
                 changed = true;
             }
-            let m = &mut self.recipe.masks[i];
+            let m = &mut self.doc.recipe.masks[i];
             // Raster masks have no drag-to-place geometry — no 重画.
             let kind = match m.mask {
                 MaskGeometry::Linear { .. } => Some(MaskKind::Linear),
@@ -755,7 +755,7 @@ impl AutoShadeApp {
                     logic::develop::DevelopAction::MoveMaskUp(i),
                 )]);
             }
-            if glyph(ui, i + 1 < self.recipe.masks.len(), "⬇")
+            if glyph(ui, i + 1 < self.doc.recipe.masks.len(), "⬇")
                 .on_hover_text(tr(lang, "Move down (renders later)"))
                 .clicked()
             {
@@ -781,7 +781,7 @@ impl AutoShadeApp {
             // must drive the develop + overlay like every other mask
             // control (was silently discarded: the toggle mutated the
             // recipe but never re-rendered until an unrelated edit).
-            if ui.checkbox(&mut self.recipe.masks[i].inverted, tr(lang, "Invert")).changed() {
+            if ui.checkbox(&mut self.doc.recipe.masks[i].inverted, tr(lang, "Invert")).changed() {
                 self.overlay.overlay_stale = true;
                 changed = true;
             }
@@ -806,7 +806,7 @@ impl AutoShadeApp {
         // Radial geometry: edge feather (shown 0..100, LR's track) +
         // rotation + inside/outside flip — all engine-rendered.
         if let MaskGeometry::Radial { feather, flipped, angle, .. } =
-            &mut self.recipe.masks[i].mask
+            &mut self.doc.recipe.masks[i].mask
         {
             let mut geo_ch = false;
             ui.horizontal(|ui| {
@@ -856,7 +856,7 @@ impl AutoShadeApp {
         // `Bitmap`": the reverse-fit zones are Select Sky components
         // now and still ride an ordinary claimed PNG, while an AI mask
         // whose alpha has not resolved has nothing to open.
-        if autoshade::render::geometry_raster_path(&self.recipe.masks[i].mask).is_some() {
+        if autoshade::render::geometry_raster_path(&self.doc.recipe.masks[i].mask).is_some() {
             // R38: two aligned rows — the pair that opens a session
             // or a full-size re-cut, then the three one-step
             // morphologies — instead of five free-width buttons
@@ -994,11 +994,11 @@ impl AutoShadeApp {
                     }
                 }
             });
-            let n_comp = self.recipe.masks[i].components.len();
+            let n_comp = self.doc.recipe.masks[i].components.len();
             let mut del_comp: Option<usize> = None;
             for c in 0..n_comp {
                 ui.horizontal(|ui| {
-                    let comp = &self.recipe.masks[i].components[c];
+                    let comp = &self.doc.recipe.masks[i].components[c];
                     let icon = match comp.mode {
                         autoshade::recipe::MaskCombine::Add => "＋",
                         autoshade::recipe::MaskCombine::Subtract => "－",
@@ -1034,11 +1034,11 @@ impl AutoShadeApp {
                             ui.selectable_value(&mut mode, autoshade::recipe::MaskCombine::Intersect, tr(lang, "Intersect"));
                         });
                     if mode != comp.mode {
-                        self.recipe.masks[i].components[c].mode = mode;
+                        self.doc.recipe.masks[i].components[c].mode = mode;
                         self.overlay.overlay_stale = true;
                         changed = true;
                     }
-                    if ui.checkbox(&mut self.recipe.masks[i].components[c].inverted, tr(lang, "Invert")).changed() {
+                    if ui.checkbox(&mut self.doc.recipe.masks[i].components[c].inverted, tr(lang, "Invert")).changed() {
                         self.overlay.overlay_stale = true;
                         changed = true;
                     }
@@ -1048,7 +1048,7 @@ impl AutoShadeApp {
                 });
             }
             if let Some(c) = del_comp {
-                self.recipe.masks[i].components.remove(c);
+                self.doc.recipe.masks[i].components.remove(c);
                 self.masks.sel_component = match self.masks.sel_component {
                     Some(s) if s == c => None,
                     Some(s) if s > c => Some(s - 1),
@@ -1077,7 +1077,7 @@ impl AutoShadeApp {
         // tracker went blind whenever an earlier control had already
         // set `changed` in the same frame.
         {
-            let cur = match &self.recipe.masks[i].range {
+            let cur = match &self.doc.recipe.masks[i].range {
                 None => 0usize,
                 Some(RangeMask::Luminance { .. }) => 1,
                 Some(RangeMask::Color { .. }) => 2,
@@ -1101,7 +1101,7 @@ impl AutoShadeApp {
                 if cur == 2 && self.tools.range_picking == Some(i) {
                     self.tools.range_picking = None;
                 }
-                self.recipe.masks[i].range = match sel {
+                self.doc.recipe.masks[i].range = match sel {
                     // Full range = neutral start; narrow from there.
                     1 => Some(RangeMask::Luminance { lo_outer: 0.0, lo: 0.0, hi: 1.0, hi_outer: 1.0 }),
                     2 => Some(RangeMask::Color { r: 0.5, g: 0.5, b: 0.5, amount: 0.5, px: 0.5, py: 0.5 }),
@@ -1118,7 +1118,7 @@ impl AutoShadeApp {
             }
             let picking_this = self.tools.range_picking == Some(i);
             let mut want_pick = false;
-            match &mut self.recipe.masks[i].range {
+            match &mut self.doc.recipe.masks[i].range {
                 Some(RangeMask::Luminance { lo_outer, lo, hi, hi_outer }) => {
                     ui.horizontal(|ui| {
                         ui.label(tr(lang, "Ordered bounds"));
@@ -1180,7 +1180,7 @@ impl AutoShadeApp {
                 }
             }
         }
-        let m = &mut self.recipe.masks[i];
+        let m = &mut self.doc.recipe.masks[i];
         // LR's 0..100 display track (storage stays 0..1 — slider_pct).
         changed |= Self::slider_pct(ui, lang, tr(lang, "Amount"), &mut m.amount, 1.0, 1.0);
         changed

@@ -28,7 +28,7 @@
 
         assert!(app.can_rotate(), "a parametric photo with a plate is rotatable");
         app.rotate_photo(1, &ctx);
-        assert_eq!(app.recipe.quarter_turns, 1);
+        assert_eq!(app.doc.recipe.quarter_turns, 1);
         assert_eq!(app.photo.base_turns, 1);
         assert_eq!(
             app.photo.base_preview.as_ref().unwrap().dimensions(),
@@ -39,13 +39,13 @@
 
         // A second turn moves by the DELTA, not by the running total.
         app.rotate_photo(1, &ctx);
-        assert_eq!(app.recipe.quarter_turns, 2);
+        assert_eq!(app.doc.recipe.quarter_turns, 2);
         assert_eq!(app.photo.base_preview.as_ref().unwrap().dimensions(), (8, 6));
 
         // An UNDO changes only the recipe; the per-frame reconciler is what
         // brings the plate back — one mover for both directions.
         app.undo(&ctx);
-        assert_eq!(app.recipe.quarter_turns, 1, "one Ctrl+Z per turn (7.7)");
+        assert_eq!(app.doc.recipe.quarter_turns, 1, "one Ctrl+Z per turn (7.7)");
         app.sync_base_turns(&ctx);
         assert_eq!(app.photo.base_preview.as_ref().unwrap().dimensions(), (6, 8));
         assert_eq!(app.photo.base_turns, 1);
@@ -59,11 +59,11 @@
         // BAKED PIXELS close the door, whole strip (a limitation by design):
         // a master raster is a file in the frame it was baked in, and this
         // build cannot record that it predates a turn.
-        app.variants[0].origin = Some("master.png".into());
+        app.doc.variants[0].origin = Some("master.png".into());
         assert!(!app.can_rotate(), "a baked master must block the turn, not be turned under");
-        let before = app.recipe.quarter_turns;
+        let before = app.doc.recipe.quarter_turns;
         app.rotate_photo(1, &ctx);
-        assert_eq!(app.recipe.quarter_turns, before, "a refused turn changes nothing");
+        assert_eq!(app.doc.recipe.quarter_turns, before, "a refused turn changes nothing");
     }
 
     /// R29 C3/C4 item 1 — the GUI tells the two subject backends apart, and it
@@ -106,7 +106,7 @@
             !ok.chrome.toasts.iter().any(|t| matches!(t.kind, ToastKind::Error)),
             "the model the user ruled for is not a warning"
         );
-        assert_eq!(ok.recipe.masks.len(), 1, "the mask still lands");
+        assert_eq!(ok.doc.recipe.masks.len(), 1, "the mask still lands");
 
         // THE FALLBACK TIER: named in the status AND escalated to an error
         // toast, because a status line nobody is looking at is not a
@@ -458,8 +458,20 @@
 
             },
 
-            variants: vec![mk(VariantKind::Original), mk(VariantKind::Generated)],
-            active: 1,
+            doc: Document {
+
+
+                variants: vec![mk(VariantKind::Original), mk(VariantKind::Generated)],
+
+
+                active: 1,
+
+
+                ..Default::default()
+
+
+            },
+
             fit: FitState {
                 fit_ref: Some(std::env::temp_dir().join(format!("autoshade-library-{}/_buttons-reference.png", std::process::id()))),
                 ..Default::default()
@@ -467,19 +479,19 @@
             ..Default::default()
         };
         app.photo.base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
-        app.recipe.masks.push(LocalAdjustment {
+        app.doc.recipe.masks.push(LocalAdjustment {
             mask: MaskGeometry::Bitmap { path: "mask-buttons.png".into() },
             components: vec![MaskComponent::default()],
             ..Default::default()
         });
-        app.recipe.colour_field =
+        app.doc.recipe.colour_field =
             Some(ColourField { x: 1, y: 1, b: 1, grid: vec![[0.0; 5]], amount: 0.5, enabled: true });
         // 2026-10-13: a lens blur, so its section's rows are laid too.
-        app.recipe.lens_blur =
+        app.doc.recipe.lens_blur =
             Some(autoshade::render::LensBlur { depth_map: "depth-buttons.png".into(), ..Default::default() });
         // v1.5.0: a Point Color swatch — its row is a chip, a name and a
         // ✕, and its four sliders are laid beside the mixer's own.
-        app.recipe.point_colors.push(autoshade::recipe::PointColor::sampled(0.9, 0.7, 0.5));
+        app.doc.recipe.point_colors.push(autoshade::recipe::PointColor::sampled(0.9, 0.7, 0.5));
         // A histogram, so the readout's width can be pinned (2026-09-27).
         app.chrome.histogram = Some(vec![[0.5; 4]; 256]);
         app.masks.sel_mask = Some(0);
@@ -675,7 +687,7 @@
             );
             let ask = tr(lang, "Alt+click to set the clone source first");
             for turns in [1u8, 2, 3, 5] {
-                app.recipe.quarter_turns = turns;
+                app.doc.recipe.quarter_turns = turns;
                 app.status.clear();
                 app.start_clone();
                 assert!(!app.busy, "quarter_turns={turns}: a refused clone never reaches a worker");
@@ -684,7 +696,7 @@
             // No turn, or a full one, IS the un-turned frame: the verb goes on
             // to its own next check, exactly as heal and fill do.
             for turns in [0u8, 4] {
-                app.recipe.quarter_turns = turns;
+                app.doc.recipe.quarter_turns = turns;
                 app.status.clear();
                 app.start_clone();
                 assert!(!app.busy);
@@ -707,14 +719,14 @@
                 "this photo is turned, and pixel repairs still work on the un-turned frame — turn it back to 0 first",
             );
             for turns in [1u8, 2, 3] {
-                app.recipe.quarter_turns = turns;
+                app.doc.recipe.quarter_turns = turns;
                 app.status.clear();
                 app.start_mask_refine(0);
                 assert!(!app.busy, "quarter_turns={turns}: a refused refine never reaches a worker");
                 assert_eq!(app.status, refusal, "quarter_turns={turns}");
             }
             // Un-turned, with no mask at that index: the verb returns quietly.
-            app.recipe.quarter_turns = 0;
+            app.doc.recipe.quarter_turns = 0;
             app.status.clear();
             app.start_mask_refine(0);
             assert!(!app.busy);
@@ -812,7 +824,7 @@
         std::fs::write(&src, b"raw").unwrap();
         let _src_scrub = Scrub(vec![src.clone()]);
         app.photo.src_path = Some(src.clone());
-        app.recipe.quarter_turns = 1;
+        app.doc.recipe.quarter_turns = 1;
         type Door = fn(&mut AutoShadeApp, PathBuf);
         let doors: [(&str, Door); 4] = [
             ("start_ai_denoise", |a, _| a.start_ai_denoise()),
@@ -843,7 +855,7 @@
         app.photo.source_preview = Some(plate);
         app.photo.base_turns = 0;
         app.masks.mask_paint = Some(image::RgbaImage::new(8, 6));
-        app.recipe.quarter_turns = 1;
+        app.doc.recipe.quarter_turns = 1;
         app.sync_base_turns(&ctx);
         assert_eq!(app.photo.base_preview.as_ref().unwrap().dimensions(), (6, 8));
         assert_eq!(
@@ -864,11 +876,11 @@
     #[test]
     fn the_range_reference_is_one_builder_with_every_geometry_field_stripped() {
         let (mut app, _scrub) = app_with_masked_photo("range-ref");
-        app.recipe.masks.push(app.recipe.masks[0].clone());
-        app.recipe.ca_r = 0.4;
-        app.recipe.ca_b = -0.3;
-        app.recipe.straighten_deg = 2.0;
-        app.recipe.lens_distortion = 0.1;
+        app.doc.recipe.masks.push(app.doc.recipe.masks[0].clone());
+        app.doc.recipe.ca_r = 0.4;
+        app.doc.recipe.ca_b = -0.3;
+        app.doc.recipe.straighten_deg = 2.0;
+        app.doc.recipe.lens_distortion = 0.1;
         let pre = app.range_reference_recipe(1);
         assert_eq!(pre.masks.len(), 1, "mask 1's reference is the prefix before it");
         assert_eq!(

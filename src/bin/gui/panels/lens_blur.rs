@@ -13,7 +13,7 @@ impl AutoShadeApp {
     /// The Lens Blur section of the Develop panel.
     pub(crate) fn dev_lens_blur(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
         let lang = self.lang;
-        let active = logic::lens_blur::active(&self.recipe);
+        let active = logic::lens_blur::active(&self.doc.recipe);
         let mut actions = Vec::new();
         ui.add_space(SPACE_MD);
         card_fold(
@@ -31,7 +31,7 @@ impl AutoShadeApp {
         let mut actions = Vec::new();
         let has_helper = depth_helper_available();
         let can_run = !self.busy && self.photo.base_preview.is_some() && self.photo.src_path.is_some() && has_helper;
-        let has_blur = self.recipe.lens_blur.is_some();
+        let has_blur = self.doc.recipe.lens_blur.is_some();
         let verb = if has_blur { tr(lang, "🤖 Re-estimate depth") } else { tr(lang, "🤖 Estimate depth") };
         let tip = if has_helper {
             ai_xref(lang, tr(lang, "MoGe-2 estimates how far away every part of the photo is (Python helper; the first run downloads a ~1.3 GB model). Then click the photo to choose what stays sharp."))
@@ -43,7 +43,7 @@ impl AutoShadeApp {
         }
         // The card's current values, copied out so the draw below never holds a
         // borrow into the recipe the facade is about to change.
-        let Some((enabled, amount, range)) = self.recipe.lens_blur.as_ref().map(|l| (l.enabled, l.amount, l.range)) else {
+        let Some((enabled, amount, range)) = self.doc.recipe.lens_blur.as_ref().map(|l| (l.enabled, l.amount, l.range)) else {
             let hint = tr(lang, "Estimate the depth first, then click the photo to choose what stays sharp.");
             ui.label(egui::RichText::new(hint).weak().small());
             return actions;
@@ -95,7 +95,7 @@ impl AutoShadeApp {
     /// The focus point as a small ring while the pick is armed, so the
     /// photographer sees where the current focus sits before moving it.
     pub(crate) fn draw_lens_focus(&self, ui: &egui::Ui, xf: ViewXform) {
-        let Some(lb) = self.recipe.lens_blur.as_ref() else { return };
+        let Some(lb) = self.doc.recipe.lens_blur.as_ref() else { return };
         let ((bw, bh), deg, dist) = self.geom_ctx();
         let (vx, vy) = orig_norm_to_view(lb.focus[0], lb.focus[1], (bw, bh), deg, &dist);
         let c = xf.to_screen(vx, vy);

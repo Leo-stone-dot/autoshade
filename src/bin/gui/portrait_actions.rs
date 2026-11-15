@@ -92,8 +92,8 @@ pub(crate) fn start_find_people(&mut self) {
         // skin seed is sampled on the canvas's own base (v1.17.0: a corrected
         // one, with the face mask read into its frame).
         let Some(original) = self.original_frame_base() else { return };
-        let lens = self.base_corrected().then(|| autoshade::render::geometry_profile(&self.recipe).into_owned());
-        let recipe = self.recipe.clone();
+        let lens = self.base_corrected().then(|| autoshade::render::geometry_profile(&self.doc.recipe).into_owned());
+        let recipe = self.doc.recipe.clone();
         let film = self.film_short_edge();
         let raw_source = self.source_is_raw();
         self.busy = true;
@@ -120,7 +120,7 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
             // No face this time: the face, eyes and skin masks of an earlier
             // search stood on a face that is not found — left in place they
             // keep acting with their sliders while the groups say "no face".
-            self.recipe.masks.retain(|m| !matches!(m.role, MaskRole::Face | MaskRole::Eyes | MaskRole::Skin));
+            self.doc.recipe.masks.retain(|m| !matches!(m.role, MaskRole::Face | MaskRole::Eyes | MaskRole::Skin));
         }
         if let Ok(Some(f)) = &found.faces {
             faces_n = f.n;
@@ -135,19 +135,19 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
             let subject = subject.to_string_lossy().into_owned();
             fresh.push(autoshade::face::background_adjustment(subject.clone()));
             // A blur that protects the person follows the new matte.
-            if let Some(p) = self.recipe.lens_blur.as_mut().and_then(|lb| lb.protect.as_mut()) {
+            if let Some(p) = self.doc.recipe.lens_blur.as_mut().and_then(|lb| lb.protect.as_mut()) {
                 *p = subject;
             }
         }
         for m in fresh {
-            match role_mask(&mut self.recipe, m.role) {
+            match role_mask(&mut self.doc.recipe, m.role) {
                 Some(old) => {
                     old.mask = m.mask;
                     if m.range.is_some() {
                         old.range = m.range;
                     }
                 }
-                None => self.recipe.masks.push(m),
+                None => self.doc.recipe.masks.push(m),
             }
         }
         let failed = match (&found.subject, &found.faces) {
@@ -174,13 +174,13 @@ pub(crate) fn on_portrait_found(&mut self, lang: Lang, found: PortraitFind) {
     }
 
 pub(crate) fn start_remove_blemishes(&mut self) {
-        if let Some(face) = face_raster(&self.recipe) {
+        if let Some(face) = face_raster(&self.doc.recipe) {
             self.start_heal(false, Some(face));
         }
     }
 
 pub(crate) fn guard_portrait_skin(&mut self) {
-        if self.skin_held() && autoshade::face::keep_skin_natural_in(&mut self.recipe) {
+        if self.skin_held() && autoshade::face::keep_skin_natural_in(&mut self.doc.recipe) {
             self.session.dirty = true;
         }
     }
@@ -200,7 +200,7 @@ pub(crate) fn skin_held_for(&self, photo: &std::path::Path) -> bool {
 
 pub(crate) fn release_skin_for_history(&mut self) {
         if self.skin_held()
-            && autoshade::face::skin_values_beyond(&self.recipe) > 0
+            && autoshade::face::skin_values_beyond(&self.doc.recipe) > 0
             && let Some(key) = self.skin_key()
         {
             self.portrait.keep_skin.insert(key, false);
@@ -219,7 +219,7 @@ pub(crate) fn restore_skin_switch(&mut self, on: Option<bool>) {
 
 fn skin_key(&self) -> Option<(PathBuf, String)> {
         let photo = self.photo.src_path.clone()?;
-        Some((photo, self.variants.get(self.active).map(|v| v.id.clone()).unwrap_or_default()))
+        Some((photo, self.doc.variants.get(self.doc.active).map(|v| v.id.clone()).unwrap_or_default()))
     }
 
 pub(crate) fn keep_skin_on(&self) -> bool {
@@ -232,8 +232,8 @@ pub(crate) fn set_keep_skin(&mut self, on: bool) {
         if !on {
             return;
         }
-        let n = autoshade::face::skin_values_beyond(&self.recipe);
-        if n > 0 && autoshade::face::keep_skin_natural_in(&mut self.recipe) {
+        let n = autoshade::face::skin_values_beyond(&self.doc.recipe);
+        if n > 0 && autoshade::face::keep_skin_natural_in(&mut self.doc.recipe) {
             self.session.dirty = true;
             self.status = if n == 1 {
                 tr(self.lang, "Skin kept natural: 1 value brought back within the limits").into()
@@ -251,8 +251,8 @@ pub(crate) fn decide_keep_skin_for_photo(&mut self) {
 
 fn switch_off_cards_past_limits(&mut self) {
         let Some(photo) = self.photo.src_path.clone() else { return };
-        for (i, v) in self.variants.iter().enumerate() {
-            let recipe = if i == self.active { &self.recipe } else { &v.recipe };
+        for (i, v) in self.doc.variants.iter().enumerate() {
+            let recipe = if i == self.doc.active { &self.doc.recipe } else { &v.recipe };
             if autoshade::face::skin_values_beyond(recipe) > 0 {
                 self.portrait.keep_skin.insert((photo.clone(), v.id.clone()), false);
             }
@@ -262,7 +262,7 @@ fn switch_off_cards_past_limits(&mut self) {
 pub(crate) fn decide_keep_skin_for_card(&mut self) {
         let Some(key) = self.skin_key() else { return };
         self.portrait.keep_skin.remove(&key);
-        if autoshade::face::skin_values_beyond(&self.recipe) > 0 {
+        if autoshade::face::skin_values_beyond(&self.doc.recipe) > 0 {
             self.portrait.keep_skin.insert(key, false);
         }
     }
@@ -278,12 +278,12 @@ pub(crate) fn after_portrait_depth(&mut self) {
         if !std::mem::take(&mut self.portrait.blur_from_panel) {
             return;
         }
-        let centre = self.recipe.masks.iter().find(|m| m.role == MaskRole::Skin).and_then(|m| match m.range {
+        let centre = self.doc.recipe.masks.iter().find(|m| m.role == MaskRole::Skin).and_then(|m| match m.range {
             Some(autoshade::recipe::RangeMask::Color { px, py, .. }) => Some([px, py]),
             _ => None,
         });
-        let subject = subject_raster(&self.recipe);
-        let Some(lb) = self.recipe.lens_blur.as_mut() else { return };
+        let subject = subject_raster(&self.doc.recipe);
+        let Some(lb) = self.doc.recipe.lens_blur.as_mut() else { return };
         if let Some(c) = centre {
             lb.focus = c;
             self.tools.lens_focus_picking = false;
@@ -295,8 +295,8 @@ pub(crate) fn after_portrait_depth(&mut self) {
     }
 
 pub(crate) fn set_keep_person_sharp(&mut self, on: bool) -> bool {
-        let subject = subject_raster(&self.recipe);
-        let Some(lb) = self.recipe.lens_blur.as_mut() else { return false };
+        let subject = subject_raster(&self.doc.recipe);
+        let Some(lb) = self.doc.recipe.lens_blur.as_mut() else { return false };
         let protect = if on { subject } else { None };
         if on && protect.is_none() {
             return false;

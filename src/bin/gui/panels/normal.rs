@@ -264,7 +264,7 @@ impl AutoShadeApp {
         ui.add_space(SPACE_LG);
         panel_heading(ui, tr(lang, "Fine-tune"), false, |_| {});
         let mut changed = false;
-        let r = &mut self.recipe;
+        let r = &mut self.doc.recipe;
         changed |= Self::slider(ui, lang, tr(lang, "Brightness"), &mut r.exposure_ev, -5.0, 5.0, 0.0);
         changed |= Self::slider(ui, lang, tr(lang, "Contrast"), &mut r.contrast, -100.0, 100.0, 0.0);
         let mut warmth = r.warmth();
@@ -287,16 +287,16 @@ impl AutoShadeApp {
             .normal
             .result
             .as_ref()
-            .filter(|(p, f)| self.photo.src_path.as_ref() == Some(p) && *f != FineTune::of(&self.recipe))
+            .filter(|(p, f)| self.photo.src_path.as_ref() == Some(p) && *f != FineTune::of(&self.doc.recipe))
             .map(|(_, f)| *f);
         if action_row(ui, back.is_some(), tr(lang, "Back to the one-click result")).clicked()
             && let Some(f) = back
         {
-            f.apply(&mut self.recipe);
+            f.apply(&mut self.doc.recipe);
             changed = true;
         }
         if changed {
-            self.recipe.clamp();
+            self.doc.recipe.clamp();
             self.session.dirty = true;
         }
     }

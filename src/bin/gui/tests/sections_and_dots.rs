@@ -17,7 +17,7 @@
             ..Default::default()
         };
         let mut app = AutoShadeApp::default();
-        app.recipe.masks = vec![parked("one"), parked("two")];
+        app.doc.recipe.masks = vec![parked("one"), parked("two")];
         assert!(
             !app.masks_section_active(),
             "two masks with every adjustment at neutral do nothing — no ●"
@@ -34,8 +34,8 @@
             "parked masks must not claim an active local adjustment: {seen:?}"
         );
         // One real adjustment on mask 2 ⇒ the row dot lights, so the header must.
-        app.recipe.masks[1].exposure_ev = 0.6;
-        assert!(mask_active(&app.recipe.masks[1]), "premise: the row dot lights here");
+        app.doc.recipe.masks[1].exposure_ev = 0.6;
+        assert!(mask_active(&app.doc.recipe.masks[1]), "premise: the row dot lights here");
         assert!(app.masks_section_active(), "the header must agree with the row");
         let seen = tall_frame(&mut app, |a, ui| {
             a.develop_panel(ui);
@@ -45,8 +45,8 @@
             "a working mask must light the section header: {seen:?}"
         );
         // The EYE is half the rule: muting the only working mask parks the list.
-        app.recipe.masks[1].enabled = false;
-        assert!(!mask_active(&app.recipe.masks[1]), "premise: the row reads muted");
+        app.doc.recipe.masks[1].enabled = false;
+        assert!(!mask_active(&app.doc.recipe.masks[1]), "premise: the row reads muted");
         assert!(
             !app.masks_section_active(),
             "a muted mask renders nothing, whatever its sliders say"
@@ -95,7 +95,7 @@
                 .find(|f| f.name == family)
                 .unwrap_or_else(|| panic!("{family} is not a declared family"));
             let mut app = AutoShadeApp::default();
-            assert!(!family_is_active(f, &app.recipe), "{family}: a fresh recipe is neutral");
+            assert!(!family_is_active(f, &app.doc.recipe), "{family}: a fresh recipe is neutral");
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             assert!(
                 seen.iter().any(|t| t == header),
@@ -105,8 +105,8 @@
                 !seen.iter().any(|t| t == &format!("{header}  ●")),
                 "{family}: a neutral section must not claim an adjustment: {seen:?}"
             );
-            mutate(&mut app.recipe);
-            assert!(family_is_active(f, &app.recipe), "premise: the move woke the family up");
+            mutate(&mut app.doc.recipe);
+            assert!(family_is_active(f, &app.doc.recipe), "premise: the move woke the family up");
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             assert!(
                 seen.iter().any(|t| t == &format!("{header}  ●")),
@@ -143,10 +143,10 @@
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(seen.iter().any(|t| t == "Curves"), "premise: the header is drawn: {seen:?}");
         assert!(!seen.iter().any(|t| t == "Curves  ●"), "premise: a rest recipe lights nothing");
-        app.recipe.param_midtone_split = 60.0;
+        app.doc.recipe.param_midtone_split = 60.0;
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(!seen.iter().any(|t| t == "Curves  ●"), "a split alone renders nothing: {seen:?}");
-        app.recipe.param_darks = 30.0;
+        app.doc.recipe.param_darks = 30.0;
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(seen.iter().any(|t| t == "Curves  ●"), "a moved region must light Curves: {seen:?}");
     }
@@ -192,8 +192,8 @@
 
             // Black & White on, one swatch sampled: the grey mix stands where
             // the tabs were, and the swatch brings its four sliders with it.
-            app.recipe.convert_to_grayscale = true;
-            app.recipe.point_colors.push(autoshade::recipe::PointColor::sampled(0.9, 0.7, 0.5));
+            app.doc.recipe.convert_to_grayscale = true;
+            app.doc.recipe.point_colors.push(autoshade::recipe::PointColor::sampled(0.9, 0.7, 0.5));
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             for want in [
                 tr(lang, "B&W mix").to_string(),
@@ -245,13 +245,13 @@
 
         app.tools.point_color_picking = true;
         pick(&mut app, [0.5, 0.5, 0.5]);
-        assert!(app.recipe.point_colors.is_empty(), "a grey spot is no swatch: {}", app.status);
+        assert!(app.doc.recipe.point_colors.is_empty(), "a grey spot is no swatch: {}", app.status);
         assert!(app.tools.point_color_picking, "…and the tool stays armed for the retry");
         assert!(!app.session.dirty, "…and nothing was edited");
 
         pick(&mut app, [0.8, 0.3, 0.2]);
-        assert_eq!(app.recipe.point_colors.len(), 1, "{}", app.status);
-        let chip = autoshade::render::point_color_rgb(&app.recipe.point_colors[0]);
+        assert_eq!(app.doc.recipe.point_colors.len(), 1, "{}", app.status);
+        let chip = autoshade::render::point_color_rgb(&app.doc.recipe.point_colors[0]);
         for (c, want) in chip.iter().zip([0.8, 0.3, 0.2]) {
             assert!(
                 (c - want).abs() < 2e-3,
@@ -261,10 +261,10 @@
         assert!(!app.tools.point_color_picking, "a landed swatch disarms the tool");
         assert!(app.session.dirty, "…and asks for a redevelop");
 
-        app.recipe.point_colors = vec![app.recipe.point_colors[0].clone(); MAX_POINT_COLORS];
+        app.doc.recipe.point_colors = vec![app.doc.recipe.point_colors[0].clone(); MAX_POINT_COLORS];
         app.tools.point_color_picking = true;
         pick(&mut app, [0.2, 0.3, 0.8]);
-        assert_eq!(app.recipe.point_colors.len(), MAX_POINT_COLORS, "a full list takes no more");
+        assert_eq!(app.doc.recipe.point_colors.len(), MAX_POINT_COLORS, "a full list takes no more");
         assert!(!app.tools.point_color_picking, "…and the refusal disarms");
         assert!(
             app.status.contains(&MAX_POINT_COLORS.to_string()),
@@ -283,7 +283,7 @@
     #[test]
     fn texture_lights_the_presence_dot() {
         let mut app = AutoShadeApp::default();
-        assert_eq!(app.recipe.texture, 0.0, "premise: a fresh recipe is neutral");
+        assert_eq!(app.doc.recipe.texture, 0.0, "premise: a fresh recipe is neutral");
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(
             seen.iter().any(|t| t == "Presence"),
@@ -296,7 +296,7 @@
         // …and the slider itself is there to move (a field with no widget is
         // reachable only by the AI and the XMP reader).
         assert!(seen.iter().any(|t| t == "Texture"), "no Texture slider in Presence: {seen:?}");
-        app.recipe.texture = 26.0;
+        app.doc.recipe.texture = 26.0;
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(
             seen.iter().any(|t| t == "Presence  ●"),
@@ -381,7 +381,7 @@
                 !seen.iter().any(|t| t == &format!("{header}  ●")),
                 "{lang:?}: a neutral Effects section must claim nothing: {seen:?}"
             );
-            app.recipe.grain = 30.0;
+            app.doc.recipe.grain = 30.0;
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             assert!(
                 seen.iter().any(|t| t == &format!("{header}  ●")),
@@ -452,8 +452,8 @@
         {
 
         let mut app = AutoShadeApp::default();
-        app.recipe.lens_vignette_mid = 90.0;
-        assert_eq!(app.recipe.lens_vignette, 0.0, "premise: the amount is at rest");
+        app.doc.recipe.lens_vignette_mid = 90.0;
+        assert_eq!(app.doc.recipe.lens_vignette, 0.0, "premise: the amount is at rest");
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(
             seen.iter().any(|t| t == "Lens"),
@@ -464,7 +464,7 @@
             "a midpoint that changes no pixel must not claim a lens correction: {seen:?}"
         );
         // …and the amount, which DOES render, still lights it.
-        app.recipe.lens_vignette = -35.0;
+        app.doc.recipe.lens_vignette = -35.0;
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(
             seen.iter().any(|t| t == "Lens  ●"),
@@ -552,7 +552,7 @@
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(seen.iter().any(|t| t == "Detail"), "premise: the header is drawn: {seen:?}");
         assert!(!seen.iter().any(|t| t == "Detail  ●"), "premise: a rest recipe lights nothing");
-        app.recipe.color_nr = 25.0;
+        app.doc.recipe.color_nr = 25.0;
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(
             seen.iter().any(|t| t == "Detail  ●"),
@@ -561,7 +561,7 @@
         // v1.5.0: an EXPLICIT zero on a companion is an adjustment too — its
         // number is the rest recipe's, its render is not.
         let mut app = AutoShadeApp::default();
-        app.recipe.set_resolved("sharpen_detail", 0.0);
+        app.doc.recipe.set_resolved("sharpen_detail", 0.0);
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(
             seen.iter().any(|t| t == "Detail  ●"),
@@ -569,7 +569,7 @@
         );
         // The same for the Lens section and the de-fringe half of its family.
         let mut app = AutoShadeApp::default();
-        app.recipe.defringe_purple = 3.0;
+        app.doc.recipe.defringe_purple = 3.0;
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(
             seen.iter().any(|t| t == "Lens  ●"),
@@ -644,8 +644,8 @@
             // two keys are still the carried block. Both halves are read-outs,
             // and the proof is the same for both — a slider would reformat the
             // spelling, and neither spelling can survive `fixed_decimals`.
-            app.recipe.camera_profile = "Adobe Standard".to_string();
-            app.recipe.passthrough = [
+            app.doc.recipe.camera_profile = "Adobe Standard".to_string();
+            app.doc.recipe.passthrough = [
                 ("UprightCenterNormX", "0.422764964"),
                 ("UprightFocalLength35mm", "13.992594916"),
             ]
@@ -683,7 +683,7 @@
         }
         // And the section's ● lights from its own family, like every other.
         let mut app = AutoShadeApp::default();
-        app.recipe.perspective_vertical = -35.0;
+        app.doc.recipe.perspective_vertical = -35.0;
         let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
         assert!(
             seen.iter().any(|t| t == "Transform  ●"),
@@ -713,7 +713,7 @@
             // one baked S-curve and a colour table — here one no install
             // carries, so the table cannot render on any machine.
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.recipe.look = Some(CreativeLook {
+            app.doc.recipe.look = Some(CreativeLook {
                 name: "Adobe Color".to_string(),
                 amount: 1.0,
                 base_profile: "Adobe Standard".to_string(),
@@ -764,24 +764,24 @@
             if autoshade::dcp::find_look_table("E1095149FDB39D7A057BAB208837E2E1").is_ok() {
                 let renders = tr(lang, "Its creative colour table renders; its baked tone curve and sliders do not");
                 let not = tr(lang, "Neither its creative colour table nor its baked tone curve and sliders render");
-                if let Some(look) = app.recipe.look.as_mut() {
+                if let Some(look) = app.doc.recipe.look.as_mut() {
                     look.table = "E1095149FDB39D7A057BAB208837E2E1".to_string();
                 }
                 let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
                 assert!(seen.iter().any(|t| t == renders), "{lang:?}: {seen:?}");
                 assert!(!seen.iter().any(|t| t == not), "{lang:?}: {seen:?}");
-                if let Some(look) = app.recipe.look.as_mut() {
+                if let Some(look) = app.doc.recipe.look.as_mut() {
                     look.amount = 0.5;
                 }
                 let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
                 assert!(seen.iter().any(|t| t == not), "{lang:?}: half a Look: {seen:?}");
-                if let Some(look) = app.recipe.look.as_mut() {
+                if let Some(look) = app.doc.recipe.look.as_mut() {
                     look.amount = 1.0;
                 }
             }
             // A Look with NO table: its baked half is all it has, and it does
             // not render — the line says so.
-            if let Some(look) = app.recipe.look.as_mut() {
+            if let Some(look) = app.doc.recipe.look.as_mut() {
                 look.table.clear();
             }
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
@@ -822,13 +822,13 @@
             // The photographer's own switch is OFF throughout: this is the
             // profile's doing, which is the whole point.
             let mut app = AutoShadeApp { lang, ..Default::default() };
-            app.recipe.look = Some(CreativeLook {
+            app.doc.recipe.look = Some(CreativeLook {
                 name: "Adobe Monochrome".to_string(),
                 amount: 1.0,
                 grayscale: true,
                 ..Default::default()
             });
-            assert!(!app.recipe.convert_to_grayscale, "{lang:?}: the checkbox stays off");
+            assert!(!app.doc.recipe.convert_to_grayscale, "{lang:?}: the checkbox stays off");
             let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
             // The B&W mixer's own caption is up, in place of the three
             // Hue/Saturation/Luminance tabs the colour mixer draws.
@@ -842,7 +842,7 @@
             // Grading and Calibration carry those three words too, so they are
             // on screen either way and counting them proves nothing.
             let mut colour = AutoShadeApp { lang, ..Default::default() };
-            colour.recipe.look = Some(CreativeLook {
+            colour.doc.recipe.look = Some(CreativeLook {
                 name: "Adobe Color".to_string(),
                 amount: 1.0,
                 ..Default::default()
@@ -854,7 +854,7 @@
             );
             // …and the photographer's own switch still does it on its own.
             let mut own = AutoShadeApp { lang, ..Default::default() };
-            own.recipe.convert_to_grayscale = true;
+            own.doc.recipe.convert_to_grayscale = true;
             let seen = tall_frame(&mut own, |a, ui| a.develop_panel(ui));
             assert!(
                 seen.iter().any(|t| t == tr(lang, "B&W mix")),
@@ -1047,8 +1047,8 @@
             ] {
                 for &(case, change, active) in cases {
                     let mut app = AutoShadeApp { lang, ..Default::default() };
-                    app.recipe.lens_profile = profile.clone();
-                    change(&mut app.recipe);
+                    app.doc.recipe.lens_profile = profile.clone();
+                    change(&mut app.doc.recipe);
                     let seen = tall_frame(&mut app, |a, ui| a.develop_panel(ui));
                     let headers: Vec<&str> = seen.iter().map(String::as_str)
                         .filter(|t| *t == title || *t == lit).collect();

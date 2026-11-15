@@ -10,7 +10,7 @@ impl AutoShadeApp {
     /// variant's pixel identity. Arc/path clones only — never pixel copies.
     pub(crate) fn current_step(&self) -> UndoStep {
         UndoStep {
-            recipe: self.recipe.clone(),
+            recipe: self.doc.recipe.clone(),
             base: self.active_variant().and_then(|v| v.base.clone()),
             origin: self.active_variant().and_then(|v| v.origin.clone()),
             keep_skin: self.skin_switch(),
@@ -59,7 +59,7 @@ impl AutoShadeApp {
     }
 
     pub(crate) fn resync_recipe_display(&mut self) {
-        self.rationale = self.recipe.rationale.clone();
+        self.rationale = self.doc.recipe.rationale.clone();
         // Typed notes described the PREVIOUS rationale — a swap without a
         // clear would render a stale zh text over a different develop. The
         // landings that produce fresh notes install them AFTER this call.
@@ -81,12 +81,12 @@ impl AutoShadeApp {
         // panel would silently deselect anyway; do it deterministically).
         // Same-index-different-mask after undo is a known cosmetic residue —
         // mask identity isn't tracked across history steps.
-        self.masks.sel_mask = self.masks.sel_mask.filter(|&i| i < self.recipe.masks.len());
+        self.masks.sel_mask = self.masks.sel_mask.filter(|&i| i < self.doc.recipe.masks.len());
         // The component selection rides on the mask's OWN list, which the
         // swap can also reshape — same deterministic bound.
         self.masks.sel_component = self.masks.sel_component.filter(|&c| {
             self.masks.sel_mask
-                .and_then(|i| self.recipe.masks.get(i))
+                .and_then(|i| self.doc.recipe.masks.get(i))
                 .is_some_and(|m| c < m.components.len())
         });
     }
@@ -99,7 +99,7 @@ impl AutoShadeApp {
         let pixels_differ = !step.same_pixels(&self.session.hist.committed);
         let keep_skin = step.keep_skin;
         self.session.hist.committed = step.clone();
-        self.recipe = step.recipe;
+        self.doc.recipe = step.recipe;
         // The history is a READER too: a step recorded while the canvas was
         // washed reinstalls the pre-era pair on undo/redo — and the actor
         // that later promoted the canvas (Reset, Analyze, load_version,
@@ -134,13 +134,13 @@ impl AutoShadeApp {
         // any more. The gate stays because ungating the keyboard would
         // resurrect every scenario above, and the test drives it directly.
         if (!self.open.open_in_flight || (self.open.open_same_path && self.cards.keep_recipe))
-            && self.variants.get(self.active).is_none_or(|v| v.kind.is_source_based())
+            && self.doc.variants.get(self.doc.active).is_none_or(|v| v.kind.is_source_based())
             && let Some(p) = self.photo.src_path.clone()
-            && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.recipe).is_some()
+            && autoshade::pipeline::repair_pre_era_base_curve(&p, &mut self.doc.recipe).is_some()
         {
-            self.session.hist.committed.recipe = self.recipe.clone();
-            if let Some(v) = self.variants.get_mut(self.active) {
-                v.recipe = self.recipe.clone();
+            self.session.hist.committed.recipe = self.doc.recipe.clone();
+            if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
+                v.recipe = self.doc.recipe.clone();
             }
             let lang = self.lang;
             self.toast(
@@ -153,7 +153,7 @@ impl AutoShadeApp {
             );
         }
         if pixels_differ {
-            if let Some(v) = self.variants.get_mut(self.active) {
+            if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
                 v.base = step.base;
                 v.origin = step.origin;
             }
@@ -179,14 +179,14 @@ impl AutoShadeApp {
     /// paint canvas, overlay reference and the retained frame all described
     /// the old raster. History is deliberately NOT touched here.
     pub(crate) fn refresh_active_pixels(&mut self, ctx: &egui::Context) {
-        let Some(v) = self.variants.get(self.active) else { return };
+        let Some(v) = self.doc.variants.get(self.doc.active) else { return };
         let base = v.base.clone().or_else(|| self.photo.source_preview.clone());
         if let Some(base) = base {
             let (mw, mh) = base.dimensions();
             // Same rule as load_active: the canvas recipe's own curve serves
             // every variant (a Generated recipe's curve is empty by
             // construction; an InPlace master is neutral and needs it).
-            let start = self.recipe.start_only();
+            let start = self.doc.recipe.start_only();
             self.set_before(ctx, &base, &start);
             self.photo.base_preview = Some(base);
             self.rebind_paint_canvas(mw, mh);
@@ -250,15 +250,15 @@ impl AutoShadeApp {
             && !self.open.open_in_flight
             && !self.masks.paint_mode
             && self.overlay.region.is_none()
-            && self.variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
+            && self.doc.variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
             // A fill layer is pixels in the frame it was made in, like a
             // baked master (2026-10-01): the live card and every stored one.
-            && self.recipe.pixel_layers.is_empty()
-            && self.variants.iter().all(|v| v.recipe.pixel_layers.is_empty())
+            && self.doc.recipe.pixel_layers.is_empty()
+            && self.doc.variants.iter().all(|v| v.recipe.pixel_layers.is_empty())
             // …and so is a lens blur's depth map (2026-10-13): estimated in
             // the frame the photo had, its texels would not follow a turn.
-            && self.recipe.lens_blur.is_none()
-            && self.variants.iter().all(|v| v.recipe.lens_blur.is_none())
+            && self.doc.recipe.lens_blur.is_none()
+            && self.doc.variants.iter().all(|v| v.recipe.lens_blur.is_none())
     }
 
     /// Turn the open photo by `delta` clockwise quarter turns — ONE undo step,
@@ -277,10 +277,10 @@ impl AutoShadeApp {
         let lang = self.lang;
         // The step BEFORE the turn, so one Ctrl+Z puts it back (7.7).
         self.commit_now();
-        let mut next = self.recipe.clone();
+        let mut next = self.doc.recipe.clone();
         match autoshade::pipeline::rotate_recipe(&mut next, &src, delta) {
             Ok(_) => {
-                self.recipe = next;
+                self.doc.recipe = next;
                 self.session.dirty = true;
                 self.sync_base_turns(ctx);
                 self.resync_recipe_display();
@@ -321,7 +321,7 @@ impl AutoShadeApp {
     /// is defined against the plate, so one turn here moves all of them and
     /// none of them needs to know.
     pub(crate) fn sync_base_turns(&mut self, ctx: &egui::Context) {
-        let want = self.recipe.quarter_turns % 4;
+        let want = self.doc.recipe.quarter_turns % 4;
         let delta = (want + 4 - self.photo.base_turns % 4) % 4;
         if delta == 0 {
             return;
@@ -333,7 +333,7 @@ impl AutoShadeApp {
         // so what this branch protects is the per-variant `v.base` plate,
         // whose frame nothing tracks: turning the previews under it would
         // put the canvas and the cards in two frames.
-        if self.variants.iter().any(|v| v.base.is_some() || v.origin.is_some()) {
+        if self.doc.variants.iter().any(|v| v.base.is_some() || v.origin.is_some()) {
             self.photo.base_turns = want;
             return;
         }
@@ -354,7 +354,7 @@ impl AutoShadeApp {
         // wrong coordinates. A live brush session dies with the old frame,
         // disclosed, exactly as at every other replacement door.
         if let Some(b) = self.photo.base_preview.clone() {
-            let start = self.recipe.start_only();
+            let start = self.doc.recipe.start_only();
             self.set_before(ctx, &b, &start);
             let (mw, mh) = b.dimensions();
             self.rebind_paint_canvas(mw, mh);

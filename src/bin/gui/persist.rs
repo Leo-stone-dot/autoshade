@@ -977,12 +977,12 @@ impl AutoShadeApp {
     /// without an alpha (a Lightroom sidecar's), on a worker — the segmenter
     /// is a sidecar run, seconds of GPU the first time, cached after.
     pub(crate) fn start_ai_mask_resolve(&mut self, lang: Lang) {
-        if self.busy || self.open.open_in_flight || unresolved_develop_masks(&self.recipe) == 0 {
+        if self.busy || self.open.open_in_flight || unresolved_develop_masks(&self.doc.recipe) == 0 {
             return;
         }
         let (Some(photo), Some(pixels)) = (self.photo.src_path.clone(), self.active_source_path()) else { return };
         let card = self.active_variant().map(|v| v.id.clone()).unwrap_or_default();
-        let mut recipe = self.recipe.clone();
+        let mut recipe = self.doc.recipe.clone();
         let run = self.ai_mask_runner();
         self.busy = true;
         self.status = if unresolved_ai_masks(&recipe) > 0 {
@@ -1027,14 +1027,14 @@ impl AutoShadeApp {
             fill_ai_rasters(r, &resolved);
             fill_face_intents(r, &faces);
         };
-        let n = fill_ai_rasters(&mut self.recipe, &resolved);
-        let nf = fill_face_intents(&mut self.recipe, &faces);
+        let n = fill_ai_rasters(&mut self.doc.recipe, &resolved);
+        let nf = fill_face_intents(&mut self.doc.recipe, &faces);
         fill(&mut self.session.hist.saved_recipe);
         fill(&mut self.session.hist.committed.recipe);
         for s in self.session.hist.undo_stack.iter_mut().chain(self.session.hist.redo_stack.iter_mut()) {
             fill(&mut s.recipe);
         }
-        if let Some(v) = self.variants.get_mut(self.active) {
+        if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
             fill(&mut v.recipe);
         }
         if n + nf > 0 || faces.iter().any(Option::is_none) {

@@ -448,9 +448,13 @@
              </rdf:Seq></crs:MaskGroupBasedCorrections>\n\
              </rdf:Description></rdf:RDF></x:xmpmeta>";
         let mut app =
-            AutoShadeApp { recipe: autoshade::xmp::xmp_to_recipe(doc), ..Default::default() };
+            AutoShadeApp { doc: Document {
+     recipe: autoshade::xmp::xmp_to_recipe(doc),
+     ..Default::default()
+ },
+ ..Default::default() };
         assert_eq!(
-            app.recipe.masks.len(),
+            app.doc.recipe.masks.len(),
             2,
             "premise: the importer brought the Lightroom masks in — without this the \
              panel assertions below would pass on an empty list and prove nothing"

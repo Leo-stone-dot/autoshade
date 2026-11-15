@@ -65,7 +65,10 @@
 
             },
 
-            variants: vec![Variant {
+            doc: Document {
+
+
+                variants: vec![Variant {
                 id: String::new(),
                 name: None,
                 kind: VariantKind::Original,
@@ -74,6 +77,13 @@
                 origin: Some(gone.clone()),
                 thumb: None,
             }],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.services.tx
@@ -126,7 +136,10 @@
 
             },
 
-            variants: vec![Variant {
+            doc: Document {
+
+
+                variants: vec![Variant {
                 id: String::new(),
                 name: None,
                 kind: VariantKind::Generated,
@@ -135,6 +148,13 @@
                 origin: Some(present.clone()),
                 thumb: None,
             }],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.services.tx
@@ -191,7 +211,17 @@
 
             },
 
-            variants: vec![src(None), src(None)],
+            doc: Document {
+
+
+                variants: vec![src(None), src(None)],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.switch_variant(1, &ctx);
@@ -215,10 +245,20 @@
 
             },
 
-            variants: vec![
+            doc: Document {
+
+
+                variants: vec![
                 src(None),
                 src(Some(Arc::new(image::DynamicImage::new_rgb8(640, 480)))),
             ],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.switch_variant(1, &ctx);
@@ -243,10 +283,20 @@
 
             },
 
-            variants: vec![
+            doc: Document {
+
+
+                variants: vec![
                 src(None),
                 src(Some(Arc::new(image::DynamicImage::new_rgb8(800, 600)))),
             ],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.switch_variant(1, &ctx);
@@ -273,10 +323,20 @@
 
             },
 
-            variants: vec![
+            doc: Document {
+
+
+                variants: vec![
                 src(None),
                 src(Some(Arc::new(image::DynamicImage::new_rgb8(1280, 960)))),
             ],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.switch_variant(1, &ctx);
@@ -329,7 +389,10 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
             },
 
-            variants: vec![Variant {
+            doc: Document {
+
+
+                variants: vec![Variant {
                 id: String::new(),
                 name: None,
                 kind: VariantKind::Original,
@@ -338,6 +401,13 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 origin: Some(PathBuf::from("out/_current.png")),
                 thumb: None,
             }],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.session.hist.undo_stack.push(step(&superseded, "superseded"));
@@ -397,22 +467,34 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
             },
 
-            variants: vec![baked(640, 480, "keep"), baked(1280, 853, "drop")],
-            active: 1,
+            doc: Document {
+
+
+                variants: vec![baked(640, 480, "keep"), baked(1280, 853, "drop")],
+
+
+                active: 1,
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         // R24-4: the ✕ ARMS first — a deleted card cannot be brought back, so
         // the first call asks and changes nothing about the strip.
         app.delete_variant(1, &ctx);
-        assert_eq!(app.variants.len(), 2, "the arming click deletes nothing");
-        assert_eq!(app.active, 1, "…and does not re-anchor the strip either");
+        assert_eq!(app.doc.variants.len(), 2, "the arming click deletes nothing");
+        assert_eq!(app.doc.active, 1, "…and does not re-anchor the strip either");
         assert_eq!(
             app.cards.variant_delete_confirm,
             Some(1),
             "the arming click names the card the next one deletes"
         );
         app.delete_variant(1, &ctx);
-        assert_eq!(app.active, 0, "premise: the strip re-anchored");
+        assert_eq!(app.doc.active, 0, "premise: the strip re-anchored");
         assert_eq!(app.cards.variant_delete_confirm, None, "the arm is spent");
         assert!(
             app.status.contains("640px"),
@@ -433,7 +515,10 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
             },
 
-            variants: vec![
+            doc: Document {
+
+
+                variants: vec![
                 Variant {
                     id: String::new(),
                     name: None,
@@ -445,7 +530,16 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 },
                 baked(1280, 853, "drop2"),
             ],
-            active: 1,
+
+
+                active: 1,
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.delete_variant(1, &ctx); // arm
@@ -468,7 +562,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         let mut app = AutoShadeApp::default();
         let ctx = egui::Context::default();
         app.photo.src_path = Some(std::env::temp_dir().join(format!("autoshade-deadopen-{}/__autoshade_deadopen__.ARW", std::process::id())));
-        app.variants = vec![Variant {
+        app.doc.variants = vec![Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Original,
@@ -496,8 +590,8 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         );
         // …so an undo here cannot reinstate the recipe of a photo that is gone.
         app.undo(&ctx);
-        assert_eq!(app.recipe.contrast, 0.0, "nothing left to restore");
-        assert!(app.variants.is_empty(), "…and no canvas to restore it onto");
+        assert_eq!(app.doc.recipe.contrast, 0.0, "nothing left to restore");
+        assert!(app.doc.variants.is_empty(), "…and no canvas to restore it onto");
     }
 
     #[test]
@@ -590,7 +684,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     #[test]
     fn the_mask_brush_session_follows_index_remaps() {
         let mut app = AutoShadeApp::default();
-        app.recipe.masks =
+        app.doc.recipe.masks =
             vec![Default::default(), Default::default(), Default::default()];
         // Session open on mask 2, deleting mask 0 shifts it to 1 — the stroke
         // must keep committing into the SAME mask, not whatever slid under
@@ -598,7 +692,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         app.masks.mask_brush = Some((Some(2), false));
         app.masks.mask_brush_gray = Some(image::GrayImage::new(4, 4));
         app.masks.paint_mode = true;
-        app.recipe.masks.remove(0);
+        app.doc.recipe.masks.remove(0);
         app.remap_mask_indices(|s| match s {
             0 => None,
             s => Some(s - 1),
@@ -609,7 +703,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // Deleting the session's OWN mask ends it like Esc: buffer gone,
         // paint mode disarmed — never a new-mask fallback that would
         // resurrect the deleted mask under a fresh slot.
-        app.recipe.masks.remove(1);
+        app.doc.recipe.masks.remove(1);
         app.remap_mask_indices(|s| match s {
             1 => None,
             s => Some(s),
@@ -627,13 +721,13 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     #[test]
     fn an_async_variant_push_commits_a_typed_mask_rename_first() {
         let mut app = AutoShadeApp::default();
-        app.recipe.masks = vec![autoshade::recipe::LocalAdjustment {
+        app.doc.recipe.masks = vec![autoshade::recipe::LocalAdjustment {
             name: "old".into(),
             ..Default::default()
         }];
         // A photo is open: its strip holds the outgoing variant that
         // push_variant snapshots the live canvas into.
-        app.variants = vec![Variant {
+        app.doc.variants = vec![Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Original,
@@ -642,7 +736,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             origin: None,
             thumb: None,
         }];
-        app.active = 0;
+        app.doc.active = 0;
         // The user is mid-typing "sky gradient" when a reverse-fit lands and
         // push_variant auto-switches: the switch's M15 boundary clear used to
         // discard the buffer, and the outgoing variant snapshotted "old".
@@ -660,7 +754,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             &egui::Context::default(),
         );
         assert_eq!(
-            app.variants[0].recipe.masks[0].name, "sky gradient",
+            app.doc.variants[0].recipe.masks[0].name, "sky gradient",
             "the typed rename survives into the outgoing variant's snapshot"
         );
     }
@@ -816,11 +910,11 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     #[test]
     fn a_recipe_swap_clears_stale_rationale_notes() {
         let mut app = AutoShadeApp::default();
-        app.recipe.rationale = "old english tail".into();
+        app.doc.recipe.rationale = "old english tail".into();
         app.rationale_notes = vec![autoshade::rationale::Note::plain(
             autoshade::rationale::keys::FIT_NOTE_SAT_PEGGED,
         )];
-        app.recipe = EditRecipe { rationale: "a different develop".into(), ..Default::default() };
+        app.doc.recipe = EditRecipe { rationale: "a different develop".into(), ..Default::default() };
         app.resync_recipe_display();
         assert_eq!(app.rationale, "a different develop");
         assert!(

@@ -71,7 +71,7 @@ impl AutoShadeApp {
         }
         // The ▣ original first (the user's wording: 默认原图), not Automatic,
         // which solves from a ◈ / ▦ master whenever the strip holds one.
-        let from = self.original_index().map(|i| self.variants[i].id.clone()).filter(|id| !id.is_empty());
+        let from = self.original_index().map(|i| self.doc.variants[i].id.clone()).filter(|id| !id.is_empty());
         self.fit.fit_prompt = Some(FitPrompt { target, divergence, from, dont_ask: false });
         // The layer's Enter waits for "no widget focused" — surrendered now,
         // as the quit layer does when it opens.
@@ -94,7 +94,7 @@ impl AutoShadeApp {
         };
         let (automatic, sources) = self.fit_source_menu();
         let to = self
-            .variants
+            .doc.variants
             .iter()
             .position(|v| v.id == prompt.target)
             .map(|i| trf(lang, "To: {card}", &[("card", &self.numbered_card_label(i))]));
@@ -248,7 +248,7 @@ impl AutoShadeApp {
                 let pix = origin.map(|o| (o, self.active_on_ai_pixels()));
                 pending.push(PendingSave {
                     photo: p,
-                    recipe: self.recipe.clone(),
+                    recipe: self.doc.recipe.clone(),
                     pixels: pix,
                     strip: self.current_strip_record(),
                 });
@@ -592,7 +592,7 @@ impl AutoShadeApp {
             match failed {
                 None => {
                     self.open.nav_stash.clear();
-                    self.session.hist.saved_recipe = self.recipe.clone();
+                    self.session.hist.saved_recipe = self.doc.recipe.clone();
                     self.ui.confirm_quit = false;
                     // The close guard re-checks on the way out. Everything
                     // above just persisted, so the re-check passes — but if
@@ -635,7 +635,7 @@ impl AutoShadeApp {
             }
         } else if discard_quit {
             self.open.nav_stash.clear();
-            self.session.hist.saved_recipe = self.recipe.clone();
+            self.session.hist.saved_recipe = self.doc.recipe.clone();
             // The answer to the guard's question, recorded: these two lines
             // clean the ACTIVE canvas, but a background variant's edits have
             // nowhere to be saved, so nothing can make them "clean" — only

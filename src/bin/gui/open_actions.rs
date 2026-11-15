@@ -71,10 +71,10 @@ impl AutoShadeApp {
             // quit dialog, and using it here chain-stashed clean photos.
             if self.nav_stash_gate_dirty() {
                 let others: Vec<StashedVariant> = self
-                    .variants
+                    .doc.variants
                     .iter()
                     .enumerate()
-                    .filter(|(i, _)| *i != self.active)
+                    .filter(|(i, _)| *i != self.doc.active)
                     .map(|(_, v)| StashedVariant {
                         kind: v.kind,
                         // Hop 3 of 6 (R24-2): identity + name ride the stash
@@ -86,11 +86,11 @@ impl AutoShadeApp {
                         origin: v.origin.clone(),
                     })
                     .collect();
-                let active_pos = self.active.min(others.len());
+                let active_pos = self.doc.active.min(others.len());
                 self.open.nav_stash.insert(
                     old,
                     StashEntry {
-                        recipe: self.recipe.clone(),
+                        recipe: self.doc.recipe.clone(),
                         base: self.active_variant().and_then(|v| v.base.clone()),
                         origin,
                         kind: self.active_variant().map_or(VariantKind::Original, |v| v.kind),

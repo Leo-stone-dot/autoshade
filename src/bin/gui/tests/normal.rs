@@ -70,7 +70,7 @@
         for lang in [Lang::En, Lang::Zh] {
             let mut app = app_in(lang);
             // Portraits with the people found: its panel's four groups open.
-            app.recipe.masks.extend(found_masks());
+            app.doc.recipe.masks.extend(found_masks());
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let mut out = None;
@@ -343,24 +343,24 @@
     fn without_a_key_the_one_click_lands_the_built_in_look() {
         let (mut app, _src, _scrub) = normal_photo("nokey");
         let ctx = egui::Context::default();
-        assert_eq!(app.recipe.exposure_ev, 0.0);
+        assert_eq!(app.doc.recipe.exposure_ev, 0.0);
         app.apply_actions(vec![logic::Action::Look(logic::look::LookIntent::of(
             logic::look::LookKind::OneClick(crate::logic::look::OneClick::Preset("natural")),
         ))]);
         assert!(app.busy && app.tools.analyze_inflight);
         land_analysis(&mut app, &ctx);
         assert!(!app.busy);
-        assert!(app.recipe.exposure_ev > 0.0, "the dark frame was brightened: {}", app.recipe.exposure_ev);
+        assert!(app.doc.recipe.exposure_ev > 0.0, "the dark frame was brightened: {}", app.doc.recipe.exposure_ev);
         assert_eq!(app.normal.line, crate::panels::normal::NormalLine::BuiltIn);
         assert_eq!(app.status, "No AI key set — built-in look used");
         assert_eq!(app.normal.key_present, Some(false));
         let (photo, kept) = app.normal.result.clone().expect("the one-click result is remembered");
         assert_eq!(Some(photo), app.photo.src_path);
-        assert_eq!(kept.exposure_ev, app.recipe.exposure_ev);
+        assert_eq!(kept.exposure_ev, app.doc.recipe.exposure_ev);
         // Undoable, like every analysis landing.
         app.commit_now();
         app.undo(&ctx);
-        assert_eq!(app.recipe.exposure_ev, 0.0, "Ctrl+Z goes back");
+        assert_eq!(app.doc.recipe.exposure_ev, 0.0, "Ctrl+Z goes back");
     }
 
     /// Poll the app's workers until nothing is running.
@@ -410,7 +410,7 @@
         let (mut app, src, _scrub) = normal_photo("keys-save");
         image::RgbImage::from_pixel(32, 24, image::Rgb([60, 90, 120])).save(&src).unwrap();
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
-        app.variants = vec![Variant {
+        app.doc.variants = vec![Variant {
             id: ORIGINAL_VARIANT_ID.into(),
             name: None,
             kind: VariantKind::Original,
@@ -419,10 +419,10 @@
             origin: None,
             thumb: None,
         }];
-        app.active = 0;
+        app.doc.active = 0;
         app.photo.base_preview = Some(b0);
         app.reset_history();
-        app.recipe.exposure_ev = 0.4;
+        app.doc.recipe.exposure_ev = 0.4;
         assert!(app.unsaved_marker_dirty(), "the edit is unsaved before Ctrl+S");
         let ctx = egui::Context::default();
         press(&mut app, &ctx, egui::Key::S);
@@ -559,7 +559,7 @@
         let (mut app, src, _scrub) = normal_photo("denoise");
         let ctx = egui::Context::default();
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
-        app.variants = vec![Variant {
+        app.doc.variants = vec![Variant {
             id: ORIGINAL_VARIANT_ID.into(),
             name: None,
             kind: VariantKind::Original,
@@ -568,17 +568,17 @@
             origin: None,
             thumb: None,
         }];
-        app.active = 0;
+        app.doc.active = 0;
         app.photo.base_preview = Some(b0);
         app.reset_history();
         // The Retouch door's own gate answers: a turned photo is refused
         // before any worker, with that door's words.
-        app.recipe.quarter_turns = 1;
+        app.doc.recipe.quarter_turns = 1;
         app.set_normal_denoise(true);
         assert!(!app.busy, "refused before a worker");
         assert!(app.status.contains("this photo is turned"), "{}", app.status);
         assert!(app.normal.denoise_pair.is_none(), "a refused run remembers nothing");
-        app.recipe.quarter_turns = 0;
+        app.doc.recipe.quarter_turns = 0;
         // The door's worker runs: this photo has no file, so it fails fast at
         // the decode — through `Msg::Retouched`, the Retouch button's message.
         app.set_normal_denoise(true);
@@ -587,7 +587,7 @@
         assert!(app.normal_denoise_on(), "the switch reads on while it runs");
         land_all(&mut app, &ctx);
         assert!(!app.normal_denoise_on(), "a failed run leaves the switch off");
-        assert_eq!(app.variants.len(), 1, "and no card");
+        assert_eq!(app.doc.variants.len(), 1, "and no card");
         // A landed run, through the same message the worker sends.
         app.normal.denoise_pair =
             Some(DenoisePair { photo: src.clone(), plain: ORIGINAL_VARIANT_ID.into(), denoised: None });
@@ -596,28 +596,28 @@
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
         app.services.tx.send(Msg::Retouched(app.tools.gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.variants[app.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
+        assert_eq!(app.doc.variants[app.doc.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         assert_eq!(app.active_source_path().as_deref(), Some(master.as_path()), "…and is what a save renders");
         assert!(app.normal_denoise_on());
-        let made = app.variants[app.active].id.clone();
+        let made = app.doc.variants[app.doc.active].id.clone();
         assert_eq!(app.normal.denoise_pair.as_ref().and_then(|d| d.denoised.clone()), Some(made.clone()), "remembered");
         assert_eq!(app.status, tr(Lang::En, "AI denoise done. Turn the switch off to see the photo without it."));
         // Off: the card it was made from, the look kept.
-        app.recipe.exposure_ev = 0.7;
+        app.doc.recipe.exposure_ev = 0.7;
         app.set_normal_denoise(false);
         assert!(!app.busy);
-        assert_eq!(app.variants[app.active].id, ORIGINAL_VARIANT_ID, "back to the un-denoised card");
+        assert_eq!(app.doc.variants[app.doc.active].id, ORIGINAL_VARIANT_ID, "back to the un-denoised card");
         assert_eq!(app.active_source_path().as_deref(), Some(src.as_path()));
-        assert_eq!(app.recipe.exposure_ev, 0.7, "the look rides across");
+        assert_eq!(app.doc.recipe.exposure_ev, 0.7, "the look rides across");
         assert!(!app.normal_denoise_on());
         assert_eq!(app.status, tr(Lang::En, "AI denoise off"));
         // On again: the same ◈ card, no second run.
-        app.recipe.contrast = 12.0;
+        app.doc.recipe.contrast = 12.0;
         app.set_normal_denoise(true);
         assert!(!app.busy, "no second sidecar run");
-        assert_eq!(app.variants.len(), 2, "no second card");
-        assert_eq!(app.variants[app.active].id, made, "the master already made");
-        assert_eq!((app.recipe.exposure_ev, app.recipe.contrast), (0.7, 12.0), "the look rides across");
+        assert_eq!(app.doc.variants.len(), 2, "no second card");
+        assert_eq!(app.doc.variants[app.doc.active].id, made, "the master already made");
+        assert_eq!((app.doc.recipe.exposure_ev, app.doc.recipe.contrast), (0.7, 12.0), "the look rides across");
         assert_eq!(app.status, tr(Lang::En, "AI denoise on"));
         // The switch's behaviour above IS the claim: turning it on runs the
         // Retouch worker (busy + that door's status), turning it off returns to
@@ -656,7 +656,7 @@
         let names = ["_gui_normal_numbered.developed.jpg", "_gui_normal_numbered.developed-2.jpg", "_gui_normal_numbered.developed-3.jpg"];
         let mut sizes = Vec::new();
         for (i, name) in names.iter().enumerate() {
-            app.recipe.exposure_ev = 0.2 * (i + 1) as f32;
+            app.doc.recipe.exposure_ev = 0.2 * (i + 1) as f32;
             app.start_normal_save();
             assert!(app.busy, "save {}: {}", i + 1, app.status);
             assert!(app.status.contains(name), "save {}: the line names the file: {}", i + 1, app.status);
@@ -671,7 +671,7 @@
         let before = std::fs::read(&picked).unwrap();
         app.exp.dest = ExportDest::Ask;
         app.normal.file_pick = Some(Some(picked.clone()));
-        app.recipe.exposure_ev = -1.5;
+        app.doc.recipe.exposure_ev = -1.5;
         app.start_normal_save();
         assert!(app.busy, "the picked save runs: {}", app.status);
         land_all(&mut app, &ctx);
@@ -683,7 +683,7 @@
         // …while the app-made name is numbered again.
         app.exp.dest = ExportDest::LastUsed;
         app.exp.last_dir = Some(out.clone());
-        app.recipe.exposure_ev = 0.9;
+        app.doc.recipe.exposure_ev = 0.9;
         app.start_normal_save();
         land_all(&mut app, &ctx);
         assert!(fourth.is_file(), "the app-made name steps on to -4: {}", app.status);
@@ -693,7 +693,7 @@
         let _scrub_all = Scrub(vec![all.clone()]);
         app.exp.last_dir = Some(all.clone());
         for run in 0..2 {
-            app.recipe.contrast = 10.0 * (run + 1) as f32;
+            app.doc.recipe.contrast = 10.0 * (run + 1) as f32;
             app.start_apply_to_folder();
             land_all(&mut app, &ctx);
             let folder = all.file_name().unwrap().to_string_lossy().into_owned();
@@ -739,7 +739,7 @@
         app.exp.dest = ExportDest::LastUsed;
         app.exp.last_dir = Some(own.clone());
         let ctx = egui::Context::default();
-        app.recipe.exposure_ev = 0.3;
+        app.doc.recipe.exposure_ev = 0.3;
         app.start_normal_save();
         land_all(&mut app, &ctx);
         let landed: Vec<String> = std::fs::read_dir(&own)
@@ -801,7 +801,7 @@
                 active_pos: 0,
             },
         );
-        app.recipe.exposure_ev = -1.0;
+        app.doc.recipe.exposure_ev = -1.0;
         let out = std::env::temp_dir().join(format!("autoshade-gui-normal-applystash-out-{}", std::process::id()));
         let _scrub_out = Scrub(vec![out.clone()]);
         app.exp.dest = ExportDest::Ask;
@@ -900,7 +900,7 @@
         let (mut app, src, _scrub) = normal_photo("denoise-undo");
         let ctx = egui::Context::default();
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
-        app.variants = vec![Variant {
+        app.doc.variants = vec![Variant {
             id: ORIGINAL_VARIANT_ID.into(),
             name: None,
             kind: VariantKind::Original,
@@ -909,11 +909,11 @@
             origin: None,
             thumb: None,
         }];
-        app.active = 0;
+        app.doc.active = 0;
         app.photo.base_preview = Some(b0.clone());
         app.reset_history();
         // A look, then the switch on: its ◈ card lands.
-        app.recipe.exposure_ev = 0.5;
+        app.doc.recipe.exposure_ev = 0.5;
         app.commit_now();
         app.normal.denoise_pair =
             Some(DenoisePair { photo: src.clone(), plain: ORIGINAL_VARIANT_ID.into(), denoised: None });
@@ -922,25 +922,25 @@
         let done = Ok((image::DynamicImage::new_rgba8(4, 4), note, master.clone(), RetouchKind::NewDenoised));
         app.services.tx.send(Msg::Retouched(app.tools.gen_epoch, Box::new(done))).unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.variants[app.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
-        let denoised = app.variants[app.active].base.clone().unwrap();
+        assert_eq!(app.doc.variants[app.doc.active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
+        let denoised = app.doc.variants[app.doc.active].base.clone().unwrap();
         app.undo(&ctx);
-        assert_eq!(app.recipe.exposure_ev, 0.0, "Ctrl+Z goes back to the look before");
-        assert_eq!(app.variants[app.active].kind, VariantKind::Denoised, "on the card on screen");
-        assert!(std::sync::Arc::ptr_eq(app.variants[app.active].base.as_ref().unwrap(), &denoised), "its pixels kept");
+        assert_eq!(app.doc.recipe.exposure_ev, 0.0, "Ctrl+Z goes back to the look before");
+        assert_eq!(app.doc.variants[app.doc.active].kind, VariantKind::Denoised, "on the card on screen");
+        assert!(std::sync::Arc::ptr_eq(app.doc.variants[app.doc.active].base.as_ref().unwrap(), &denoised), "its pixels kept");
         app.redo(&ctx);
-        assert_eq!(app.recipe.exposure_ev, 0.5, "and forward again");
+        assert_eq!(app.doc.recipe.exposure_ev, 0.5, "and forward again");
         // Another look, then the switch off: back on the plain card, the
         // history still there.
-        app.recipe.contrast = 10.0;
+        app.doc.recipe.contrast = 10.0;
         app.commit_now();
         app.set_normal_denoise(false);
-        assert_eq!(app.variants[app.active].id, ORIGINAL_VARIANT_ID);
+        assert_eq!(app.doc.variants[app.doc.active].id, ORIGINAL_VARIANT_ID);
         app.undo(&ctx);
-        assert_eq!((app.recipe.exposure_ev, app.recipe.contrast), (0.5, 0.0), "Ctrl+Z after the switch went off");
-        assert!(std::sync::Arc::ptr_eq(app.variants[app.active].base.as_ref().unwrap(), &b0), "the plain card's pixels kept");
+        assert_eq!((app.doc.recipe.exposure_ev, app.doc.recipe.contrast), (0.5, 0.0), "Ctrl+Z after the switch went off");
+        assert!(std::sync::Arc::ptr_eq(app.doc.variants[app.doc.active].base.as_ref().unwrap(), &b0), "the plain card's pixels kept");
         app.undo(&ctx);
-        assert_eq!(app.recipe.exposure_ev, 0.0, "all the way back");
+        assert_eq!(app.doc.recipe.exposure_ev, 0.0, "all the way back");
     }
 
     /// 「Save as jpg」 into a folder picked in the save window remembers that

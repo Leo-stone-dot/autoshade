@@ -565,17 +565,17 @@
         let changed_release = run_pass(&mut app, vec![button(false)]);
         assert!(changed_press || changed_release, "the editor must report the edit");
         assert_eq!(
-            curve_points(&app.recipe, CurveTarget::Global, 2).expect("global").len(),
+            curve_points(&app.doc.recipe, CurveTarget::Global, 2).expect("global").len(),
             1,
             "the click adds one point to the SELECTED channel"
         );
         for ch in [0usize, 1, 3] {
             assert!(
-                curve_points(&app.recipe, CurveTarget::Global, ch).expect("global").is_empty(),
+                curve_points(&app.doc.recipe, CurveTarget::Global, ch).expect("global").is_empty(),
                 "no cross-channel write (ch {ch})"
             );
         }
-        let p = &curve_points(&app.recipe, CurveTarget::Global, 2).expect("global")[0];
+        let p = &curve_points(&app.doc.recipe, CurveTarget::Global, 2).expect("global")[0];
         assert!(
             (p.input as f32 - 255.0 * 0.25).abs() <= 2.0,
             "the point lands at the clicked input: {}",
@@ -630,7 +630,10 @@
 
             },
 
-            variants: vec![Variant {
+            doc: Document {
+
+
+                variants: vec![Variant {
                 id: String::new(),
                 name: None,
                 kind: VariantKind::Original,
@@ -639,7 +642,16 @@
                 origin: None,
                 thumb: None,
             }],
-            recipe,
+
+
+                recipe,
+
+
+                ..Default::default()
+
+
+            },
+
             ..AutoShadeApp::default()
         };
         (app, scrub)

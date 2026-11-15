@@ -131,10 +131,10 @@ pub(crate) fn install_master(
         return;
     }
     let mut hit_active = false;
-    for (i, v) in self.variants.iter_mut().enumerate() {
+    for (i, v) in self.doc.variants.iter_mut().enumerate() {
         if v.base.is_none() && v.origin.as_ref() == Some(origin) {
             v.base = Some(arc.clone());
-            hit_active |= i == self.active;
+            hit_active |= i == self.doc.active;
         }
     }
     if hit_active {
@@ -239,7 +239,7 @@ pub(crate) fn start_redevelop(&mut self) {
     // whether it is lens-corrected, and a recipe that develops other lens
     // geometry than the one baked into it is refused, as the export
     // refuses it — the canvas keeps its last frame and says why.
-    let source = match self.source_frame().and_then(|f| f.check(&self.recipe).map(|()| f)) {
+    let source = match self.source_frame().and_then(|f| f.check(&self.doc.recipe).map(|()| f)) {
         Ok(f) => f,
         Err(e) => {
             self.session.dirty = false;
@@ -247,7 +247,7 @@ pub(crate) fn start_redevelop(&mut self) {
             return;
         }
     };
-    let recipe = self.recipe.clone();
+    let recipe = self.doc.recipe.clone();
     let show_clipping = self.chrome.show_clipping;
     let film = self.film_short_edge();
     self.develop_inflight = true;
@@ -275,7 +275,7 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
     if !self.source_is_raw() || self.active_variant().is_some_and(|v| v.base.is_some()) {
         return true;
     }
-    let want = autoshade::render::BasePart::of(&self.recipe);
+    let want = autoshade::render::BasePart::of(&self.doc.recipe);
     if want == self.open.source_part {
         return true;
     }
@@ -369,7 +369,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         .photo.base_preview
         .as_ref()
         .is_some_and(|base| Arc::ptr_eq(base, &frame.base))
-        && self.recipe == frame.recipe;
+        && self.doc.recipe == frame.recipe;
     if !current {
         // The frame was solved for a recipe that changed mid-flight. The
         // redispatch gate is `dirty && !develop_inflight`, so a caller
@@ -389,7 +389,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
     // A frame of the SAME photo and version re-renders in place (a slider
     // drag must not flicker); the first frame of a different one lands on
     // a fresh texture and the old one fades out over it (MOTION_FADE_S).
-    let shows = self.photo.src_path.clone().map(|p| (p, self.active));
+    let shows = self.photo.src_path.clone().map(|p| (p, self.doc.active));
     match &mut self.after_tex {
         Some(tex) if self.after_shows == shows => tex.set(frame.after, egui::TextureOptions::LINEAR),
         old => {
@@ -426,7 +426,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
         }
         None => self.chrome.clip_tex = None,
     }
-    if let Some(v) = self.variants.get_mut(self.active) {
+    if let Some(v) = self.doc.variants.get_mut(self.doc.active) {
         if let Some(tex) = &mut v.thumb {
             tex.set(frame.thumb, egui::TextureOptions::LINEAR);
         } else {

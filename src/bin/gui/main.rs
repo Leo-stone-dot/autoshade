@@ -36,6 +36,7 @@ use i18n::{tr, trf, Lang};
 
 mod model;
 mod services;
+mod document;
 mod photo;
 mod session;
 mod persist;
@@ -80,6 +81,7 @@ mod window_chrome;
 mod workers;
 use model::*;
 use services::*;
+use document::*;
 use photo::*;
 use session::*;
 use persist::*;

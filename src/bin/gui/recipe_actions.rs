@@ -99,7 +99,7 @@ impl AutoShadeApp {
             self.recipe_status(false, text);
             return;
         }
-        let (entry, losses) = autoshade::recipe_library::portable(&self.recipe, false);
+        let (entry, losses) = autoshade::recipe_library::portable(&self.doc.recipe, false);
         match autoshade::recipe_library::create(&name, &entry) {
             Ok(()) => {
                 let _ = src;
@@ -175,7 +175,7 @@ impl AutoShadeApp {
                 coord_migration_failure_sentence(self.lang, &e.to_string()),
             );
         }
-        self.recipe = live;
+        self.doc.recipe = live;
         self.session.dirty = true;
         // A recipe placed on the pristine ✨ card is an edit like any other:
         // it lands on a new ✎ card (the immutability rule).
@@ -217,7 +217,7 @@ impl AutoShadeApp {
             return;
         }
         self.commit_pending_names();
-        let (entry, losses) = autoshade::recipe_library::portable(&self.recipe, false);
+        let (entry, losses) = autoshade::recipe_library::portable(&self.doc.recipe, false);
         match autoshade::recipe_library::replace(name, &entry) {
             Ok(()) => {
                 self.refresh_recipes();

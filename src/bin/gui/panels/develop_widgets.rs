@@ -21,7 +21,7 @@ impl AutoShadeApp {
             .default_open(false)
             , |ui| {
                 changed |= self.curve_editor(ui);
-                changed |= Self::parametric_curve(ui, lang, &mut self.recipe);
+                changed |= Self::parametric_curve(ui, lang, &mut self.doc.recipe);
             });
         changed
     }
@@ -79,7 +79,7 @@ impl AutoShadeApp {
             .default_open(false)
             , |ui| {
                 changed |= ui
-                    .checkbox(&mut self.recipe.convert_to_grayscale, tr(lang, "Black & White"))
+                    .checkbox(&mut self.doc.recipe.convert_to_grayscale, tr(lang, "Black & White"))
                     .changed();
                 // What the CANVAS does, not what the checkbox says (v1.5.0 F7):
                 // a monochrome creative profile develops the photograph to grey
@@ -87,7 +87,7 @@ impl AutoShadeApp {
                 // offering the colour mixer over a grey canvas is a row of
                 // sliders that move numbers and no pixels. `render::apply_develop`
                 // asks the same question the same way.
-                let mono = self.recipe.renders_grayscale();
+                let mono = self.doc.recipe.renders_grayscale();
                 // LR's mixer layout: pick ONE property (Hue / Saturation /
                 // Luminance) and see all 8 bands at once. The old band picker
                 // showed one band at a time — every other band's state was
@@ -110,12 +110,12 @@ impl AutoShadeApp {
                     if glyph(ui, true, "↺").on_hover_text(tr(lang, "Reset all")).clicked() {
                         if mono {
                             for b in 0..HSL_BANDS.len() {
-                                if let Some(v) = self.recipe.gray_mixer_mut(b) {
+                                if let Some(v) = self.doc.recipe.gray_mixer_mut(b) {
                                     *v = 0.0;
                                 }
                             }
                         } else {
-                            self.recipe.hsl = Hsl::default();
+                            self.doc.recipe.hsl = Hsl::default();
                         }
                         changed = true;
                     }
@@ -125,13 +125,13 @@ impl AutoShadeApp {
                     // ONE row shape for both mixers: same band, same swatch,
                     // same ±100 track — only the number behind it changes.
                     let v = match (mono, tab) {
-                        (true, _) => match self.recipe.gray_mixer_mut(b) {
+                        (true, _) => match self.doc.recipe.gray_mixer_mut(b) {
                             Some(v) => v,
                             None => continue,
                         },
-                        (false, 0) => &mut self.recipe.hsl.hue[b],
-                        (false, 1) => &mut self.recipe.hsl.saturation[b],
-                        (false, _) => &mut self.recipe.hsl.luminance[b],
+                        (false, 0) => &mut self.doc.recipe.hsl.hue[b],
+                        (false, 1) => &mut self.doc.recipe.hsl.saturation[b],
+                        (false, _) => &mut self.doc.recipe.hsl.luminance[b],
                     };
                     ui.horizontal(|ui| {
                         // Band swatch so rows scan like LR's mixer.
@@ -165,7 +165,7 @@ impl AutoShadeApp {
         ui.add_space(SPACE_SM);
         // Point Color has no colour to act on in black and white, whichever of
         // the two switches produced it (v1.5.0 F7 — see the mixer above).
-        ui.add_enabled_ui(!self.recipe.renders_grayscale(), |ui| {
+        ui.add_enabled_ui(!self.doc.recipe.renders_grayscale(), |ui| {
             ui.horizontal_wrapped(|ui| {
                 // One cell of the grid beside the caption (2026-09-27).
                 let cell = columns(ui, 2);
@@ -175,7 +175,7 @@ impl AutoShadeApp {
                 } else {
                     tr(lang, "💧 Pick a color")
                 };
-                let room = self.recipe.point_colors.len() < MAX_POINT_COLORS;
+                let room = self.doc.recipe.point_colors.len() < MAX_POINT_COLORS;
                 if action_in(ui, cell, room, label)
                     .on_hover_text(tr(lang,
                         "Click a colour in the image to add a swatch; its sliders then move that colour alone. Click again to cancel.",
@@ -202,7 +202,7 @@ impl AutoShadeApp {
             // Deferred like every other list row's ✕ (R24-5): removing inside
             // the loop would invalidate the iterator it is drawn from.
             let mut remove = None;
-            for (i, p) in self.recipe.point_colors.iter_mut().enumerate() {
+            for (i, p) in self.doc.recipe.point_colors.iter_mut().enumerate() {
                 ui.horizontal(|ui| {
                     // The colour the swatch was sampled from, as a chip: the
                     // sliders below say what happens to it, and nothing else
@@ -243,7 +243,7 @@ impl AutoShadeApp {
                 }
             }
             if let Some(i) = remove {
-                self.recipe.point_colors.remove(i);
+                self.doc.recipe.point_colors.remove(i);
                 changed = true;
             }
         });
@@ -275,12 +275,12 @@ impl AutoShadeApp {
                     }
                     // R38: a glyph square — the same reset in every mixer row.
                     if glyph(ui, true, "↺").on_hover_text(tr(lang, "Reset all")).clicked() {
-                        self.recipe.color_grade = ColorGrade::default();
+                        self.doc.recipe.color_grade = ColorGrade::default();
                         changed = true;
                     }
                 });
                 ui.add_space(SPACE_SM);
-                let cg = &mut self.recipe.color_grade;
+                let cg = &mut self.doc.recipe.color_grade;
                 // One wheel with its luminance slider in a column `width` wide.
                 let wheel = |ui: &mut egui::Ui, title: &str, width: f32, h: &mut f32, s: &mut f32, l: &mut f32| {
                     let mut c = false;

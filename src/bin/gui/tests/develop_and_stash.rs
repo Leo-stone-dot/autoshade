@@ -25,7 +25,7 @@
         assert!(app.session.dirty, "the in-flight guard swallows a second dispatch (edit stays armed)");
 
         // A matching frame is accepted and bumps the counter + sets the texture.
-        let good = build_preview(base.clone(), app.recipe.clone(), false, None, autoshade::render::SourceFrame::Baked(None));
+        let good = build_preview(base.clone(), app.doc.recipe.clone(), false, None, autoshade::render::SourceFrame::Baked(None));
         app.finish_redevelop(&ctx, Ok(good));
         assert_eq!(app.develop_count, 1, "matching frame accepted");
         assert!(app.after_tex.is_some(), "after texture set");
@@ -36,8 +36,8 @@
         // AND the pending edit re-armed. `dirty` is cleared first — it was
         // still true from the swallowed dispatch above, so the re-arm
         // assertion used to be vacuously satisfiable (L26).
-        let stale = build_preview(base, app.recipe.clone(), false, None, autoshade::render::SourceFrame::Baked(None));
-        app.recipe.masks[0].exposure_ev = 1.9; // user kept dragging
+        let stale = build_preview(base, app.doc.recipe.clone(), false, None, autoshade::render::SourceFrame::Baked(None));
+        app.doc.recipe.masks[0].exposure_ev = 1.9; // user kept dragging
         app.session.dirty = false;
         app.finish_redevelop(&ctx, Ok(stale));
         assert_eq!(app.develop_count, 1, "stale frame (recipe moved) discarded");
@@ -60,7 +60,7 @@
         let ctx = egui::Context::default();
         let base = app.photo.base_preview.clone().unwrap();
         let frame = |app: &AutoShadeApp| {
-            build_preview(base.clone(), app.recipe.clone(), false, None, autoshade::render::SourceFrame::Baked(None))
+            build_preview(base.clone(), app.doc.recipe.clone(), false, None, autoshade::render::SourceFrame::Baked(None))
         };
 
         app.finish_redevelop(&ctx, Ok(frame(&app)));
@@ -72,7 +72,7 @@
         assert!(app.canvas_fade.is_none(), "a re-render of the same version must not fade");
         assert_eq!(app.after_tex.as_ref().unwrap().id(), first, "…and updates the texture in place");
 
-        app.active += 1; // the version the frame is for changed
+        app.doc.active += 1; // the version the frame is for changed
         app.finish_redevelop(&ctx, Ok(frame(&app)));
         let (old, _) = app.canvas_fade.as_ref().expect("a swap fades");
         assert_eq!(old.as_ref().map(|t| t.id()), Some(first), "the outgoing frame is the one faded out");
@@ -97,19 +97,19 @@
         // precondition — a flushed rename reads as UNSAVED — is pinned
         // instead (Codex batch 41).
         let (mut app, _scrub) = app_with_masked_photo("rename");
-        app.recipe.masks[0].name = "sky".into();
-        app.session.hist.saved_recipe = app.recipe.clone();
+        app.doc.recipe.masks[0].name = "sky".into();
+        app.session.hist.saved_recipe = app.doc.recipe.clone();
         let old = std::path::PathBuf::from("out/_rename_old.arw");
         app.photo.src_path = Some(old.clone());
         app.masks.mask_name_buf = Some((0, "sky".into(), "sky gradient".into()));
 
         app.open_path(std::path::PathBuf::from("out/_rename_new.arw"));
         assert_eq!(
-            app.recipe.masks[0].name, "sky gradient",
+            app.doc.recipe.masks[0].name, "sky gradient",
             "open_path itself must flush the pending rename"
         );
         assert!(
-            dirty_vs(&app.recipe, &app.session.hist.saved_recipe),
+            dirty_vs(&app.doc.recipe, &app.session.hist.saved_recipe),
             "the flushed rename must read as unsaved (the close guard's gate)"
         );
         let stash = app.open.nav_stash.get(&old).expect("a dirty canvas must be stashed");
@@ -126,7 +126,7 @@
         app.masks.mask_name_buf = Some((0, "sky gradient".into(), "sky gradient 2".into()));
         app.save_xmp();
         assert_eq!(
-            app.recipe.masks[0].name, "sky gradient 2",
+            app.doc.recipe.masks[0].name, "sky gradient 2",
             "save_xmp itself must flush the pending rename"
         );
 
@@ -140,8 +140,8 @@
         // clean photo the user merely visited, the quit dialog listed them
         // as unsaved, and Save-all wrote sidecars for zero user edits.
         let (mut app, _scrub) = app_with_masked_photo("chainstash");
-        app.session.hist.saved_recipe = app.recipe.clone(); // this canvas is clean
-        app.variants[0].origin = None;
+        app.session.hist.saved_recipe = app.doc.recipe.clone(); // this canvas is clean
+        app.doc.variants[0].origin = None;
         app.session.hist.pixels_on_disk = None;
         let clean = std::env::temp_dir().join(format!("autoshade-chain-{}/clean.ARW", std::process::id()));
         app.photo.src_path = Some(clean.clone());
@@ -151,7 +151,7 @@
             StashEntry {
                 id: String::new(),
                 name: None,
-                recipe: app.recipe.clone(),
+                recipe: app.doc.recipe.clone(),
                 base: None,
                 origin: None,
                 kind: VariantKind::Original,
@@ -189,7 +189,7 @@
         let gen_base = Arc::new(image::DynamicImage::new_rgb8(8, 6));
         // An ✎ card: the only kind a develop over AI pixels can be since the
         // immutability rule (a ✨ card carrying edits is split at the door).
-        app.variants.push(Variant {
+        app.doc.variants.push(Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Edited,
@@ -198,7 +198,7 @@
             origin: Some(PathBuf::from("out/_h4_gen.png")),
             thumb: None,
         });
-        app.session.hist.saved_recipe = app.recipe.clone(); // active canvas clean
+        app.session.hist.saved_recipe = app.doc.recipe.clone(); // active canvas clean
         // Unique stem, load-bearing for THIS path: the synthetic Opened
         // below lands on the fresh arm, whose read_saved_develop migrates
         // cwd ./out legacy sidecars by stem (see the keep-fact test). The
@@ -239,24 +239,24 @@
             )))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.variants.len(), 2, "the background variant survives the round trip");
+        assert_eq!(app.doc.variants.len(), 2, "the background variant survives the round trip");
         assert!(
-            app.variants
+            app.doc.variants
                 .iter()
                 .any(|v| v.kind == VariantKind::Edited && v.recipe.contrast == 33.0),
             "…with its unsaved recipe intact"
         );
         // The commit claimed "active position included", and nothing pinned
         // it: with the fixture's active == 0 the whole restore could append
-        // the active variant at the END and leave self.active at 0 — canvas
+        // the active variant at the END and leave self.doc.active at 0 — canvas
         // and index disagreeing — and every assertion above still passed.
-        assert_eq!(app.active, 0, "the active position comes back with the strip");
+        assert_eq!(app.doc.active, 0, "the active position comes back with the strip");
         assert!(
-            matches!(app.variants[app.active].kind, VariantKind::Original),
+            matches!(app.doc.variants[app.doc.active].kind, VariantKind::Original),
             "…pointing at the variant that WAS active, not merely at a valid index"
         );
         assert_eq!(
-            app.variants[app.active].recipe, app.recipe,
+            app.doc.variants[app.doc.active].recipe, app.doc.recipe,
             "the canvas and the active slot must agree after a restore"
         );
 
@@ -275,21 +275,21 @@
         assert!(app.overlay.mask_overlay_tex.is_some());
 
         // Local effect sliders: no rebuild.
-        app.recipe.masks[0].exposure_ev = -2.0;
+        app.doc.recipe.masks[0].exposure_ev = -2.0;
         app.refresh_mask_overlay(&ctx);
-        app.recipe.masks[0].temperature = 55.0;
+        app.doc.recipe.masks[0].temperature = 55.0;
         app.refresh_mask_overlay(&ctx);
-        app.recipe.masks[0].color_gains = Some([1.6, 0.8, 0.5]);
+        app.doc.recipe.masks[0].color_gains = Some([1.6, 0.8, 0.5]);
         app.refresh_mask_overlay(&ctx);
         assert_eq!(app.overlay.overlay_build_count, 1, "local effect sliders must not rebuild coverage");
 
         // Amount is coverage-relevant: rebuild.
-        app.recipe.masks[0].amount = 0.5;
+        app.doc.recipe.masks[0].amount = 0.5;
         app.refresh_mask_overlay(&ctx);
         assert_eq!(app.overlay.overlay_build_count, 2, "amount change rebuilds coverage");
 
         // Inversion is coverage-relevant: rebuild.
-        app.recipe.masks[0].inverted = true;
+        app.doc.recipe.masks[0].inverted = true;
         app.refresh_mask_overlay(&ctx);
         assert_eq!(app.overlay.overlay_build_count, 3, "inversion rebuilds coverage");
 
@@ -744,20 +744,20 @@
             .unwrap();
         app.poll_workers(&ctx);
 
-        assert_eq!(app.variants.len(), 2, "the ▣ card and the ✨ card");
-        assert_eq!(app.active, 1);
-        assert_eq!(app.variants[1].kind, VariantKind::Generated);
+        assert_eq!(app.doc.variants.len(), 2, "the ▣ card and the ✨ card");
+        assert_eq!(app.doc.active, 1);
+        assert_eq!(app.doc.variants[1].kind, VariantKind::Generated);
         assert!(
-            app.variants[1].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ai_px)),
+            app.doc.variants[1].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &ai_px)),
             "the canvas sits on the AI pixels"
         );
         assert!(
-            app.recipe.is_noop(),
+            app.doc.recipe.is_noop(),
             "the pristine card, not the deleted reverse-fit's grade: {:?}",
-            (app.recipe.saturation, app.recipe.exposure_ev)
+            (app.doc.recipe.saturation, app.doc.recipe.exposure_ev)
         );
-        assert_eq!(app.recipe.saturation, 0.0);
-        assert!(app.recipe.base_curve.is_empty(), "calibration stripped on AI pixels");
+        assert_eq!(app.doc.recipe.saturation, 0.0);
+        assert!(app.doc.recipe.base_curve.is_empty(), "calibration stripped on AI pixels");
         assert!(app.session.hist.saved_recipe.is_noop(), "the ● baseline agrees");
         assert!(!app.unsaved_marker_dirty(), "a clean open: {}", app.status);
         assert!(
@@ -765,7 +765,7 @@
             "nothing was restored from the projection: {}",
             app.status
         );
-        assert_eq!(app.variants[0].recipe.contrast, 4.0, "the ▣ card keeps its own develop");
+        assert_eq!(app.doc.variants[0].recipe.contrast, 4.0, "the ▣ card keeps its own develop");
     }
 
     /// Ctrl+S publishes the Lightroom projection in the recipe's own
@@ -793,7 +793,17 @@
 
             },
 
-            recipe: EditRecipe { contrast: 7.0, ..Default::default() },
+            doc: Document {
+
+
+                recipe: EditRecipe { contrast: 7.0, ..Default::default() },
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         app.save_xmp();
@@ -896,7 +906,7 @@
     }
 
     fn strip_kinds(app: &AutoShadeApp) -> Vec<VariantKind> {
-        app.variants.iter().map(|v| v.kind).collect()
+        app.doc.variants.iter().map(|v| v.kind).collect()
     }
 
     fn saved_strip_of(src: &std::path::Path) -> autoshade::store::VariantsRecord {

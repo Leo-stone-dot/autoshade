@@ -113,7 +113,7 @@
     #[test]
     fn a_selection_switch_disarms_index_armed_tools() {
         let mut app = AutoShadeApp::default();
-        app.recipe.masks =
+        app.doc.recipe.masks =
             vec![autoshade::recipe::LocalAdjustment::default(), Default::default()];
 
         app.masks.placing_mask = Some((MaskKind::Linear, PlaceTarget::Redraw(0)));
@@ -175,7 +175,7 @@
         let m = app.masks.mask_paint.as_ref().expect("a fresh canvas at the new size");
         assert_eq!((m.width(), m.height()), (16, 16));
 
-        app.recipe.masks =
+        app.doc.recipe.masks =
             vec![autoshade::recipe::LocalAdjustment::default(), Default::default()];
         app.start_mask_brush(Some(0));
         assert!(
@@ -201,13 +201,20 @@
         let ctx = egui::Context::default();
         let mut app = AutoShadeApp {
             busy: true,
-            recipe: EditRecipe {
+            doc: Document {
+
+                recipe: EditRecipe {
                 masks: vec![autoshade::recipe::LocalAdjustment {
                     mask: MaskGeometry::Bitmap { path: "mask-1.png".into() },
                     ..Default::default()
                 }],
                 ..Default::default()
             },
+
+                ..Default::default()
+
+            },
+
             ..Default::default()
         };
         // The gate's own arithmetic decides what "over budget" is — pin the
@@ -233,7 +240,7 @@
 
         assert!(!app.busy, "the refusal releases the worker gate");
         assert!(
-            matches!(&app.recipe.masks[0].mask, MaskGeometry::Bitmap { path } if path == "mask-1.png"),
+            matches!(&app.doc.recipe.masks[0].mask, MaskGeometry::Bitmap { path } if path == "mask-1.png"),
             "nothing was written, so the mask keeps its own raster"
         );
         assert!(
@@ -256,7 +263,7 @@
         let ctx = egui::Context::default();
         let mut app = AutoShadeApp::default();
         let b0 = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
-        app.variants = vec![Variant {
+        app.doc.variants = vec![Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Original,
@@ -265,12 +272,12 @@
             origin: None,
             thumb: None,
         }];
-        app.active = 0;
+        app.doc.active = 0;
         app.photo.base_preview = Some(b0.clone());
         app.reset_history(); // committed = (neutral recipe, b0)
 
         // A slider edit still mid-gesture when the worker returns.
-        app.recipe.exposure_ev = 0.5;
+        app.doc.recipe.exposure_ev = 0.5;
 
         let epoch = app.tools.gen_epoch;
         app.on_retouched(
@@ -318,7 +325,7 @@
             egui::ColorImage::example(),
             egui::TextureOptions::LINEAR,
         );
-        app.variants = vec![
+        app.doc.variants = vec![
             Variant {
                 id: String::new(),
                 name: None,
@@ -338,11 +345,11 @@
                 thumb: None,
             },
         ];
-        app.active = 0;
+        app.doc.active = 0;
         app.session.dirty = false;
         app.develop_inflight = false;
         app.switch_variant(1, &ctx);
-        assert!(app.variants[0].thumb.is_some(), "a settled card keeps its thumb");
+        assert!(app.doc.variants[0].thumb.is_some(), "a settled card keeps its thumb");
 
         app.session.dirty = false;
         app.develop_inflight = false;
@@ -350,7 +357,7 @@
         app.session.dirty = true; // an edit awaiting dispatch — no frame depicts it
         app.switch_variant(1, &ctx);
         assert!(
-            app.variants[0].thumb.is_none(),
+            app.doc.variants[0].thumb.is_none(),
             "no completed frame depicts the edit — the honest … placeholder takes over"
         );
     }
@@ -373,7 +380,7 @@
             origin: Some(PathBuf::from("out/_keepfact_gen.png")),
             thumb: None,
         };
-        app.variants = vec![mk(), mk()];
+        app.doc.variants = vec![mk(), mk()];
         // Stem must be globally improbable: the fresh arm's
         // read_saved_develop runs store::migrate_legacy, which scans the
         // cwd ./out for {stem}.recipe.json / {stem}.xmp and MOVES any hit
@@ -397,9 +404,9 @@
             )))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.variants.len(), 1, "fresh arm: the strip is rebuilt, never grafted");
+        assert_eq!(app.doc.variants.len(), 1, "fresh arm: the strip is rebuilt, never grafted");
         // ...and an HONOURED request (fact agrees) preserves the strip.
-        app.variants = vec![mk(), mk()];
+        app.doc.variants = vec![mk(), mk()];
         app.cards.keep_recipe = true;
         app.open.open_same_path = true;
         app.services.tx
@@ -414,13 +421,13 @@
             )))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.variants.len(), 2, "keep arm: the strip survives a same-path re-decode");
+        assert_eq!(app.doc.variants.len(), 2, "keep arm: the strip survives a same-path re-decode");
         // ...and the REQUEST half is load-bearing too: fact without request
         // (a same-path FRESH reopen) reloads fresh. Reducing the KEEP arm to
         // `let keep = self.open.open_same_path;` turns this into a graft — the
         // reload never happens and the one-shot request goes sticky — and
         // fails the assert.
-        app.variants = vec![mk(), mk()];
+        app.doc.variants = vec![mk(), mk()];
         app.cards.keep_recipe = false;
         app.open.open_same_path = true;
         app.services.tx
@@ -435,7 +442,7 @@
             )))))
             .unwrap();
         app.poll_workers(&ctx);
-        assert_eq!(app.variants.len(), 1, "fresh arm: a reopen without the request reloads");
+        assert_eq!(app.doc.variants.len(), 1, "fresh arm: a reopen without the request reloads");
     }
 
     #[test]
@@ -464,7 +471,7 @@
         let pre_era =
             EditRecipe { version: 1, base_curve: washy.clone(), ..Default::default() };
         app.photo.src_path = Some(p);
-        app.variants = vec![Variant {
+        app.doc.variants = vec![Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Original,
@@ -473,7 +480,7 @@
             origin: None,
             thumb: None,
         }];
-        app.recipe = pre_era.clone();
+        app.doc.recipe = pre_era.clone();
         app.session.hist.committed = UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None };
         app.session.hist.undo_stack.push(UndoStep { recipe: pre_era.clone(), base: None, origin: None, keep_skin: None });
         // Same-path FRESH reopen in flight: fact without request — refused.
@@ -481,20 +488,20 @@
         app.open.open_same_path = true;
         app.cards.keep_recipe = false;
         app.undo(&ctx);
-        assert_eq!(app.recipe.version, 1, "fresh-reopen flight: the install is NOT repaired");
-        assert_eq!(app.recipe.base_curve, washy, "…and the washed curve is untouched");
+        assert_eq!(app.doc.recipe.version, 1, "fresh-reopen flight: the install is NOT repaired");
+        assert_eq!(app.doc.recipe.base_curve, washy, "…and the washed curve is untouched");
         // Same-path keep-flight: request AND fact — admitted, and the memo's
         // primed answer is adopted with its era stamp.
         app.cards.keep_recipe = true;
         app.redo(&ctx);
         assert_eq!(
-            app.recipe.version,
+            app.doc.recipe.version,
             autoshade::recipe::CALIB_ERA,
             "keep-flight: the reinstalled pre-era pair is repaired"
         );
-        assert_eq!(app.recipe.base_curve, primed, "…with the primed answer, not a re-estimate");
+        assert_eq!(app.doc.recipe.base_curve, primed, "…with the primed answer, not a re-estimate");
         assert_eq!(
-            app.variants[0].recipe.base_curve, primed,
+            app.doc.variants[0].recipe.base_curve, primed,
             "…and the strip entry follows the healed canvas"
         );
         // ...and the FACT half is load-bearing too: the redo above pushed the
@@ -506,8 +513,8 @@
         // fails these asserts.
         app.open.open_same_path = false;
         app.undo(&ctx);
-        assert_eq!(app.recipe.version, 1, "cross-photo flight: the install is NOT repaired");
-        assert_eq!(app.recipe.base_curve, washy, "…and the washed curve is untouched");
+        assert_eq!(app.doc.recipe.version, 1, "cross-photo flight: the install is NOT repaired");
+        assert_eq!(app.doc.recipe.base_curve, washy, "…and the washed curve is untouched");
     }
 
     #[test]
@@ -546,7 +553,10 @@
 
             },
 
-            variants: vec![Variant {
+            doc: Document {
+
+
+                variants: vec![Variant {
                 id: String::new(),
                 name: None,
                 kind: VariantKind::Original,
@@ -555,6 +565,13 @@
                 origin,
                 thumb: None,
             }],
+
+
+                ..Default::default()
+
+
+            },
+
             // What open_path leaves on the bar for the whole flight.
 status: "decoding … ".to_string(),
             ..Default::default()
@@ -645,7 +662,7 @@ status: "decoding … ".to_string(),
             "…and renders the master re-decoded at the new edge"
         );
         assert!(
-            app.variants[0].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &master)),
+            app.doc.variants[0].base.as_ref().is_some_and(|b| Arc::ptr_eq(b, &master)),
             "…with the variant re-pointed at it"
         );
     }
@@ -697,8 +714,13 @@ status: "decoding … ".to_string(),
 
             },
 
-            recipe: original_recipe.clone(),
-            variants: vec![
+            doc: Document {
+
+
+                recipe: original_recipe.clone(),
+
+
+                variants: vec![
                 Variant {
                     kind: VariantKind::Original,
                     id: "card-x".into(),
@@ -718,7 +740,16 @@ status: "decoding … ".to_string(),
                     thumb: None,
                 },
             ],
-            active: 0,
+
+
+                active: 0,
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         }
     }
@@ -757,14 +788,14 @@ status: "decoding … ".to_string(),
         let mut app = persisted_two_card_fixture();
         let ctx = egui::Context::default();
         app.switch_variant(1, &ctx);
-        app.recipe.contrast = 27.0;
+        app.doc.recipe.contrast = 27.0;
         assert!(app.unsaved_marker_dirty(), "editing the switched-to card is dirty");
         assert!(app.quit_guard_open_dirty(), "the close guard sees that edit");
         assert!(app.nav_stash_gate_dirty(), "the nav gate sees that edit");
         assert!(app.pending_save_gate_dirty(), "the quit save list sees that edit");
 
-        app.variants[app.active].recipe = app.recipe.clone();
-        app.session.hist.saved_recipe = app.recipe.clone();
+        app.doc.variants[app.doc.active].recipe = app.doc.recipe.clone();
+        app.session.hist.saved_recipe = app.doc.recipe.clone();
         app.session.hist.pixels_on_disk = app.active_variant().and_then(|v| v.origin.clone());
         app.session.hist.saved_strip = app.current_strip_record();
         assert!(!app.unsaved_marker_dirty(), "saving on card Y advances Y's baseline");
@@ -781,7 +812,7 @@ status: "decoding … ".to_string(),
     #[test]
     fn pushed_and_deleted_cards_remain_unsaved_strip_work() {
         let mut pushed = persisted_two_card_fixture();
-        pushed.variants.push(Variant {
+        pushed.doc.variants.push(Variant {
             kind: VariantKind::Generated,
             id: "card-new".into(),
             name: None,
@@ -790,15 +821,15 @@ status: "decoding … ".to_string(),
             origin: Some(std::env::temp_dir().join(format!("autoshade-masters-{}/new.png", std::process::id()))),
             thumb: None,
         });
-        pushed.active = 2;
-        pushed.recipe = EditRecipe::default();
+        pushed.doc.active = 2;
+        pushed.doc.recipe = EditRecipe::default();
         assert!(pushed.unsaved_marker_dirty(), "a pushed active card has no baseline");
         assert!(pushed.open_dirty_variants() > 0, "the pushed card is absent on disk");
         assert!(pushed.nav_stash_gate_dirty(), "navigation protects the pushed card");
         assert!(pushed.pending_save_gate_dirty(), "quit Save-all includes the pushed card");
 
         let mut deleted = persisted_two_card_fixture();
-        deleted.variants.remove(1);
+        deleted.doc.variants.remove(1);
         assert!(!deleted.unsaved_marker_dirty(), "the surviving active card itself is clean");
         assert!(deleted.open_dirty_variants() > 0, "a persisted card was deleted live");
         assert!(deleted.nav_stash_gate_dirty(), "navigation protects the deletion");
@@ -814,11 +845,11 @@ status: "decoding … ".to_string(),
         let mut app = persisted_two_card_fixture();
         let original_origin = std::env::temp_dir().join(format!("autoshade-masters-{}/original-heal.png", std::process::id()));
         let generated_origin = std::env::temp_dir().join(format!("autoshade-masters-{}/generated.png", std::process::id()));
-        app.variants[0].origin = Some(original_origin.clone());
+        app.doc.variants[0].origin = Some(original_origin.clone());
         app.session.hist.pixels_on_disk = Some(original_origin);
-        app.variants[1].kind = VariantKind::Generated;
-        app.variants[1].origin = Some(generated_origin.clone());
-        app.variants[1].base = Some(Arc::new(image::DynamicImage::new_rgb8(4, 3)));
+        app.doc.variants[1].kind = VariantKind::Generated;
+        app.doc.variants[1].origin = Some(generated_origin.clone());
+        app.doc.variants[1].base = Some(Arc::new(image::DynamicImage::new_rgb8(4, 3)));
         let entry = &mut app.session.hist.saved_strip.as_mut().unwrap().others[0];
         entry.kind = "generated".into();
         entry.origin = Some(generated_origin);
@@ -830,7 +861,7 @@ status: "decoding … ".to_string(),
         assert!(!app.nav_stash_gate_dirty(), "the nav pixel half uses Y's entry");
         assert!(!app.pending_save_gate_dirty(), "PendingSave uses Y's entry");
 
-        app.variants[1].origin = Some(std::env::temp_dir().join(format!("autoshade-masters-{}/generated-edited.png", std::process::id())));
+        app.doc.variants[1].origin = Some(std::env::temp_dir().join(format!("autoshade-masters-{}/generated-edited.png", std::process::id())));
         assert!(app.unsaved_marker_dirty(), "changing Y's origin re-arms the marker");
         assert!(app.quit_guard_open_dirty(), "changing Y's origin re-arms close");
         assert!(app.nav_stash_gate_dirty(), "changing Y's origin re-arms navigation");
@@ -842,7 +873,7 @@ status: "decoding … ".to_string(),
         let mut app = persisted_two_card_fixture();
         let ctx = egui::Context::default();
         app.switch_variant(1, &ctx);
-        app.variants[1].name = Some("new fitted name".into());
+        app.doc.variants[1].name = Some("new fitted name".into());
 
         assert!(!app.unsaved_marker_dirty(), "the canvas develop itself did not change");
         assert!(app.open_dirty_variants() > 0, "the card name's only home changed");
@@ -893,8 +924,18 @@ status: "decoding … ".to_string(),
 
             },
 
-            // The RELATIVE spelling, exactly as the retouch handler records it.
+            doc: Document {
+
+
+                // The RELATIVE spelling, exactly as the retouch handler records it.
 variants: vec![mk(master.clone()), mk(master.clone())],
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         // Not persisted yet (no mirror): the background card IS unsaved work.
@@ -925,7 +966,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
             0,
             "a background variant matching the persisted strip record is not unsaved work"
         );
-        app.variants.truncate(1);
+        app.doc.variants.truncate(1);
         // Mirror follows the trivial strip (as a save would persist it) —
         // this half of the test pins the PIXELS spelling comparison in the
         // stash gate, not strip dirtiness.
@@ -946,7 +987,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         let (mut app, _scrub) = app_with_masked_photo("stashkind");
         let src = std::env::temp_dir().join(format!("autoshade-library-{}/__autoshade_stashkind__.ARW", std::process::id()));
         app.photo.src_path = Some(src.clone());
-        app.variants.push(Variant {
+        app.doc.variants.push(Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Fitted,
@@ -955,8 +996,8 @@ variants: vec![mk(master.clone()), mk(master.clone())],
             origin: None,
             thumb: None,
         });
-        app.active = 1;
-        app.recipe = EditRecipe { contrast: 21.0, ..Default::default() };
+        app.doc.active = 1;
+        app.doc.recipe = EditRecipe { contrast: 21.0, ..Default::default() };
         app.open_path(std::env::temp_dir().join(format!("autoshade-library-{}/__autoshade_stashkind_next__.ARW", std::process::id())));
         let st = app.open.nav_stash.get(&src).expect("a dirty strip stashes on nav-away");
         assert_eq!(
@@ -996,7 +1037,10 @@ variants: vec![mk(master.clone()), mk(master.clone())],
 
             },
 
-            variants: vec![
+            doc: Document {
+
+
+                variants: vec![
                 Variant {
                     id: String::new(),
                     name: None,
@@ -1025,7 +1069,16 @@ variants: vec![mk(master.clone()), mk(master.clone())],
                     thumb: None,
                 },
             ],
-            active: 2,
+
+
+                active: 2,
+
+
+                ..Default::default()
+
+
+            },
+
             ..Default::default()
         };
         // The exact pre-fix trap: unsaved strip, guard armed…
@@ -1048,8 +1101,8 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         assert_eq!(rec.others[1].origin.as_deref(), Some(master.as_path()));
         // Any strip mutation re-arms the protection: deleting the Generated
         // card is unsaved again until the next persist.
-        app.variants.remove(1);
-        app.active = 1;
+        app.doc.variants.remove(1);
+        app.doc.active = 1;
         assert!(
             app.inactive_dirty_variants() > 0,
             "a deleted background variant is unsaved work against the mirror"
@@ -1057,8 +1110,8 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         // …and switching the active card (identity drift) counts too.
         app.persist_strip(src).expect("re-persist");
         assert_eq!(app.inactive_dirty_variants(), 0);
-        app.active = 0;
-        app.variants.swap(0, 1);
+        app.doc.active = 0;
+        app.doc.variants.swap(0, 1);
         assert!(
             app.open_dirty_variants() > 0,
             "active-card identity drift reopens as a different strip"

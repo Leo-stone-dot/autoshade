@@ -208,7 +208,7 @@
         // …and it OUTRANKS a generated variant: an explicit choice must not
         // be shadowed by whichever card happens to be active.
         let generated = std::path::PathBuf::from("./out/P21.reimagine.png");
-        app.variants.push(Variant {
+        app.doc.variants.push(Variant {
             id: String::new(),
             name: None,
             kind: VariantKind::Generated,
@@ -217,7 +217,7 @@
             origin: Some(generated.clone()),
             thumb: None,
         });
-        app.active = app.variants.len() - 1;
+        app.doc.active = app.doc.variants.len() - 1;
         assert_eq!(app.fit_target(), Some(reference), "the chosen reference wins");
         // Clearing it hands the entry back to the generated variant — both
         // doors stay open, which is the whole shape of this change.
@@ -422,7 +422,7 @@
                 rationale_notes: notes.clone(),
                 ..Default::default()
             };
-            app.recipe.rationale = rationale.clone();
+            app.doc.recipe.rationale = rationale.clone();
             let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
             let sentence = seen
                 .iter()
@@ -453,7 +453,7 @@
         }
         // Fallback: no typed notes → the raw English, whole, and no box.
         let mut app = AutoShadeApp { rationale: rationale.clone(), ..Default::default() };
-        app.recipe.rationale = rationale.clone();
+        app.doc.recipe.rationale = rationale.clone();
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
         let title = tr(app.lang, "Deep thinking · its working");
         assert!(

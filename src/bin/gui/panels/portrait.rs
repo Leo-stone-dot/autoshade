@@ -121,10 +121,10 @@ impl AutoShadeApp {
     /// are remembered by the look protocol and put back on the landed recipe.
     pub(crate) fn start_portrait_look(&mut self) {
         let kept: Vec<LocalAdjustment> =
-            self.recipe.masks.iter().filter(|m| PORTRAIT_ROLES.contains(&m.role)).cloned().collect();
+            self.doc.recipe.masks.iter().filter(|m| PORTRAIT_ROLES.contains(&m.role)).cloned().collect();
         let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Portrait);
         intent.kept_masks = kept;
-        intent.kept_blur = self.recipe.lens_blur.clone();
+        intent.kept_blur = self.doc.recipe.lens_blur.clone();
         self.apply_actions(vec![logic::Action::Look(intent)]);
     }
 
@@ -187,7 +187,7 @@ impl AutoShadeApp {
 
     /// Why the skin and eyes groups are greyed, or `None` when they work.
     pub(crate) fn portrait_face_gate(&self, lang: Lang) -> Option<&'static str> {
-        if self.recipe.masks.iter().any(|m| matches!(m.role, MaskRole::Face | MaskRole::Skin)) {
+        if self.doc.recipe.masks.iter().any(|m| matches!(m.role, MaskRole::Face | MaskRole::Skin)) {
             return None;
         }
         let searched = self.portrait.found.as_ref().is_some_and(|(p, n)| self.photo.src_path.as_ref() == Some(p) && *n == 0);
@@ -209,7 +209,7 @@ impl AutoShadeApp {
             changed |= self.portrait_background(ui);
         });
         if changed {
-            self.recipe.clamp();
+            self.doc.recipe.clamp();
             self.session.dirty = true;
         }
         ui.add_space(SPACE_MD);
@@ -273,7 +273,7 @@ impl AutoShadeApp {
         let mut changed = false;
         ui.add_enabled_ui(gate.is_none(), |ui| {
             let mut probe = LocalAdjustment::default();
-            let m = skin_target(&mut self.recipe).unwrap_or(&mut probe);
+            let m = skin_target(&mut self.doc.recipe).unwrap_or(&mut probe);
             let mut soften = soften_of(m);
             let soft_max = logic::portrait::reach(guarded, -autoshade::face::SKIN_TEXTURE_MIN, 100.0);
             if Self::slider_hinted(ui, lang, tr(lang, "Soften skin"), &mut soften, 0.0, soft_max, 0.0, tr(lang, "Smooths the skin's fine texture; the face's shape and the eyes stay as they are.")) {
@@ -298,7 +298,7 @@ impl AutoShadeApp {
                 logic::portrait::PortraitAction::SetKeepSkin(on),
             )]);
         }
-        let can_heal = face_raster(&self.recipe).is_some() && !self.busy && self.photo.src_path.is_some();
+        let can_heal = face_raster(&self.doc.recipe).is_some() && !self.busy && self.photo.src_path.is_some();
         if action_row(ui, can_heal, tr(lang, "🤖 Remove blemishes"))
             .on_hover_text(tr(
                 lang,
@@ -321,12 +321,12 @@ impl AutoShadeApp {
         let lang = self.lang;
         Self::portrait_group(ui, tr(lang, "Eyes"));
         let gate = self.portrait_face_gate(lang).or_else(|| {
-            (!self.recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, "Find the people and faces first (the first group)."))
+            (!self.doc.recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, "Find the people and faces first (the first group)."))
         });
         let mut changed = false;
         ui.add_enabled_ui(gate.is_none(), |ui| {
             let mut probe = LocalAdjustment::default();
-            let m = role_mask(&mut self.recipe, MaskRole::Eyes).unwrap_or(&mut probe);
+            let m = role_mask(&mut self.doc.recipe, MaskRole::Eyes).unwrap_or(&mut probe);
             changed |= Self::slider_hinted(ui, lang, tr(lang, "Brighten eyes"), &mut m.exposure_ev, 0.0, EYES_BRIGHTEN_MAX_EV, 0.0, tr(lang, "Lifts the eyes a little."));
             let mut crisp = crisp_of(m);
             if Self::slider_hinted(ui, lang, tr(lang, "Crisp eyes"), &mut crisp, 0.0, 100.0, 0.0, tr(lang, "Brings out the detail in the eyes.")) {
@@ -346,8 +346,8 @@ impl AutoShadeApp {
         let lang = self.lang;
         Self::portrait_group(ui, tr(lang, "Background"));
         let mut changed = false;
-        let subject = subject_raster(&self.recipe);
-        if self.recipe.lens_blur.is_none() {
+        let subject = subject_raster(&self.doc.recipe);
+        if self.doc.recipe.lens_blur.is_none() {
             let can = !self.busy && self.photo.base_preview.is_some() && self.photo.src_path.is_some() && depth_helper_available();
             if action_row(ui, can, tr(lang, "🤖 Prepare the background blur"))
                 .on_hover_text(tr(lang, "Measures how far away every part of the photo is, on this computer (the first run downloads a 1.3 GB model); then the blur sliders appear."))
@@ -356,7 +356,7 @@ impl AutoShadeApp {
                 self.portrait.blur_from_panel = true;
                 self.apply_actions(vec![logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth)]);
             }
-        } else if let Some(lb) = self.recipe.lens_blur.as_mut() {
+        } else if let Some(lb) = self.doc.recipe.lens_blur.as_mut() {
             changed |= Self::slider(ui, lang, tr(lang, "Blur amount"), &mut lb.amount, 0.0, 100.0, 50.0);
             changed |= Self::slider_hinted(ui, lang, tr(lang, "Sharp range"), &mut lb.range, 0.0, 100.0, 10.0, tr(lang, "How deep the sharp part of the picture is, around the face."));
             let mut keep = lb.protect.is_some();
@@ -371,10 +371,10 @@ impl AutoShadeApp {
                 )]);
             }
         }
-        let has_bg = self.recipe.masks.iter().any(|m| m.role == MaskRole::Background);
+        let has_bg = self.doc.recipe.masks.iter().any(|m| m.role == MaskRole::Background);
         ui.add_enabled_ui(has_bg, |ui| {
             let mut probe = LocalAdjustment::default();
-            let m = role_mask(&mut self.recipe, MaskRole::Background).unwrap_or(&mut probe);
+            let m = role_mask(&mut self.doc.recipe, MaskRole::Background).unwrap_or(&mut probe);
             let mut darken = darken_of(m);
             if Self::slider_hinted(ui, lang, tr(lang, "Darken background"), &mut darken, 0.0, 100.0, 0.0, tr(lang, "Everything but the person, a little darker.")) {
                 set_darken(m, darken);

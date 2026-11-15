@@ -541,7 +541,7 @@ impl AutoShadeApp {
                     let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Adjust);
                     intent.typed = self.genai.adjust_edit_prompt.clone();
                     intent.region = self.overlay.region;
-                    intent.base = Some(self.recipe.clone());
+                    intent.base = Some(self.doc.recipe.clone());
                     intent.pixels = self
                         .active_on_ai_pixels()
                         .then(|| self.active_variant().and_then(|v| v.origin.clone()))
@@ -1016,7 +1016,7 @@ impl AutoShadeApp {
             // source was a rule nobody could see (`negative_index`).
             let (auto, sources) = self.fit_source_menu();
             let to = (self.fit.fit_ref.is_none() && self.fit_target().is_some())
-                .then(|| trf(lang, "To: {card}", &[("card", &self.numbered_card_label(self.active))]));
+                .then(|| trf(lang, "To: {card}", &[("card", &self.numbered_card_label(self.doc.active))]));
             if !sources.is_empty() {
                 let shown = match self.fit.fit_from.as_deref() {
                     Some(id) => sources.iter().find(|(s, _)| s == id).map(|(_, l)| l.clone()),

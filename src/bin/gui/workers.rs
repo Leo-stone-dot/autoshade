@@ -91,7 +91,7 @@ impl AutoShadeApp {
                     self.on_analyzed(lang, epoch, boxed);
                     // The claimed look's own line, memory and view facts.
                     if let Some(claim) = claim {
-                        let effects = logic::look::landed(&claim, &self.recipe, landed);
+                        let effects = logic::look::landed(&claim, &self.doc.recipe, landed);
                         self.run_effects(effects);
                     }
                 }
@@ -116,7 +116,7 @@ impl AutoShadeApp {
                                 && let Some(photo) = self.photo.src_path.clone()
                                 && autoshade::pipeline::repair_pre_era_base_curve(
                                     &photo,
-                                    &mut self.recipe,
+                                    &mut self.doc.recipe,
                                 )
                                 .is_some()
                             {

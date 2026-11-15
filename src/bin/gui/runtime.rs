@@ -36,17 +36,17 @@ impl AutoShadeApp {
                         }
                         _ => None,
                     };
-                    effects.extend(logic::lens_blur::apply(&mut self.recipe, action, start, self.busy));
+                    effects.extend(logic::lens_blur::apply(&mut self.doc.recipe, action, start, self.busy));
                 }
                 Action::Gallery(action) => self.apply_gallery(action),
                 Action::Pick(action) => {
-                    effects.extend(logic::pick::apply(&mut self.recipe, action));
+                    effects.extend(logic::pick::apply(&mut self.doc.recipe, action));
                 }
                 Action::Crop(action) => {
-                    effects.extend(logic::crop::apply(&mut self.recipe, action));
+                    effects.extend(logic::crop::apply(&mut self.doc.recipe, action));
                 }
                 Action::MaskEdit(action) => {
-                    effects.extend(logic::mask_edit::apply(&mut self.recipe, action));
+                    effects.extend(logic::mask_edit::apply(&mut self.doc.recipe, action));
                 }
                 Action::Region(action) => effects.extend(logic::region::apply(action)),
                 Action::Portrait(action) => match action {
@@ -202,7 +202,7 @@ impl AutoShadeApp {
     /// logic's.
     pub(crate) fn on_depth_estimated(&mut self, res: anyhow::Result<std::path::PathBuf>) {
         self.busy = false;
-        let effects = logic::lens_blur::landed(&mut self.recipe, res);
+        let effects = logic::lens_blur::landed(&mut self.doc.recipe, res);
         self.run_effects(effects);
     }
 
@@ -317,7 +317,7 @@ impl AutoShadeApp {
             GalleryAction::CopyRecipe => {
                 // The clipboard must carry the name the user sees in the box.
                 self.commit_pending_names();
-                self.genai.copied = Some(self.recipe.clone());
+                self.genai.copied = Some(self.doc.recipe.clone());
                 self.genai.copied_from = self.photo.src_path.clone();
                 self.status = crate::i18n::tr(
                     self.lang,

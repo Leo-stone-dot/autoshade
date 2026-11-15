@@ -101,7 +101,7 @@ impl AutoShadeApp {
             return 0;
         }
         let wanted: Vec<_> =
-            autoshade::render::retouch_spots(&self.recipe, mw as usize, mh as usize)
+            autoshade::render::retouch_spots(&self.doc.recipe, mw as usize, mh as usize)
                 .into_iter()
                 .filter(|s| s.origin.is_synthesised())
                 .collect();
@@ -370,12 +370,12 @@ impl AutoShadeApp {
         // 「🖌 Edit raster」 open an empty canvas over a mask that has pixels.
         if let Some(i) = target
             && let Some(path) =
-                self.recipe.masks.get(i).and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
+                self.doc.recipe.masks.get(i).and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
         {
             // Through THE raster entry, in the sensor frame this canvas
             // paints in (a reverse-fit zone may be drawn lens-corrected).
             let at = std::path::Path::new(path);
-            match autoshade::render::open_mask_raster(at).and_then(|r| r.into_sensor_gray(&self.recipe, at)) {
+            match autoshade::render::open_mask_raster(at).and_then(|r| r.into_sensor_gray(&self.doc.recipe, at)) {
                 Ok(img) => {
                     let g = image::imageops::resize(
                         &img,
@@ -429,7 +429,7 @@ impl AutoShadeApp {
                 self.toast(ToastKind::Error, t.to_string());
                 return;
             }
-            if self.recipe.masks.len() >= 64 {
+            if self.doc.recipe.masks.len() >= 64 {
                 let t = tr(lang, "mask limit reached (64) — delete one first");
                 self.toast(ToastKind::Error, t.to_string());
                 return;
@@ -450,7 +450,7 @@ impl AutoShadeApp {
             Ok(path) => {
                 let path_s = path.to_string_lossy().into_owned();
                 match target {
-                    Some(i) if i < self.recipe.masks.len() => {
+                    Some(i) if i < self.doc.recipe.masks.len() => {
                         // REPOINT, never re-shape. A zone's geometry is the
                         // Select Sky component the sidecar carries; rewriting
                         // it as a `Bitmap` here would silently take the mask
@@ -459,19 +459,19 @@ impl AutoShadeApp {
                         // raster at all has nothing to repoint, so for that one
                         // the bake still MAKES the raster.
                         match autoshade::render::geometry_raster_path_mut(
-                            &mut self.recipe.masks[i].mask,
+                            &mut self.doc.recipe.masks[i].mask,
                         ) {
                             Some(slot) => *slot = path_s,
                             None => {
-                                self.recipe.masks[i].mask = MaskGeometry::Bitmap { path: path_s }
+                                self.doc.recipe.masks[i].mask = MaskGeometry::Bitmap { path: path_s }
                             }
                         }
                         self.masks.sel_mask = Some(i);
                         self.status = tr(lang, "mask raster updated — its adjustments now apply to the edited area").into();
                     }
                     _ => {
-                        let n = self.recipe.masks.len();
-                        self.recipe.masks.push(autoshade::recipe::LocalAdjustment {
+                        let n = self.doc.recipe.masks.len();
+                        self.doc.recipe.masks.push(autoshade::recipe::LocalAdjustment {
                             mask: MaskGeometry::Bitmap { path: path_s },
                             name: trf(lang, "Brush {n}", &[("n", &(n + 1).to_string())]),
                             ..Default::default()
@@ -507,7 +507,7 @@ impl AutoShadeApp {
     ) {
         let Some(src) = self.photo.src_path.clone() else { return };
         let Some(path) = self
-            .recipe
+            .doc.recipe
             .masks
             .get(i)
             .and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
@@ -520,7 +520,7 @@ impl AutoShadeApp {
         // written in (unmarked).
         let at = std::path::Path::new(&path);
         let done = autoshade::render::open_mask_raster(at)
-            .and_then(|r| r.into_sensor_gray(&self.recipe, at))
+            .and_then(|r| r.into_sensor_gray(&self.doc.recipe, at))
             .map(|img| op(&img))
             .and_then(|g| {
                 let p = autoshade::store::claim_raster(&src, tag).map_err(anyhow::Error::from)?;
@@ -535,7 +535,7 @@ impl AutoShadeApp {
                 // `commit_mask_brush`. The read above already proved this
                 // geometry carries a raster, so the slot is there.
                 if let Some(slot) =
-                    autoshade::render::geometry_raster_path_mut(&mut self.recipe.masks[i].mask)
+                    autoshade::render::geometry_raster_path_mut(&mut self.doc.recipe.masks[i].mask)
                 {
                     *slot = p.to_string_lossy().into_owned();
                 }
@@ -584,7 +584,7 @@ impl AutoShadeApp {
         let Some(src) = self.photo.src_path.clone() else { return };
         let Some(guide_src) = self.active_source_path() else { return };
         let Some(path) = self
-            .recipe
+            .doc.recipe
             .masks
             .get(i)
             .and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
@@ -601,9 +601,9 @@ impl AutoShadeApp {
         // raster still be loadable next to this recipe's other active
         // rasters?"), so the recipe travels with the job. Spawn-time snapshot by
         // design: it is the same recipe the landing re-validates `stored_ref`
-        // against, and the alternative — reading `self.recipe` from the worker —
+        // against, and the alternative — reading `self.doc.recipe` from the worker —
         // is not available on a background thread anyway.
-        let recipe_at_spawn = self.recipe.clone();
+        let recipe_at_spawn = self.doc.recipe.clone();
         self.spawn_worker(
             move || {
                 // Budget permit BEFORE the big-decode mutex — the one ordering
