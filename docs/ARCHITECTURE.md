@@ -7724,7 +7724,13 @@ positive invariant scans read the whole GUI tree through a `gui_source()` helper
 (excluding the tests) instead of one named file, so splitting a module no longer
 turns them red; count-exact and absence assertions keep their narrow scope
 because widening them would make them false-positive (the export dial, the
-panel separators).
+panel separators). Count/absence pins that need a
+single module are function-scoped instead: `gui_function(name)` extracts one
+function's text from the tree, so a function may move files while its absence
+or count pin still holds. Only four `include_str!` sites remain: three external
+files (`serve.rs`, `pipeline.rs`, `python/denoise.py`) and the side-panel
+separator census, whose cross-module absence cannot be function-scoped without
+losing coverage.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

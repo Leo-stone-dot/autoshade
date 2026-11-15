@@ -421,8 +421,16 @@
         let old: Prefs = serde_json::from_str(&older).unwrap();
         assert_eq!(old.adjust_quality, 0, "old prefs keep high as the default");
         assert!(!json.contains("adjust_prompt"), "prompt is transient like Reimagine's");
-        assert!(gui_source().contains("app.genai.adjust_quality = prefs.adjust_quality.min(2)"));
-        assert!(gui_source().contains("adjust_quality: self.genai.adjust_quality"));
+        // The value crosses the prefs file both ways: restore clamps it to the
+        // panel's three choices, save writes the app's value back.
+        let mut restored = AutoShadeApp::default();
+        restored.restore_prefs(Prefs { adjust_quality: 7, ..Prefs::default() });
+        assert_eq!(restored.genai.adjust_quality, 2, "restore clamps to the panel's choices");
+        let mut app = AutoShadeApp { genai: GenerativeState { adjust_quality: 1, ..Default::default() }, ..Default::default() };
+        let mut storage = PrefsMemory::default();
+        eframe::App::save(&mut app, &mut storage);
+        let saved: Prefs = eframe::get_value(&storage, eframe::APP_KEY).unwrap();
+        assert_eq!(saved.adjust_quality, 1, "save writes the app's value back");
     }
 
     /// Real pointer events cover both stamp branches. The counter measures
