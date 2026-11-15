@@ -71,6 +71,7 @@ mod portrait_actions;
 mod recipe_actions;
 mod retouch_actions;
 mod runtime;
+mod settings_actions;
 mod side_panel;
 mod window_chrome;
 mod workers;

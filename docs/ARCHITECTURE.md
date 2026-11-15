@@ -7712,7 +7712,9 @@ save/load/delete — 8 methods, 476 lines) live in `version_actions.rs`. The ope
 re-develop hand-off and guards, the gallery row and the folder — 340 lines) lives
 in `open_actions.rs`. The edit history and the pixel re-develops it drives
 (the undo/redo stacks and commits, `apply_step`, the pixel refresh/rebind and the
-quarter-turn rotate/sync) live in `history_actions.rs`.
+quarter-turn rotate/sync) live in `history_actions.rs`. The Settings form and the model/Python rows
+(load/save prefs, the catalogue fetch, the Python install/probe) live in
+`settings_actions.rs`.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
