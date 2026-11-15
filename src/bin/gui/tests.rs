@@ -6,6 +6,39 @@
     // The tests themselves, in parts under tests/: each file is spliced in here
     // by include!, so its items are items of this module and every test keeps
     // its name and its path. The order is the order the old file had.
+    /// Every GUI source file except the tests themselves, concatenated. The
+    /// old pins read one named file; splitting a file then turned an invariant
+    /// test red even though the invariant held. These scans carry no location
+    /// claim, so they read the tree instead.
+    fn gui_source() -> &'static str {
+        static SOURCE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        SOURCE.get_or_init(|| {
+            fn walk(dir: &std::path::Path, out: &mut String) {
+                let Ok(entries) = std::fs::read_dir(dir) else { return };
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if path.file_name().is_some_and(|n| n == "tests") {
+                            continue;
+                        }
+                        walk(&path, out);
+                    } else if path.extension().is_some_and(|e| e == "rs") {
+                        if let Ok(text) = std::fs::read_to_string(&path) {
+                            out.push_str(&text);
+                            out.push('\n');
+                        }
+                    }
+                }
+            }
+            let mut out = String::new();
+            walk(
+                &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/bin/gui"),
+                &mut out,
+            );
+            out
+        })
+    }
+
     include!("tests/cards_and_versions.rs");
     include!("tests/canvas_and_delivery.rs");
     include!("tests/theme_fonts_curves.rs");
