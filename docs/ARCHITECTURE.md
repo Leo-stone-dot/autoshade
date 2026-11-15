@@ -7541,7 +7541,11 @@ default by hand. The labels stay literal `tr()` calls per id in that file's
 subsystem (mask list, the selected mask's controls, composed shapes, the
 range editor, the AI segmentation verbs) has its own module,
 [`panels/develop_masks.rs`](../src/bin/gui/panels/develop_masks.rs); the
-develop panel file keeps the form sections. A table row reports its change as a
+develop panel file keeps the form sections. The genuinely custom widgets — the
+tone-curve editor, the parametric curve, the colour mixer grid with its Point
+Color rows and the grading wheels — live in
+[`panels/develop_widgets.rs`](../src/bin/gui/panels/develop_widgets.rs). A table
+row reports its change as a
 `logic::command::Command` — `SetCapability` for a plain field, `SetCompanion`
 for the explicit-zero encoding — which the panel's `capability_rows` applies
 through `logic::command::apply`. The Lens Blur pilot
