@@ -212,12 +212,12 @@
             let _ = ctx.run(input, |ctx| app.upd_shortcuts(ctx));
         };
         run_copy(&mut app, false);
-        assert!(app.copied.is_none(), "bare Ctrl+C belongs to egui's text copy");
+        assert!(app.genai.copied.is_none(), "bare Ctrl+C belongs to egui's text copy");
         run_copy(&mut app, true);
-        let copied = app.copied.as_ref().expect("Ctrl+Shift+C copies the recipe");
+        let copied = app.genai.copied.as_ref().expect("Ctrl+Shift+C copies the recipe");
         assert_eq!(copied.exposure_ev, 1.5, "the CURRENT recipe is what's copied");
         assert_eq!(
-            app.copied_from.as_deref(),
+            app.genai.copied_from.as_deref(),
             Some(std::path::Path::new("x.png")),
             "provenance rides along (the paste-guard identity)"
         );
@@ -559,9 +559,9 @@
             // singleline clip keeps this from mattering, the cap is about the
             // BOX, and a filled buffer also exercises the hover-tooltip arm.
             app.ai.guidance = "warmer and moodier, lift the shadows a lot, and keep the sky honest".into();
-            app.reimagine_prompt = app.ai.guidance.clone();
-            app.adjust_prompt = app.ai.guidance.clone();
-            app.fill_prompt = app.ai.guidance.clone();
+            app.genai.reimagine_prompt = app.ai.guidance.clone();
+            app.genai.adjust_prompt = app.ai.guidance.clone();
+            app.genai.fill_prompt = app.ai.guidance.clone();
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
             let input = || egui::RawInput {

@@ -317,8 +317,8 @@ impl AutoShadeApp {
             GalleryAction::CopyRecipe => {
                 // The clipboard must carry the name the user sees in the box.
                 self.commit_pending_names();
-                self.copied = Some(self.recipe.clone());
-                self.copied_from = self.src_path.clone();
+                self.genai.copied = Some(self.recipe.clone());
+                self.genai.copied_from = self.src_path.clone();
                 self.status = crate::i18n::tr(
                     self.lang,
                     "Recipe copied — Ctrl/⌘+click to pick several, then “Paste to selected”",

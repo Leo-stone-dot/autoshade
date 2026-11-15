@@ -7699,7 +7699,12 @@ language stays on the app because every `tr()` call reads it. The app struct is
 at 70 fields. `model::ToolsState` owns the canvas tools and
 flight flags (four eyedroppers, clone brush, stack dials, generation epoch/cancel
 token, analyze-inflight, the Look protocol state), one `tools` field; the app
-struct is at 58 fields.
+struct is at 58 fields. `model::GenerativeState` owns the generative tools and
+the recipe clipboard (fill/heal dials and prompts, reimagine/adjust prompts and
+quality, the in-app clipboard and its origin, paste-geometry, the working-preview
+long edge), one `genai` field. A slice is done: the app struct went from 234 to
+47 fields (`app.rs` 2326 → 1916 lines), and what remains is the open photo's
+core state plus the scheduler and status line.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above

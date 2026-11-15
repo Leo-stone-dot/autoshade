@@ -514,7 +514,7 @@ impl AutoShadeApp {
                 explainer(ui, lang, tr(lang, "Type what to change on the selected card; the AI adjusts its develop with the full control set and masks cut by content (sky, subject, an object)."));
                 let _field = prompt_field(
                     ui,
-                    &mut self.adjust_edit_prompt,
+                    &mut self.genai.adjust_edit_prompt,
                     tr(lang, "e.g. darken the sky a little, warm the faces, more texture on the rocks"),
                 );
                 #[cfg(test)]
@@ -522,7 +522,7 @@ impl AutoShadeApp {
                     self.seams.prompt_rects.push(_field.rect);
                 }
                 let ready = self.src_path.is_some() && !self.busy && !self.tools.analyze_inflight;
-                let asked = ready && !self.adjust_edit_prompt.trim().is_empty();
+                let asked = ready && !self.genai.adjust_edit_prompt.trim().is_empty();
                 let resp = primary_row(ui, asked, tr(lang, "🤖 AI adjust"))
                     .on_hover_text(tr(lang,
                         "Adjust the SELECTED card's develop as you ask: the AI sees the card as it looks \
@@ -539,7 +539,7 @@ impl AutoShadeApp {
                 }
                 if resp.clicked() {
                     let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Adjust);
-                    intent.typed = self.adjust_edit_prompt.clone();
+                    intent.typed = self.genai.adjust_edit_prompt.clone();
                     intent.region = self.overlay.region;
                     intent.base = Some(self.recipe.clone());
                     intent.pixels = self
@@ -852,7 +852,7 @@ impl AutoShadeApp {
                         .clamp(FIELD_W_MIN, FIELD_W_MAX);
                     let field_w = field_drawn - TE_MARGIN.sum().x;
                     let _field = ui.add(
-                        egui::TextEdit::singleline(&mut self.reimagine_prompt)
+                        egui::TextEdit::singleline(&mut self.genai.reimagine_prompt)
                             .margin(TE_MARGIN)
                             .desired_width(field_w)
                             .hint_text(tr(lang, "style to repaint toward — e.g. golden-hour glow, moody film look")),
@@ -904,7 +904,7 @@ impl AutoShadeApp {
     /// Generated and Edited both read AI pixels; the negative never does.
     pub(crate) fn can_adjust(&self) -> bool {
         !self.busy && self.active_on_ai_pixels()
-            && (self.area_painted(BrushOwner::Adjust) || !self.adjust_prompt.trim().is_empty())
+            && (self.area_painted(BrushOwner::Adjust) || !self.genai.adjust_prompt.trim().is_empty())
     }
 
     fn ai_adjust(&mut self, ui: &mut egui::Ui) {
@@ -917,7 +917,7 @@ impl AutoShadeApp {
             , |ui| {
                 let _field = prompt_field(
                     ui,
-                    &mut self.adjust_prompt,
+                    &mut self.genai.adjust_prompt,
                     tr(lang, "what to change — e.g. make the sky bluer, remove the wires on the left; blank with a painted area = remove"),
                 );
                 #[cfg(test)]
@@ -925,11 +925,11 @@ impl AutoShadeApp {
                     self.seams.prompt_rects.push(_field.rect);
                 }
                 egui::ComboBox::from_id_salt("adjust_quality")
-                    .selected_text(tr(lang, ["high", "medium", "low"][self.adjust_quality.min(2)]))
+                    .selected_text(tr(lang, ["high", "medium", "low"][self.genai.adjust_quality.min(2)]))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.adjust_quality, 0, tr(lang, "high"));
-                        ui.selectable_value(&mut self.adjust_quality, 1, tr(lang, "medium"));
-                        ui.selectable_value(&mut self.adjust_quality, 2, tr(lang, "low"));
+                        ui.selectable_value(&mut self.genai.adjust_quality, 0, tr(lang, "high"));
+                        ui.selectable_value(&mut self.genai.adjust_quality, 1, tr(lang, "medium"));
+                        ui.selectable_value(&mut self.genai.adjust_quality, 2, tr(lang, "low"));
                     })
                     .response
                     .on_hover_text(tr(lang, "gpt-image render quality — higher looks better and costs more per image"));

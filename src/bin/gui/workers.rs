@@ -254,7 +254,7 @@ impl AutoShadeApp {
                 Msg::Styled(boxed) => match *boxed {
                     Ok((prompt, note)) => {
                         // Into the Reimagine prompt: ready to restyle OTHER photos.
-                        self.reimagine_prompt = prompt;
+                        self.genai.reimagine_prompt = prompt;
                         let s = match &note {
                             StyleNote::SavedCopy => tr(
                                 lang,

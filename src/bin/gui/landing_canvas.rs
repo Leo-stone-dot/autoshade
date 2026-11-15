@@ -129,7 +129,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // canvas and edge cannot disagree in either
                             // direction (a later switch after saving
                             // re-decodes the master properly).
-                            self.preview_edge = e;
+                            self.genai.preview_edge = e;
                             // The remedy is read off THIS CANVAS, never
                             // off the photo's record: a stale broken
                             // record (an ./out cleanup) plus a NEW unsaved
@@ -260,7 +260,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.status = trf(
                                 lang,
                                 "Preview resolution {px}px — re-decoded",
-                                &[("px", &self.preview_edge.to_string())],
+                                &[("px", &self.genai.preview_edge.to_string())],
                             );
                         }
                     } else {
@@ -955,7 +955,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // resolution and fed it to every bake site under
                         // an old-edge canvas.
                         if let Some(e) = edge_revert {
-                            self.preview_edge = e;
+                            self.genai.preview_edge = e;
                         }
                     }
                 }

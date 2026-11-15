@@ -30,7 +30,7 @@ pub(crate) fn spawn_master_load(
     photo: PathBuf,
     origin: PathBuf,
 ) {
-    let edge = self.preview_edge.clamp(640, 8192);
+    let edge = self.genai.preview_edge.clamp(640, 8192);
     // Cache probe first: a revisited card installs synchronously, with
     // no worker and no "loading…" status to flash.
     if let Some(arc) = self.cached_master(&origin, edge) {
@@ -286,7 +286,7 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
         return false;
     }
     let Some(path) = self.src_path.clone() else { return true };
-    let edge = self.preview_edge.clamp(640, 8192);
+    let edge = self.genai.preview_edge.clamp(640, 8192);
     self.open.source_part_inflight = Some(want.clone());
     let (p, part) = (path.clone(), want.clone());
     self.spawn_worker(

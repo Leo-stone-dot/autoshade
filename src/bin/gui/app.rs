@@ -276,17 +276,11 @@ pub(crate) struct AutoShadeApp {
     /// Apply bakes to a raster. The RGBA canvas is only its display: seeding
     /// an existing raster through the canvas' 8-bit alpha and back would
     /// drift soft edges by a rounding step per edit cycle.
-    pub(crate) fill_prompt: String,                   // generative-fill instruction
-    pub(crate) fill_quality: usize,                   // 0=high 1=medium 2=low
-    pub(crate) fill_fullres: bool,                    // composite onto the full-res develop
-    pub(crate) heal_fullres: bool,                    // heal the full-res develop
-    pub(crate) reimagine_prompt: String,              // whole-image restyle prompt (its own entry)
-    pub(crate) adjust_prompt: String,                 // edit the active generated picture
+    /// The generative tools and the recipe clipboard; see [`GenerativeState`].
+    pub(crate) genai: GenerativeState,
     /// What to change on the SELECTED card's develop (2026-10-21): the request
     /// 「AI adjust the selected variant」 sends with the card's render and
     /// recipe. Its own field — the Direction box guides a fresh analysis.
-    pub(crate) adjust_edit_prompt: String,
-    pub(crate) adjust_quality: usize,                 // 0=high 1=medium 2=low
     // --- production niceties ---
     // --- diagnostic view layers (UX batch) ---
     // Cached masks-cleared develop the coverage's range weights are judged
@@ -328,12 +322,9 @@ pub(crate) struct AutoShadeApp {
     #[cfg(test)]
     pub(crate) seams: TestSeams,
     // --- batch recipe copy / paste ---
-    pub(crate) copied: Option<EditRecipe>,            // the recipe "clipboard" (in-app only)
     // WHICH photo the clipboard came from: pasting back onto that photo may
     // keep its bitmap masks (the rasters are its own); every other target
     // gets them stripped.
-    pub(crate) copied_from: Option<PathBuf>,
-    pub(crate) paste_geometry: bool,                  // keep crop/straighten when pasting
     // --- recipe library (named develops, this file's siblings under <store>/recipes) ---
     /// The named-recipe library panel; see [`RecipeLibraryState`].
     pub(crate) rlib: RecipeLibraryState,
@@ -386,7 +377,6 @@ pub(crate) struct AutoShadeApp {
     pub(crate) cards: CardsState,
     // --- export pipeline (gap batch F + D2) ---
     // --- preview resolution (gap batch E) ---
-    pub(crate) preview_edge: u32,                     // working-preview long edge: 1280 fluid / 2560 / 4096 detail
     // --- recipe versions (gap batch G): ./out/<stem>.v<N>.recipe.json ---
     /// Advisory names + provenance for `versions`, keyed by number (R24-2).
     /// Refreshed with the list; a number with no entry is simply unnamed —
@@ -805,15 +795,15 @@ impl AutoShadeApp {
                 // never blurred still lands before anything else in the app
                 // acts.
                 self.commit_pending_names();
-                self.copied = Some(self.recipe.clone());
-                self.copied_from = self.src_path.clone();
+                self.genai.copied = Some(self.recipe.clone());
+                self.genai.copied_from = self.src_path.clone();
                 self.status = tr(
                     self.lang,
                     "Recipe copied — Ctrl/⌘+click to pick several, then “Paste to selected”",
                 )
                 .to_string();
             }
-            if do_paste && !self.busy && self.copied.is_some() && !self.gal.multi_sel.is_empty() {
+            if do_paste && !self.busy && self.genai.copied.is_some() && !self.gal.multi_sel.is_empty() {
                 self.start_paste();
             }
         }
@@ -1566,14 +1556,7 @@ impl Default for AutoShadeApp {
             open: OpenState::default(),
             masks: MaskEditState::default(),
             overlay: OverlayState::default(),
-            fill_prompt: String::new(),
-            fill_quality: 0,
-            fill_fullres: false,
-            heal_fullres: false,
-            reimagine_prompt: String::new(),
-            adjust_prompt: String::new(),
-            adjust_edit_prompt: String::new(),
-            adjust_quality: 0,
+            genai: GenerativeState::default(),
             view: ViewState::default(),
             crop: CropState::default(),
             curve_channel: 0,
@@ -1581,15 +1564,11 @@ impl Default for AutoShadeApp {
             #[cfg(test)]
             #[cfg(test)]
             seams: TestSeams::default(),
-            copied: None,
-            copied_from: None,
-            paste_geometry: false,
             rlib: RecipeLibraryState::default(),
             tools: ToolsState::default(),
             variants: Vec::new(),
             active: 0,
             cards: CardsState::default(),
-            preview_edge: PREVIEW_EDGE,
             normal: Default::default(),
             portrait: Default::default(),
         }
@@ -1919,13 +1898,13 @@ impl eframe::App for AutoShadeApp {
                 fit_deep: self.fit.fit_deep,
                 reimagine_retry: self.fit.reimagine_retry,
                 ask_fit_after_generate: self.fit.ask_fit_after_generate,
-                adjust_quality: self.adjust_quality,
+                adjust_quality: self.genai.adjust_quality,
                 view_mode: self.view.mode,
                 exp_long_edge: self.exp.long_edge,
                 exp_sharpen: self.exp.sharpen,
                 exp_quality: self.exp.quality,
                 exp_space: self.exp.space,
-                preview_edge: self.preview_edge,
+                preview_edge: self.genai.preview_edge,
                 show_clipping: self.chrome.show_clipping,
                 lang: self.lang,
                 theme: self.ui.theme,

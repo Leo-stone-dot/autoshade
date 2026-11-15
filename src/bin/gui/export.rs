@@ -1447,7 +1447,7 @@ impl AutoShadeApp {
     /// never touched (write_recipe / write_xmp land in the store, never beside
     /// the photo).
     pub(crate) fn start_paste(&mut self) {
-        let Some(src) = self.copied.clone() else { return };
+        let Some(src) = self.genai.copied.clone() else { return };
         if self.busy {
             return;
         }
@@ -1459,8 +1459,8 @@ impl AutoShadeApp {
         if targets.is_empty() {
             return;
         }
-        let copied_from = self.copied_from.clone();
-        self.start_paste_to(src, copied_from, targets, self.paste_geometry);
+        let copied_from = self.genai.copied_from.clone();
+        self.start_paste_to(src, copied_from, targets, self.genai.paste_geometry);
     }
 
     /// [`start_paste`](Self::start_paste) with its inputs given: the recipe

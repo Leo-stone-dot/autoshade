@@ -363,7 +363,7 @@
             for (prompt, strokes, busy) in [("bluer sky", false, false), (" \t ", false, false),
                 ("", true, false), ("bluer sky", true, true)]
             {
-                app.adjust_prompt = prompt.into();
+                app.genai.adjust_prompt = prompt.into();
                 app.busy = busy;
                 app.masks.mask_paint = strokes.then(|| image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, 160])));
                 app.paint_mask_changed(None);
@@ -375,7 +375,7 @@
         }
         // The starter uses the same rule before claiming output or spawning.
         app.busy = false;
-        app.adjust_prompt.clear();
+        app.genai.adjust_prompt.clear();
         app.masks.mask_paint = None;
         app.paint_mask_changed(Some(false));
         app.src_path = Some(PathBuf::from("adjust-guard.png"));
@@ -421,8 +421,8 @@
         let old: Prefs = serde_json::from_str(&older).unwrap();
         assert_eq!(old.adjust_quality, 0, "old prefs keep high as the default");
         assert!(!json.contains("adjust_prompt"), "prompt is transient like Reimagine's");
-        assert!(include_str!("../actions.rs").contains("app.adjust_quality = prefs.adjust_quality.min(2)"));
-        assert!(include_str!("../app.rs").contains("adjust_quality: self.adjust_quality"));
+        assert!(include_str!("../actions.rs").contains("app.genai.adjust_quality = prefs.adjust_quality.min(2)"));
+        assert!(include_str!("../app.rs").contains("adjust_quality: self.genai.adjust_quality"));
     }
 
     /// Real pointer events cover both stamp branches. The counter measures

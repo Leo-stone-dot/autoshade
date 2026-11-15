@@ -547,7 +547,7 @@ impl AutoShadeApp {
                 // #14a: was `desired_width(f32::INFINITY)`.
                 let _field = prompt_field(
                     ui,
-                    &mut self.fill_prompt,
+                    &mut self.genai.fill_prompt,
                     tr(lang, "what to change — e.g. remove the wires on the left, make the sky bluer; or paint an area (empty then removes it)"),
                 );
                 #[cfg(test)]
@@ -560,11 +560,11 @@ impl AutoShadeApp {
                 // (2026-09-27: a row's one verb takes the whole row).
                 ui.horizontal_wrapped(|ui| {
                     egui::ComboBox::from_id_salt("fill_quality")
-                        .selected_text(tr(lang, ["high", "medium", "low"][self.fill_quality.min(2)]))
+                        .selected_text(tr(lang, ["high", "medium", "low"][self.genai.fill_quality.min(2)]))
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.fill_quality, 0, tr(lang, "high"));
-                            ui.selectable_value(&mut self.fill_quality, 1, tr(lang, "medium"));
-                            ui.selectable_value(&mut self.fill_quality, 2, tr(lang, "low"));
+                            ui.selectable_value(&mut self.genai.fill_quality, 0, tr(lang, "high"));
+                            ui.selectable_value(&mut self.genai.fill_quality, 1, tr(lang, "medium"));
+                            ui.selectable_value(&mut self.genai.fill_quality, 2, tr(lang, "low"));
                         })
                         .response
                         .on_hover_text(tr(lang, "gpt-image render quality — higher looks better and costs more per image"));
@@ -576,7 +576,7 @@ impl AutoShadeApp {
                     // across three panels, and this is the only one still gated
                     // RAW-only — a distinction its label could not carry while it
                     // was a twin of the other three.
-                    ui.add_enabled(src_is_raw, egui::Checkbox::new(&mut self.fill_fullres, tr(lang, "Full-res fill")))
+                    ui.add_enabled(src_is_raw, egui::Checkbox::new(&mut self.genai.fill_fullres, tr(lang, "Full-res fill")))
                         .on_hover_text(tr(lang, "Composite onto the full-sensor develop (slow, RAW only)"));
                 });
                 // One verb, two ways in (2026-10-12): a painted area is
@@ -594,7 +594,7 @@ impl AutoShadeApp {
                         tr(lang, "Send this card's picture with your words and no painted area: the model decides where to change it, and only what it changed lands as a layer over this card (gpt-image API call — costs per image)"),
                     )
                 };
-                let ready = !self.busy && (painted || !self.fill_prompt.trim().is_empty());
+                let ready = !self.busy && (painted || !self.genai.fill_prompt.trim().is_empty());
                 if primary_row(ui, ready, verb).on_hover_text(hint).clicked() {
                     self.start_fill();
                 }
@@ -636,7 +636,7 @@ impl AutoShadeApp {
                 // types since b4c6c30, but the RAW-only gate left a
                 // 61 MP baked TIFF no way to opt out of the 2048px
                 // downsample the unchecked path bakes into the master.
-                ui.checkbox(&mut self.heal_fullres, tr(lang, "Full-res heal"))
+                ui.checkbox(&mut self.genai.heal_fullres, tr(lang, "Full-res heal"))
                     .on_hover_text(tr(lang, "Heal at full resolution (slow; without it the retouched image is saved at 2048px)"));
                 explainer(ui, lang, tr(lang, "AI auto-detects dust / blemishes, or paint a mask and Heal it. Pixel retouch from surrounding pixels; saved to the delivery folder."));
             });

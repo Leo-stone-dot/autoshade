@@ -115,7 +115,7 @@ impl AutoShadeApp {
         app.fit.fit_deep = prefs.fit_deep;
         app.fit.reimagine_retry = prefs.reimagine_retry;
         app.fit.ask_fit_after_generate = prefs.ask_fit_after_generate;
-        app.adjust_quality = prefs.adjust_quality.min(2);
+        app.genai.adjust_quality = prefs.adjust_quality.min(2);
         app.view.mode = prefs.view_mode;
         app.exp.long_edge = prefs.exp_long_edge;
         app.exp.sharpen = prefs.exp_sharpen.clamp(0.0, 100.0);
@@ -173,7 +173,7 @@ impl AutoShadeApp {
         // Only the known steps — a corrupt pref must not produce a 1-px
         // or 100-MP working preview.
         if [1280, 2560, 4096].contains(&prefs.preview_edge) {
-            app.preview_edge = prefs.preview_edge;
+            app.genai.preview_edge = prefs.preview_edge;
         }
         if let Some(dir) = prefs.gallery_dir.filter(|d| d.is_dir()) {
             app.open_folder(dir);
@@ -470,7 +470,7 @@ impl AutoShadeApp {
         // Working-preview size is a user choice now (gap batch E): 1280 keeps
         // sliders fluid; 2560/4096 trade tick latency for real 1:1 detail when
         // checking focus / noise.
-        let edge = self.preview_edge.clamp(640, 8192);
+        let edge = self.genai.preview_edge.clamp(640, 8192);
         // Decoded-base LRU: gallery culling flips between neighbours constantly,
         // and a hit skips the multi-second full demosaic entirely. Delivered
         // through the ordinary Msg::Opened channel so the handler stays the one
