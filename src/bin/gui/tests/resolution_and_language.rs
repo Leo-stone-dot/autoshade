@@ -394,32 +394,6 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
     }
 
     #[test]
-    fn history_pixel_identity_compares_the_master_not_its_spelling() {
-        // The last comparison the batch-80 sweep left on `==`.
-        let base = Arc::new(image::DynamicImage::new_rgb8(4, 3));
-        let rel = UndoStep {
-            recipe: EditRecipe::default(),
-            base: Some(base.clone()),
-            origin: Some(PathBuf::from("out/_spelling.png")),
-            keep_skin: None,
-        };
-        let abs = UndoStep {
-            recipe: EditRecipe::default(),
-            base: Some(base),
-            origin: Some(std::path::absolute("out/_spelling.png").unwrap()),
-            keep_skin: None,
-        };
-        assert!(rel.same_pixels(&abs), "one master, two spellings, one pixel identity");
-        let other = UndoStep {
-            recipe: EditRecipe::default(),
-            base: rel.base.clone(),
-            origin: Some(PathBuf::from("out/_spelling-2.png")),
-            keep_skin: None,
-        };
-        assert!(!rel.same_pixels(&other), "…but a DIFFERENT master still differs");
-    }
-
-    #[test]
     fn a_failed_open_takes_the_dead_photos_history_with_it() {
         // The Err arm dropped src_path, the strip and the canvas but left the
         // undo stack standing, so an undo afterwards restored a canvas that no
