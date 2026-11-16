@@ -1182,3 +1182,9 @@ impl Editor {
         };
     }
 }
+
+impl Editor {
+        pub(crate) fn source_is_raw(&self) -> bool {
+        self.active_source_path().is_some_and(|p| autoshade::decode::is_raw(&p))
+    }
+}

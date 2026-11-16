@@ -95,7 +95,7 @@ pub(crate) fn start_find_people(&mut self) {
         let lens = self.base_corrected().then(|| autoshade::render::geometry_profile(&self.editor.doc().recipe).into_owned());
         let recipe = self.editor.doc().recipe.clone();
         let film = self.film_short_edge();
-        let raw_source = self.source_is_raw();
+        let raw_source = self.editor.source_is_raw();
         self.workspace.set_busy(true);
         self.workspace.portrait_mut().line = PortraitLine::Finding;
         self.workspace.set_status(tr(self.lang, K_ACTIONS_FINDING_THE_PEOPLE_AND_FACES_THE_FIRST_RUN_DOWNL).into());

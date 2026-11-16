@@ -283,7 +283,7 @@ impl AutoShadeApp {
             // disarms); no photo → nothing to crop.
             if do_crop && self.editor.photo().src_path.is_some() {
                 let on = !self.workspace.crop().mode;
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 self.editor.set_crop_mode(&mut self.workspace, on);
             }
             // Enter commits the crop (LR, D13): the box is already live in
@@ -323,7 +323,7 @@ impl AutoShadeApp {
             // (disarm-then-arm; a second press exits the tool).
             if do_wb && self.editor.photo().src_path.is_some() {
                 let on = !self.workspace.tools().wb_picking;
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 self.workspace.tools_mut().wb_picking = on;
                 if on {
                     self.workspace.set_status(tr(self.lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into());
@@ -331,7 +331,7 @@ impl AutoShadeApp {
             }
             if do_heal && self.editor.photo().src_path.is_some() {
                 let on = !self.workspace.tools().clone_mode;
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 self.workspace.tools_mut().clone_mode = on;
             }
             if do_brush && self.editor.photo().src_path.is_some() {
@@ -339,7 +339,7 @@ impl AutoShadeApp {
             }
             if do_linear && self.editor.photo().src_path.is_some() {
                 let armed = matches!(self.workspace.masks().placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 if !armed {
                     self.workspace.masks_mut().placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
                     self.workspace.set_status(tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_LINEAR_GRADIENT_STAR).into());
@@ -347,7 +347,7 @@ impl AutoShadeApp {
             }
             if do_radial && self.editor.photo().src_path.is_some() {
                 let armed = matches!(self.workspace.masks().placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 if !armed {
                     self.workspace.masks_mut().placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
                     self.workspace.set_status(tr(self.lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_RADIAL_ELLIPTICAL_AR).into());
@@ -388,7 +388,7 @@ impl AutoShadeApp {
                 // grab or stroke surviving Esc used to hijack the next drag.
                 // The \-latched Before view exits here too: it locks every
                 // tool out, and Esc is the universal way back (M21).
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 self.workspace.overlay_mut().region_drag = None;
                 self.workspace.view_mut().before = false;
                 self.workspace.set_status(tr(self.lang, K_APP_EXITED_THE_CURRENT_TOOL_ESC).into());

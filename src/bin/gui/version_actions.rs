@@ -55,7 +55,7 @@ impl AutoShadeApp {
                 None => self.workspace.masks_mut().mask_brush = Some((None, erase)),
                 Some(Some(j)) => self.workspace.masks_mut().mask_brush = Some((Some(j), erase)),
                 Some(None) => {
-                    self.end_mask_brush();
+                    self.workspace.end_mask_brush();
                 }
             }
         }

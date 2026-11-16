@@ -191,7 +191,7 @@ impl AutoShadeApp {
                     logic::pick::Picker::Range => self.workspace.tools_mut().range_picking = None,
                     logic::pick::Picker::PointColor => self.workspace.tools_mut().point_color_picking = false,
                 },
-                Effect::DisarmTools => self.disarm_tools(),
+                Effect::DisarmTools => self.panel_view(&mut Vec::new()).disarm_tools(),
                 Effect::MarkDirty => self.editor.session_mut().dirty = true,
             }
         }

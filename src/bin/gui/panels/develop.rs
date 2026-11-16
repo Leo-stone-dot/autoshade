@@ -523,7 +523,7 @@ impl AutoShadeApp {
                         .clicked()
                     {
                         let on = !self.workspace.tools().wb_picking;
-                        self.disarm_tools();
+                        self.panel_view(&mut Vec::new()).disarm_tools();
                         self.workspace.tools_mut().wb_picking = on;
                         if on {
                             self.workspace.set_status(tr(lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into());
@@ -581,101 +581,6 @@ impl AutoShadeApp {
 
 
 
-    /// One develop-panel section — body extracted verbatim from
-    /// develop_panel (round-12 decomposition; spacing included).
-    pub(crate) fn dev_detail(&mut self, ui: &mut egui::Ui, detail_active: bool) -> bool {
-        let lang = self.lang;
-        let mut changed = false;
-
-        // Look ends here — detail, then geometry (lens BEFORE crop: the lens
-        // profile / manual distortion redefine the frame the crop sits in).
-        // Group boundary: the group head's own air and gold caption (2026-10-01:
-        // the full-width hairline that used to fence each group is gone).
-        group_caption(ui, tr(lang, K_DEVELOP_DETAIL_LENS)); // #14b, group 2 of 4 here
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_DETAIL), detail_active))
-            .id_salt("sec_detail")
-            .default_open(false)
-            , |ui| {
-                {
-                    // All eleven controls render since v1.5.0
-                    // (`render/detail.rs`), so none carries the "not rendered
-                    // here" line any more. The six COMPANIONS (the amount since
-                    // v1.6.0 — Lightroom's 40 on a RAW, none on a baked raster —
-                    // radius, the three Details, Smoothness) show the value the
-                    // engine renders — Lightroom's default while the recipe
-                    // holds none — and reset to it (`companion_slider_edit`,
-                    // `sharpening_slider`).
-                    let raw_source = self.source_is_raw();
-                    changed |= sharpening_slider(ui, lang, tr(lang, K_DEVELOP_SHARPENING), &mut self.editor.doc_mut().recipe, raw_source);
-                    // The rows below the amount are one capability table each;
-                    // their bands, feels and companion defaults live in
-                    // `logic::capability` (the radius is a Fine companion: the
-                    // sidecar writes one decimal, so the track shows one).
-                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::SHARPEN);
-                    ui.add_space(SPACE_SM);
-                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::NOISE_LUMA);
-                    ui.add_space(SPACE_SM);
-                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::NOISE_COLOR);
-                }
-                let denoise_raw = self.editor.denoise_uses_raw();
-                // AI denoise as an ACTIVE op: run now, see it on canvas —
-                // export-time denoise (the Export section toggle) stays for
-                // batch/full-res workflows, but nobody should have to export
-                // to find out what the denoiser does.
-                ui.add_space(SPACE_SM);
-                // The verb's OWN dial, directly above it (user decision
-                // 2026-09-12: a control belongs to the fold whose function it
-                // serves; the Export fold's 「on export」 has a dial of its
-                // own, and neither reaches the other). Same helper as the
-                // reverse-fit's: 0..100 track, double-click reset, hover nudge.
-                slider_pct_hinted(
-                    ui,
-                    lang,
-                    tr(lang, K_DEVELOP_AI_DENOISE_STRENGTH),
-                    if denoise_raw { &mut self.workspace.exp_mut().denoise_strength } else { &mut self.workspace.exp_mut().baked_denoise_strength },
-                    1.0,
-                    if denoise_raw { autoshade::denoise::DEFAULT_STRENGTH_RAW } else { autoshade::denoise::DEFAULT_STRENGTH },
-                    tr(lang,
-                        K_DEVELOP_DETAIL_AI_DENOISE_STRENGTH_INDEPENDENT_OF_THE_EX,
-                    ),
-                );
-                ui.horizontal(|ui| {
-                    // CAPABILITY, not just state — the same rule the two
-                    // segmentation buttons follow one panel down (R24 batch 2).
-                    // Without `python/denoise.py` on disk this click can only
-                    // end in `denoise.rs`'s English "denoise sidecar not found
-                    // at …" landing in a status line the rest of the window
-                    // renders in the user's language, so the button says so up
-                    // front instead of spending the click to find out.
-                    let has_helper = denoise_helper_available();
-                    let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy() && has_helper;
-                    let missing = tr(lang,
-                        K_DEVELOP_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPERS_WH,
-                    );
-                    if action_row(ui, ready, tr(lang, K_DEVELOP_AI_DENOISE_NOW))
-                        // 🤖 + the cross-reference line (#4): this verb stays
-                        // beside Noise Reduction on purpose, so its tooltip is
-                        // where it says the rest of the AI moved to. On the arm
-                        // that CANNOT run, the tooltip is about the missing
-                        // sidecar and nothing else — same discipline as the
-                        // segmentation pair.
-                        .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
-                            K_DEVELOP_DENOISE_THIS_CARD_S_PIXELS_AT_FULL_RESOLUTION_A,
-                        )) } else { missing.to_string() })
-                        .clicked()
-                    {
-                        self.apply_actions(vec![logic::Action::Develop(
-                            logic::develop::DevelopAction::AiDenoise,
-                        )]);
-                    }
-                    // No 「Full-res」 checkbox any more (2026-09-15): the
-                    // result is a CARD, and a card baked from a ≤2048 px
-                    // working copy capped every later export of it at
-                    // 2048 px — the denoise always runs on the full frame.
-                });
-            });
-        changed
-    }
 
 
 
@@ -711,7 +616,7 @@ impl AutoShadeApp {
                     let label = if self.workspace.crop().mode { tr(lang, K_DEVELOP_DONE) } else { tr(lang, K_DEVELOP_ENTER_CROP) };
                     if action_in(ui, cell, true, label).clicked() {
                         let on = !self.workspace.crop().mode;
-                        self.disarm_tools();
+                        self.panel_view(&mut Vec::new()).disarm_tools();
                         self.editor.set_crop_mode(&mut self.workspace, on);
                     }
                     if action_in(ui, cell, true, tr(lang, K_DEVELOP_CLEAR_CROP)).clicked()

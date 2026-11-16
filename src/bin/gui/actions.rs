@@ -207,58 +207,7 @@ impl AutoShadeApp {
 
 
 
-    /// Recipe replaced wholesale (undo/redo/Reset/version load/AI apply): the
-    /// derived display state must follow, or the panel keeps showing an AI
-    /// rationale / verdict that describes a recipe no longer on screen — and
-    /// an ARMED index-carrying tool (range sampler, ↻ Redraw) would fire into
-    /// whatever mask now happens to sit at its remembered index.
-    /// One tool at a time on the canvas — the SINGLE owner of the disarm
-    /// list. Ten arming sites used to hand-copy these assignments, and the
-    /// comments at two of them record real bugs born from copies drifting;
-    /// every arming site now calls this before setting its own flag.
-    /// Transient gesture anchors die with the tools: a stale place_start or
-    /// crop_drag used to hijack the next drag. clone_src (the sampled source
-    /// pin) deliberately survives — samples stay for resuming, like paint.
-    pub(crate) fn disarm_tools(&mut self) {
-        self.editor.set_crop_mode(&mut self.workspace, false);
-        self.workspace.masks_mut().paint_mode = false;
-        self.workspace.tools_mut().clone_mode = false;
-        self.workspace.tools_mut().wb_picking = false;
-        self.workspace.tools_mut().range_picking = None;
-        self.workspace.tools_mut().point_color_picking = false;
-        self.workspace.tools_mut().lens_focus_picking = false;
-        self.workspace.masks_mut().placing_mask = None;
-        self.workspace.masks_mut().place_start = None;
-        self.workspace.crop_mut().drag = None;
-        self.workspace.masks_mut().mask_drag = None;
-        self.workspace.masks_mut().paint_last = None;
-        self.end_mask_brush();
-        // A preset change armed for the crop tool must die with it — the
-        // flag survived Esc / Done / a hold-B detour and rewrote the box as
-        // a surprise on the next crop entry (CX5-4).
-        self.workspace.crop_mut().aspect_pending = false;
-    }
 
-    /// End a live mask-brush session (the Esc teardown, extracted from
-    /// `disarm_tools` so the three former hand-copies stay one owner):
-    /// strokes live in the canvas + gray buffer only until 「Apply」 bakes
-    /// them into a claimed raster, so dropping both IS the cancel. The
-    /// canvas is cleared too — fill/heal would otherwise inherit the
-    /// brush-mask strokes as a phantom retouch selection. Returns whether a
-    /// session was actually live, so a caller whose teardown is NOT
-    /// user-initiated can disclose the discarded strokes.
-    pub(crate) fn end_mask_brush(&mut self) -> bool {
-        if self.workspace.masks_mut().mask_brush.take().is_some() {
-            self.workspace.masks_mut().mask_brush_gray = None;
-            self.workspace.masks_mut().paint_mode = false;
-            self.workspace.clear_mask();
-            // The owner's area the session displaced comes back (2026-09-27).
-            self.workspace.unstash_owner_area();
-            true
-        } else {
-            false
-        }
-    }
 
     /// Selection moved: every INDEX-ARMED tool whose target is no longer
     /// the selected mask dies with it — `remap_mask_indices`' twin (that
@@ -283,7 +232,7 @@ impl AutoShadeApp {
         // the row that was just left (the first fix of this class).
         self.workspace.tools_mut().range_picking = None;
         if matches!(self.workspace.masks().mask_brush, Some((Some(j), _)) if Some(j) != keep) {
-            return self.end_mask_brush();
+            return self.workspace.end_mask_brush();
         }
         false
     }

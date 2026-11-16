@@ -245,7 +245,7 @@ impl AutoShadeApp {
             let cell = columns(ui, 3);
             let lin_armed = matches!(self.workspace.masks().placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
             if toggle_in(ui, cell, lin_armed, tr(lang, K_DEVELOP_LINEAR__2)).on_hover_text(tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_START_FULLY_APPLIED_SIDE_END_U)).clicked() {
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 if !lin_armed {
                     self.workspace.masks_mut().placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
                     self.workspace.set_status(tr(lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_LINEAR_GRADIENT_STAR).into());
@@ -253,7 +253,7 @@ impl AutoShadeApp {
             }
             let rad_armed = matches!(self.workspace.masks().placing_mask, Some((MaskKind::Radial, PlaceTarget::NewMask)));
             if toggle_in(ui, cell, rad_armed, tr(lang, K_DEVELOP_RADIAL__2)).on_hover_text(tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_TO_DRAW_AN_ELLIPTICAL_AREA)).clicked() {
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 if !rad_armed {
                     self.workspace.masks_mut().placing_mask = Some((MaskKind::Radial, PlaceTarget::NewMask));
                     self.workspace.set_status(tr(lang, K_APP_DRAG_ON_THE_IMAGE_TO_DRAW_A_RADIAL_ELLIPTICAL_AR).into());
@@ -269,7 +269,7 @@ impl AutoShadeApp {
                 .clicked()
             {
                 if brush_armed {
-                    self.disarm_tools();
+                    self.panel_view(&mut Vec::new()).disarm_tools();
                 } else if self.editor.photo().base_preview.is_some() {
                     self.apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::MaskBrush(None),
@@ -293,7 +293,7 @@ impl AutoShadeApp {
                     self.commit_mask_brush();
                 }
                 if action_in(ui, cell, true, tr(lang, K_APP_CANCEL)).clicked() {
-                    self.disarm_tools();
+                    self.panel_view(&mut Vec::new()).disarm_tools();
                 }
             });
             // #9: the radius belongs AT THE TOOL. This is the same
@@ -531,7 +531,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, K_DEVELOP_RE_DRAG_THIS_MASK_S_AREA_ON_THE_IMAGE))
                     .clicked()
                 {
-                    self.disarm_tools();
+                    self.panel_view(&mut Vec::new()).disarm_tools();
                     if !redraw_armed {
                         self.workspace.masks_mut().placing_mask = Some((kind, PlaceTarget::Redraw(i)));
                         self.workspace.set_status(tr(lang, K_DEVELOP_RE_DRAG_THIS_MASK_S_AREA_ON_THE_IMAGE).into());
@@ -663,7 +663,7 @@ impl AutoShadeApp {
                     .clicked()
                 {
                     if edit_armed {
-                        self.disarm_tools();
+                        self.panel_view(&mut Vec::new()).disarm_tools();
                     } else {
                         self.apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::MaskBrush(Some(i)),
@@ -764,7 +764,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_TO_ADD_A_LINEAR_SHAPE_TO_THIS))
                     .clicked()
                 {
-                    self.disarm_tools();
+                    self.panel_view(&mut Vec::new()).disarm_tools();
                     if !lin_armed {
                         self.workspace.masks_mut().placing_mask =
                             Some((MaskKind::Linear, PlaceTarget::Component(i, mode)));
@@ -780,7 +780,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, K_DEVELOP_DRAG_ON_THE_IMAGE_TO_ADD_AN_ELLIPTICAL_SHAPE_TO))
                     .clicked()
                 {
-                    self.disarm_tools();
+                    self.panel_view(&mut Vec::new()).disarm_tools();
                     if !rad_armed {
                         self.workspace.masks_mut().placing_mask =
                             Some((MaskKind::Radial, PlaceTarget::Component(i, mode)));
@@ -930,7 +930,7 @@ impl AutoShadeApp {
                 if sel == 2 {
                     // Jump straight into sampling — a colour range without
                     // a picked colour selects nothing useful.
-                    self.disarm_tools();
+                    self.panel_view(&mut Vec::new()).disarm_tools();
                     self.workspace.tools_mut().range_picking = Some(i);
                     self.workspace.set_status(tr(lang, K_DEVELOP_COLOR_RANGE_CLICK_THE_COLOR_TO_PICK_IN_THE_IMAGE).into());
                 }
@@ -993,7 +993,7 @@ impl AutoShadeApp {
                 None => {}
             }
             if want_pick {
-                self.disarm_tools();
+                self.panel_view(&mut Vec::new()).disarm_tools();
                 if !picking_this {
                     self.workspace.tools_mut().range_picking = Some(i);
                     self.workspace.set_status(tr(lang, K_DEVELOP_COLOR_RANGE_CLICK_THE_COLOR_TO_PICK_IN_THE_IMAGE).into());

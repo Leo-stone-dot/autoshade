@@ -1103,3 +1103,26 @@ pub(crate) fn persist_postponed(
     self.toast(ToastKind::Error, t);
 }
 }
+
+impl WorkspaceView {
+    /// End a live mask-brush session (the Esc teardown, extracted from
+    /// `disarm_tools` so the three former hand-copies stay one owner):
+    /// strokes live in the canvas + gray buffer only until 「Apply」 bakes
+    /// them into a claimed raster, so dropping both IS the cancel. The
+    /// canvas is cleared too — fill/heal would otherwise inherit the
+    /// brush-mask strokes as a phantom retouch selection. Returns whether a
+    /// session was actually live, so a caller whose teardown is NOT
+    /// user-initiated can disclose the discarded strokes.
+    pub(crate) fn end_mask_brush(&mut self) -> bool {
+        if self.masks_mut().mask_brush.take().is_some() {
+            self.masks_mut().mask_brush_gray = None;
+            self.masks_mut().paint_mode = false;
+            self.clear_mask();
+            // The owner's area the session displaced comes back (2026-09-27).
+            self.unstash_owner_area();
+            true
+        } else {
+            false
+        }
+    }
+}

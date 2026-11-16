@@ -240,7 +240,7 @@
         assert!(!app.workspace.tool_armed(), "premise: a fresh app has no tool armed");
         app.workspace.tools_mut().point_color_picking = true;
         assert!(app.workspace.tool_armed(), "an armed eyedropper is an armed canvas tool");
-        app.disarm_tools();
+        app.panel_view(&mut Vec::new()).disarm_tools();
         assert!(!app.workspace.tools().point_color_picking, "Esc's disarm puts it down with the rest");
 
         app.workspace.tools_mut().point_color_picking = true;

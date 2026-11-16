@@ -169,7 +169,7 @@ impl AutoShadeApp {
     /// mask-brush session ends first (its strokes belong to no tool, and
     /// `end_mask_brush` puts the stashed area back before the swap).
     pub(crate) fn select_brush_owner(&mut self, owner: BrushOwner) {
-        self.end_mask_brush();
+        self.workspace.end_mask_brush();
         if owner == self.workspace.masks().paint_owner {
             return;
         }
@@ -203,7 +203,7 @@ impl AutoShadeApp {
     /// brush flag goes up — the Stamp's `clone_mode`, the others' `paint_mode`.
     pub(crate) fn arm_brush(&mut self, owner: BrushOwner) {
         self.select_brush_owner(owner);
-        self.disarm_tools();
+        self.panel_view(&mut Vec::new()).disarm_tools();
         if owner == BrushOwner::Stamp {
             self.workspace.tools_mut().clone_mode = true;
         } else {
@@ -218,14 +218,14 @@ impl AutoShadeApp {
         self.workspace.masks_mut().paint_mode = false;
         self.workspace.tools_mut().clone_mode = false;
         self.workspace.masks_mut().paint_last = None;
-        self.end_mask_brush();
+        self.workspace.end_mask_brush();
     }
 
     /// The K key: toggle the brush of the tool whose area is on the canvas;
     /// during a mask-brush session it is that session's Esc, as before.
     pub(crate) fn toggle_brush_key(&mut self) {
         if self.workspace.masks().mask_brush.is_some() {
-            self.disarm_tools();
+            self.panel_view(&mut Vec::new()).disarm_tools();
         } else if self.workspace.brush_armed(self.workspace.masks().paint_owner) {
             self.disarm_brush();
         } else {
@@ -250,7 +250,7 @@ impl AutoShadeApp {
     /// the red display wash) and the greyscale weight buffer, at canvas
     /// resolution, so the session bakes exactly what it shows.
     pub(crate) fn start_mask_brush(&mut self, target: Option<usize>) {
-        self.disarm_tools();
+        self.panel_view(&mut Vec::new()).disarm_tools();
         let Some(base) = self.editor.photo().base_preview.as_ref() else { return };
         let (mw, mh) = base.dimensions();
         // The session takes the canvas; the owner's area waits in the store.
@@ -376,7 +376,7 @@ impl AutoShadeApp {
                 self.workspace.masks_mut().sel_component = None;
                 self.editor.session_mut().dirty = true;
                 self.workspace.overlay_mut().overlay_stale = true;
-                self.disarm_tools(); // ends the session and clears the canvas
+                self.panel_view(&mut Vec::new()).disarm_tools(); // ends the session and clears the canvas
             }
             Err(e) => {
                 let t = trf(

@@ -124,7 +124,7 @@ impl AutoShadeApp {
         // variant's controls — seconds, on a large photo. The honest
         // "Preparing preview…" placeholder takes over.
         self.editor.plates_mut().after_tex = None;
-        self.disarm_tools();
+        self.panel_view(&mut Vec::new()).disarm_tools();
         self.workspace.tools_mut().clone_src = None; // unlike a mere disarm, a variant switch drops the sample
         self.workspace.view_mut().zoom = 1.0;
         self.workspace.view_mut().zoom_target = 1.0; // instant — a swap must not glide from the old view

@@ -94,7 +94,7 @@ impl AutoShadeApp {
                 // The canvas's own film edge: the Detail passes ran before this
                 // mask on the canvas, at that scale, so the range must too.
                 let film = self.film_short_edge();
-                let raw_source = self.source_is_raw();
+                let raw_source = self.editor.source_is_raw();
                 let composed = autoshade::render::geometry_profile(&self.editor.doc().recipe);
                 let img = autoshade::render::develop_preview_framed(
                     &base,
@@ -712,7 +712,7 @@ impl AutoShadeApp {
                 // reasons as the overlay build above, and they must MATCH it —
                 // they share cache.
                 let film = self.film_short_edge();
-                let raw_source = self.source_is_raw();
+                let raw_source = self.editor.source_is_raw();
                 let composed = autoshade::render::geometry_profile(&self.editor.doc().recipe);
                 let img = autoshade::render::develop_preview_framed(
                     &base,
@@ -754,7 +754,7 @@ impl AutoShadeApp {
             let Some(base) = self.editor.photo().base_preview.clone() else { return };
             let reference = autoshade::render::point_color_sampling_recipe(&self.editor.doc().recipe);
             let film = self.film_short_edge();
-            let raw_source = self.source_is_raw();
+            let raw_source = self.editor.source_is_raw();
             let composed = autoshade::render::geometry_profile(&self.editor.doc().recipe);
             let img = autoshade::render::develop_preview_framed(
                 &base,

@@ -71,7 +71,7 @@ impl AutoShadeApp {
         // into whatever now sits at its remembered index, and a live
         // crop/rotate drag would re-apply its stale start angle over the
         // freshly restored recipe on the very next drag frame.
-        self.disarm_tools();
+        self.panel_view(&mut Vec::new()).disarm_tools();
         self.workspace.masks_mut().mask_name_buf = None; // stale (index, text) must not cross-commit
         // A curve-point drag in flight when the recipe is swapped (Ctrl+Z
         // mid-drag) kept mutating point i of the RESTORED curve on the next
@@ -209,7 +209,7 @@ impl AutoShadeApp {
     /// a second rebind in the same landing finds no session and stays
     /// silent.
     pub(crate) fn rebind_paint_canvas(&mut self, w: u32, h: u32) {
-        if self.end_mask_brush() {
+        if self.workspace.end_mask_brush() {
             let t = tr(
                 self.lang,
                 K_ACTIONS_THE_MASK_BRUSH_SESSION_ENDED_THE_CANVAS_PIXELS_U,

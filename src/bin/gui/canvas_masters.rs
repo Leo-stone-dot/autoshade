@@ -273,7 +273,7 @@ pub(crate) fn start_redevelop(&mut self) {
 /// until it lands ([`Msg::BaseRedeveloped`]). A baked source, or a card
 /// on its own pixels, has nothing to re-develop.
 pub(crate) fn ensure_source_part(&mut self) -> bool {
-    if !self.source_is_raw() || self.editor.active_variant().is_some_and(|v| v.base.is_some()) {
+    if !self.editor.source_is_raw() || self.editor.active_variant().is_some_and(|v| v.base.is_some()) {
         return true;
     }
     let want = autoshade::render::BasePart::of(&self.editor.doc().recipe);
@@ -332,9 +332,6 @@ pub(crate) fn film_short_edge(&mut self) -> Option<u32> {
 /// (`EditRecipe::capture_sharpening`, v1.6.0) — so every surface that
 /// develops the canvas's pixels passes this beside the film edge. No
 /// photo is a baked raster: nothing to sharpen by default.
-pub(crate) fn source_is_raw(&self) -> bool {
-    self.editor.active_source_path().is_some_and(|p| autoshade::decode::is_raw(&p))
-}
 
 /// The frame of the active card's pixel source (v1.17.0): a RAW, or a
 /// baked file with the lens geometry its own marker says is in it
