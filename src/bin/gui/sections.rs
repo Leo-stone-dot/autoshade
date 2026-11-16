@@ -98,6 +98,10 @@ fn panel_dev_export(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: boo
     view.dev_export(ui, active)
 }
 
+fn panel_dev_masks(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_masks(ui, active)
+}
+
 /// The panel's sections, in the order it draws them.
 pub(crate) const SECTIONS: &[Section] = &[
     Section {
@@ -180,7 +184,7 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "masks",
         families: &[],
         kind: SectionKind::Custom,
-        draw: SectionDraw::App(AutoShadeApp::dev_masks),
+        draw: SectionDraw::Panel(panel_dev_masks),
     },
     Section {
         id: "versions",
