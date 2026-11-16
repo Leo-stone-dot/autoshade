@@ -10,7 +10,7 @@
                 mask_brush_gray: Some(image::GrayImage::from_pixel(4, 4, image::Luma([255]))),
                 ..Default::default()
             }; view } , ..Default::default() };
-        app.clear_mask();
+        app.workspace.clear_mask();
         assert!(
             app.workspace.masks().mask_brush_gray.as_ref().unwrap().pixels().all(|p| p[0] == 0),
             "Apply after Clear must bake nothing"

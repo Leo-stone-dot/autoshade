@@ -1033,3 +1033,44 @@ impl WorkspaceView {
         }
     }
 }
+
+impl WorkspaceView {
+    pub(crate) fn clear_mask(&mut self) {
+        if let Some(m) = &mut self.masks_mut().mask_paint {
+            for p in m.pixels_mut() {
+                *p = image::Rgba([0, 0, 0, 0]);
+            }
+            self.paint_mask_changed(Some(false));
+            // The WHOLE canvas changed: a pending brush sub-rect from an
+            // uncommitted stroke would make ensure_mask_tex's partial-upload
+            // fast path re-upload only that rectangle, leaving previously
+            // painted pixels alive in the GPU texture indefinitely.
+            self.overlay_mut().mask_dirty_rect = None;
+        }
+        // The display canvas and the greyscale weight buffer are a
+        // DUAL-WRITE pair (the brush writes both; Apply bakes the GRAY) —
+        // clearing only the display broke the session's own "bakes exactly
+        // what it shows" contract: Apply after Clear still committed the
+        // cleared strokes (L15-8). end_mask_brush clears the pair too.
+        if let Some(g) = &mut self.masks_mut().mask_brush_gray {
+            for p in g.pixels_mut() {
+                *p = image::Luma([0]);
+            }
+        }
+        self.masks_mut().paint_last = None;
+    }
+
+    /// The twin of `stash_owner_area`, once the session's canvas is gone: the
+    /// owner's area returns unscanned; with nothing stashed the canvas stays
+    /// as the caller left it (blank).
+    pub(crate) fn unstash_owner_area(&mut self) {
+        let slot = self.masks().paint_owner.slot();
+        if let Some(a) = self.masks_mut().paint_store[slot].take() {
+            let painted = a.painted.get();
+            self.masks_mut().mask_paint = Some(a.canvas);
+            self.paint_mask_changed(painted);
+            self.overlay_mut().mask_dirty_rect = None;
+            self.masks_mut().paint_last = None;
+        }
+    }
+}

@@ -92,16 +92,5 @@ impl AutoShadeApp {
         actions
     }
 
-    /// 🎯 armed: a click sets the focus point in the original frame, the one
-    /// the develop and the depth map share.
-    pub(crate) fn handle_lens_focus_pick(
-        &self,
-        ui: &egui::Ui,
-        resp: &egui::Response,
-        xf: ViewXform,
-    ) -> Option<logic::Action> {
-        let (nx, ny) = self.editor.clicked_orig_norm(ui, resp, xf)?;
-        Some(logic::Action::Lens(logic::lens_blur::LensAction::FocusPicked([nx, ny])))
-    }
 
 }

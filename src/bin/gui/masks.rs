@@ -162,30 +162,6 @@ impl AutoShadeApp {
 
 
 
-    pub(crate) fn clear_mask(&mut self) {
-        if let Some(m) = &mut self.workspace.masks_mut().mask_paint {
-            for p in m.pixels_mut() {
-                *p = image::Rgba([0, 0, 0, 0]);
-            }
-            self.workspace.paint_mask_changed(Some(false));
-            // The WHOLE canvas changed: a pending brush sub-rect from an
-            // uncommitted stroke would make ensure_mask_tex's partial-upload
-            // fast path re-upload only that rectangle, leaving previously
-            // painted pixels alive in the GPU texture indefinitely.
-            self.workspace.overlay_mut().mask_dirty_rect = None;
-        }
-        // The display canvas and the greyscale weight buffer are a
-        // DUAL-WRITE pair (the brush writes both; Apply bakes the GRAY) —
-        // clearing only the display broke the session's own "bakes exactly
-        // what it shows" contract: Apply after Clear still committed the
-        // cleared strokes (L15-8). end_mask_brush clears the pair too.
-        if let Some(g) = &mut self.workspace.masks_mut().mask_brush_gray {
-            for p in g.pixels_mut() {
-                *p = image::Luma([0]);
-            }
-        }
-        self.workspace.masks_mut().paint_last = None;
-    }
 
     /// Bring `owner`'s area onto the canvas. The owner that was there goes to
     /// the store with its presence memo; the requested one comes back the
@@ -220,19 +196,6 @@ impl AutoShadeApp {
     }
 
 
-    /// The twin of `stash_owner_area`, once the session's canvas is gone: the
-    /// owner's area returns unscanned; with nothing stashed the canvas stays
-    /// as the caller left it (blank).
-    pub(crate) fn unstash_owner_area(&mut self) {
-        let slot = self.workspace.masks().paint_owner.slot();
-        if let Some(a) = self.workspace.masks_mut().paint_store[slot].take() {
-            let painted = a.painted.get();
-            self.workspace.masks_mut().mask_paint = Some(a.canvas);
-            self.workspace.paint_mask_changed(painted);
-            self.workspace.overlay_mut().mask_dirty_rect = None;
-            self.workspace.masks_mut().paint_last = None;
-        }
-    }
 
 
     /// Arm `owner`'s brush: its area comes onto the canvas, every other
@@ -274,7 +237,7 @@ impl AutoShadeApp {
     /// areas stay.
     pub(crate) fn clear_area(&mut self, owner: BrushOwner) {
         if owner == self.workspace.masks().paint_owner && self.workspace.masks().mask_brush.is_none() {
-            self.clear_mask();
+            self.workspace.clear_mask();
         } else {
             self.workspace.masks_mut().paint_store[owner.slot()] = None;
         }

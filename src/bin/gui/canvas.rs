@@ -550,7 +550,7 @@ impl AutoShadeApp {
             self.handle_point_color_pick(ui, &resp, xf);
         } else if self.workspace.tools().lens_focus_picking {
             self.editor.draw_lens_focus(ui, xf);
-            if let Some(action) = self.handle_lens_focus_pick(ui, &resp, xf) {
+            if let Some(action) = self.editor.handle_lens_focus_pick(ui, &resp, xf) {
                 self.apply_actions(vec![action]);
             }
         } else if self.workspace.tools().clone_mode {

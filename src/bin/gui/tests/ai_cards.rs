@@ -534,10 +534,10 @@
             ("history_actions.rs::rebind_paint_canvas", 1),
             ("masks.rs::paint_imported_removals", 2),
             ("workspace.rs::paint_mask_changed", 1),
-            ("masks.rs::clear_mask", 1),
+            ("workspace.rs::clear_mask", 1),
             ("masks.rs::select_brush_owner", 1),
             ("masks.rs::start_mask_brush", 1),
-            ("masks.rs::unstash_owner_area", 1),
+            ("workspace.rs::unstash_owner_area", 1),
             ("panels/retouch.rs::handle_paint", 1),
         ];
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/bin/gui");
@@ -547,7 +547,9 @@
         let replace = concat!("self.", "workspace.masks_mut().", "mask_paint = Some(");
         let dirty = concat!("self.", "workspace.overlay_mut().", "mask_dirty = true");
         let dirty_in_ws = concat!("self.", "overlay_mut().", "mask_dirty = true");
-        let mutations = [replace, dirty, dirty_in_ws, concat!("masks.mask_paint", ".as_mut()"), concat!("&mut self.", "workspace.masks_mut().", "mask_paint")];
+        let replace_in_ws = concat!("self.", "masks_mut().", "mask_paint = Some(");
+        let borrow_in_ws = concat!("&mut self.", "masks_mut().", "mask_paint");
+        let mutations = [replace, replace_in_ws, borrow_in_ws, dirty, dirty_in_ws, concat!("masks.mask_paint", ".as_mut()"), concat!("&mut self.", "workspace.masks_mut().", "mask_paint")];
         let mut found: std::collections::BTreeMap<String, usize> = Default::default();
         for path in sources {
             let text = std::fs::read_to_string(&path).expect("GUI source readable");
@@ -567,6 +569,12 @@
                 *found.entry(site.clone()).or_default() += 1;
                 if line.contains(dirty) || line.contains(dirty_in_ws) {
                     assert_eq!(site, "workspace.rs::paint_mask_changed", "only the notification door may mark the overlay dirty");
+                    continue;
+                }
+                if site.starts_with("workspace.rs::") {
+                    // The workspace owns these two doors now; their own bodies
+                    // are the notification path (the masks.rs sites below still
+                    // pin every caller).
                     continue;
                 }
                 let end = lines[start..].iter().position(|l| *l == "    }").expect("method end") + start;

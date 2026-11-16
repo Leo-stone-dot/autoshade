@@ -339,9 +339,9 @@ impl AutoShadeApp {
         if self.workspace.masks_mut().mask_brush.take().is_some() {
             self.workspace.masks_mut().mask_brush_gray = None;
             self.workspace.masks_mut().paint_mode = false;
-            self.clear_mask();
+            self.workspace.clear_mask();
             // The owner's area the session displaced comes back (2026-09-27).
-            self.unstash_owner_area();
+            self.workspace.unstash_owner_area();
             true
         } else {
             false
