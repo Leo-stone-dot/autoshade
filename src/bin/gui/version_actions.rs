@@ -140,7 +140,7 @@ impl AutoShadeApp {
                 }
             }
             Err(e) => {
-                self.persist_postponed(&e, "Renaming v{n} failed: {err}", &[("n", &n.to_string())]);
+                self.workspace.persist_postponed(self.lang, &e, "Renaming v{n} failed: {err}", &[("n", &n.to_string())]);
             }
         }
     }
@@ -249,7 +249,7 @@ impl AutoShadeApp {
             },
         );
         if let Err(e) = locked {
-            self.persist_postponed(&e, "Save version failed: {err}", &[]);
+            self.workspace.persist_postponed(self.lang, &e, "Save version failed: {err}", &[]);
         }
     }
 
@@ -302,7 +302,7 @@ impl AutoShadeApp {
             Ok(inner) => inner,
             Err(e) => {
                 // The uniform busy/IO mapper every foreground compound uses.
-                return self.persist_postponed(
+                return self.workspace.persist_postponed(self.lang, 
                     &e,
                     "Load v{n} failed: {err}",
                     &[("n", &n.to_string())],
@@ -447,7 +447,7 @@ impl AutoShadeApp {
                 self.workspace.set_status(trf(lang, K_ACTIONS_VERSION_V_DELETED, &[("n", &n.to_string())]));
             }
             Err(e) => {
-                self.persist_postponed(&e, "Delete v{n} failed: {err}", &[("n", &n.to_string())]);
+                self.workspace.persist_postponed(self.lang, &e, "Delete v{n} failed: {err}", &[("n", &n.to_string())]);
             }
         }
     }

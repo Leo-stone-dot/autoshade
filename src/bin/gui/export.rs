@@ -981,7 +981,7 @@ impl AutoShadeApp {
                     }
                 }
                 Err(e) => {
-                    self.persist_postponed(&e, "could not clear the saved edits: {err}", &[]);
+                    self.workspace.persist_postponed(self.lang, &e, "could not clear the saved edits: {err}", &[]);
                 }
             }
             return;
@@ -1291,7 +1291,7 @@ impl AutoShadeApp {
             },
         );
         if let Err(e) = locked_save {
-            self.persist_postponed(
+            self.workspace.persist_postponed(self.lang, 
                 &e,
                 "save postponed: this photo is being changed by another AutoShade process ({err}); your canvas remains unsaved — retry",
                 &[],

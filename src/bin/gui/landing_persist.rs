@@ -227,7 +227,7 @@ match autoshade::store::with_develop_lock(
 ) {
     Ok(status) => status,
     Err(e) => {
-        self.persist_postponed(
+        self.workspace.persist_postponed(self.lang, 
             &e,
             "AI develop applied — but NOT saved: this photo is being changed by another AutoShade process ({err}); Ctrl+S retries",
             &[],

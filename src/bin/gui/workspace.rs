@@ -1074,3 +1074,32 @@ impl WorkspaceView {
         }
     }
 }
+
+impl WorkspaceView {
+/// Uniform failure disclosure for a foreground persist compound — the
+/// single mapper the NoWait develop-lock wrappers report through
+/// (arch item b: five hand-rolled copies had already drifted into
+/// wording bugs). TYPED: `WouldBlock` really is "another AutoShade
+/// process owns this develop right now", so it gets the caller's busy
+/// wording with its retry hint; any other error is real I/O and must
+/// not wear the busy costume — a full disk used to read as "another
+/// process is working on this photo".
+pub(crate) fn persist_postponed(
+        &mut self,
+        lang: Lang,
+    e: &std::io::Error,
+    busy_key: &'static str,
+    args: &[(&str, &str)],
+) {
+    let es = e.to_string();
+    let mut a: Vec<(&str, &str)> = args.to_vec();
+    a.push(("err", &es));
+    let t = if e.kind() == std::io::ErrorKind::WouldBlock {
+        trf(lang, busy_key, &a)
+    } else {
+        trf(lang, K_ACTIONS_NOT_SAVED_A_DEVELOP_STORE_WRITE_FAILED, &a)
+    };
+    self.set_status(t.clone());
+    self.toast(ToastKind::Error, t);
+}
+}
