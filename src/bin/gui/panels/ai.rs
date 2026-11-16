@@ -396,7 +396,7 @@ impl AutoShadeApp {
                 let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Analyze);
                 intent.typed = self.ai.guidance.clone();
                 intent.region = self.overlay.region;
-                self.apply_actions(vec![logic::Action::Look(intent)]);
+                self.apply_look(intent);
             }
             // The two TASTE DIALS get their own lines, below the verbs (R23-3).
             //
@@ -546,7 +546,7 @@ impl AutoShadeApp {
                         .active_on_ai_pixels()
                         .then(|| self.active_variant().and_then(|v| v.origin.clone()))
                         .flatten();
-                    self.apply_actions(vec![logic::Action::Look(intent)]);
+                    self.apply_look(intent);
                 }
             });
     }

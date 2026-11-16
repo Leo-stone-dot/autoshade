@@ -17,18 +17,6 @@ impl AutoShadeApp {
         let mut effects = Vec::new();
         for action in actions {
             match action {
-                Action::Look(intent) => self.start_look(intent),
-                Action::References(dir) => {
-                    let photo = self.photo.src_path.clone();
-                    let started = logic::look::references_start(
-                        photo.as_deref(),
-                        dir,
-                        self.busy,
-                        self.tools.analyze_inflight,
-                        self.normal.building,
-                    );
-                    self.run_effects(started);
-                }
                 Action::Lens(action) => {
                     let start = match action {
                         logic::lens_blur::LensAction::EstimateDepth => {
@@ -139,7 +127,7 @@ impl AutoShadeApp {
                         if let Some(dir) = dialog.pick_folder() {
                             // The known folder goes through the same landing
                             // the view's own `References` action uses.
-                            self.apply_actions(vec![Action::References(dir)]);
+                            self.apply_references(dir);
                         }
                     }
                 },
@@ -294,6 +282,25 @@ impl AutoShadeApp {
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
     }
 
+
+    /// Start one AI-look protocol request from any panel.
+    pub(crate) fn apply_look(&mut self, intent: logic::look::LookIntent) {
+        self.start_look(intent);
+    }
+
+    /// Read one reference folder and start the look for the photo it was
+    /// picked on.
+    pub(crate) fn apply_references(&mut self, dir: std::path::PathBuf) {
+        let photo = self.photo.src_path.clone();
+        let started = logic::look::references_start(
+            photo.as_deref(),
+            dir,
+            self.busy,
+            self.tools.analyze_inflight,
+            self.normal.building,
+        );
+        self.run_effects(started);
+    }
 
     /// Apply one gallery action: the folder dialog, the open/toggle decision,
     /// the thumbnail worker and the bounded texture window are the runtime's.

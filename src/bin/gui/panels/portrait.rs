@@ -125,7 +125,7 @@ impl AutoShadeApp {
         let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Portrait);
         intent.kept_masks = kept;
         intent.kept_blur = self.doc.recipe.lens_blur.clone();
-        self.apply_actions(vec![logic::Action::Look(intent)]);
+        self.apply_look(intent);
     }
 
     /// 🤖 Remove blemishes: the Retouch panel's AI heal, held to the face

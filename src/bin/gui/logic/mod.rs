@@ -60,11 +60,6 @@ use std::sync::Arc;
 /// What the user did. Emitted by the view, applied by the facade.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Action {
-    /// Start the AI-look protocol for this verb (`logic::look::plan`).
-    Look(look::LookIntent),
-    /// Read this folder as the reference library, then look at the photo that
-    /// was open when it was picked.
-    References(PathBuf),
     /// The Lens Blur section.
     Lens(lens_blur::LensAction),
     /// The library gallery.
