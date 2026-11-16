@@ -4,7 +4,6 @@ use crate::*;
 
 // The section ● predicate and the table it reads (R25 P0) — see
 // `develop_panel` and `dev_lens`.
-use autoshade::advisor::catalogue::{family_is_active, CONTROL_FAMILIES};
 use crate::sections::{section_active, SECTIONS};
 
 
@@ -457,116 +456,6 @@ impl AutoShadeApp {
         act
     }
 
-    /// One capability table: the renderer draws each control through its own
-    /// implementation and reports a data change (id + value); the registry
-    /// applies it. The panel does not know a control by name.
-    pub(crate) fn dev_tone_wb(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
-        let lang = self.lang;
-        let mut changed = false;
-
-        // DERIVED from the registry like the five section dots in
-        // `develop_panel` (R25 P8 closed the last two hand-written ones). This
-        // section holds BOTH the tone family and the white-balance one — the
-        // panel groups them, the registry does not — so its ● is the OR, the
-        // same shape the Detail and Lens sections already use for their own
-        // pairs.
-        let tone_active = CONTROL_FAMILIES
-            .iter()
-            .filter(|f| f.name == "tone" || f.name == "white_balance")
-            .any(|f| family_is_active(f, &self.editor.doc().recipe));
-
-        // #14b: the FIRST of the panel's group captions (its air is its own:
-        // `headings::group_caption`). The two existing group
-        // fences (before Detail, before Local Masks) marked boundaries without
-        // ever saying what they divided; the five groups the panel actually has
-        // are AI (its own panel above) → tone & colour → detail & lens → local
-        // & pixel → versions & export. Captions only: no section moved, no
-        // fence rhythm changed.
-        group_caption(ui, tr(lang, K_DEVELOP_TONE_COLOUR));
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_TONE_WB), tone_active))
-            .id_salt("sec_tone")
-            .default_open(true)
-            , |ui| {
-                // R38: wrapped, so the eyedropper drops under the checkbox when
-                // the row is short — the pair is 351 px at the 320 px default,
-                // and a plain `horizontal` never wraps: it widened the
-                // auto-fitting panel by 64 px, the widest row in this panel.
-                ui.horizontal_wrapped(|ui| {
-                    // One cell of the grid for the eyedropper, measured at the
-                    // row's start (2026-09-27); it wraps under the checkbox.
-                    let cell = columns(ui, 2);
-                    // A nonzero tint IS a WB edit (recipes saved before the
-                    // uncheck-zeroes-tint fix can carry one with no Temp) —
-                    // showing "off = as-shot" over an active tint, with its
-                    // slider disabled, was a lie with no way out.
-                    let mut custom_wb =
-                        self.editor.doc().recipe.temperature_k.is_some() || self.editor.doc().recipe.tint != 0.0;
-                    if ui.checkbox(&mut custom_wb, tr(lang, K_DEVELOP_CUSTOM_WHITE_BALANCE_OFF_AS_SHOT)).changed() {
-                        // Arm AT the as-shot anchor when stamped: checking
-                        // the box must not shift the image — the slider then
-                        // starts from the camera's real Kelvin, not 5500.
-                        self.editor.doc_mut().recipe.temperature_k =
-                            if custom_wb { Some(self.editor.doc().recipe.as_shot_k.unwrap_or(5500.0)) } else { None };
-                        if !custom_wb {
-                            // "As-shot" is the WHOLE white balance: a custom
-                            // Tint surviving the un-check kept a WB edit
-                            // active behind a label claiming there was none.
-                            self.editor.doc_mut().recipe.tint = 0.0;
-                        }
-                        changed = true;
-                    }
-                    let label = if self.workspace.tools().wb_picking { tr(lang, K_DEVELOP_CLICK_IN_IMAGE) } else { tr(lang, K_DEVELOP_EYEDROPPER) };
-                    if action_in(ui, cell, true, label)
-                        .on_hover_text(tr(lang,
-                            K_DEVELOP_CLICK_A_SPOT_IN_THE_IMAGE_THAT_SHOULD_BE_NEUTRAL,
-                        ))
-                        .clicked()
-                    {
-                        let on = !self.workspace.tools().wb_picking;
-                        self.panel_view(&mut Vec::new()).disarm_tools();
-                        self.workspace.tools_mut().wb_picking = on;
-                        if on {
-                            self.workspace.set_status(tr(lang, K_APP_WB_EYEDROPPER_CLICK_A_SPOT_THAT_SHOULD_BE_NEUTRA).into());
-                        }
-                    }
-                });
-                if let (Some(k), Some(t)) = (self.editor.doc().recipe.as_shot_k, self.editor.doc().recipe.as_shot_tint) {
-                    // The camera's own WB in absolute terms — the reference
-                    // the Temp slider is anchored on for this photo. BOTH
-                    // halves required: the era pin (anchor 5500, tint None)
-                    // knows the anchor but NOT the camera, and showing it as
-                    // "as shot" would be a false claim.
-                    ui.weak(trf(
-                        lang,
-                        K_DEVELOP_AS_SHOT_K_TINT,
-                        &[("k", &format!("{k:.0}")), ("t", &format!("{t:+.0}"))],
-                    ));
-                }
-                // Double-click reset lands on the as-shot Kelvin when stamped
-                // (the honest "no shift" position), 5500 for legacy recipes.
-                let anchor_k = self.editor.doc().recipe.as_shot_k.unwrap_or(5500.0);
-                if let Some(mut k) = self.editor.doc().recipe.temperature_k
-                    && slider_log(ui, lang, tr(lang, K_DEVELOP_TEMP_K), &mut k, 2000.0, 50000.0, anchor_k)
-                {
-                    self.editor.doc_mut().recipe.temperature_k = Some(k);
-                    changed = true;
-                }
-                let custom_wb = self.editor.doc().recipe.temperature_k.is_some() || self.editor.doc().recipe.tint != 0.0;
-                // Tint is HALF of the white balance: editable only under
-                // Custom WB, or a tint move silently contradicted the
-                // checkbox's "off = as-shot" promise. A legacy tint-only
-                // recipe counts as Custom (see the checkbox above) so its
-                // slider stays reachable.
-                ui.add_enabled_ui(custom_wb, |ui| {
-                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::WB_TINT);
-                });
-                // The tone band is a capability table row each: the panel owns
-                // the fold and the white balance controls above; the fields,
-                // bands and resets live in `logic::capability::TONE`.
-                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::TONE);
-            });
-        changed
-    }
 
 
 
@@ -586,79 +475,6 @@ impl AutoShadeApp {
 
 
 
-    /// One develop-panel section — body extracted verbatim from
-    /// develop_panel (round-12 decomposition; spacing included).
-    pub(crate) fn dev_crop(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
-        let lang = self.lang;
-        let mut changed = false;
-
-        // --- 裁剪 + 拉直: recipe.crop / straighten_deg (export + XMP paths) ---
-        ui.add_space(SPACE_MD);
-        // The `framing` family IS this section — crop rectangle plus
-        // straighten angle — so the dot is read straight off the registry
-        // (R25 P8, the same derivation as every other section's).
-        let crop_active = CONTROL_FAMILIES
-            .iter()
-            .filter(|f| f.name == "framing")
-            .any(|f| family_is_active(f, &self.editor.doc().recipe));
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_CROP), crop_active))
-            .id_salt("sec_crop")
-            .default_open(false)
-            , |ui| {
-                // The two verbs share the row as equal cells and the aspect
-                // preset sits under them on a captioned row of its own
-                // (2026-09-27): a 70 px combo between two own-width verbs was
-                // the one three-item row in this panel.
-                ui.horizontal(|ui| {
-                    let cell = columns(ui, 2);
-                    // ✓ (geometric) — same finish-glyph as 「✓ Apply」; the
-                    // emoji ✅ was the odd one out of the check family.
-                    let label = if self.workspace.crop().mode { tr(lang, K_DEVELOP_DONE) } else { tr(lang, K_DEVELOP_ENTER_CROP) };
-                    if action_in(ui, cell, true, label).clicked() {
-                        let on = !self.workspace.crop().mode;
-                        self.panel_view(&mut Vec::new()).disarm_tools();
-                        self.editor.set_crop_mode(&mut self.workspace, on);
-                    }
-                    if action_in(ui, cell, true, tr(lang, K_DEVELOP_CLEAR_CROP)).clicked()
-                        && self.editor.doc_mut().recipe.crop.take().is_some()
-                    {
-                        // Through the panel's own change path: clamp + dirty,
-                        // so the crop-restricted histogram/clipping refresh.
-                        changed = true;
-                    }
-                });
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(tr(lang, K_DEVELOP_ASPECT)).weak().small());
-                    let prev_aspect = self.workspace.crop().aspect;
-                    egui::ComboBox::from_id_salt("crop_aspect")
-                        .selected_text(tr(lang, CROP_ASPECTS[self.workspace.crop().aspect].0))
-                        .width(70.0)
-                        .show_ui(ui, |ui| {
-                            for (i, (name, _)) in CROP_ASPECTS.iter().enumerate() {
-                                ui.selectable_value(&mut self.workspace.crop_mut().aspect, i, tr(lang, name));
-                            }
-                        });
-                    // LR applies a picked preset to the box IMMEDIATELY — the
-                    // combo used to only arm the ratio for the NEXT handle
-                    // drag, so the UI said 4:5 while preview/export kept the
-                    // old shape (D13). Consumed in handle_crop, where the
-                    // view dims live — and armed ONLY while the crop tool is
-                    // up: with the tool away the flag would survive until
-                    // some later session's crop entry and rewrite the box as
-                    // a surprise (Codex batch-38); tool-off keeps the old
-                    // arm-for-the-next-drag meaning.
-                    if self.workspace.crop().aspect != prev_aspect && self.workspace.crop().mode {
-                        self.workspace.crop_mut().aspect_pending = true;
-                    }
-                });
-                // Straighten: rotate + auto-crop (engine rotate_straighten);
-                // the preview shows exactly the export geometry. Fine class:
-                // levelling needs 0.1°, not the wide-range integer snap.
-                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::CROP);
-                explainer(ui, lang, tr(lang, K_DEVELOP_ONCE_IN_R_DRAG_CORNER_EDGE_HANDLES_TO_RESIZE_DRA));
-            });
-        changed
-    }
 
 
 

@@ -86,13 +86,21 @@ fn panel_dev_hsl(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) 
     view.dev_hsl(ui, active)
 }
 
+fn panel_dev_tone_wb(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_tone_wb(ui, active)
+}
+
+fn panel_dev_crop(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_crop(ui, active)
+}
+
 /// The panel's sections, in the order it draws them.
 pub(crate) const SECTIONS: &[Section] = &[
     Section {
         id: "tone_wb",
         families: &["tone", "white_balance"],
         kind: SectionKind::Form,
-        draw: SectionDraw::App(AutoShadeApp::dev_tone_wb),
+        draw: SectionDraw::Panel(panel_dev_tone_wb),
     },
     Section {
         id: "presence",
@@ -162,7 +170,7 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "crop",
         families: &["framing"],
         kind: SectionKind::Form,
-        draw: SectionDraw::App(AutoShadeApp::dev_crop),
+        draw: SectionDraw::Panel(panel_dev_crop),
     },
     Section {
         id: "masks",
