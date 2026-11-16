@@ -267,7 +267,7 @@ impl AutoShadeApp {
         ui.horizontal_top(|ui| {
             const PREVIEW_W: f32 = 200.0;
             const PREVIEW_H: f32 = 140.0;
-            let tex = if entry.is_ok() { self.recipe_preview_tex(ui.ctx(), name) } else { None };
+            let tex = if entry.is_ok() { self.panel_view(&mut Vec::new()).recipe_preview_tex(ui.ctx(), name) } else { None };
             ui.vertical(|ui| {
                 let (rect, _) =
                     ui.allocate_exact_size(egui::vec2(PREVIEW_W, PREVIEW_H), egui::Sense::hover());
@@ -397,50 +397,6 @@ impl AutoShadeApp {
         });
     }
 
-    /// The selected entry developed on the open photo, as a texture + its
-    /// pixel size. Rebuilt only when its key changes — the entry's file stamp,
-    /// the photo, or the base pixels' allocation — so clicking through the
-    /// list pays one downscale plus one small develop per entry, never a
-    /// full-frame render.
-    fn recipe_preview_tex(
-        &mut self,
-        ctx: &egui::Context,
-        name: &str,
-    ) -> Option<(egui::TextureId, egui::Vec2)> {
-        let src = self.editor.photo().src_path.clone()?;
-        let base = self.editor.photo().base_preview.clone()?;
-        let entry = autoshade::recipe_library::read(name).ok()?;
-        let stamp = std::fs::metadata(autoshade::recipe_library::entry_path(name))
-            .and_then(|m| m.modified())
-            .ok();
-        let key = format!(
-            "{name}|{}|{stamp:?}|{:p}",
-            src.display(),
-            std::sync::Arc::as_ptr(&base)
-        );
-        if let Some(p) = &self.workspace.rlib().recipe_preview
-            && p.key == key
-        {
-            return Some((p.texture.id(), p.texture.size_vec2()));
-        }
-        let plate = autoshade::render::Plate::thumbnail_of(&base, 420);
-        // What APPLYING would show: the target's own calibration, the
-        // library entry's edit — the same shaping the paste path runs.
-        let mut r = crate::persist::paste_recipe_for(&src, &entry);
-        r.clamp();
-        let img = autoshade::render::develop_preview(plate.shared().as_ref(), &r);
-        let rgba = img.to_rgba8();
-        let size = [rgba.width() as usize, rgba.height() as usize];
-        let color = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
-        let texture = ctx.load_texture(
-            format!("recipe-preview:{key}"),
-            color,
-            egui::TextureOptions::LINEAR,
-        );
-        let shown = (texture.id(), texture.size_vec2());
-        self.workspace.rlib_mut().recipe_preview = Some(RecipePreview { key, texture });
-        Some(shown)
-    }
 
     // What the entry CHANGES, as label/value rows: only the controls that
     // differ from a neutral develop. The numbers are the engine's own.

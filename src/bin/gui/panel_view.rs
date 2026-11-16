@@ -26,6 +26,50 @@ pub(crate) struct PanelView<'a, 'b> {
 }
 
 impl PanelView<'_, '_> {
+    /// The selected entry developed on the open photo, as a texture + its
+    /// pixel size. Rebuilt only when its key changes — the entry's file stamp,
+    /// the photo, or the base pixels' allocation — so clicking through the
+    /// list pays one downscale plus one small develop per entry, never a
+    /// full-frame render.
+    pub(crate) fn recipe_preview_tex(
+        &mut self,
+        ctx: &egui::Context,
+        name: &str,
+    ) -> Option<(egui::TextureId, egui::Vec2)> {
+        let src = self.editor.photo().src_path.clone()?;
+        let base = self.editor.photo().base_preview.clone()?;
+        let entry = autoshade::recipe_library::read(name).ok()?;
+        let stamp = std::fs::metadata(autoshade::recipe_library::entry_path(name))
+            .and_then(|m| m.modified())
+            .ok();
+        let key = format!(
+            "{name}|{}|{stamp:?}|{:p}",
+            src.display(),
+            std::sync::Arc::as_ptr(&base)
+        );
+        if let Some(p) = &self.workspace.rlib().recipe_preview
+            && p.key == key
+        {
+            return Some((p.texture.id(), p.texture.size_vec2()));
+        }
+        let plate = autoshade::render::Plate::thumbnail_of(&base, 420);
+        // What APPLYING would show: the target's own calibration, the
+        // library entry's edit — the same shaping the paste path runs.
+        let mut r = crate::persist::paste_recipe_for(&src, &entry);
+        r.clamp();
+        let img = autoshade::render::develop_preview(plate.shared().as_ref(), &r);
+        let rgba = img.to_rgba8();
+        let size = [rgba.width() as usize, rgba.height() as usize];
+        let color = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
+        let texture = ctx.load_texture(
+            format!("recipe-preview:{key}"),
+            color,
+            egui::TextureOptions::LINEAR,
+        );
+        let shown = (texture.id(), texture.size_vec2());
+        self.workspace.rlib_mut().recipe_preview = Some(RecipePreview { key, texture });
+        Some(shown)
+    }
     /// The READ side: whether an analysis searches the library, and whether
     /// the references also go to the model as pictures.
     pub(crate) fn ai_library_use(&mut self, ui: &mut egui::Ui) {
