@@ -8,7 +8,7 @@ impl AutoShadeApp {
     /// Open the window (the Library panel's 「Recipe library…」 button).
     pub(crate) fn open_recipe_library(&mut self) {
         self.rlib.show_recipes = true;
-        self.apply_actions(vec![logic::Action::Recipe(logic::recipes::RecipeAction::Refresh)]);
+        self.apply_recipe(logic::recipes::RecipeAction::Refresh);
     }
 
     /// One `recipe_library` window frame.
@@ -48,9 +48,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, "Add a recipe.json or a Lightroom / Camera Raw .xmp sidecar to the library"))
                     .clicked()
                 {
-                    self.apply_actions(vec![logic::Action::Recipe(
-                        logic::recipes::RecipeAction::ImportFile,
-                    )]);
+                    self.apply_recipe(logic::recipes::RecipeAction::ImportFile);
                 }
             });
         });
@@ -74,9 +72,7 @@ impl AutoShadeApp {
                 .on_disabled_hover_text(tr(lang, "Open a photo first — this saves the open photo's look"))
                 .clicked();
             if ready && (clicked || entered) {
-                self.apply_actions(vec![logic::Action::Recipe(
-                    logic::recipes::RecipeAction::SaveCurrent,
-                )]);
+                self.apply_recipe(logic::recipes::RecipeAction::SaveCurrent);
             }
         });
         ui.separator();
@@ -199,10 +195,10 @@ impl AutoShadeApp {
             }
         });
         if let Some((from, to)) = commit_rename {
-            self.apply_actions(vec![logic::Action::Recipe(logic::recipes::RecipeAction::Rename {
+            self.apply_recipe(logic::recipes::RecipeAction::Rename {
                 from: from.clone(),
                 to: to.clone(),
-            })]);
+            });
         }
         if let Some(name) = picked {
             self.rlib.recipe_sel = Some(name);
@@ -239,9 +235,7 @@ impl AutoShadeApp {
             .clicked()
                 && let Some(name) = &sel
             {
-                self.apply_actions(vec![logic::Action::Recipe(
-                    logic::recipes::RecipeAction::ApplyToSelection(name.to_owned()),
-                )]);
+                self.apply_recipe(logic::recipes::RecipeAction::ApplyToSelection(name.to_owned()));
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if action(ui, true, tr(lang, "🗂 Show library folder"))
@@ -359,18 +353,14 @@ impl AutoShadeApp {
                 .on_disabled_hover_text(needs_photo())
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Recipe(
-                    logic::recipes::RecipeAction::ApplyToOpen(name.to_owned()),
-                )]);
+                self.apply_recipe(logic::recipes::RecipeAction::ApplyToOpen(name.to_owned()));
             }
             if action(ui, ok && has_photo && !busy, tr(lang, "Write back to this recipe"))
                 .on_hover_text(tr(lang, "Saves what is on the canvas into this entry, keeping its name — the way an edit on the photo becomes part of the library"))
                 .on_disabled_hover_text(needs_photo())
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Recipe(
-                    logic::recipes::RecipeAction::UpdateFromOpen(name.to_owned()),
-                )]);
+                self.apply_recipe(logic::recipes::RecipeAction::UpdateFromOpen(name.to_owned()));
             }
             if action(ui, ok && !busy, tr(lang, "✎ Rename"))
                 .on_hover_text(tr(lang, "Rename this recipe (the file moves with it)"))
@@ -388,9 +378,7 @@ impl AutoShadeApp {
                 .clicked()
             {
                 if armed {
-                    self.apply_actions(vec![logic::Action::Recipe(
-                        logic::recipes::RecipeAction::Delete(name.to_owned()),
-                    )]);
+                    self.apply_recipe(logic::recipes::RecipeAction::Delete(name.to_owned()));
                 } else {
                     self.rlib.recipe_delete_armed = Some(name.to_string());
                 }

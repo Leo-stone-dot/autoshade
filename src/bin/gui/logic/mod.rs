@@ -81,8 +81,6 @@ pub(crate) enum Action {
     Develop(develop::DevelopAction),
     /// The Portraits panel's verbs.
     Portrait(portrait::PortraitAction),
-    /// The recipe-library window's verbs.
-    Recipe(recipes::RecipeAction),
     /// The AI panel's folder verbs.
     Ai(ai::AiAction),
     /// The settings panel's folder verbs.

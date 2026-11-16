@@ -77,20 +77,6 @@ impl AutoShadeApp {
                         }
                     }
                 },
-                Action::Recipe(action) => match action {
-                    logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
-                    logic::recipes::RecipeAction::Refresh => self.refresh_recipes(),
-                    logic::recipes::RecipeAction::SaveCurrent => self.save_current_recipe(),
-                    logic::recipes::RecipeAction::ApplyToOpen(name) => self.apply_recipe_to_open(&name),
-                    logic::recipes::RecipeAction::ApplyToSelection(name) => {
-                        self.apply_recipe_to_selection(&name)
-                    }
-                    logic::recipes::RecipeAction::UpdateFromOpen(name) => {
-                        self.update_recipe_from_open(&name)
-                    }
-                    logic::recipes::RecipeAction::Rename { from, to } => self.rename_recipe(&from, &to),
-                    logic::recipes::RecipeAction::Delete(name) => self.delete_recipe(&name),
-                },
                 Action::Ai(action) => match action {
                     logic::ai::AiAction::PickRawFolder => {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
@@ -294,6 +280,25 @@ impl AutoShadeApp {
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
     }
 
+
+    /// Apply one recipe-library verb. The library I/O and dialogs stay here;
+    /// the window only emits `RecipeAction`s.
+    pub(crate) fn apply_recipe(&mut self, action: logic::recipes::RecipeAction) {
+        match action {
+            logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
+            logic::recipes::RecipeAction::Refresh => self.refresh_recipes(),
+            logic::recipes::RecipeAction::SaveCurrent => self.save_current_recipe(),
+            logic::recipes::RecipeAction::ApplyToOpen(name) => self.apply_recipe_to_open(&name),
+            logic::recipes::RecipeAction::ApplyToSelection(name) => {
+                self.apply_recipe_to_selection(&name)
+            }
+            logic::recipes::RecipeAction::UpdateFromOpen(name) => {
+                self.update_recipe_from_open(&name)
+            }
+            logic::recipes::RecipeAction::Rename { from, to } => self.rename_recipe(&from, &to),
+            logic::recipes::RecipeAction::Delete(name) => self.delete_recipe(&name),
+        }
+    }
 
     /// Apply one gallery action: the folder dialog, the open/toggle decision,
     /// the thumbnail worker and the bounded texture window are the runtime's.
