@@ -6,6 +6,7 @@
 //! type simply does not carry them.
 
 use crate::*;
+use crate::panels::ai::{is_working_note, note_args, thinking_notes};
 
 pub(crate) struct PanelView<'a, 'b> {
     pub(crate) editor: &'a mut Editor,
@@ -18,6 +19,75 @@ pub(crate) struct PanelView<'a, 'b> {
 }
 
 impl PanelView<'_, '_> {
+    /// What one Analyze run wrote — the verdict, the rationale sentence and
+    /// the deep-thinking working — drawn by both the Analysis fold's bounded
+    /// box and the full-text window, so the two can never disagree.
+    pub(crate) fn analysis_output(&self, ui: &mut egui::Ui) {
+        let lang = self.lang;
+        if let Some((d, reasons)) = &self.editor.analysis().verdict {
+            // Accept reads calm; anything else (Revise/Reject)
+            // gets the warn colour so it can't be skimmed past.
+            // Matched on the TYPED decision, never its rendered
+            // spelling — the old `starts_with("Accept")` sniff
+            // would have flipped every verdict to warn the moment
+            // the word was translated.
+            let col = if matches!(d, autoshade::advisor::Decision::Accept) {
+                ui.visuals().strong_text_color()
+            } else {
+                ui.visuals().warn_fg_color
+            };
+            let text = trf(
+                lang,
+                K_AI_TEXT,
+                &[
+                    ("decision", tr(lang, autoshade::advisor::decision_key(d))),
+                    ("reasons", &reasons.join("; ")),
+                ],
+            );
+            ui.label(egui::RichText::new(text).color(col));
+        }
+        // The deterministic tail renders LOCALIZED when its typed
+        // notes ride along and still match the string's suffix
+        // (L12#2B); any mismatch — a truncation, a disk-restored
+        // develop with no notes — shows the raw English instead
+        // (silent-English fallback, user decision 2026-08-11).
+        //
+        // The typed tail splits in two at draw time (user feedback
+        // 2026-09-11): the deterministic notes stay in the sentence, the
+        // deep-thinking WORKING — the notes only a thinking analysis
+        // produces, see `is_working_note` — draws in a box of its own
+        // under it. The persisted string is untouched (one suffix, five
+        // surfaces); the split is a display decision, and on the fallback
+        // path the working is still inside `shown`, so no box is drawn.
+        let (working, tail): (Vec<_>, Vec<_>) =
+            self.editor.analysis().rationale_notes.iter().partition(|n| is_working_note(n.key));
+        let localized = (!self.editor.analysis().rationale_notes.is_empty())
+            .then(|| {
+                let det: String = self.editor.analysis().rationale_notes
+                    .iter()
+                    .map(autoshade::rationale::render_one)
+                    .collect();
+                self.editor.analysis().rationale.strip_suffix(det.as_str()).map(|prose| {
+                    let mut s = String::from(prose);
+                    for n in &tail {
+                        s.push_str(&trf(lang, n.key, &note_args(n)));
+                    }
+                    s
+                })
+            })
+            .flatten();
+        let shown = localized.as_deref().unwrap_or(&self.editor.analysis().rationale);
+        if !shown.is_empty() {
+            ui.label(
+                egui::RichText::new(format!("“{shown}”"))
+                    .italics()
+                    .weak(),
+            );
+        }
+        if localized.is_some() && !working.is_empty() {
+            thinking_notes(self.lang, ui, &working);
+        }
+    }
     /// The colour-field row (the mask's own "one luminance colour" row; not a
     /// mask, which is why it is not a list entry).
     pub(crate) fn dev_mask_colour_field(&mut self, ui: &mut egui::Ui) -> bool {

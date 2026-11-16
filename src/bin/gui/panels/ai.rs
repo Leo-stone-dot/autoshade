@@ -126,75 +126,6 @@ impl AutoShadeApp {
 
 
 
-    /// What one Analyze run wrote — the verdict, the rationale sentence and
-    /// the deep-thinking working — drawn by both the Analysis fold's bounded
-    /// box and the full-text window, so the two can never disagree.
-    fn analysis_output(&self, ui: &mut egui::Ui) {
-        let lang = self.lang;
-        if let Some((d, reasons)) = &self.editor.analysis().verdict {
-            // Accept reads calm; anything else (Revise/Reject)
-            // gets the warn colour so it can't be skimmed past.
-            // Matched on the TYPED decision, never its rendered
-            // spelling — the old `starts_with("Accept")` sniff
-            // would have flipped every verdict to warn the moment
-            // the word was translated.
-            let col = if matches!(d, autoshade::advisor::Decision::Accept) {
-                ui.visuals().strong_text_color()
-            } else {
-                ui.visuals().warn_fg_color
-            };
-            let text = trf(
-                lang,
-                K_AI_TEXT,
-                &[
-                    ("decision", tr(lang, autoshade::advisor::decision_key(d))),
-                    ("reasons", &reasons.join("; ")),
-                ],
-            );
-            ui.label(egui::RichText::new(text).color(col));
-        }
-        // The deterministic tail renders LOCALIZED when its typed
-        // notes ride along and still match the string's suffix
-        // (L12#2B); any mismatch — a truncation, a disk-restored
-        // develop with no notes — shows the raw English instead
-        // (silent-English fallback, user decision 2026-08-11).
-        //
-        // The typed tail splits in two at draw time (user feedback
-        // 2026-09-11): the deterministic notes stay in the sentence, the
-        // deep-thinking WORKING — the notes only a thinking analysis
-        // produces, see `is_working_note` — draws in a box of its own
-        // under it. The persisted string is untouched (one suffix, five
-        // surfaces); the split is a display decision, and on the fallback
-        // path the working is still inside `shown`, so no box is drawn.
-        let (working, tail): (Vec<_>, Vec<_>) =
-            self.editor.analysis().rationale_notes.iter().partition(|n| is_working_note(n.key));
-        let localized = (!self.editor.analysis().rationale_notes.is_empty())
-            .then(|| {
-                let det: String = self.editor.analysis().rationale_notes
-                    .iter()
-                    .map(autoshade::rationale::render_one)
-                    .collect();
-                self.editor.analysis().rationale.strip_suffix(det.as_str()).map(|prose| {
-                    let mut s = String::from(prose);
-                    for n in &tail {
-                        s.push_str(&trf(lang, n.key, &note_args(n)));
-                    }
-                    s
-                })
-            })
-            .flatten();
-        let shown = localized.as_deref().unwrap_or(&self.editor.analysis().rationale);
-        if !shown.is_empty() {
-            ui.label(
-                egui::RichText::new(format!("“{shown}”"))
-                    .italics()
-                    .weak(),
-            );
-        }
-        if localized.is_some() && !working.is_empty() {
-            thinking_notes(self.lang, ui, &working);
-        }
-    }
 
     /// The analysis output's full text in a window of its own: movable,
     /// resizable, scrolling, its text selectable. Not a transient sheet — it
@@ -216,7 +147,7 @@ impl AutoShadeApp {
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
-                    .show(ui, |ui| self.analysis_output(ui));
+                    .show(ui, |ui| self.panel_view(&mut Vec::new()).analysis_output(ui));
             });
         self.workspace.ui_mut().show_analysis_full = open;
     }
@@ -253,7 +184,7 @@ impl AutoShadeApp {
                             .id_salt("ai_analysis_box")
                             .max_height(ANALYSIS_BOX_MAX_H)
                             .auto_shrink([false, true])
-                            .show(ui, |ui| self.analysis_output(ui))
+                            .show(ui, |ui| self.panel_view(&mut Vec::new()).analysis_output(ui))
                     })
                     .inner;
                 #[cfg(test)]
@@ -1123,13 +1054,13 @@ pub(crate) const ANALYSIS_BOX_MAX_H: f32 = 160.0;
 /// three sentences + R23-1b's pixel-tool line): the model's working, as
 /// opposed to the deterministic tail every analysis carries. ONE list, so the
 /// box and the sentence agree on who takes which note.
-fn is_working_note(key: autoshade::text::Key) -> bool {
+pub(crate) fn is_working_note(key: autoshade::text::Key) -> bool {
     use autoshade::rationale::keys as k;
     [k::THINK_SCENE, k::THINK_LOOK, k::THINK_CRITIQUE, k::PIXEL_TOOLS].contains(&key)
 }
 
 /// A note's args as the `(key, value)` slice `trf` takes.
-fn note_args(n: &autoshade::rationale::Note) -> Vec<(&str, &str)> {
+pub(crate) fn note_args(n: &autoshade::rationale::Note) -> Vec<(&str, &str)> {
     n.args.iter().map(|(k, v)| (*k, v.as_str())).collect()
 }
 
