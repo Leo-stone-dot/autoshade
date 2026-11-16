@@ -164,7 +164,7 @@
             "fixture: a session is armed"
         );
 
-        app.rebind_paint_canvas(16, 16);
+        app.workspace.rebind_paint_canvas(app.lang, 16, 16);
         assert!(app.workspace.masks().mask_brush.is_none(), "the session dies with the plate");
         assert!(app.workspace.masks().mask_brush_gray.is_none(), "no weight buffer left to bake");
         assert!(!app.workspace.masks().paint_mode);

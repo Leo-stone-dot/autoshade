@@ -477,7 +477,7 @@
                 }; editor } , ..Default::default() };
             // The fold's OWN brush on a canvas sized to the plate: the Adjust
             // area is the live canvas (2026-09-27, `BrushOwner`).
-            app.rebind_paint_canvas(1024, 768);
+            app.workspace.rebind_paint_canvas(app.lang, 1024, 768);
             app.arm_brush(BrushOwner::Adjust);
             let ctx = egui::Context::default();
             crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
@@ -508,7 +508,7 @@
             assert_eq!(app.workspace.overlay().mask_presence_scans.get(), before_switch, "a fresh card needs zero scans");
 
             // The other plate-replacement door is also known empty.
-            app.rebind_paint_canvas(1024, 768);
+            app.workspace.rebind_paint_canvas(app.lang, 1024, 768);
             five_frames(&mut app, &ctx, false, "a rebound canvas starts empty");
             assert_eq!(app.workspace.overlay().mask_presence_scans.get(), before_switch, "rebinding needs zero scans");
         }
@@ -531,7 +531,7 @@
         }
         const CENSUS: [(&str, usize); 9] = [
             ("variant_actions.rs::load_active", 1),
-            ("history_actions.rs::rebind_paint_canvas", 1),
+            ("workspace.rs::rebind_paint_canvas", 1),
             ("masks.rs::paint_imported_removals", 2),
             ("workspace.rs::paint_mask_changed", 1),
             ("workspace.rs::clear_mask", 1),

@@ -990,7 +990,7 @@
                 ..Default::default()
 
             }; editor } , ..Default::default() };
-        app.rebind_paint_canvas(8, 6);
+        app.workspace.rebind_paint_canvas(app.lang, 8, 6);
         assert_eq!(app.workspace.masks().paint_owner, BrushOwner::Fill, "Fill's area is the canvas by default");
 
         app.arm_brush(BrushOwner::Heal);
@@ -1044,7 +1044,7 @@
         );
 
         // A plate rebind starts every tool blank.
-        app.rebind_paint_canvas(8, 6);
+        app.workspace.rebind_paint_canvas(app.lang, 8, 6);
         assert!(!app.workspace.area_painted(BrushOwner::Adjust) && !app.workspace.area_painted(BrushOwner::Stamp));
         assert!(app.workspace.masks().paint_store.iter().all(Option::is_none));
     }

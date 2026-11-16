@@ -1271,3 +1271,35 @@ impl WorkspaceView {
         }
     }
 }
+
+impl WorkspaceView {
+    /// The base plate under the canvas was REPLACED (a preview-resolution
+    /// re-decode, a cold master landing, a retouch bake, a fresh open): the
+    /// paint canvas is resized to it — and any live mask-brush session dies
+    /// with the old plate, DISCLOSED. The session's weight buffer is
+    /// dimension-locked to the plate it was armed on (`start_mask_brush`
+    /// sizes both together), so a stroke stamped after the swap lands at
+    /// the wrong coordinates in it — and the always-visible 「✓ Apply」 row
+    /// would bake those misplaced weights into a durably-adopted raster. A
+    /// variant switch already gets the teardown via `load_active`'s
+    /// `disarm_tools`; the async landings never called it (L06#5). The
+    /// toast lives HERE so no future plate-replacement door can forget it;
+    /// a second rebind in the same landing finds no session and stays
+    /// silent.
+    pub(crate) fn rebind_paint_canvas(&mut self, lang: Lang, w: u32, h: u32) {
+        if self.end_mask_brush() {
+            let t = tr(
+                lang,
+                K_ACTIONS_THE_MASK_BRUSH_SESSION_ENDED_THE_CANVAS_PIXELS_U,
+            );
+            self.toast(ToastKind::Error, t.to_string());
+        }
+        self.masks_mut().mask_paint = Some(image::RgbaImage::new(w, h));
+        self.paint_mask_changed(Some(false));
+        // The other tools' areas were in the old frame too.
+        self.masks_mut().paint_store = Default::default();
+        self.overlay_mut().mask_tex = None;
+        self.overlay_mut().mask_dirty = false;
+        self.masks_mut().paint_last = None;
+    }
+}

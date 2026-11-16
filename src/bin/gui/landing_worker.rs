@@ -381,7 +381,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // retouch result can differ in dimensions — e.g. a
                             // non-square reimagine origin) — and end a brush
                             // session armed on the replaced plate.
-                            self.rebind_paint_canvas(mw, mh);
+                            self.workspace.rebind_paint_canvas(self.lang, mw, mh);
                             self.editor.session_mut().dirty = true;
                             // The pixel swap must enter history THIS frame
                             // — a same-frame Ctrl+Z otherwise undoes an
