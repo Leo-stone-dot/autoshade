@@ -9,24 +9,6 @@ use crate::*;
 use crate::panels::grade_wheel::{grade_wheel, GRADE_VIEWS};
 
 impl AutoShadeApp {
-    /// One develop-panel section — body extracted verbatim from
-    /// develop_panel (round-12 decomposition; spacing included).
-    pub(crate) fn dev_curves(&mut self, ui: &mut egui::Ui, curves_active: bool) -> bool {
-        let lang = self.lang;
-        let mut changed = false;
-
-        ui.add_space(SPACE_MD);
-        // --- 曲线: master + RGB tone curves (engine + XMP already apply them,
-        // this is purely the editing surface — Lightroom's panel order) --------
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_CURVES), curves_active))
-            .id_salt("sec_curves")
-            .default_open(false)
-            , |ui| {
-                changed |= self.panel_view(&mut Vec::new()).curve_editor(ui);
-                changed |= parametric_curve(ui, lang, &mut self.editor.doc_mut().recipe);
-            });
-        changed
-    }
 
 
     /// One develop-panel section — body extracted verbatim from

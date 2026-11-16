@@ -19,6 +19,13 @@ pub(crate) enum SectionKind {
     Custom,
 }
 
+/// Where a section's draw lives: still an app method, or already a
+/// PanelView method. The table is the single place either is named.
+pub(crate) enum SectionDraw {
+    App(fn(&mut AutoShadeApp, &mut egui::Ui, bool) -> bool),
+    Panel(fn(&mut PanelView<'_, '_>, &mut egui::Ui, bool) -> bool),
+}
+
 /// One row of the panel.
 #[allow(dead_code)] // `id`/`kind` are the registry contract read by the tests; `draw` is the dispatch
 pub(crate) struct Section {
@@ -28,7 +35,35 @@ pub(crate) struct Section {
     pub families: &'static [&'static str],
     pub kind: SectionKind,
     /// The section's draw, in one uniform shape so the panel needs no match.
-    pub draw: fn(&mut AutoShadeApp, &mut egui::Ui, bool) -> bool,
+    pub draw: SectionDraw,
+}
+
+fn panel_dev_presence(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_presence(ui, active)
+}
+
+fn panel_dev_calibration(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_calibration(ui, active)
+}
+
+fn panel_dev_effects(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_effects(ui, active)
+}
+
+fn panel_dev_hdr(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_hdr(ui, active)
+}
+
+fn panel_dev_transform(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_transform(ui, active)
+}
+
+fn panel_dev_lens(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_lens(ui, active)
+}
+
+fn panel_dev_curves(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_curves(ui, active)
 }
 
 /// The panel's sections, in the order it draws them.
@@ -37,49 +72,49 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "tone_wb",
         families: &["tone", "white_balance"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_tone_wb,
+        draw: SectionDraw::App(AutoShadeApp::dev_tone_wb),
     },
     Section {
         id: "presence",
         families: &["presence"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_presence,
+        draw: SectionDraw::Panel(panel_dev_presence),
     },
     Section {
         id: "curves",
         families: &["curves", "parametric"],
         kind: SectionKind::Custom,
-        draw: AutoShadeApp::dev_curves,
+        draw: SectionDraw::Panel(panel_dev_curves),
     },
     Section {
         id: "hsl",
         families: &["hsl", "black_white", "point_color"],
         kind: SectionKind::Custom,
-        draw: AutoShadeApp::dev_hsl,
+        draw: SectionDraw::App(AutoShadeApp::dev_hsl),
     },
     Section {
         id: "grading",
         families: &["color_grade"],
         kind: SectionKind::Custom,
-        draw: AutoShadeApp::dev_grading,
+        draw: SectionDraw::App(AutoShadeApp::dev_grading),
     },
     Section {
         id: "calibration",
         families: &["calibration"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_calibration,
+        draw: SectionDraw::Panel(panel_dev_calibration),
     },
     Section {
         id: "detail",
         families: &["detail", "detail_effects"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_detail,
+        draw: SectionDraw::App(AutoShadeApp::dev_detail),
     },
     Section {
         id: "effects",
         families: &["effects"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_effects,
+        draw: SectionDraw::Panel(panel_dev_effects),
     },
     // Lens Blur returns ACTIONS (its build is a worker verb): the row's draw
     // applies them, and the section has no ● of its own and no family.
@@ -87,19 +122,19 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "lens_blur",
         families: &[],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_lens_blur,
+        draw: SectionDraw::App(AutoShadeApp::dev_lens_blur),
     },
     Section {
         id: "lens",
         families: &["lens", "lens_effects"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_lens,
+        draw: SectionDraw::Panel(panel_dev_lens),
     },
     Section {
         id: "transform",
         families: &["transform"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_transform,
+        draw: SectionDraw::Panel(panel_dev_transform),
     },
     // Crop/straighten live in the `framing` family; the section derives that ●
     // itself (the same rule as the others).
@@ -107,37 +142,37 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "crop",
         families: &["framing"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_crop,
+        draw: SectionDraw::App(AutoShadeApp::dev_crop),
     },
     Section {
         id: "masks",
         families: &[],
         kind: SectionKind::Custom,
-        draw: AutoShadeApp::dev_masks,
+        draw: SectionDraw::App(AutoShadeApp::dev_masks),
     },
     Section {
         id: "versions",
         families: &[],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_versions,
+        draw: SectionDraw::App(AutoShadeApp::dev_versions),
     },
     Section {
         id: "stack",
         families: &[],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_stack,
+        draw: SectionDraw::App(AutoShadeApp::dev_stack),
     },
     Section {
         id: "hdr",
         families: &["hdr"],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_hdr,
+        draw: SectionDraw::Panel(panel_dev_hdr),
     },
     Section {
         id: "export",
         families: &[],
         kind: SectionKind::Form,
-        draw: AutoShadeApp::dev_export,
+        draw: SectionDraw::App(AutoShadeApp::dev_export),
     },
 ];
 

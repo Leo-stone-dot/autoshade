@@ -6,6 +6,8 @@
 //! type simply does not carry them.
 
 use crate::*;
+use autoshade::advisor::catalogue::{family_is_active, CONTROL_FAMILIES};
+use crate::panels::develop_widgets::parametric_curve;
 use crate::panels::ai::{is_working_note, note_args, thinking_notes};
 
 pub(crate) struct PanelView<'a, 'b> {
@@ -19,6 +21,485 @@ pub(crate) struct PanelView<'a, 'b> {
 }
 
 impl PanelView<'_, '_> {
+    /// One develop-panel section — body extracted verbatim from
+    /// develop_panel (round-12 decomposition; spacing included).
+    pub(crate) fn dev_presence(&mut self, ui: &mut egui::Ui, presence_active: bool) -> bool {
+        let lang = self.lang;
+        let mut changed = false;
+    
+        // LR-Basic order (UX batch): Presence sits directly under Tone & WB —
+        // the two halves of Lightroom's Basic panel — then Curves, then the
+        // two colour sections; Detail moved BELOW them so colour work isn't
+        // interrupted by sharpening. add_space fences each header so the ten
+        // sections read as groups, not one undivided list.
+        ui.add_space(SPACE_MD);
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_PRESENCE), presence_active))
+            .id_salt("sec_presence")
+            .default_open(true)
+            , |ui| {
+                // Lightroom's Basic-panel order inside Presence is Texture →
+                // Clarity → Dehaze, and the engine runs them in that order too
+                // (R25 B2 put the global texture stage between clarity and
+                // saturation). The rows live in `logic::capability::PRESENCE`;
+                // rows and order are one table.
+                changed |= self.capability_rows(ui, crate::controls::PRESENCE);
+            });
+        changed
+    }
+
+    /// 校准 — Lightroom's Calibration panel (v1.5.0): the shadows tint and each
+    /// primary's hue and saturation.
+    ///
+    /// Rendered as the develop's FIRST stage (`render::Calibration`), which is
+    /// why it is a section of sliders and not a read-out: every other section
+    /// works on the colours these seven leave behind. Lightroom writes all
+    /// seven keys on nearly every sidecar, so a photo arriving from Lightroom
+    /// usually lands here with values already in it.
+    pub(crate) fn dev_calibration(&mut self, ui: &mut egui::Ui, calibration_active: bool) -> bool {
+        let lang = self.lang;
+        let mut changed = false;
+        ui.add_space(SPACE_MD);
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_CALIBRATION), calibration_active))
+            .id_salt("sec_calibration")
+            .default_open(false)
+            , |ui| {
+                // Lightroom's own order and grouping: the shadows tint first,
+                // then a hue + saturation pair per primary. The group captions
+                // stay here; the rows are capability tables.
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_SHADOWS)).weak().small());
+                changed |= self.capability_rows(ui, crate::controls::CAL_TINT);
+                for (primary, table) in [
+                    (tr(lang, K_DEVELOP_RED_PRIMARY), crate::controls::CAL_RED),
+                    (tr(lang, K_DEVELOP_GREEN_PRIMARY), crate::controls::CAL_GREEN),
+                    (tr(lang, K_DEVELOP_BLUE_PRIMARY), crate::controls::CAL_BLUE),
+                ] {
+                    ui.add_space(SPACE_XS);
+                    ui.label(egui::RichText::new(primary).weak().small());
+                    changed |= self.capability_rows(ui, table);
+                }
+            });
+        changed
+    }
+
+    /// 效果 — Lightroom's post-crop vignette and film grain.
+    ///
+    /// All nine RENDER since v1.5.0 (`render/finish.rs`, the stage this engine
+    /// grew after its crop), so none of them carries the "moves a number and
+    /// no pixel" disclosure any more. The five COMPANIONS (Midpoint, Feather,
+    /// Style, Grain size and roughness) show the value the engine actually
+    /// renders — Lightroom's own default while the recipe holds none — and a
+    /// reset returns them to absent (`companion_slider_edit` + the command).
+    pub(crate) fn dev_effects(&mut self, ui: &mut egui::Ui, effects_active: bool) -> bool {
+        let lang = self.lang;
+        let mut changed = false;
+    
+        ui.add_space(SPACE_MD);
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_EFFECTS), effects_active))
+            .id_salt("sec_effects")
+            .default_open(false)
+            , |ui| {
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_POST_CROP_VIGNETTING)).weak().small());
+                // Two tables because the panel draws two captioned groups; the
+                // rows, their bands (the catalogue), their feels and their
+                // companion encoding live in `logic::capability`. The style row
+                // is an operator INDEX (1/2/3); the track starts at 1 because
+                // 0 means "the sidecar named none" and only a reset reaches it.
+                changed |= self.capability_rows(ui, crate::controls::VIGNETTE);
+                ui.add_space(SPACE_SM);
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_GRAIN)).weak().small());
+                changed |= self.capability_rows(ui, crate::controls::GRAIN);
+            });
+        changed
+    }
+
+    /// v1.5.0 F8 — Lightroom's HDR edit mode and the SDR rendition it is
+    /// published through.
+    ///
+    /// The switch is drawn FIRST and the seven controls under a heading that
+    /// says they need it, because that is the one thing a photographer can get
+    /// wrong here: the seven are live widgets whatever the switch says (they
+    /// are stored either way, and Lightroom's own sidecars keep them across a
+    /// mode change), but nothing they do reaches a pixel while the mode is
+    /// off. Greying them out instead would hide values the file really holds.
+    pub(crate) fn dev_hdr(&mut self, ui: &mut egui::Ui, hdr_active: bool) -> bool {
+        let lang = self.lang;
+        let mut changed = false;
+        ui.add_space(SPACE_MD);
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_HDR_SDR), hdr_active))
+            .id_salt("sec_hdr")
+            .default_open(false)
+            , |ui| {
+                if ui
+                    .checkbox(&mut self.editor.doc_mut().recipe.hdr_edit, tr(lang, K_DEVELOP_HDR_EDIT_MODE))
+                    .on_hover_text(tr(
+                        lang,
+                        K_DEVELOP_THIS_PHOTOGRAPH_WAS_EDITED_ABOVE_DIFFUSE_WHITE_E,
+                    ))
+                    .changed()
+                {
+                    changed = true;
+                }
+                changed |= self.capability_rows(ui, crate::controls::HDR_HEADROOM);
+                ui.add_space(SPACE_SM);
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_SDR_RENDITION)).weak().small());
+                ui.label(
+                    egui::RichText::new(tr(lang, K_DEVELOP_RENDERS_ONLY_IN_HDR_MODE))
+                        .weak()
+                        .small(),
+                );
+                changed |= self.capability_rows(ui, crate::controls::HDR_SDR);
+            });
+        changed
+    }
+
+    /// 变换 — Lightroom's Transform panel, RENDERED since v1.5.0 F6, plus what
+    /// is still carried verbatim beside it.
+    ///
+    /// R25 B4 drew this section read-only, and said why: pass-through meant no
+    /// band, no clamp, no neutral and no idea what a value did to a pixel, and a
+    /// slider needs all four. F6 supplies all four — the eight `crs:Perspective*`
+    /// keys are owned controls with measured neutrals, and
+    /// `render::perspective` is the stage that moves the pixels — so the sliders
+    /// are now honest. What remains carried is the ASSUMPTIONS Lightroom's own
+    /// Upright solver worked from (its version stamp, and the centre and focal
+    /// length it took the photograph to have) and the camera profile's name,
+    /// and those keep the old treatment: Adobe's own property spelling, and a
+    /// sentence saying we do not interpret them. Its cached ANSWER — the
+    /// matrices, their count, its preview flag and its staleness digest — is
+    /// not carried at all; see [`autoshade::xmp::PASSTHROUGH_CRS`] for why.
+    ///
+    /// (The Calibration panel used to share this heading. It renders since
+    /// v1.5.0 — `dev_calibration` above — and was never in this map: R25
+    /// listed seven `CameraCalibration*` keys Lightroom does not write.)
+    pub(crate) fn dev_transform(&mut self, ui: &mut egui::Ui, transform_active: bool) -> bool {
+        let lang = self.lang;
+        let mut changed = false;
+        ui.add_space(SPACE_MD);
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_TRANSFORM), transform_active))
+            .id_salt("sec_transform")
+            .default_open(false)
+            , |ui| {
+                // Upright is a MODE, so a dropdown and not a slider — and the
+                // one control in this panel whose answer may come from either
+                // side: Lightroom publishes the matrix its own solver found
+                // (`crs:UprightTransform_N`), and when the photo carries none
+                // for the chosen mode this engine solves it
+                // (`render::perspective::solve_upright`).
+                const MODES: [&str; 6] =
+                    ["Off", "Auto", "Level", "Vertical", "Full", "Guided"];
+                let mut mode = self.editor.doc().recipe.perspective_upright.round().clamp(0.0, 5.0) as usize;
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(tr(lang, K_DEVELOP_UPRIGHT)).small());
+                    egui::ComboBox::from_id_salt("upright_mode")
+                        .selected_text(tr(lang, MODES[mode]))
+                        .width(90.0)
+                        .show_ui(ui, |ui| {
+                            for (i, name) in MODES.iter().enumerate() {
+                                ui.selectable_value(&mut mode, i, tr(lang, name));
+                            }
+                        });
+                });
+                if mode as f32 != self.editor.doc().recipe.perspective_upright {
+                    self.editor.doc_mut().recipe.perspective_upright = mode as f32;
+                    changed = true;
+                }
+                // Which side will answer, said out loud — the difference
+                // between "Adobe's numbers to the last digit" and "our own
+                // solver, which may differ slightly" is exactly what a
+                // photographer comparing the two apps needs to know.
+                if mode > 0 {
+                    let adobes = self.editor.doc().recipe
+                        .upright_transform
+                        .get(mode)
+                        .is_some_and(|m| *m != [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]);
+                    // Named, in ONE array, for the i18n audit's dynamic-key
+                    // registry: a fourth answer added inline would reach the
+                    // screen with no zh pair and nothing would say so.
+                    const UPRIGHT_NOTES: [&str; 3] = [
+                        "Rendering the matrix Lightroom solved for this photo",
+                        "Guided needs the guides drawn in Lightroom; only the matrix it wrote can be rendered",
+                        "Lightroom solved no matrix for this photo, so AutoShade solves it from the picture's own lines",
+                    ];
+                    // `upright_note`, not `note`: the i18n audit registers a
+                    // dynamic call site by the SPELLING of its argument, and a
+                    // bare `note` would have been a pattern wide enough to
+                    // accept some future unaudited key somewhere else.
+                    let upright_note = if adobes {
+                        UPRIGHT_NOTES[0]
+                    } else if mode == 5 {
+                        UPRIGHT_NOTES[1]
+                    } else {
+                        UPRIGHT_NOTES[2]
+                    };
+                    ui.label(egui::RichText::new(tr(lang, upright_note)).weak().small());
+                }
+                ui.add_space(SPACE_SM);
+                // One capability table: bands and resets (Rotate ±10, scale
+                // 50..150 resetting to 100) come from `logic::capability`.
+                changed |= self.capability_rows(ui, crate::controls::TRANSFORM);
+                if ui
+                    .checkbox(&mut self.editor.doc_mut().recipe.crop_constrain_to_warp, tr(lang, K_DEVELOP_CONSTRAIN_CROP))
+                    .on_hover_text(tr(lang, K_DEVELOP_SHRINK_THE_CROP_UNTIL_IT_LIES_INSIDE_THE_WARPED))
+                    .changed()
+                {
+                    changed = true;
+                }
+                ui.add_space(SPACE_SM);
+                explainer(ui, lang, tr(lang, K_DEVELOP_ONE_PROJECTIVE_MAP_AFTER_THE_LENS_CORRECTION_AND));
+                // v1.5.0 F7 — WHICH rendering this photograph starts from.
+                // Read-only here on purpose: the profile is a file on the
+                // photographer's machine and the Look is Adobe's own creative
+                // block, so the panel's job is to say what is being used, not
+                // to offer a picker for something the sidecar decides.
+                let look = self.editor.doc().recipe.look.clone();
+                if !self.editor.doc().recipe.camera_profile.is_empty() || look.is_some() {
+                    ui.add_space(SPACE_MD);
+                    let pair = |ui: &mut egui::Ui, label: String, value: &str| {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(label).small());
+                            ui.label(egui::RichText::new(value).small().strong());
+                        });
+                    };
+                    if !self.editor.doc().recipe.camera_profile.is_empty() {
+                        pair(
+                            ui,
+                            tr(lang, K_DEVELOP_CAMERA_PROFILE).to_string(),
+                            &self.editor.doc().recipe.camera_profile,
+                        );
+                    }
+                    if let Some(look) = look.as_ref().filter(|l| !l.name.is_empty()) {
+                        pair(ui, tr(lang, K_DEVELOP_CREATIVE_PROFILE).to_string(), &look.name);
+                        // Named, not hidden: a Look is colour data (v1.17.0) —
+                        // its creative colour table renders when Camera Raw's
+                        // install carries it (`dcp::find_look_table`,
+                        // answered once per process) and the Look is at full
+                        // amount, the render's own two conditions; its baked
+                        // tone curve and sliders never do. A panel that showed
+                        // the name without saying which half arrived would be
+                        // claiming the whole profile.
+                        let line = if look.table.is_empty() {
+                            tr(lang, K_DEVELOP_ITS_BAKED_TONE_CURVE_AND_SLIDERS_DO_NOT_RENDER)
+                        } else if (look.amount - 1.0).abs() <= 1e-3
+                            && autoshade::dcp::find_look_table(&look.table).is_ok()
+                        {
+                            tr(lang, K_DEVELOP_ITS_CREATIVE_COLOUR_TABLE_RENDERS_ITS_BAKED_TONE)
+                        } else {
+                            tr(lang, K_DEVELOP_NEITHER_ITS_CREATIVE_COLOUR_TABLE_NOR_ITS_BAKED)
+                        };
+                        ui.label(egui::RichText::new(line).weak().small());
+                    }
+                }
+                if self.editor.doc().recipe.passthrough.is_empty() {
+                    return;
+                }
+                ui.add_space(SPACE_MD);
+                // In PASSTHROUGH_CRS order (Adobe's own grouping), which is
+                // also the order the writer emits — one order everywhere, so
+                // the panel and the sidecar read the same way.
+                let rows = |ui: &mut egui::Ui, caption: Option<&str>, keys: &[&str]| {
+                    let present: Vec<(&str, &str)> = keys
+                        .iter()
+                        .filter_map(|k| {
+                            self.editor.doc().recipe.passthrough.get(*k).map(|v| (*k, v.as_str()))
+                        })
+                        .collect();
+                    if present.is_empty() {
+                        return;
+                    }
+                    if let Some(caption) = caption {
+                        ui.label(egui::RichText::new(caption).weak().small());
+                    }
+                    for (key, value) in present {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(format!("crs:{key}")).small());
+                            ui.label(egui::RichText::new(value).small().strong());
+                        });
+                    }
+                };
+                // Every carried key, in the block's own order. The partition
+                // this used to make had two groups because the profile NAME was
+                // carried alongside the solver's bookkeeping; F7 made the name
+                // an owned control shown above, so what is left is one block
+                // with one caption.
+                rows(ui, Some(tr(lang, K_DEVELOP_UPRIGHT_SOLVER_BOOKKEEPING)), &autoshade::xmp::PASSTHROUGH_CRS);
+                ui.add_space(SPACE_SM);
+                ui.label(
+                    egui::RichText::new(tr(
+                        lang,
+                        K_DEVELOP_CARRIED_THROUGH_TO_THE_SIDECAR_UNCHANGED_AUTOSHA,
+                    ))
+                    .weak()
+                    .small(),
+                );
+            });
+        changed
+    }
+
+    /// One develop-panel section — body extracted verbatim from
+    /// develop_panel (round-12 decomposition; spacing included).
+    pub(crate) fn dev_lens(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
+        let lang = self.lang;
+        let mut changed = false;
+    
+        // --- 镜头校正: in-camera profile + manual corrections -----------------
+        ui.add_space(SPACE_MD);
+        // Two as-opened states are neutral here: the camera's available
+        // components on, or all off with the sidecar's DisabledInSidecar stamp.
+        // Neither lights the dot; hand-made all-off and other moves away do.
+        // This header rule leaves is_noop's saved-develop precedence and
+        // unsaved badge alone. The `lens` / `lens_effects` families still cover
+        // manual sliders, including the two profile strengths; `DOT_EXEMPT`
+        // keeps midpoints and hue windows quiet with their amounts at rest.
+        let lens_active = CONTROL_FAMILIES
+            .iter()
+            .filter(|f| f.name == "lens" || f.name == "lens_effects")
+            .any(|f| family_is_active(f, &self.editor.doc().recipe))
+            || !self.editor.doc().recipe.lens_profile.is_as_opened();
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_LENS), lens_active))
+            .id_salt("sec_lens")
+            .default_open(false)
+            , |ui| {
+                // In-camera profile corrections (lensmeta): the manufacturer's
+                // exact per-shot data read from the RAW itself — no lens
+                // database. Toggling a component ON whose data a legacy
+                // restore dropped re-fills it from this photo's metadata.
+                let photo = self.workspace.open().photo_lens.clone();
+                let lp = &mut self.editor.doc_mut().recipe.lens_profile;
+                let has_v = !lp.vignette.is_empty() || !photo.vignette.is_empty();
+                let has_d = !lp.distortion.is_empty() || !photo.distortion.is_empty();
+                let has_c = (!lp.ca_r.is_empty() || !photo.ca_r.is_empty())
+                    && (!lp.ca_b.is_empty() || !photo.ca_b.is_empty());
+                if has_v || has_d || has_c {
+                    ui.label(tr(lang, K_DEVELOP_PROFILE_CORRECTIONS_FROM_CAMERA_METADATA));
+                    let mut pch = false;
+                    ui.horizontal(|ui| {
+                        if ui
+                            .add_enabled(has_v, egui::Checkbox::new(&mut lp.vignette_on, tr(lang, K_DEVELOP_VIGNETTING)))
+                            .on_hover_text(tr(lang, K_DEVELOP_THE_CAMERA_S_OWN_FALLOFF_MAP_FOR_THIS_SHOT_APPLI))
+                            .changed()
+                        {
+                            if lp.vignette_on && lp.vignette.is_empty() {
+                                lp.vignette = photo.vignette.clone();
+                            }
+                            pch = true;
+                        }
+                        if ui
+                            .add_enabled(has_d, egui::Checkbox::new(&mut lp.distortion_on, tr(lang, K_DEVELOP_DISTORTION)))
+                            .on_hover_text(tr(lang, K_DEVELOP_THE_CAMERA_S_OWN_GEOMETRIC_CORRECTION_MASKS_AND))
+                            .changed()
+                        {
+                            if lp.distortion_on && lp.distortion.is_empty() {
+                                lp.distortion = photo.distortion.clone();
+                            }
+                            pch = true;
+                        }
+                        if ui
+                            .add_enabled(has_c, egui::Checkbox::new(&mut lp.ca_on, tr(lang, K_DEVELOP_CHROMATIC_ABERRATION)))
+                            .on_hover_text(tr(lang, K_DEVELOP_PER_CHANNEL_RADIUS_CORRECTION_REMOVES_RED_BLUE_C))
+                            .changed()
+                        {
+                            if lp.ca_on && (lp.ca_r.is_empty() || lp.ca_b.is_empty()) {
+                                // Refill only the MISSING channel(s): `has_c`
+                                // accepts the union of saved + photo data, so
+                                // replacing BOTH from the photo could erase a
+                                // saved channel the photo can't supply and
+                                // leave the pair incomplete (CA that renders
+                                // nothing — geometry_active needs both).
+                                if lp.ca_r.is_empty() {
+                                    lp.ca_r = photo.ca_r.clone();
+                                }
+                                if lp.ca_b.is_empty() {
+                                    lp.ca_b = photo.ca_b.clone();
+                                }
+                            }
+                            pch = true;
+                        }
+                    });
+                    if pch {
+                        self.workspace.overlay_mut().overlay_stale = true;
+                        changed = true;
+                    }
+                    ui.add_space(SPACE_MD);
+                } else if self.editor.photo().src_path.as_deref().is_some_and(autoshade::decode::is_raw) {
+                    ui.label(
+                        egui::RichText::new(tr(lang, K_DEVELOP_NO_IN_CAMERA_LENS_CORRECTION_DATA_IN_THIS_FILE))
+                            .weak()
+                            .small(),
+                    );
+                    ui.add_space(SPACE_MD);
+                }
+                // 「Lens vignetting」, not 「Vignette」 (R25 B2): the Effects
+                // section above now carries Lightroom's POST-CROP vignette,
+                // and two sections labelled 暗角 with different operators
+                // behind them is a name collision, not a shorthand. This one
+                // is a falloff CORRECTION in linear light before any tonal
+                // work; that one is a creative darkening after the crop.
+                // Manual vignetting / midpoint / distortion: one capability
+                // table (bands and resets from `logic::capability`).
+                changed |= self.capability_rows(ui, crate::controls::LENS_MANUAL);
+                // --- manual lateral CA (R25 B3) -------------------------
+                // RENDERED, so NO disclosure line: these two fold onto the
+                // very per-channel radius LUT the profile CA above uses
+                // (`render::geometry_profile`), and the preview, the export
+                // and the sidecar all agree. The pair sits under the
+                // distortion slider because it is the same kind of thing —
+                // an optical defect, not a mood.
+                // The PROFILE's own two strengths (v1.5.0). They belong with
+                // the profile's tick boxes above, not with the manual sliders
+                // below: they scale what the profile does, and at 0 they are
+                // that component's off switch — which is why they are drawn
+                // even when this photo has no profile data, so a recipe
+                // imported from Lightroom shows what it carries.
+                ui.add_space(SPACE_SM);
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_PROFILE_CORRECTION_STRENGTH)).weak().small());
+                changed |= self.capability_rows(ui, crate::controls::LENS_PROFILE);
+                ui.add_space(SPACE_SM);
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_CHROMATIC_ABERRATION_MANUAL)).weak().small());
+                changed |= self.capability_rows(ui, crate::controls::LENS_CA);
+                // …and the rest of the same panel: Adobe's auto switch and the
+                // whole de-fringe block. Carried and unrendered until v1.5.0;
+                // the switch is an INSTRUCTION, so its tooltip says what the
+                // instruction does rather than what the number means.
+                if ui
+                    .checkbox(&mut self.editor.doc_mut().recipe.auto_lateral_ca, tr(lang, K_DEVELOP_AUTO_LATERAL_CA))
+                    .on_hover_text(tr(
+                        lang,
+                        K_DEVELOP_MEASURES_THIS_FRAME_S_OWN_RED_BLUE_MISALIGNMENT,
+                    ))
+                    .changed()
+                {
+                    changed = true;
+                }
+                ui.add_space(SPACE_SM);
+                ui.label(egui::RichText::new(tr(lang, K_DEVELOP_DEFRINGE)).weak().small());
+                // Adobe's bands and neutrals: amounts rest at 0, the hue
+                // windows at 30/70 and 40/60 (the one block whose neutral is
+                // not zero — the row resets carry them).
+                changed |= self.capability_rows(ui, crate::controls::LENS_DEFRINGE);
+                ui.add_space(SPACE_SM);
+                explainer(ui, lang, tr(lang, K_DEVELOP_VIGNETTE_POSITIVE_BRIGHTENS_THE_CORNERS_COMPENSA));
+            });
+        changed
+    }
+
+    /// One develop-panel section — body extracted verbatim from
+    /// develop_panel (round-12 decomposition; spacing included).
+    pub(crate) fn dev_curves(&mut self, ui: &mut egui::Ui, curves_active: bool) -> bool {
+        let lang = self.lang;
+        let mut changed = false;
+    
+        ui.add_space(SPACE_MD);
+        // --- 曲线: master + RGB tone curves (engine + XMP already apply them,
+        // this is purely the editing surface — Lightroom's panel order) --------
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_CURVES), curves_active))
+            .id_salt("sec_curves")
+            .default_open(false)
+            , |ui| {
+                changed |= self.curve_editor(ui);
+                changed |= parametric_curve(ui, lang, &mut self.editor.doc_mut().recipe);
+            });
+        changed
+    }
     /// What one Analyze run wrote — the verdict, the rationale sentence and
     /// the deep-thinking working — drawn by both the Analysis fold's bounded
     /// box and the full-text window, so the two can never disagree.
