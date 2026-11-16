@@ -251,9 +251,7 @@ impl AutoShadeApp {
         // The dialog after the group is laid out: it is modal and blocks, so
         // the runtime opens it and starts the build/look.
         if pick {
-            self.apply_actions(vec![logic::Action::Normal(
-                logic::normal::NormalAction::PickReferencesFolder,
-            )]);
+            self.apply_normal(logic::normal::NormalAction::PickReferencesFolder);
         }
     }
 
@@ -324,9 +322,7 @@ impl AutoShadeApp {
             self.normal.denoise_ready = Some(weight.is_file());
         }
         if toggled {
-            self.apply_actions(vec![logic::Action::Normal(
-                logic::normal::NormalAction::SetDenoise(on),
-            )]);
+            self.apply_normal(logic::normal::NormalAction::SetDenoise(on));
         }
         for line in self.noise_lines(lang, helper) {
             ui.label(egui::RichText::new(line).weak().small());
@@ -395,12 +391,10 @@ impl AutoShadeApp {
             .on_disabled_hover_text(tr(lang, "Open a folder first — the library on the left."))
             .clicked();
         if save {
-            self.apply_actions(vec![logic::Action::Normal(logic::normal::NormalAction::SaveJpg)]);
+            self.apply_normal(logic::normal::NormalAction::SaveJpg);
         }
         if all {
-            self.apply_actions(vec![logic::Action::Normal(
-                logic::normal::NormalAction::ApplyToFolder,
-            )]);
+            self.apply_normal(logic::normal::NormalAction::ApplyToFolder);
         }
     }
 }

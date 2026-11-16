@@ -87,8 +87,6 @@ pub(crate) enum Action {
     Ai(ai::AiAction),
     /// The settings panel's folder verbs.
     Settings(settings::SettingsAction),
-    /// The Normal panel's Save group.
-    Normal(normal::NormalAction),
 }
 
 /// A short display list: the first three entries joined, with an ellipsis when

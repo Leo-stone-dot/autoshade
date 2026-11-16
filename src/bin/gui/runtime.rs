@@ -127,22 +127,6 @@ impl AutoShadeApp {
                         }
                     }
                 },
-                Action::Normal(action) => match action {
-                    logic::normal::NormalAction::SaveJpg => self.start_normal_save(),
-                    logic::normal::NormalAction::ApplyToFolder => self.start_apply_to_folder(),
-                    logic::normal::NormalAction::SetDenoise(on) => self.set_normal_denoise(on),
-                    logic::normal::NormalAction::PickReferencesFolder => {
-                        let mut dialog = rfd::FileDialog::new();
-                        if let Some(d) = self.normal.ref_dir.clone().filter(|d| d.is_dir()) {
-                            dialog = dialog.set_directory(d);
-                        }
-                        if let Some(dir) = dialog.pick_folder() {
-                            // The known folder goes through the same landing
-                            // the view's own `References` action uses.
-                            self.apply_actions(vec![Action::References(dir)]);
-                        }
-                    }
-                },
                 Action::Settings(action) => match action {
                     logic::settings::SettingsAction::ImportLegacyFolder => {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
@@ -294,6 +278,27 @@ impl AutoShadeApp {
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
     }
 
+
+    /// Apply one Normal-panel verb. Export starts and folder dialogs stay here;
+    /// the panel only emits `NormalAction`s.
+    pub(crate) fn apply_normal(&mut self, action: logic::normal::NormalAction) {
+        match action {
+            logic::normal::NormalAction::SaveJpg => self.start_normal_save(),
+            logic::normal::NormalAction::ApplyToFolder => self.start_apply_to_folder(),
+            logic::normal::NormalAction::SetDenoise(on) => self.set_normal_denoise(on),
+            logic::normal::NormalAction::PickReferencesFolder => {
+                let mut dialog = rfd::FileDialog::new();
+                if let Some(d) = self.normal.ref_dir.clone().filter(|d| d.is_dir()) {
+                    dialog = dialog.set_directory(d);
+                }
+                if let Some(dir) = dialog.pick_folder() {
+                    // The known folder goes through the same landing the view's
+                    // own `References` action uses.
+                    self.apply_actions(vec![Action::References(dir)]);
+                }
+            }
+        }
+    }
 
     /// Apply one gallery action: the folder dialog, the open/toggle decision,
     /// the thumbnail worker and the bounded texture window are the runtime's.
