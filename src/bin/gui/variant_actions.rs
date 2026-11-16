@@ -396,14 +396,6 @@ pub(crate) fn variant_label(&self, idx: usize) -> String {
     }
 }
 
-/// Where this photo's base negative sits in the strip — `None` when the
-/// strip has none. Not a hypothetical: a cold restore whose record named
-/// a `fitted` active card and listed no Original entry rebuilds exactly
-/// that, so every caller must say something honest instead of assuming
-/// card 0 is the negative.
-pub(crate) fn original_index(&self) -> Option<usize> {
-    crate::logic::cards::original_index(&self.editor.doc().variants)
-}
 
 
 /// The card [`Self::negative_origin`] reads — its rule, spelled once so
@@ -507,7 +499,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
         self.workspace.toast(ToastKind::Error, t);
         return;
     }
-    let Some(dst) = self.original_index() else {
+    let Some(dst) = self.editor.original_index() else {
         let t = tr(
             lang,
             K_ACTIONS_THIS_PHOTO_S_STRIP_HOLDS_NO_ORIGINAL_CARD_TO_APP,
@@ -648,7 +640,7 @@ pub(crate) fn dispatch_variant_action(&mut self, act: VariantAction, ctx: &egui:
 /// the R24 round-end review; the doc had said ten.)
 pub(crate) fn commit_pending_names(&mut self) {
     self.editor.commit_mask_name_buf(&mut self.workspace);
-    self.commit_version_name_buf();
+    self.editor.commit_version_name_buf(&mut self.workspace, self.lang);
     self.commit_variant_name_buf();
 }
 }

@@ -786,7 +786,7 @@ impl Editor {
     /// written, so "Ask every time" cannot fall through to a silent write.
     pub(crate) fn export_route(&self, workspace: &WorkspaceView) -> ExportRoute {
         match workspace.export_dest_dir() {
-            Some(dir) => ExportRoute::Render(dir.join(self.export_file_name(&workspace, ))),
+            Some(dir) => ExportRoute::Render(dir.join(self.export_file_name(workspace))),
             None => ExportRoute::Ask,
         }
     }
@@ -833,7 +833,7 @@ impl Editor {
                 || workspace.cards().variant_name_buf.is_some()
                 || !workspace.open().nav_stash.is_empty()
                 || self.quit_guard_open_dirty()
-                || self.inactive_dirty_variants(&workspace, ) > 0
+                || self.inactive_dirty_variants(workspace) > 0
         })
     }
 
@@ -883,7 +883,7 @@ impl Editor {
             parts.push(format!("{} {:.0}", tr(lang, K_EXPORT_OUTPUT_SHARPENING), workspace.exp().sharpen));
         }
         parts.push(tr(lang, EXPORT_SPACES[(workspace.exp().space as usize).min(2)]).to_string());
-        if self.export_denoise_applies(&workspace) {
+        if self.export_denoise_applies(workspace) {
             // With its amount: the dial under the checkbox is the one number
             // that decides how much of the minutes-long sidecar result lands.
             // Absent on a ◈ card, where the pass sits out (the echo says what
@@ -891,7 +891,7 @@ impl Editor {
             parts.push(format!(
                 "{} {:.0}%",
                 tr(lang, K_EXPORT_AI_DENOISE),
-                self.selected_denoise_strength(&workspace, true) * 100.0
+                self.selected_denoise_strength(workspace, true) * 100.0
             ));
         }
         parts.push(match workspace.export_dest_dir() {
@@ -1171,8 +1171,7 @@ impl Editor {
     /// bar, which never expires. A door that can create the disagreement can
     /// also end it, so every door writes on every path.
     pub(crate) fn set_canvas_status(&mut self, workspace: &mut WorkspaceView, lang: Lang, plain: &'static str) {
-        let lang = lang;
-        *workspace.status_mut() = match self.baked_canvas_edge(workspace) {
+                *workspace.status_mut() = match self.baked_canvas_edge(workspace) {
             Some(px) => trf(
                 lang,
                 K_CANVAS_THE_CANVAS_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE_EDIT,
@@ -1201,8 +1200,7 @@ impl Editor {
     /// claim, not from an `exists()` probe here, so the arming can never be
     /// answered by a file that appeared in between.
     pub(crate) fn export_xmp_beside(&mut self, workspace: &mut WorkspaceView, lang: Lang) {
-        let lang = lang;
-        let Some(path) = self.photo().src_path.clone() else { return };
+                let Some(path) = self.photo().src_path.clone() else { return };
         let overwrite = workspace.exp().xmp_beside_confirm;
         match autoshade::store::export_xmp_beside(&path, overwrite) {
             Ok(to) => {
@@ -1365,5 +1363,61 @@ impl Editor {
         // stroke must not turn this into a partial GPU upload (see clear_mask).
         workspace.overlay_mut().mask_dirty_rect = None;
         wanted.len()
+    }
+}
+
+impl Editor {
+    /// Where this photo's base negative sits in the strip — `None` when the
+    /// strip has none. Not a hypothetical: a cold restore whose record named
+    /// a `fitted` active card and listed no Original entry rebuilds exactly
+    /// that, so every caller must say something honest instead of assuming
+    /// card 0 is the negative.
+    pub(crate) fn original_index(&self) -> Option<usize> {
+        crate::logic::cards::original_index(&self.doc().variants)
+    }
+}
+
+impl Editor {
+    /// Commit a pending version rename to ITS OWN photo and number — the
+    /// version half of the `commit_mask_name_buf` rule (U10): a name still
+    /// sitting in its TextEdit when the user hits Ctrl+S, clicks another
+    /// photo or quits must reach the disk, not die with the buffer. Keyed by
+    /// (photo, number), both captured at seed time, so a boundary that has
+    /// already re-pointed `src_path` cannot rename the incoming photo's v1.
+    /// The write is advisory: a failure is disclosed and the buffer is left
+    /// alone so the next boundary retries.
+    pub(crate) fn commit_version_name_buf(&mut self, workspace: &mut WorkspaceView, lang: Lang) {
+        let Some((photo, n, seed, buf)) = workspace.cards().version_name_buf.clone() else { return };
+        if buf == seed {
+            return;
+        }
+        // NoWait wrapper around the store's own Wait lock (the delete_version
+        // rule): a develop held by another process must report here, never
+        // freeze the UI thread on a name.
+        match autoshade::store::with_develop_lock(
+            &photo,
+            autoshade::store::DevelopLockMode::NoWait,
+            || autoshade::store::set_version_name(&photo, n, Some(buf.as_str())),
+        ) {
+            Ok(()) => {
+                let named = Some(buf.trim().to_string()).filter(|s| !s.is_empty());
+                // Re-seed rather than clear: the row is very likely still on
+                // screen, and a SECOND rename in the same row has to compare
+                // against what we just wrote, not the original.
+                workspace.cards_mut().version_name_buf = Some((photo.clone(), n, buf.clone(), buf));
+                if self.photo().src_path.as_deref() == Some(photo.as_path()) {
+                    workspace.cards_mut().version_meta
+                        .entry(n)
+                        .or_insert_with(|| autoshade::store::VersionMetaEntry {
+                            n,
+                            ..Default::default()
+                        })
+                        .name = named;
+                }
+            }
+            Err(e) => {
+                workspace.persist_postponed(lang, &e, "Renaming v{n} failed: {err}", &[("n", &n.to_string())]);
+            }
+        }
     }
 }

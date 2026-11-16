@@ -479,7 +479,7 @@ pub(crate) fn on_fitted(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                     // and `load_active` decodes the master, as for any
                     // restored baked card).
                     let base = out.negative.as_deref().and_then(|m| {
-                        let i = self.original_index()?;
+                        let i = self.editor.original_index()?;
                         let v = &self.editor.doc().variants[i];
                         (v.origin.as_deref() == Some(m)).then(|| v.base.clone()).flatten()
                     });

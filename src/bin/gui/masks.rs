@@ -325,8 +325,7 @@ lang: Lang,
     else {
         return;
     };
-    let lang = lang;
-    // Through THE raster entry, baked in the sensor frame the result is
+        // Through THE raster entry, baked in the sensor frame the result is
     // written in (unmarked).
     let at = std::path::Path::new(&path);
     let done = autoshade::render::open_mask_raster(at)
