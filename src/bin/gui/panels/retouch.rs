@@ -392,7 +392,7 @@ impl AutoShadeApp {
                 .clicked()
             {
                 if armed {
-                    self.disarm_brush();
+                    self.workspace.disarm_brush();
                 } else {
                     self.arm_brush(owner);
                 }
@@ -401,7 +401,7 @@ impl AutoShadeApp {
                 .on_hover_text(tr(lang, K_RETOUCH_WIPE_THIS_TOOL_S_PAINTED_AREA_THE_OTHER_TOOLS_AR))
                 .clicked()
             {
-                self.clear_area(owner);
+                self.workspace.clear_area(owner);
             }
         });
         if armed {
@@ -648,7 +648,7 @@ impl AutoShadeApp {
                         .clicked()
                     {
                         if armed {
-                            self.disarm_brush();
+                            self.workspace.disarm_brush();
                         } else {
                             // Arming brings the Stamp's own area onto the
                             // canvas; what was painted for Fill / Heal stays
@@ -661,7 +661,7 @@ impl AutoShadeApp {
                         .on_hover_text(tr(lang, K_RETOUCH_WIPE_THIS_TOOL_S_PAINTED_AREA_THE_OTHER_TOOLS_AR))
                         .clicked()
                     {
-                        self.clear_area(BrushOwner::Stamp);
+                        self.workspace.clear_area(BrushOwner::Stamp);
                     }
                 });
                 if armed {

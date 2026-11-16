@@ -209,33 +209,6 @@ impl AutoShadeApp {
 
 
 
-    /// Selection moved: every INDEX-ARMED tool whose target is no longer
-    /// the selected mask dies with it — `remap_mask_indices`' twin (that
-    /// one covers list SHAPE changes; this one covers which row is live).
-    /// ↻ Redraw / add-component are the silent pair: their arming buttons
-    /// live inside the selected-mask block and the canvas hint discards the
-    /// PlaceTarget, so an armed Redraw(j) reads exactly like a fresh
-    /// gradient and the next drag rewrites mask j while the user is looking
-    /// at another row. A `NewMask` placement and the non-mask tools (crop,
-    /// WB picker, clone) are deliberately spared — they are not bound to a
-    /// selection. Returns whether a BRUSH session died (its strokes are
-    /// user paint), for the caller's disclosure.
-    pub(crate) fn disarm_selection_bound_tools(&mut self, keep: Option<usize>) -> bool {
-        if matches!(
-            self.workspace.masks().placing_mask,
-            Some((_, PlaceTarget::Redraw(j) | PlaceTarget::Component(j, _))) if Some(j) != keep
-        ) {
-            self.workspace.masks_mut().placing_mask = None;
-            self.workspace.masks_mut().place_start = None;
-        }
-        // The colour sampler drops unconditionally — its 💧 label lives on
-        // the row that was just left (the first fix of this class).
-        self.workspace.tools_mut().range_picking = None;
-        if matches!(self.workspace.masks().mask_brush, Some((Some(j), _)) if Some(j) != keep) {
-            return self.workspace.end_mask_brush();
-        }
-        false
-    }
 
 
 
@@ -375,7 +348,7 @@ impl AutoShadeApp {
                 crate::logic::command::MaskCommand::MoveDown { index: i }
             }),
         );
-        self.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
+        self.workspace.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
         self.workspace.overlay_mut().overlay_stale = true;
         self.editor.session_mut().dirty = true;
     }
@@ -401,14 +374,14 @@ impl AutoShadeApp {
             &mut self.editor.doc_mut().recipe,
             crate::logic::command::Command::InsertMask { after: i, mask: Box::new(clone) },
         );
-        self.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
+        self.workspace.remap_mask_indices(|s| Some(if s > i { s + 1 } else { s }));
         self.workspace.masks_mut().sel_mask = Some(i + 1);
         self.workspace.masks_mut().sel_component = None;
         self.workspace.overlay_mut().overlay_stale = true;
         // The remap maps an armed Redraw(i)/brush(i) to ITSELF (s > i is false
         // at s == i) while the selection jumps to the copy — armed on the
         // original, pointed at the duplicate. Selection moved ⇒ same rule.
-        if self.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
+        if self.workspace.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
             let t = tr(
                 self.lang,
                 K_ACTIONS_THE_RASTER_EDIT_BRUSH_SESSION_ENDED_YOU_SELECTED,

@@ -118,7 +118,7 @@
 
         app.workspace.masks_mut().placing_mask = Some((MaskKind::Linear, PlaceTarget::Redraw(0)));
         app.workspace.masks_mut().place_start = Some((0.5, 0.5));
-        assert!(!app.disarm_selection_bound_tools(Some(1)), "no brush session died");
+        assert!(!app.workspace.disarm_selection_bound_tools(Some(1)), "no brush session died");
         assert!(app.workspace.masks().placing_mask.is_none(), "an armed Redraw dies with its row");
         assert!(app.workspace.masks().place_start.is_none(), "…and its gesture anchor with it");
 
@@ -126,20 +126,20 @@
             MaskKind::Radial,
             PlaceTarget::Component(0, autoshade::recipe::MaskCombine::Add),
         ));
-        app.disarm_selection_bound_tools(None); // same-row deselect
+        app.workspace.disarm_selection_bound_tools(None); // same-row deselect
         assert!(app.workspace.masks().placing_mask.is_none(), "deselecting disarms too");
 
         // NewMask is NOT selection-bound — browsing the list keeps it armed;
         // non-mask tools (crop) are none of this helper's business.
         app.workspace.masks_mut().placing_mask = Some((MaskKind::Linear, PlaceTarget::NewMask));
         app.workspace.crop_mut().mode = true;
-        app.disarm_selection_bound_tools(Some(1));
+        app.workspace.disarm_selection_bound_tools(Some(1));
         assert!(app.workspace.masks().placing_mask.is_some(), "a NewMask placement survives");
         assert!(app.workspace.crop().mode, "non-mask tools survive");
 
         // The kept row's own arming survives.
         app.workspace.masks_mut().placing_mask = Some((MaskKind::Linear, PlaceTarget::Redraw(1)));
-        app.disarm_selection_bound_tools(Some(1));
+        app.workspace.disarm_selection_bound_tools(Some(1));
         assert!(app.workspace.masks().placing_mask.is_some(), "the selected row keeps its arming");
     }
 
@@ -175,13 +175,13 @@
             vec![autoshade::recipe::LocalAdjustment::default(), Default::default()];
         app.start_mask_brush(Some(0));
         assert!(
-            app.disarm_selection_bound_tools(Some(1)),
+            app.workspace.disarm_selection_bound_tools(Some(1)),
             "an off-selection brush session dies, and says so (return drives the toast)"
         );
         assert!(app.workspace.masks().mask_brush.is_none());
 
         app.start_mask_brush(Some(1));
-        assert!(!app.disarm_selection_bound_tools(Some(1)));
+        assert!(!app.workspace.disarm_selection_bound_tools(Some(1)));
         assert!(app.workspace.masks().mask_brush.is_some(), "the selected row keeps its session");
     }
 

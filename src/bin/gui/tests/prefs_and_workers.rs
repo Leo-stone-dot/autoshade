@@ -827,7 +827,7 @@
             app.workspace.masks().mask_brush.is_some() && app.workspace.masks().mask_brush_gray.is_some() && app.workspace.masks().paint_mode,
             "sanity: the session is live and painting through paint_mode"
         );
-        app.disarm_brush();
+        app.workspace.disarm_brush();
         assert!(
             app.workspace.masks().mask_brush.is_none(),
             "the session outlived its own paint flag — its Apply row would bake stale weights"

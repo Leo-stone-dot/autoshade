@@ -6,60 +6,6 @@ use crate::*;
 
 impl AutoShadeApp {
 
-    /// Re-point every stored mask index (selection, colour-range sampler,
-    /// redraw target) after the mask list changed shape — delete, drag-drop
-    /// reorder, ⬆/⬇ swap. One place, so an index-carrying tool cannot be
-    /// forgotten: a dangling index used to make the range sampler write into
-    /// whatever mask slid under it.
-    pub(crate) fn remap_mask_indices(&mut self, f: impl Fn(usize) -> Option<usize>) {
-        let sel_before = self.workspace.masks().sel_mask;
-        self.workspace.masks_mut().sel_mask = self.workspace.masks().sel_mask.and_then(&f);
-        // Component selection is meaningful only while the SAME mask stays
-        // selected under the same index-space; a moved/vanished mask drops it
-        // (its component list travelled with the mask, but every canvas tool
-        // re-derives from sel_mask — a stale pair here was the same class of
-        // bug as the dangling range sampler).
-        if self.workspace.masks().sel_mask != sel_before || self.workspace.masks().sel_mask.is_none() {
-            self.workspace.masks_mut().sel_component = None;
-        }
-        self.workspace.tools_mut().range_picking = self.workspace.tools().range_picking.and_then(&f);
-        self.workspace.masks_mut().placing_mask = self.workspace.masks_mut().placing_mask.take().and_then(|(k, t)| match t {
-            PlaceTarget::NewMask => Some((k, PlaceTarget::NewMask)),
-            // A vanished redraw target degrades to a NEW mask placement (the
-            // pre-v0.22 `Option<usize>` behaviour, kept); a vanished
-            // component target must NOT — appending a component to nothing
-            // has no sensible fallback, so the arm disarms.
-            PlaceTarget::Redraw(i) => {
-                Some((k, f(i).map_or(PlaceTarget::NewMask, PlaceTarget::Redraw)))
-            }
-            PlaceTarget::Component(i, mode) => {
-                f(i).map(|j| (k, PlaceTarget::Component(j, mode)))
-            }
-        });
-        // The pending-rename buffer is index-carrying too: after a delete /
-        // reorder its seed-guard (name-at-seed must still match) correctly
-        // refused to cross-commit — but the SAME mask at its new index then
-        // failed the match as well, and the typed rename silently died.
-        self.workspace.masks_mut().mask_name_buf =
-            self.workspace.masks_mut().mask_name_buf.take().and_then(|(j, o, b)| Some((f(j)?, o, b)));
-        // The mask-brush session carries its TARGET index: 「Apply」 bakes the
-        // stroke into `mask_brush.0`, so after a delete/reorder it painted
-        // whatever mask slid under the stale slot — the dangling-range-sampler
-        // class again, writing pixel weights instead of range bounds. A moved
-        // target follows its mask; a vanished one ends the session exactly
-        // like Esc (gray buffer AND paint canvas — see disarm_tools: fill/heal
-        // would inherit the strokes as a phantom retouch selection). Not a
-        // new-mask fallback: that would resurrect a just-deleted mask.
-        if let Some((target, erase)) = self.workspace.masks().mask_brush {
-            match target.map(&f) {
-                None => self.workspace.masks_mut().mask_brush = Some((None, erase)),
-                Some(Some(j)) => self.workspace.masks_mut().mask_brush = Some((Some(j), erase)),
-                Some(None) => {
-                    self.workspace.end_mask_brush();
-                }
-            }
-        }
-    }
 
     /// Rescan the photo's develop dir for version snapshots (cached in
     /// `self.workspace.cards().versions`; called on photo open and after saving a version — NOT

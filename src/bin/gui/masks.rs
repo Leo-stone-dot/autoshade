@@ -109,7 +109,7 @@ impl AutoShadeApp {
             return 0;
         }
         // Fill's own area — the verb these shapes are painted for.
-        self.select_brush_owner(BrushOwner::Fill);
+        self.workspace.select_brush_owner(BrushOwner::Fill);
         // At the PREVIEW's dimensions, which is the frame the brush paints in
         // and the frame `export_mask_png` hands on.
         if self.workspace.masks().mask_paint.as_ref().is_none_or(|m| m.dimensions() != (mw, mh)) {
@@ -163,37 +163,6 @@ impl AutoShadeApp {
 
 
 
-    /// Bring `owner`'s area onto the canvas. The owner that was there goes to
-    /// the store with its presence memo; the requested one comes back the
-    /// same way, or blank at the canvas' size when it has none. A live
-    /// mask-brush session ends first (its strokes belong to no tool, and
-    /// `end_mask_brush` puts the stashed area back before the swap).
-    pub(crate) fn select_brush_owner(&mut self, owner: BrushOwner) {
-        self.workspace.end_mask_brush();
-        if owner == self.workspace.masks().paint_owner {
-            return;
-        }
-        let Some(cur) = self.workspace.masks_mut().mask_paint.take() else {
-            // No canvas yet (no photo open): only the label moves.
-            self.workspace.masks_mut().paint_owner = owner;
-            return;
-        };
-        let (w, h) = cur.dimensions();
-        let slot = self.workspace.masks().paint_owner.slot();
-        let painted = self.workspace.masks().mask_painted.get();
-        self.workspace.masks_mut().paint_store[slot] =
-            Some(PaintArea { canvas: cur, painted: std::cell::Cell::new(painted) });
-        let (canvas, painted) = match self.workspace.masks_mut().paint_store[owner.slot()].take() {
-            Some(a) => (a.canvas, a.painted.get()),
-            None => (image::RgbaImage::new(w, h), Some(false)),
-        };
-        self.workspace.masks_mut().mask_paint = Some(canvas);
-        self.workspace.paint_mask_changed(painted);
-        // The whole canvas changed (see clear_mask on the pending sub-rect).
-        self.workspace.overlay_mut().mask_dirty_rect = None;
-        self.workspace.masks_mut().paint_last = None;
-        self.workspace.masks_mut().paint_owner = owner;
-    }
 
 
 
@@ -202,7 +171,7 @@ impl AutoShadeApp {
     /// canvas tool is swept (the one exclusion, `disarm_tools`), then the
     /// brush flag goes up — the Stamp's `clone_mode`, the others' `paint_mode`.
     pub(crate) fn arm_brush(&mut self, owner: BrushOwner) {
-        self.select_brush_owner(owner);
+        self.workspace.select_brush_owner(owner);
         self.panel_view(&mut Vec::new()).disarm_tools();
         if owner == BrushOwner::Stamp {
             self.workspace.tools_mut().clone_mode = true;
@@ -211,15 +180,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// Put the brush away — the arm toggle's second click. A live mask-brush
-    /// session is a cancel too (R22-3: an orphaned session's Apply row would
-    /// bake stale weights), and `end_mask_brush` restores the owner's area.
-    pub(crate) fn disarm_brush(&mut self) {
-        self.workspace.masks_mut().paint_mode = false;
-        self.workspace.tools_mut().clone_mode = false;
-        self.workspace.masks_mut().paint_last = None;
-        self.workspace.end_mask_brush();
-    }
 
     /// The K key: toggle the brush of the tool whose area is on the canvas;
     /// during a mask-brush session it is that session's Esc, as before.
@@ -227,21 +187,12 @@ impl AutoShadeApp {
         if self.workspace.masks().mask_brush.is_some() {
             self.panel_view(&mut Vec::new()).disarm_tools();
         } else if self.workspace.brush_armed(self.workspace.masks().paint_owner) {
-            self.disarm_brush();
+            self.workspace.disarm_brush();
         } else {
             self.arm_brush(self.workspace.masks().paint_owner);
         }
     }
 
-    /// Wipe `owner`'s area, on the canvas or in the store; the other tools'
-    /// areas stay.
-    pub(crate) fn clear_area(&mut self, owner: BrushOwner) {
-        if owner == self.workspace.masks().paint_owner && self.workspace.masks().mask_brush.is_none() {
-            self.workspace.clear_mask();
-        } else {
-            self.workspace.masks_mut().paint_store[owner.slot()] = None;
-        }
-    }
 
 
 

@@ -1016,7 +1016,7 @@
         assert!(app.workspace.area_painted(BrushOwner::Stamp) && app.workspace.area_painted(BrushOwner::Heal));
 
         // Clearing one tool's area leaves the others'.
-        app.clear_area(BrushOwner::Heal);
+        app.workspace.clear_area(BrushOwner::Heal);
         assert!(!app.workspace.area_painted(BrushOwner::Heal) && app.workspace.area_painted(BrushOwner::Stamp));
         app.arm_brush(BrushOwner::Heal);
         assert!(!app.workspace.has_painted_mask(), "Heal comes back blank");
@@ -1028,7 +1028,7 @@
         assert!(!app.workspace.has_painted_mask(), "the session starts on its own blank canvas");
         assert!(app.workspace.area_painted(BrushOwner::Adjust), "Adjust's strokes wait in the store");
         assert!(!app.workspace.brush_armed(BrushOwner::Adjust), "a session belongs to no tool");
-        app.disarm_brush();
+        app.workspace.disarm_brush();
         assert!(app.workspace.masks().mask_brush.is_none() && !app.workspace.masks().paint_mode);
         assert!(
             app.workspace.has_painted_mask() && app.workspace.masks().paint_owner == BrushOwner::Adjust,

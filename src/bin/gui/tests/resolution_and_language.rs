@@ -622,7 +622,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         app.workspace.masks_mut().mask_brush_gray = Some(image::GrayImage::new(4, 4));
         app.workspace.masks_mut().paint_mode = true;
         app.editor.doc_mut().recipe.masks.remove(0);
-        app.remap_mask_indices(|s| match s {
+        app.workspace.remap_mask_indices(|s| match s {
             0 => None,
             s => Some(s - 1),
         });
@@ -633,7 +633,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // paint mode disarmed — never a new-mask fallback that would
         // resurrect the deleted mask under a fresh slot.
         app.editor.doc_mut().recipe.masks.remove(1);
-        app.remap_mask_indices(|s| match s {
+        app.workspace.remap_mask_indices(|s| match s {
             1 => None,
             s => Some(s),
         });
@@ -643,7 +643,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
 
         // A NEW-mask session carries no index and survives any remap.
         app.workspace.masks_mut().mask_brush = Some((None, true));
-        app.remap_mask_indices(|_| None);
+        app.workspace.remap_mask_indices(|_| None);
         assert_eq!(app.workspace.masks().mask_brush, Some((None, true)));
     }
 

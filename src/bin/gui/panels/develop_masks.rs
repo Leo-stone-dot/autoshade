@@ -147,7 +147,7 @@ impl AutoShadeApp {
                             // selected-mask block (L06#3). The single owner
                             // sits beside remap_mask_indices; the brush
                             // teardown discards user paint, so it is said.
-                            if self.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
+                            if self.workspace.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
                                 let t = tr(
                                     self.lang,
                                     K_ACTIONS_THE_RASTER_EDIT_BRUSH_SESSION_ENDED_YOU_SELECTED,
@@ -197,7 +197,7 @@ impl AutoShadeApp {
                     &mut self.editor.doc_mut().recipe,
                     crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Reorder { from, to }),
                 );
-                self.remap_mask_indices(|s| Some(remap(s)));
+                self.workspace.remap_mask_indices(|s| Some(remap(s)));
                 self.workspace.overlay_mut().overlay_stale = true;
                 changed = true;
             }
@@ -217,7 +217,7 @@ impl AutoShadeApp {
                     &mut self.editor.doc_mut().recipe,
                     crate::logic::command::Command::Mask(crate::logic::command::MaskCommand::Delete { index: i }),
                 );
-                self.remap_mask_indices(|s| {
+                self.workspace.remap_mask_indices(|s| {
                     if s == i {
                         None
                     } else if s > i {

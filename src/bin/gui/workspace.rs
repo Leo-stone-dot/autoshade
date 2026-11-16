@@ -1126,3 +1126,148 @@ impl WorkspaceView {
         }
     }
 }
+
+impl WorkspaceView {
+    /// Selection moved: every INDEX-ARMED tool whose target is no longer
+    /// the selected mask dies with it — `remap_mask_indices`' twin (that
+    /// one covers list SHAPE changes; this one covers which row is live).
+    /// ↻ Redraw / add-component are the silent pair: their arming buttons
+    /// live inside the selected-mask block and the canvas hint discards the
+    /// PlaceTarget, so an armed Redraw(j) reads exactly like a fresh
+    /// gradient and the next drag rewrites mask j while the user is looking
+    /// at another row. A `NewMask` placement and the non-mask tools (crop,
+    /// WB picker, clone) are deliberately spared — they are not bound to a
+    /// selection. Returns whether a BRUSH session died (its strokes are
+    /// user paint), for the caller's disclosure.
+    pub(crate) fn disarm_selection_bound_tools(&mut self, keep: Option<usize>) -> bool {
+        if matches!(
+            self.masks().placing_mask,
+            Some((_, PlaceTarget::Redraw(j) | PlaceTarget::Component(j, _))) if Some(j) != keep
+        ) {
+            self.masks_mut().placing_mask = None;
+            self.masks_mut().place_start = None;
+        }
+        // The colour sampler drops unconditionally — its 💧 label lives on
+        // the row that was just left (the first fix of this class).
+        self.tools_mut().range_picking = None;
+        if matches!(self.masks().mask_brush, Some((Some(j), _)) if Some(j) != keep) {
+            return self.end_mask_brush();
+        }
+        false
+    }
+}
+
+impl WorkspaceView {
+    /// Bring `owner`'s area onto the canvas. The owner that was there goes to
+    /// the store with its presence memo; the requested one comes back the
+    /// same way, or blank at the canvas' size when it has none. A live
+    /// mask-brush session ends first (its strokes belong to no tool, and
+    /// `end_mask_brush` puts the stashed area back before the swap).
+    pub(crate) fn select_brush_owner(&mut self, owner: BrushOwner) {
+        self.end_mask_brush();
+        if owner == self.masks().paint_owner {
+            return;
+        }
+        let Some(cur) = self.masks_mut().mask_paint.take() else {
+            // No canvas yet (no photo open): only the label moves.
+            self.masks_mut().paint_owner = owner;
+            return;
+        };
+        let (w, h) = cur.dimensions();
+        let slot = self.masks().paint_owner.slot();
+        let painted = self.masks().mask_painted.get();
+        self.masks_mut().paint_store[slot] =
+            Some(PaintArea { canvas: cur, painted: std::cell::Cell::new(painted) });
+        let (canvas, painted) = match self.masks_mut().paint_store[owner.slot()].take() {
+            Some(a) => (a.canvas, a.painted.get()),
+            None => (image::RgbaImage::new(w, h), Some(false)),
+        };
+        self.masks_mut().mask_paint = Some(canvas);
+        self.paint_mask_changed(painted);
+        // The whole canvas changed (see clear_mask on the pending sub-rect).
+        self.overlay_mut().mask_dirty_rect = None;
+        self.masks_mut().paint_last = None;
+        self.masks_mut().paint_owner = owner;
+    }
+}
+
+impl WorkspaceView {
+    /// Put the brush away — the arm toggle's second click. A live mask-brush
+    /// session is a cancel too (R22-3: an orphaned session's Apply row would
+    /// bake stale weights), and `end_mask_brush` restores the owner's area.
+    pub(crate) fn disarm_brush(&mut self) {
+        self.masks_mut().paint_mode = false;
+        self.tools_mut().clone_mode = false;
+        self.masks_mut().paint_last = None;
+        self.end_mask_brush();
+    }
+}
+
+impl WorkspaceView {
+    /// Wipe `owner`'s area, on the canvas or in the store; the other tools'
+    /// areas stay.
+    pub(crate) fn clear_area(&mut self, owner: BrushOwner) {
+        if owner == self.masks().paint_owner && self.masks().mask_brush.is_none() {
+            self.clear_mask();
+        } else {
+            self.masks_mut().paint_store[owner.slot()] = None;
+        }
+    }
+}
+
+impl WorkspaceView {
+    /// Re-point every stored mask index (selection, colour-range sampler,
+    /// redraw target) after the mask list changed shape — delete, drag-drop
+    /// reorder, ⬆/⬇ swap. One place, so an index-carrying tool cannot be
+    /// forgotten: a dangling index used to make the range sampler write into
+    /// whatever mask slid under it.
+    pub(crate) fn remap_mask_indices(&mut self, f: impl Fn(usize) -> Option<usize>) {
+        let sel_before = self.masks().sel_mask;
+        self.masks_mut().sel_mask = self.masks().sel_mask.and_then(&f);
+        // Component selection is meaningful only while the SAME mask stays
+        // selected under the same index-space; a moved/vanished mask drops it
+        // (its component list travelled with the mask, but every canvas tool
+        // re-derives from sel_mask — a stale pair here was the same class of
+        // bug as the dangling range sampler).
+        if self.masks().sel_mask != sel_before || self.masks().sel_mask.is_none() {
+            self.masks_mut().sel_component = None;
+        }
+        self.tools_mut().range_picking = self.tools().range_picking.and_then(&f);
+        self.masks_mut().placing_mask = self.masks_mut().placing_mask.take().and_then(|(k, t)| match t {
+            PlaceTarget::NewMask => Some((k, PlaceTarget::NewMask)),
+            // A vanished redraw target degrades to a NEW mask placement (the
+            // pre-v0.22 `Option<usize>` behaviour, kept); a vanished
+            // component target must NOT — appending a component to nothing
+            // has no sensible fallback, so the arm disarms.
+            PlaceTarget::Redraw(i) => {
+                Some((k, f(i).map_or(PlaceTarget::NewMask, PlaceTarget::Redraw)))
+            }
+            PlaceTarget::Component(i, mode) => {
+                f(i).map(|j| (k, PlaceTarget::Component(j, mode)))
+            }
+        });
+        // The pending-rename buffer is index-carrying too: after a delete /
+        // reorder its seed-guard (name-at-seed must still match) correctly
+        // refused to cross-commit — but the SAME mask at its new index then
+        // failed the match as well, and the typed rename silently died.
+        self.masks_mut().mask_name_buf =
+            self.masks_mut().mask_name_buf.take().and_then(|(j, o, b)| Some((f(j)?, o, b)));
+        // The mask-brush session carries its TARGET index: 「Apply」 bakes the
+        // stroke into `mask_brush.0`, so after a delete/reorder it painted
+        // whatever mask slid under the stale slot — the dangling-range-sampler
+        // class again, writing pixel weights instead of range bounds. A moved
+        // target follows its mask; a vanished one ends the session exactly
+        // like Esc (gray buffer AND paint canvas — see disarm_tools: fill/heal
+        // would inherit the strokes as a phantom retouch selection). Not a
+        // new-mask fallback: that would resurrect a just-deleted mask.
+        if let Some((target, erase)) = self.masks().mask_brush {
+            match target.map(&f) {
+                None => self.masks_mut().mask_brush = Some((None, erase)),
+                Some(Some(j)) => self.masks_mut().mask_brush = Some((Some(j), erase)),
+                Some(None) => {
+                    self.end_mask_brush();
+                }
+            }
+        }
+    }
+}

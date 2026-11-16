@@ -493,7 +493,7 @@
 
             // 「Clear area」 is the fold's eraser (the retouch brushes have no
             // erase mode): the canvas is known blank, so nothing scans.
-            app.clear_area(BrushOwner::Adjust);
+            app.workspace.clear_area(BrushOwner::Adjust);
             assert!(app.workspace.masks().mask_paint.as_ref().unwrap().pixels().all(|p| p[3] <= 10), "clearing removed every stroke");
             five_frames(&mut app, &ctx, false, "clearing the area must return the adjust fold to whole image");
             assert_eq!(app.workspace.overlay().mask_presence_scans.get(), empty_scans, "a cleared area needs no scan");
@@ -535,7 +535,7 @@
             ("masks.rs::paint_imported_removals", 2),
             ("workspace.rs::paint_mask_changed", 1),
             ("workspace.rs::clear_mask", 1),
-            ("masks.rs::select_brush_owner", 1),
+            ("workspace.rs::select_brush_owner", 1),
             ("masks.rs::start_mask_brush", 1),
             ("workspace.rs::unstash_owner_area", 1),
             ("panels/retouch.rs::handle_paint", 1),

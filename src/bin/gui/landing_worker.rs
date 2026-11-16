@@ -46,7 +46,7 @@ pub(crate) fn on_segmented(&mut self, lang: Lang, res: anyhow::Result<(String, P
             // another row die with it, exactly like the row-click sites
             // (Codex L06-1: this async door was missed and a stranded brush
             // baked into the old mask).
-            if self.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
+            if self.workspace.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
                 let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
                 self.workspace.toast(ToastKind::Error, t);
             }
@@ -87,7 +87,7 @@ pub(crate) fn on_mask_refined(&mut self, lang: Lang, res: anyhow::Result<MaskRef
                 self.workspace.masks_mut().sel_mask = Some(i);
                 // Same rule as the segmentation landing: the selection
                 // moved, selection-bound tools on another row follow it.
-                if self.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
+                if self.workspace.disarm_selection_bound_tools(self.workspace.masks().sel_mask) {
                     let t = crate::i18n::text(lang, &logic::segmented::selection_taken_words());
                     self.workspace.toast(ToastKind::Error, t);
                 }
@@ -244,7 +244,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                     // The tool this result consumed starts clean; the
                     // other tools' areas are theirs to keep (2026-09-27).
                     if let Some(owner) = note.consumed_area() {
-                        self.clear_area(owner);
+                        self.workspace.clear_area(owner);
                     }
                     match kind {
                         RetouchKind::NewGenerated => {
