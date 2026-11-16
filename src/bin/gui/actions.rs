@@ -198,15 +198,6 @@ impl AutoShadeApp {
 
 
 
-    /// Drop the open photo's decoded-base cache entries. Called whenever its
-    /// BAKED pixel identity changes (a retouch lands, a save writes/clears
-    /// pixels.json) — the source mtime doesn't move then, so the mtime guard
-    /// alone would happily serve a hit with stale baked pixels.
-    pub(crate) fn forget_open_base(&mut self) {
-        if let Some(p) = self.editor.photo().src_path.clone() {
-            crate::logic::lru::retain(&mut self.workspace.open_mut().base_cache, |(q, _, _, _)| q != &p);
-        }
-    }
 
     /// Match a live card to a persisted card. Stable IDs are authoritative
     /// when both sides carry one; an id-less legacy side falls back to kind +
@@ -268,32 +259,6 @@ impl AutoShadeApp {
         self.workspace.toast(ToastKind::Error, t);
     }
 
-    /// Every crop_mode flip goes through here (L13-1): `pan` is stored in
-    /// the CURRENT window's coordinates — the committed crop normally, the
-    /// full frame while the crop tool is open (`view_uv`) — so the VALUE
-    /// must be rebased when the window changes. Left alone, entering the
-    /// tool reinterpreted a crop-relative pan as full-frame and the
-    /// viewport landed outside the crop box at higher zoom.
-    pub(crate) fn set_crop_mode(&mut self, on: bool) {
-        if self.workspace.crop().mode == on {
-            return;
-        }
-        if let Some(c) = &self.editor.doc().recipe.crop {
-            let (l, t) = (c.left.min(c.right), c.top.min(c.bottom));
-            let (w, h) =
-                ((c.right - c.left).abs().max(1e-6), (c.bottom - c.top).abs().max(1e-6));
-            self.workspace.view_mut().pan = if on {
-                // crop-window coords → full-frame coords
-                egui::vec2(l + self.workspace.view().pan.x * w, t + self.workspace.view().pan.y * h)
-            } else {
-                // full-frame coords → crop-window coords
-                egui::vec2((self.workspace.view().pan.x - l) / w, (self.workspace.view().pan.y - t) / h)
-            };
-            // view_uv re-clamps against zoom each frame; keep it sane here.
-            self.workspace.view_mut().pan = egui::vec2(self.workspace.view().pan.x.clamp(0.0, 1.0), self.workspace.view().pan.y.clamp(0.0, 1.0));
-        }
-        self.workspace.crop_mut().mode = on;
-    }
 
     /// Recipe replaced wholesale (undo/redo/Reset/version load/AI apply): the
     /// derived display state must follow, or the panel keeps showing an AI
@@ -308,7 +273,7 @@ impl AutoShadeApp {
     /// crop_drag used to hijack the next drag. clone_src (the sampled source
     /// pin) deliberately survives — samples stay for resuming, like paint.
     pub(crate) fn disarm_tools(&mut self) {
-        self.set_crop_mode(false);
+        self.editor.set_crop_mode(&mut self.workspace, false);
         self.workspace.masks_mut().paint_mode = false;
         self.workspace.tools_mut().clone_mode = false;
         self.workspace.tools_mut().wb_picking = false;
@@ -377,22 +342,6 @@ impl AutoShadeApp {
     }
 
 
-    /// Commit a pending mask-rename buffer to its own mask (the same
-    /// seed-guard the panel's row-switch commit uses: only while that mask's
-    /// name still equals the seed-time snapshot). Focus-independent Ctrl+S
-    /// runs while the TextEdit still holds focus — without this it saved the
-    /// old name and the advanced baseline dropped the rename.
-    pub(crate) fn commit_mask_name_buf(&mut self) {
-        if let Some((j, orig, buf)) = self.workspace.masks().mask_name_buf.clone()
-            && let Some(prev) = self.editor.doc_mut().recipe.masks.get_mut(j)
-            && prev.name == orig
-            && buf != orig
-        {
-            prev.name = buf.clone();
-            // Re-seed so the panel's own lost-focus commit stays a no-op.
-            self.workspace.masks_mut().mask_name_buf = Some((j, buf.clone(), buf));
-        }
-    }
 
 
     /// Add a recipe file the user picked (our own recipe.json, or a Lightroom

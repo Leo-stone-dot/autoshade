@@ -647,7 +647,7 @@ pub(crate) fn dispatch_variant_action(&mut self, act: VariantAction, ctx: &egui:
 /// of those, one per box, in `panels/develop.rs`. (Counts re-verified at
 /// the R24 round-end review; the doc had said ten.)
 pub(crate) fn commit_pending_names(&mut self) {
-    self.commit_mask_name_buf();
+    self.editor.commit_mask_name_buf(&mut self.workspace);
     self.commit_version_name_buf();
     self.commit_variant_name_buf();
 }

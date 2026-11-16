@@ -1222,7 +1222,7 @@ impl AutoShadeApp {
                     if action_in(ui, cell, true, label).clicked() {
                         let on = !self.workspace.crop().mode;
                         self.disarm_tools();
-                        self.set_crop_mode(on);
+                        self.editor.set_crop_mode(&mut self.workspace, on);
                     }
                     if action_in(ui, cell, true, tr(lang, K_DEVELOP_CLEAR_CROP)).clicked()
                         && self.editor.doc_mut().recipe.crop.take().is_some()

@@ -389,7 +389,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             self.commit_now();
                             // The decoded-base cache now describes pixels
                             // this photo no longer shows.
-                            self.forget_open_base();
+                            self.editor.forget_open_base(&mut self.workspace);
                         }
                     }
                     self.workspace.done(msg);

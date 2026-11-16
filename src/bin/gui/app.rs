@@ -284,13 +284,13 @@ impl AutoShadeApp {
             if do_crop && self.editor.photo().src_path.is_some() {
                 let on = !self.workspace.crop().mode;
                 self.disarm_tools();
-                self.set_crop_mode(on);
+                self.editor.set_crop_mode(&mut self.workspace, on);
             }
             // Enter commits the crop (LR, D13): the box is already live in
             // recipe.crop — committing is dropping the grab and disarming.
             if do_crop_commit {
                 self.workspace.crop_mut().drag = None;
-                self.set_crop_mode(false);
+                self.editor.set_crop_mode(&mut self.workspace, false);
             }
             if crop_nudge != (0.0, 0.0)
                 && let Some(c) = self.editor.doc().recipe.crop

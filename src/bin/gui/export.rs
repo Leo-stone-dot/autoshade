@@ -956,7 +956,7 @@ impl AutoShadeApp {
                     self.editor.session_mut().hist.pixels_on_disk = None;
                     self.editor.session_mut().hist.saved_strip = None;
                     self.workspace.open_mut().nav_stash.remove(&path);
-                    self.forget_open_base();
+                    self.editor.forget_open_base(&mut self.workspace);
                     match o.marker_warning {
                         // NEVER a plain success: the store copies are gone, but
                         // without the marker a projection copied beside the RAW
@@ -1265,7 +1265,7 @@ impl AutoShadeApp {
                         )
                     ));
                 }
-                self.forget_open_base();
+                self.editor.forget_open_base(&mut self.workspace);
                 self.workspace.set_status(s);
             }
             Err(e) => {

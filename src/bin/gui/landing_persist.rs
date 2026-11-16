@@ -120,7 +120,7 @@ match autoshade::store::with_develop_lock(
                 // the background-variant unsaved
                 // protection armed.
                 self.editor.session_mut().hist.saved_strip = strip_rec;
-                self.forget_open_base();
+                self.editor.forget_open_base(&mut self.workspace);
                 if backed.is_some() {
                     self.refresh_versions();
                 }

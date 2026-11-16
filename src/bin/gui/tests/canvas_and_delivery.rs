@@ -49,13 +49,13 @@
         app.editor.doc_mut().recipe.crop =
             Some(autoshade::recipe::Crop { left: 0.5, top: 0.5, right: 1.0, bottom: 1.0 });
         app.workspace.view_mut().pan = egui::vec2(0.5, 0.5); // centre of the CROP window
-        app.set_crop_mode(true);
+        app.editor.set_crop_mode(&mut app.workspace, true);
         assert!(
             (app.workspace.view().pan.x - 0.75).abs() < 1e-4 && (app.workspace.view().pan.y - 0.75).abs() < 1e-4,
             "the same viewport centre, now in full-frame coords: {:?}",
             app.workspace.view().pan
         );
-        app.set_crop_mode(false);
+        app.editor.set_crop_mode(&mut app.workspace, false);
         assert!(
             (app.workspace.view().pan.x - 0.5).abs() < 1e-4 && (app.workspace.view().pan.y - 0.5).abs() < 1e-4,
             "leaving the tool rebases back: {:?}",
