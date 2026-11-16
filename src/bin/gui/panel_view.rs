@@ -24,6 +24,54 @@ pub(crate) struct PanelView<'a, 'b> {
 }
 
 impl PanelView<'_, '_> {
+    /// Which library, how big, how old, and where — or why there is none.
+    pub(crate) fn ai_library_status(&mut self, ui: &mut egui::Ui) {
+        let lang = self.lang;
+        let line = match &self.workspace.ai().style_info {
+            Some(autoshade::library::Summary::Built { photos, phrased, with_settings, dir, age }) => {
+                let mut t = trf(
+                    lang,
+                    K_AI_FINISHED_PHOTOS_FROM_WITH_LOOK_PHRASES,
+                    &[("n", &photos.to_string()), ("path", dir), ("m", &phrased.to_string())],
+                );
+                if *with_settings > 0 {
+                    t.push_str(" · ");
+                    t.push_str(&trf(lang, K_AI_WITH_RAW_SETTINGS, &[("k", &with_settings.to_string())]));
+                }
+                if let Some(age) = age {
+                    // Coarse buckets, no calendar arithmetic: "how stale is my
+                    // library" is answered by hours or days, and both spellings
+                    // avoid a plural rule.
+                    const HOUR: u64 = 3600;
+                    let secs = age.as_secs();
+                    t.push_str(" · ");
+                    t.push_str(&if secs < 48 * HOUR {
+                        trf(lang, K_AI_BUILT_H_AGO, &[("hours", &(secs / HOUR).to_string())])
+                    } else {
+                        trf(lang, K_AI_BUILT_D_AGO, &[("days", &(secs / (24 * HOUR)).to_string())])
+                    });
+                }
+                egui::RichText::new(t).small()
+            }
+            Some(autoshade::library::Summary::Unusable(err)) => egui::RichText::new(trf(
+                lang,
+                K_AI_THE_REFERENCE_LIBRARY_COULD_NOT_BE_READ_REBUILD,
+                &[("err", err)],
+            ))
+            .color(ui.visuals().warn_fg_color)
+            .small(),
+            Some(autoshade::library::Summary::Absent) => egui::RichText::new(tr(lang,
+                K_AI_NO_REFERENCE_LIBRARY_YET_THE_STYLE_SLIDER_ABOVE,
+            ))
+            .small(),
+            None => egui::RichText::new(tr(lang, K_AI_READING_THE_REFERENCE_LIBRARY)).weak().small(),
+        };
+        ui.label(line).on_hover_text(trf(
+            lang,
+            K_AI_LIBRARY_FILE,
+            &[("path", &abs_display(&autoshade::library::path()))],
+        ));
+    }
     /// Bake the brush session: the greyscale weight buffer becomes a freshly
     /// CLAIMED raster (the input file is never mutated — saved recipes and
     /// version snapshots keep rendering what they rendered), then the target
