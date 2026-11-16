@@ -45,9 +45,6 @@ impl AutoShadeApp {
                 Action::Crop(action) => {
                     effects.extend(logic::crop::apply(&mut self.doc.recipe, action));
                 }
-                Action::MaskEdit(action) => {
-                    effects.extend(logic::mask_edit::apply(&mut self.doc.recipe, action));
-                }
                 Action::Region(action) => effects.extend(logic::region::apply(action)),
                 Action::Portrait(action) => match action {
                     logic::portrait::PortraitAction::FindPeople => self.start_find_people(),

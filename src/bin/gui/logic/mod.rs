@@ -73,8 +73,6 @@ pub(crate) enum Action {
     Pick(pick::PickAction),
     /// A crop gesture (preset pick, handle drag, rotate-straighten).
     Crop(crop::CropAction),
-    /// A knob drag on the selected mask's geometry.
-    MaskEdit(mask_edit::MaskEditAction),
     /// A box-selected AI region.
     Region(region::RegionAction),
     /// The develop panel's list verbs.

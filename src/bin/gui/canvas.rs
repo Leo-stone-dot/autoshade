@@ -1082,6 +1082,13 @@ impl AutoShadeApp {
         }
     }
 
+    /// Apply one mask-geometry drag. The geometry stays in
+    /// `logic::mask_edit`; the dirty/preview effect is a host effect.
+    pub(crate) fn apply_mask_edit(&mut self, action: logic::mask_edit::MaskEditAction) {
+        let effects = logic::mask_edit::apply(&mut self.doc.recipe, action);
+        self.run_effects(effects);
+    }
+
     /// On-image editing of the SELECTED mask's geometry (the LR gesture):
     /// drag an end/edge knob to reshape, the centre knob to move the whole
     /// mask — no more redraw-from-scratch via 重画. Geometry lives in the
@@ -1148,15 +1155,13 @@ impl AutoShadeApp {
             let cur = orig_at(p);
             // The knob's geometry is the logic layer's (`logic/mask_edit`).
             if let Some(mask) = self.masks.sel_mask {
-                self.apply_actions(vec![logic::Action::MaskEdit(
-                    logic::mask_edit::MaskEditAction::Drag {
-                        mask,
-                        component: self.masks.sel_component,
-                        handle: h,
-                        last,
-                        cur,
-                    },
-                )]);
+                self.apply_mask_edit(logic::mask_edit::MaskEditAction::Drag {
+                    mask,
+                    component: self.masks.sel_component,
+                    handle: h,
+                    last,
+                    cur,
+                });
             }
             self.masks.mask_drag = Some((h, cur));
             // Masks are develop stages: the preview follows every drag frame.
