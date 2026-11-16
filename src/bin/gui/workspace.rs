@@ -1303,3 +1303,106 @@ impl WorkspaceView {
         self.masks_mut().paint_last = None;
     }
 }
+
+impl WorkspaceView {
+    /// Cold-master LRU lookup (most-recent kept last) — same shape and same
+    /// staleness guard as `cached_base`.
+    pub(crate) fn cached_master(
+    &mut self,
+    origin: &std::path::Path,
+    edge: u32,
+    ) -> Option<Arc<image::DynamicImage>> {
+    let stamp = file_stamp(origin);
+    crate::logic::lru::get(&mut self.open_mut().master_cache, |(p, e, t)| {
+        p == origin && *e == edge && *t == stamp
+    })
+    }
+
+    /// Remember a freshly decoded cold master under its own identity —
+    /// `remember_base`'s twin. The stamp is the SPAWN-TIME capture riding
+    /// the message (L12-2): the old landing-time stat argued it made a
+    /// mid-decode rewrite miss, but it did the opposite — the NEW stamp was
+    /// filed with the OLD pixels, so the next probe HIT on pixels the file
+    /// never held. Keyed pre-read, a rewrite moves the stamp on and misses.
+    pub(crate) fn remember_master(
+    &mut self,
+    origin: &std::path::Path,
+    edge: u32,
+    stamp: FileStamp,
+    img: Arc<image::DynamicImage>,
+    ) {
+    crate::logic::lru::insert(
+        &mut self.open_mut().master_cache,
+        (origin.to_path_buf(), edge, stamp),
+        img,
+        |(p, e, _)| p == origin && *e == edge,
+        MASTER_CACHE_CAP,
+    );
+    }
+
+    pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usize, img: anyhow::Result<image::DynamicImage>) {
+                // Ignore thumbnails from a previous folder generation (their
+                // inflight count was already discarded when the folder changed).
+                if generation == self.gal().gallery_gen {
+                    self.gal_mut().thumb_inflight = self.gal().thumb_inflight.saturating_sub(1);
+                    match img {
+                        Ok(im) => {
+                            let tex = ctx.load_texture(
+                                format!("thumb{idx}"),
+                                to_color_image(&im),
+                                egui::TextureOptions::LINEAR,
+                            );
+                            self.gal_mut().thumbs.insert(idx, tex);
+                        }
+                        Err(_) => {
+                            // Count the failure and release the queue slot:
+                            // `request_thumb` allows three attempts, so a
+                            // transient decode failure (AV lock, a slow
+                            // share) still recovers on a later frame while
+                            // an undecodable file stops for good instead of
+                            // respawning decode threads every frame.
+                            *self.gal_mut().thumb_fail.entry(idx).or_insert(0) += 1;
+                            self.gal_mut().thumb_requested.remove(&idx);
+                        }
+                    }
+                }
+    }
+
+    pub(crate) fn on_models(
+    &mut self,
+    lang: Lang,
+    role: ModelRole,
+    generation: u64,
+    res: anyhow::Result<Vec<autoshade::openai_models::ModelInfo>>,
+    ) {
+    // Single-flight per role (`fetch_models` refuses to start a second
+    // while one flies), so whatever lands, THE flight for this role is
+    // over — stale or not, the flag must clear or the fetch button and
+    // the auto-probe stay disarmed for the rest of the session.
+    self.catalogue_mut(role).fetching = false;
+    // …but the ids belong to the world the fetch was LAUNCHED in. A key
+    // replaced or a URL swapped mid-flight bumped `gen` (via `clear`);
+    // installing this completion would resurrect the ids the OLD
+    // credential could see and offer them under the new one's name.
+    if generation != self.catalogue_mut(role).generation {
+        self.ui_mut().settings.status = crate::i18n::text(lang, &logic::models::discarded_words());
+        return;
+    }
+    match res {
+        Ok(models) => {
+            // The classification and the line are the logic layer's.
+            let cat = logic::models::catalogue(&models, role == ModelRole::Image);
+            self.ui_mut().settings.status = crate::i18n::text(lang, &logic::models::installed_words(&cat));
+            let slot = self.catalogue_mut(role);
+            slot.chat = cat.chat;
+            slot.image_gen = cat.image;
+            slot.efforts = cat.efforts;
+            slot.vision = cat.vision;
+        }
+        Err(e) => {
+            self.ui_mut().settings.status =
+                crate::i18n::text(lang, &logic::models::failed_words(&e.to_string()));
+        }
+    }
+    }
+}

@@ -248,7 +248,7 @@
         // clears the catalogue, and clearing bumps the generation:
         app.workspace.ui_mut().settings.image_models.clear();
         // The old flight lands, delivered exactly as the pump would:
-        app.on_models(Lang::En, ModelRole::Image, stale_gen, Ok(vec!["stale-model".into()]));
+        app.workspace.on_models(Lang::En, ModelRole::Image, stale_gen, Ok(vec!["stale-model".into()]));
         assert!(
             app.workspace.ui().settings.image_models.chat.is_empty(),
             "ids fetched with the OLD credential must not be offered under the new one"
@@ -257,7 +257,7 @@
         // A fresh fetch's completion still installs normally:
         app.fetch_models(ModelRole::Image);
         let live_gen = app.workspace.ui().settings.image_models.generation;
-        app.on_models(Lang::En, ModelRole::Image, live_gen, Ok(vec!["fresh-model".into()]));
+        app.workspace.on_models(Lang::En, ModelRole::Image, live_gen, Ok(vec!["fresh-model".into()]));
         assert_eq!(app.workspace.ui().settings.image_models.chat, vec!["fresh-model".to_string()]);
         assert!(!app.workspace.ui().settings.image_models.fetching);
     }
@@ -275,7 +275,7 @@
         app.workspace.ui_mut().settings.image_api_key = "typed-test-token".into();
         app.fetch_models(ModelRole::Image);
         let live_gen = app.workspace.ui().settings.image_models.generation;
-        app.on_models(
+        app.workspace.on_models(
             Lang::En,
             ModelRole::Image,
             live_gen,

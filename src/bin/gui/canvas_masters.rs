@@ -33,7 +33,7 @@ pub(crate) fn spawn_master_load(
     let edge = self.workspace.genai().preview_edge.clamp(640, 8192);
     // Cache probe first: a revisited card installs synchronously, with
     // no worker and no "loading…" status to flash.
-    if let Some(arc) = self.cached_master(&origin, edge) {
+    if let Some(arc) = self.workspace.cached_master(&origin, edge) {
         self.install_master(ctx, &photo, &origin, arc);
         return;
     }
@@ -82,40 +82,7 @@ pub(crate) fn spawn_master_load(
     );
 }
 
-/// Cold-master LRU lookup (most-recent kept last) — same shape and same
-/// staleness guard as `cached_base`.
-pub(crate) fn cached_master(
-    &mut self,
-    origin: &std::path::Path,
-    edge: u32,
-) -> Option<Arc<image::DynamicImage>> {
-    let stamp = file_stamp(origin);
-    crate::logic::lru::get(&mut self.workspace.open_mut().master_cache, |(p, e, t)| {
-        p == origin && *e == edge && *t == stamp
-    })
-}
 
-/// Remember a freshly decoded cold master under its own identity —
-/// `remember_base`'s twin. The stamp is the SPAWN-TIME capture riding
-/// the message (L12-2): the old landing-time stat argued it made a
-/// mid-decode rewrite miss, but it did the opposite — the NEW stamp was
-/// filed with the OLD pixels, so the next probe HIT on pixels the file
-/// never held. Keyed pre-read, a rewrite moves the stamp on and misses.
-pub(crate) fn remember_master(
-    &mut self,
-    origin: &std::path::Path,
-    edge: u32,
-    stamp: FileStamp,
-    img: Arc<image::DynamicImage>,
-) {
-    crate::logic::lru::insert(
-        &mut self.workspace.open_mut().master_cache,
-        (origin.to_path_buf(), edge, stamp),
-        img,
-        |(p, e, _)| p == origin && *e == edge,
-        MASTER_CACHE_CAP,
-    );
-}
 
 /// Install decoded master pixels into every strip entry that still
 /// references this exact master and still awaits pixels — by IDENTITY,

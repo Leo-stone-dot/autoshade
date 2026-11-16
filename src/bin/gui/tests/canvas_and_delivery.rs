@@ -236,9 +236,9 @@
 
         let mut app = AutoShadeApp::default();
         let pixels = std::sync::Arc::new(image::DynamicImage::ImageRgba8(image::RgbaImage::new(2, 2)));
-        app.remember_master(&p, 1280, spawn_stamp, pixels);
+        app.workspace.remember_master(&p, 1280, spawn_stamp, pixels);
         assert!(
-            app.cached_master(&p, 1280).is_none(),
+            app.workspace.cached_master(&p, 1280).is_none(),
             "the old pixels were filed under the OLD identity, so the rewritten file misses"
         );
         let _ = std::fs::remove_dir_all(&dir);

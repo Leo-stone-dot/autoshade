@@ -157,7 +157,7 @@ pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo
                             // current preference may have moved while
                             // this decoded, and these pixels are the
                             // spawn's, not the preference's.
-                            self.remember_master(&origin, edge, stamp, arc.clone());
+                            self.workspace.remember_master(&origin, edge, stamp, arc.clone());
                             self.install_master(ctx, &photo, &origin, arc);
                         }
                         Err(e) => {
@@ -562,41 +562,4 @@ pub(crate) fn on_pasted(&mut self, lang: Lang, res: anyhow::Result<PasteOutcome>
     }
 }
 
-pub(crate) fn on_models(
-    &mut self,
-    lang: Lang,
-    role: ModelRole,
-    generation: u64,
-    res: anyhow::Result<Vec<autoshade::openai_models::ModelInfo>>,
-) {
-    // Single-flight per role (`fetch_models` refuses to start a second
-    // while one flies), so whatever lands, THE flight for this role is
-    // over — stale or not, the flag must clear or the fetch button and
-    // the auto-probe stay disarmed for the rest of the session.
-    self.workspace.catalogue_mut(role).fetching = false;
-    // …but the ids belong to the world the fetch was LAUNCHED in. A key
-    // replaced or a URL swapped mid-flight bumped `gen` (via `clear`);
-    // installing this completion would resurrect the ids the OLD
-    // credential could see and offer them under the new one's name.
-    if generation != self.workspace.catalogue_mut(role).generation {
-        self.workspace.ui_mut().settings.status = crate::i18n::text(lang, &logic::models::discarded_words());
-        return;
-    }
-    match res {
-        Ok(models) => {
-            // The classification and the line are the logic layer's.
-            let cat = logic::models::catalogue(&models, role == ModelRole::Image);
-            self.workspace.ui_mut().settings.status = crate::i18n::text(lang, &logic::models::installed_words(&cat));
-            let slot = self.workspace.catalogue_mut(role);
-            slot.chat = cat.chat;
-            slot.image_gen = cat.image;
-            slot.efforts = cat.efforts;
-            slot.vision = cat.vision;
-        }
-        Err(e) => {
-            self.workspace.ui_mut().settings.status =
-                crate::i18n::text(lang, &logic::models::failed_words(&e.to_string()));
-        }
-    }
-}
 }

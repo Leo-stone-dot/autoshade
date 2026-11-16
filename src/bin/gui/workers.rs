@@ -186,7 +186,7 @@ impl AutoShadeApp {
                     self.on_folder(lang, *boxed);
                     self.workspace.show_startup_note();
                 }
-                Msg::Thumb { generation, idx, img } => self.on_thumb(ctx, generation, idx, *img),
+                Msg::Thumb { generation, idx, img } => self.workspace.on_thumb(ctx, generation, idx, *img),
                 Msg::MasterLoaded { photo, origin, edge, stamp, img } => {
                     self.on_master_loaded(ctx, lang, photo, origin, edge, stamp, *img)
                 }
@@ -257,7 +257,7 @@ impl AutoShadeApp {
                         Err(e) => self.workspace.fail(tr(lang, K_GUI_IMPORT_FAILED), e),
                     }
                 }
-                Msg::Models(role, generation, res) => self.on_models(lang, role, generation, res),
+                Msg::Models(role, generation, res) => self.workspace.on_models(lang, role, generation, res),
             }
         }
     }

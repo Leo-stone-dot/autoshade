@@ -959,33 +959,6 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
             }
 }
 
-pub(crate) fn on_thumb(&mut self, ctx: &egui::Context, generation: u64, idx: usize, img: anyhow::Result<image::DynamicImage>) {
-                // Ignore thumbnails from a previous folder generation (their
-                // inflight count was already discarded when the folder changed).
-                if generation == self.workspace.gal().gallery_gen {
-                    self.workspace.gal_mut().thumb_inflight = self.workspace.gal().thumb_inflight.saturating_sub(1);
-                    match img {
-                        Ok(im) => {
-                            let tex = ctx.load_texture(
-                                format!("thumb{idx}"),
-                                to_color_image(&im),
-                                egui::TextureOptions::LINEAR,
-                            );
-                            self.workspace.gal_mut().thumbs.insert(idx, tex);
-                        }
-                        Err(_) => {
-                            // Count the failure and release the queue slot:
-                            // `request_thumb` allows three attempts, so a
-                            // transient decode failure (AV lock, a slow
-                            // share) still recovers on a later frame while
-                            // an undecodable file stops for good instead of
-                            // respawning decode threads every frame.
-                            *self.workspace.gal_mut().thumb_fail.entry(idx).or_insert(0) += 1;
-                            self.workspace.gal_mut().thumb_requested.remove(&idx);
-                        }
-                    }
-                }
-}
 
 pub(crate) fn on_base_redeveloped(
     &mut self,

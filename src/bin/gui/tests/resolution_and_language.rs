@@ -589,24 +589,24 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         let mut app = AutoShadeApp::default();
         let master = Arc::new(image::DynamicImage::new_rgb8(6, 4));
         let p = &std::env::temp_dir().join(format!("autoshade-nonexistent-{}/master.tif", std::process::id()));
-        app.remember_master(p, 1280, file_stamp(p), master.clone());
-        let hit = app.cached_master(p, 1280).expect("same path + edge hits");
+        app.workspace.remember_master(p, 1280, file_stamp(p), master.clone());
+        let hit = app.workspace.cached_master(p, 1280).expect("same path + edge hits");
         assert_eq!(hit.dimensions(), (6, 4), "the decoded pixels ride the entry");
         assert!(
-            app.cached_master(p, 4096).is_none(),
+            app.workspace.cached_master(p, 4096).is_none(),
             "a different edge must MISS — the entry holds 1280-edge pixels"
         );
         // Re-remembering the same (path, edge) replaces rather than stacks.
-        app.remember_master(p, 1280, file_stamp(p), master.clone());
+        app.workspace.remember_master(p, 1280, file_stamp(p), master.clone());
         assert_eq!(app.workspace.open().master_cache.len(), 1, "same key replaces its entry");
         let others: Vec<std::path::PathBuf> = (0..MASTER_CACHE_CAP)
             .map(|i| std::env::temp_dir().join(format!("autoshade-nonexistent-{}/m{i}.tif", std::process::id())))
             .collect();
         for o in &others {
-            app.remember_master(o, 1280, file_stamp(o), master.clone());
+            app.workspace.remember_master(o, 1280, file_stamp(o), master.clone());
         }
-        assert!(app.cached_master(p, 1280).is_none(), "least-recent evicted at cap");
-        assert!(app.cached_master(&others[1], 1280).is_some(), "newer entries survive");
+        assert!(app.workspace.cached_master(p, 1280).is_none(), "least-recent evicted at cap");
+        assert!(app.workspace.cached_master(&others[1], 1280).is_some(), "newer entries survive");
         assert!(app.workspace.open().master_cache.len() <= MASTER_CACHE_CAP, "cap holds");
     }
 
