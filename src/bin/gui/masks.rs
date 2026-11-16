@@ -34,7 +34,7 @@ impl AutoShadeApp {
             K_GUI_AI_SEGMENTING_FIRST_RUN_AUTO_DOWNLOADS_THE_MODEL,
             &[("what", &disp)],
         );
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let res = (|| -> anyhow::Result<(String, PathBuf, String)> {
                     let cfg = autoshade::config::Config::load();
@@ -532,7 +532,7 @@ impl AutoShadeApp {
         // against, and the alternative — reading `self.editor.doc().recipe` from the worker —
         // is not available on a background thread anyway.
         let recipe_at_spawn = self.editor.doc().recipe.clone();
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // Budget permit BEFORE the big-decode mutex — the one ordering
                 // every taker of both follows (budget.rs).

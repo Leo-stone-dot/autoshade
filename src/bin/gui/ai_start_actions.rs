@@ -658,7 +658,7 @@ impl AutoShadeApp {
             K_ACTIONS_IMPORTING_DEVELOPS_FROM,
             &[("path", &dir.display().to_string())],
         );
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // One directory scan for the whole gallery — the per-photo
                 // migrate_legacy_from re-scanned the (possibly huge) legacy
@@ -683,7 +683,7 @@ impl AutoShadeApp {
             return;
         }
         self.workspace.ai_mut().style_info_loading = true;
-        self.spawn_worker(
+        self.services.spawn_worker(
             || Msg::StyleInfo(Box::new(autoshade::library::summary())),
             // A read that PANICS must still clear the flag, or the status line
             // says "reading…" for the rest of the session.
@@ -719,7 +719,7 @@ impl AutoShadeApp {
         // not change what this build is doing.
         let describe = autoshade::library::DescribeSwitch::resolve(None, self.aip.style_describe);
         let raw_root = self.aip.style_raw_dir.clone().filter(|d| d.is_dir());
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let progress = |p: autoshade::library::BuildProgress| {
                     let _ = tx.send(Msg::StyleBuildProgress { stage: p.stage, done: p.done, total: p.total });
@@ -769,7 +769,7 @@ impl AutoShadeApp {
         // deadline, and the stale-epoch result is discarded on arrival.
         let (epoch, _flag) = self.workspace.arm_cancel();
         self.workspace.tools_mut().analyze_inflight = true;
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // Test seam: a headless test stands in for the paid chain.
                 #[cfg(test)]
@@ -827,7 +827,7 @@ impl AutoShadeApp {
         // and the persisted pixel link all read this ONE capture, so the three
         // cannot disagree.
         let negative = self.fit_negative();
-        let fit_strength = self.fit_strength();
+        let fit_strength = self.aip.fit_strength();
         let zoned = self.workspace.fit().zoned_fit;
         let zoned_regions = if self.workspace.fit().zoned_four_regions {
             autoshade::fit_zoned::semantic::MAX_SEMANTIC_REGIONS
@@ -854,7 +854,7 @@ impl AutoShadeApp {
             running.push_str(tr(lang, K_ACTIONS_THEN_AI_REVIEW_VISION_CALL));
         }
         self.workspace.set_status(running);
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // Full-frame commit budget (budget.rs); the reference's own
                 // header raises the floor when it is the bigger file.

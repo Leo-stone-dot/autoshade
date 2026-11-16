@@ -142,7 +142,7 @@ impl AutoShadeApp {
             let _ = self.services.tx.send(Msg::Opened(Box::new(Ok(hit))));
             return;
         }
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // Full-frame commit budget (budget.rs): the demosaic transient
                 // pays the corpus peak whatever `edge` caps afterwards.
@@ -327,7 +327,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         self.workspace.set_busy(true);
         self.workspace.set_status(trf(lang, K_ACTIONS_SCANNING, &[("path", &dir.display().to_string())]));
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let res = autoshade::pipeline::find_sources_counted(&dir)
                     .map(|(list, skipped)| (dir, list, skipped));

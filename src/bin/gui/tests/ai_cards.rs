@@ -1304,12 +1304,12 @@
         // Analysis dial is read once, in `analysis_strength`.
         let worker = &src[src.find("pub(crate) fn start_fit(").expect("start_fit moved")..];
         let worker = &worker[..worker.find("\n    pub(crate) fn ").unwrap()];
-        assert!(worker.contains("let fit_strength = self.fit_strength();"), "the reverse-fit block must read its own dial through fit_strength()");
+        assert!(worker.contains("let fit_strength = self.aip.fit_strength();"), "the reverse-fit block must read its own dial through fit_strength()");
         assert_eq!(worker.matches("strength: fit_strength,").count(), 2, "both fit entry points (zoned and global) must receive the fit's dial");
         let fit_strength = &src[src.find("pub(crate) fn fit_strength(").expect("fit_strength moved")..];
-        assert_eq!(fit_strength.matches("GradeStrength::new(self.aip.fit_strength)").count(), 1, "exactly one reading of the fit's dial: fit_strength() itself");
+        assert_eq!(fit_strength.matches("GradeStrength::new(self.fit_strength)").count(), 1, "exactly one reading of the fit's dial: fit_strength() itself");
         let analysis_strength = &src[src.find("pub(crate) fn analysis_strength(").expect("analysis_strength moved")..];
-        assert_eq!(analysis_strength.matches("GradeStrength::new(self.aip.grade_strength)").count(), 1, "exactly one reading of the Analysis dial: analysis_strength() itself");
+        assert_eq!(analysis_strength.matches("GradeStrength::new(self.grade_strength)").count(), 1, "exactly one reading of the Analysis dial: analysis_strength() itself");
         assert!(!src.contains("fn panel_strength") && !src.contains("self.panel_strength()"), "no shared reading is left (the name may survive in prose, never as code)");
 
         // Both range-reference callers go through the one builder.

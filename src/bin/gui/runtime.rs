@@ -220,7 +220,7 @@ impl AutoShadeApp {
         self.workspace.normal_mut().ref_dir = Some(dir.clone());
         let tx = self.services.tx.clone();
         let ctx = self.services.egui_ctx.clone();
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let progress = |p: autoshade::library::BuildProgress| {
                     let _ = tx.send(Msg::OneClickBuildProgress { done: p.done, total: p.total });
@@ -265,7 +265,7 @@ impl AutoShadeApp {
             guide: self.aip.guide,
             style: self.aip.style_strength,
             send_reference_image: self.aip.send_style_ref_image,
-            strength: self.analysis_strength(),
+            strength: self.aip.analysis_strength(),
             think: self.aip.deep_think,
             adherence: autoshade::recipe::DirectionAdherence::new(self.aip.direction_adherence),
             embed: autoshade::library::EmbeddingSwitch::resolve(None, self.aip.style_embed),
@@ -382,7 +382,7 @@ impl AutoShadeApp {
         base: std::sync::Arc<image::DynamicImage>,
     ) {
         self.workspace.set_busy(true);
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || Msg::DepthEstimated(logic::lens_blur::estimate_depth(&photo, &base)),
             |e| Msg::DepthEstimated(Err(e)),
         );

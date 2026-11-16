@@ -92,7 +92,7 @@ pub(crate) fn start_fill(&mut self) {
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
         let (epoch, flag) = self.workspace.arm_cancel();
         let ptx = self.services.tx.clone();
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // Progress heartbeats → status bar; the cancel flag stops the
                 // stream between events. Installed on THIS worker thread only.
@@ -181,7 +181,7 @@ pub(crate) fn start_adjust(&mut self) {
         let out_panic = out.clone();
         let (epoch, flag) = self.workspace.arm_cancel();
         let ptx = self.services.tx.clone();
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 autoshade::generative::set_worker_hooks(Some(autoshade::generative::WorkerHooks {
                     progress: Box::new(move |m| {
@@ -279,7 +279,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         // develop cannot add afterwards.
         let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
         let (epoch, _flag) = self.workspace.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&path))); // full-frame commit budget (budget.rs)
                 let res = (|| -> RetouchDone {
@@ -365,7 +365,7 @@ pub(crate) fn start_ai_denoise(&mut self) {
         // develop cannot add afterwards.
         let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
         let (epoch, _flag) = self.workspace.arm_cancel(); // sidecar compute: Cancel = abandon (epoch discard)
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&path))); // full-frame commit budget (budget.rs)
                 let res = (|| -> RetouchDone {
@@ -424,7 +424,7 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
         // develop cannot add afterwards.
         let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
         let (epoch, _flag) = self.workspace.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // Every frame is held decoded at once, so the commit is the
                 // one-frame estimate times the number of them.
@@ -507,7 +507,7 @@ pub(crate) fn start_clone(&mut self) {
         // develop cannot add afterwards.
         let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
         let (epoch, _flag) = self.workspace.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&path))); // full-frame commit budget (budget.rs)
                 let res = (|| -> RetouchDone {
@@ -595,7 +595,7 @@ pub(crate) fn start_reimagine(&mut self) {
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
         let (epoch, flag) = self.workspace.arm_cancel();
         let ptx = self.services.tx.clone();
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // Progress heartbeats → status bar; the cancel flag stops the
                 // stream between events. Installed on THIS worker thread only.
@@ -654,7 +654,7 @@ pub(crate) fn start_style_prompt(&mut self) {
         // them with the language live at landing time (L12#4).
         self.workspace.set_busy(true);
         self.workspace.set_status(tr(self.lang, K_ACTIONS_EXTRACTING_STYLE_PROMPT_VISION_5_20S).into());
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let res = (|| -> anyhow::Result<(String, StyleNote)> {
                     let jpg = |img: &image::DynamicImage| -> anyhow::Result<Vec<u8>> {

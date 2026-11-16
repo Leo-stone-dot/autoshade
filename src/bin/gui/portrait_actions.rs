@@ -99,7 +99,7 @@ pub(crate) fn start_find_people(&mut self) {
         self.workspace.set_busy(true);
         self.workspace.portrait_mut().line = PortraitLine::Finding;
         self.workspace.set_status(tr(self.lang, K_ACTIONS_FINDING_THE_PEOPLE_AND_FACES_THE_FIRST_RUN_DOWNL).into());
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 Msg::PortraitFound(Box::new(find_people(&original, &base, lens.as_ref(), &photo, &recipe, film, raw_source)))
             },

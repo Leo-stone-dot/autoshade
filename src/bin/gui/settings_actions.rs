@@ -310,7 +310,7 @@ impl AutoShadeApp {
         // always clears — a panic still delivers Msg::Models(role, gen, Err)
         // (this site used to hand-roll a Drop guard for exactly that; the
         // helper now covers every worker uniformly).
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || Msg::Models(role, generation, autoshade::openai_models::list_models(&base, &key)),
             move |e| Msg::Models(role, generation, Err(e)),
         );
@@ -342,7 +342,7 @@ impl AutoShadeApp {
         )
         .into();
         let tx = self.services.tx.clone();
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // uv writes pip's progress to stderr; each line lands in the
                 // Settings row, so a long download says what it is doing.

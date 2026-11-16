@@ -399,7 +399,7 @@
         }
         assert!(!app.services.egui_ctx.has_requested_repaint(), "sanity: context drained");
         let (gate_tx, gate_rx) = std::sync::mpsc::channel::<()>();
-        app.spawn_worker(
+        app.services.spawn_worker(
             move || {
                 let _ = gate_rx.recv();
                 Msg::Models(ModelRole::Image, 0, Ok(Vec::new()))

@@ -731,7 +731,7 @@
              budget, never to serde's 0.0"
         );
         assert_eq!(
-            AutoShadeApp::default().fit_strength().get(),
+            AutoShadeApp::default().aip.fit_strength().get(),
             autoshade::recipe::GradeStrength::DEFAULT,
             "the shipped dial value IS the byte-identical default budget"
         );
@@ -743,9 +743,9 @@
             },
             ..Default::default()
         };
-        assert_eq!(app.analysis_strength().get(), 0.9);
+        assert_eq!(app.aip.analysis_strength().get(), 0.9);
         assert_eq!(
-            autoshade::fit::FitBudget::for_strength(app.fit_strength()).vetoes,
+            autoshade::fit::FitBudget::for_strength(app.aip.fit_strength()).vetoes,
             autoshade::fit::VetoPolicy::Withhold,
             "the Analysis Strength must not reach the fit"
         );
@@ -757,11 +757,11 @@
             ..Default::default()
         };
         assert_eq!(
-            autoshade::fit::FitBudget::for_strength(app.fit_strength()).vetoes,
+            autoshade::fit::FitBudget::for_strength(app.aip.fit_strength()).vetoes,
             autoshade::fit::VetoPolicy::Disclose
         );
         assert_eq!(
-            app.analysis_strength().get(),
+            app.aip.analysis_strength().get(),
             GRADE_STRENGTH_DEFAULT,
             "and the fit's dial never reaches the analyze request"
         );

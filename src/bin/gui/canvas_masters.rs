@@ -53,7 +53,7 @@ pub(crate) fn spawn_master_load(
     // change filed these pixels under a resolution they never had.
     let stamp = file_stamp(&origin);
     let (p2, o2) = (photo.clone(), origin.clone());
-    self.spawn_worker(
+    self.services.spawn_worker(
         move || {
             let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&origin))); // full-frame commit budget (budget.rs)
             // The same >24 MP permit `request_thumb` takes: a master
@@ -174,7 +174,7 @@ pub(crate) fn request_thumb(&mut self, idx: usize) {
     self.workspace.gal_mut().thumb_requested.insert(idx);
     self.workspace.gal_mut().thumb_inflight += 1;
     let generation = self.workspace.gal().gallery_gen;
-    self.spawn_worker(
+    self.services.spawn_worker(
         move || {
             let res = (|| -> anyhow::Result<image::DynamicImage> {
                 let cache = thumb_cache_file(&path);
@@ -253,7 +253,7 @@ pub(crate) fn start_redevelop(&mut self) {
     let film = self.film_short_edge();
     self.editor.scheduler_mut().inflight = true;
     self.editor.session_mut().dirty = false;
-    self.spawn_worker(
+    self.services.spawn_worker(
         move || Msg::Developed(Box::new(Ok(build_preview(base, recipe, show_clipping, film, source)))),
         |e| Msg::Developed(Box::new(Err(e))),
     );
@@ -287,7 +287,7 @@ pub(crate) fn ensure_source_part(&mut self) -> bool {
     let edge = self.workspace.genai().preview_edge.clamp(640, 8192);
     self.workspace.open_mut().source_part_inflight = Some(want.clone());
     let (p, part) = (path.clone(), want.clone());
-    self.spawn_worker(
+    self.services.spawn_worker(
         move || {
             let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&p)));
             let img = autoshade::render::base_develop(&p, &part, Some(edge)).map(Arc::new);

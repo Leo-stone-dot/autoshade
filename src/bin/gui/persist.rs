@@ -992,7 +992,7 @@ impl AutoShadeApp {
         }
         .into();
         let (panic_photo, panic_card) = (photo.clone(), card.clone());
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let before = recipe.clone();
                 let res = run(&photo, &pixels, &mut recipe);

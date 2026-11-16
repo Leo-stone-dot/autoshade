@@ -23,21 +23,7 @@ pub(crate) struct PersistedCard<'a> {
 }
 
 impl AutoShadeApp {
-    /// The Analysis fold's Strength dial as the typed axis the develop request
-    /// reads (R23-3). Nothing else reads it.
-    pub(crate) fn analysis_strength(&self) -> autoshade::recipe::GradeStrength {
-        autoshade::recipe::GradeStrength::new(self.aip.grade_strength)
-    }
 
-    /// The Reverse-fit fold's OWN Strength dial as the fit's honesty budget
-    /// (F1). Separate from [`Self::analysis_strength`] on purpose — user
-    /// decision 2026-09-12: the two functions live in two folds, so each has
-    /// its own control and neither reading reaches the other. Through v1.3.1
-    /// both read one `panel_strength()`, and the fit's budget was a dial two
-    /// folds above the fit's own row.
-    pub(crate) fn fit_strength(&self) -> autoshade::recipe::GradeStrength {
-        autoshade::recipe::GradeStrength::new(self.aip.fit_strength)
-    }
 
     /// Restore persisted prefs (last folder, view mode, export options) and
     /// re-open the library the user was browsing. Window geometry itself is

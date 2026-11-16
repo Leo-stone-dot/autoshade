@@ -396,7 +396,7 @@ impl AutoShadeApp {
         let recipe = self.editor.doc().recipe.clone();
         let src_photo = self.editor.photo().src_path.clone();
         let ai_masks = self.ai_mask_runner();
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&path))); // full-frame commit budget (budget.rs)
                 let claim = numbered.then(|| out.clone());
@@ -560,7 +560,7 @@ impl AutoShadeApp {
                 .map(|o| (o, self.editor.active_on_ai_pixels()));
             overrides.insert(p, (self.editor.doc().recipe.clone(), pix));
         }
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // ONE permit across the whole batch: the loop is sequential, so
                 // its peak is one photo's (budget.rs).
@@ -1433,7 +1433,7 @@ impl AutoShadeApp {
             K_EXPORT_PASTING_RECIPE_TO_PHOTOS,
             &[("n", &targets.len().to_string())],
         );
-        self.spawn_worker(
+        self.services.spawn_worker(
             move || {
                 // A plain block, not an IIFE: the typed outcome (L12#4)
                 // removed the early bail — the per-target `step` closure
