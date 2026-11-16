@@ -48,7 +48,6 @@ impl AutoShadeApp {
                 Action::MaskEdit(action) => {
                     effects.extend(logic::mask_edit::apply(&mut self.doc.recipe, action));
                 }
-                Action::Region(action) => effects.extend(logic::region::apply(action)),
                 Action::Portrait(action) => match action {
                     logic::portrait::PortraitAction::FindPeople => self.start_find_people(),
                     logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
@@ -185,7 +184,6 @@ impl AutoShadeApp {
                 Effect::StartLook(intent) => self.start_look(intent),
                 Effect::ReferenceBuild { photo, dir } => self.start_reference_build(photo, dir),
                 Effect::ArmFocusPick(on) => self.tools.lens_focus_picking = on,
-                Effect::SetRegion(region) => self.overlay.region = region,
                 Effect::DisarmPicker(picker) => match picker {
                     logic::pick::Picker::WhiteBalance => self.tools.wb_picking = false,
                     logic::pick::Picker::Range => self.tools.range_picking = None,

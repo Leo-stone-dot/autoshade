@@ -1211,7 +1211,11 @@ impl AutoShadeApp {
                     map(egui::pos2(s.x, e.y)),
                     map(egui::pos2(e.x, s.y)),
                 ];
-                self.apply_actions(vec![logic::Action::Region(logic::region::RegionAction::Select(corners))]);
+                let outcome = logic::region::select(corners);
+                self.overlay.region = outcome.region;
+                if let Some(status) = outcome.status {
+                    self.run_effects(vec![logic::Effect::Status(status)]);
+                }
             }
         } else if resp.clicked() && !resp.double_clicked() {
             // Remember what this click cleared: if it turns out to be the

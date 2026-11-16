@@ -75,8 +75,6 @@ pub(crate) enum Action {
     Crop(crop::CropAction),
     /// A knob drag on the selected mask's geometry.
     MaskEdit(mask_edit::MaskEditAction),
-    /// A box-selected AI region.
-    Region(region::RegionAction),
     /// The develop panel's list verbs.
     Develop(develop::DevelopAction),
     /// The Portraits panel's verbs.
@@ -176,8 +174,6 @@ pub(crate) enum Effect {
     ArmFocusPick(bool),
     /// Put one armed eyedropper (WB / range / point colour) down.
     DisarmPicker(pick::Picker),
-    /// The AI region box (the logic layer decided and worded it).
-    SetRegion(Option<[f32; 4]>),
     /// One canvas tool at a time: every arming site disarms the rest.
     DisarmTools,
     MarkDirty,
