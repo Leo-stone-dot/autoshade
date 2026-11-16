@@ -67,8 +67,8 @@ impl AutoShadeApp {
                         self.start_segment(target, label)
                     }
                     logic::develop::DevelopAction::MaskRefine(i) => self.start_mask_refine(i),
-                    logic::develop::DevelopAction::MoveMaskUp(i) => self.move_mask(i, true),
-                    logic::develop::DevelopAction::MoveMaskDown(i) => self.move_mask(i, false),
+                    logic::develop::DevelopAction::MoveMaskUp(i) => self.editor.move_mask(&mut self.workspace, i, true),
+                    logic::develop::DevelopAction::MoveMaskDown(i) => self.editor.move_mask(&mut self.workspace, i, false),
                     logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
                     logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
                     logic::develop::DevelopAction::DeleteVersion(n) => {

@@ -329,29 +329,6 @@ impl AutoShadeApp {
     }
 
 
-    /// Move one mask a row up/down. Mask ORDER is render semantics (masks
-    /// stack sequentially; a later mask's range sees earlier masks' output), so
-    /// the list order is editable — and the armed-tool indices remap with it.
-    pub(crate) fn move_mask(&mut self, i: usize, up: bool) {
-        let j = if up {
-            if i == 0 { return }
-            i - 1
-        } else {
-            if i + 1 >= self.editor.doc().recipe.masks.len() { return }
-            i + 1
-        };
-        crate::logic::command::apply(
-            &mut self.editor.doc_mut().recipe,
-            crate::logic::command::Command::Mask(if up {
-                crate::logic::command::MaskCommand::MoveUp { index: i }
-            } else {
-                crate::logic::command::MaskCommand::MoveDown { index: i }
-            }),
-        );
-        self.workspace.remap_mask_indices(|s| Some(if s == i { j } else if s == j { i } else { s }));
-        self.workspace.overlay_mut().overlay_stale = true;
-        self.editor.session_mut().dirty = true;
-    }
 
     /// Duplicate a mask: its tuned sliders come along, its rasters are DETACHED
     /// copies (the version-load rule), so the twins never share a mutable file.

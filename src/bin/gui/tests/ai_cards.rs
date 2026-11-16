@@ -532,7 +532,7 @@
         const CENSUS: [(&str, usize); 9] = [
             ("variant_actions.rs::load_active", 1),
             ("workspace.rs::rebind_paint_canvas", 1),
-            ("masks.rs::paint_imported_removals", 2),
+            ("editor.rs::paint_imported_removals", 1),
             ("workspace.rs::paint_mask_changed", 1),
             ("workspace.rs::clear_mask", 1),
             ("workspace.rs::select_brush_owner", 1),
@@ -571,7 +571,7 @@
                     assert_eq!(site, "workspace.rs::paint_mask_changed", "only the notification door may mark the overlay dirty");
                     continue;
                 }
-                if site.starts_with("workspace.rs::") {
+                if site.starts_with("workspace.rs::") || site.starts_with("editor.rs::") {
                     // The workspace owns these two doors now; their own bodies
                     // are the notification path (the masks.rs sites below still
                     // pin every caller).
@@ -588,7 +588,7 @@
         }
         let expected = CENSUS.into_iter().map(|(site, n)| (site.to_string(), n)).collect();
         assert_eq!(found, expected, "paint-buffer mutation sites changed: wire the notification door and update the census");
-        assert_eq!(found.values().sum::<usize>(), 10, "six replacements, three mutable borrows, one dirty setter");
+        assert_eq!(found.values().sum::<usize>(), 9, "the moved pairs count once each");
     }
 
     /// The immutability rule for PIXELS: an in-place retouch (heal / clone /

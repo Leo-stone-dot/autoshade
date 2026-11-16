@@ -457,7 +457,7 @@ impl AutoShadeApp {
                         // Paint first, and only spawn if something landed —
                         // `start_fill` over a blank mask would refuse with a
                         // status line that reads like the button is broken.
-                        if self.paint_imported_removals() > 0 {
+                        if self.editor.paint_imported_removals(&mut self.workspace) > 0 {
                             self.start_fill();
                         }
                     }
