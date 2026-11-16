@@ -66,6 +66,18 @@ fn panel_dev_curves(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: boo
     view.dev_curves(ui, active)
 }
 
+fn panel_dev_grading(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_grading(ui, active)
+}
+
+fn panel_dev_stack(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_stack(ui, active)
+}
+
+fn panel_dev_lens_blur(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_lens_blur(ui, active)
+}
+
 /// The panel's sections, in the order it draws them.
 pub(crate) const SECTIONS: &[Section] = &[
     Section {
@@ -96,7 +108,7 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "grading",
         families: &["color_grade"],
         kind: SectionKind::Custom,
-        draw: SectionDraw::App(AutoShadeApp::dev_grading),
+        draw: SectionDraw::Panel(panel_dev_grading),
     },
     Section {
         id: "calibration",
@@ -122,7 +134,7 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "lens_blur",
         families: &[],
         kind: SectionKind::Form,
-        draw: SectionDraw::App(AutoShadeApp::dev_lens_blur),
+        draw: SectionDraw::Panel(panel_dev_lens_blur),
     },
     Section {
         id: "lens",
@@ -160,7 +172,7 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "stack",
         families: &[],
         kind: SectionKind::Form,
-        draw: SectionDraw::App(AutoShadeApp::dev_stack),
+        draw: SectionDraw::Panel(panel_dev_stack),
     },
     Section {
         id: "hdr",

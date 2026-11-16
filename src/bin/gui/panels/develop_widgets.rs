@@ -6,7 +6,6 @@
 //! rows and render through the capability table.
 
 use crate::*;
-use crate::panels::grade_wheel::{grade_wheel, GRADE_VIEWS};
 
 impl AutoShadeApp {
 
@@ -198,77 +197,6 @@ impl AutoShadeApp {
         changed
     }
 
-    /// One develop-panel section — body extracted verbatim from
-    /// develop_panel (round-12 decomposition; spacing included).
-    pub(crate) fn dev_grading(&mut self, ui: &mut egui::Ui, grade_active: bool) -> bool {
-        let lang = self.lang;
-        let mut changed = false;
-
-        ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_COLOR_GRADING), grade_active))
-            .id_salt("sec_grade")
-            .default_open(false)
-            , |ui| {
-                // Lightroom's grading panel (2026-10-13): the 3-way view shows
-                // the shadow, midtone and highlight wheels together, each with
-                // its luminance under it; Global is one wheel for the whole
-                // picture (`panels/grade_wheel.rs`).
-                ui.horizontal(|ui| {
-                    let gap = ui.spacing().item_spacing.x;
-                    let w = ((ui.available_width().min(FIELD_W_MAX) - row_h(ui) - 2.0 * gap) / 2.0).floor();
-                    for (i, name) in GRADE_VIEWS.iter().enumerate() {
-                        if toggle_in(ui, egui::vec2(w, row_h(ui)), self.workspace.ai().grade_region == i, tr(lang, name)).clicked() {
-                            self.workspace.ai_mut().grade_region = i;
-                        }
-                    }
-                    // R38: a glyph square — the same reset in every mixer row.
-                    if glyph(ui, true, "↺").on_hover_text(tr(lang, K_DEVELOP_RESET_ALL)).clicked() {
-                        self.editor.doc_mut().recipe.color_grade = ColorGrade::default();
-                        changed = true;
-                    }
-                });
-                ui.add_space(SPACE_SM);
-                let cg = &mut self.editor.doc_mut().recipe.color_grade;
-                // One wheel with its luminance slider in a column `width` wide.
-                let wheel = |ui: &mut egui::Ui, title: &str, width: f32, h: &mut f32, s: &mut f32, l: &mut f32| {
-                    let mut c = false;
-                    ui.vertical(|ui| {
-                        ui.set_width(width);
-                        c |= grade_wheel(ui, lang, title, (width - 8.0).min(170.0), h, s);
-                        c |= slider(ui, lang, tr(lang, K_DEVELOP_LUMINANCE), l, -100.0, 100.0, 0.0);
-                    });
-                    c
-                };
-                let avail = ui.available_width();
-                if self.workspace.ai().grade_region == 0 {
-                    // Midtones on top, centred; shadows and highlights under it.
-                    let half = ((avail - ui.spacing().item_spacing.x) / 2.0).floor();
-                    ui.horizontal(|ui| {
-                        ui.add_space(((avail - half) / 2.0).floor());
-                        changed |= wheel(ui, tr(lang, K_DEVELOP_MIDTONES), half, &mut cg.midtone_hue, &mut cg.midtone_sat, &mut cg.midtone_lum);
-                    });
-                    ui.add_space(SPACE_SM);
-                    ui.horizontal(|ui| {
-                        changed |= wheel(ui, tr(lang, K_DEVELOP_SHADOWS), half, &mut cg.shadow_hue, &mut cg.shadow_sat, &mut cg.shadow_lum);
-                        changed |= wheel(ui, tr(lang, K_DEVELOP_HIGHLIGHTS), half, &mut cg.highlight_hue, &mut cg.highlight_sat, &mut cg.highlight_lum);
-                    });
-                } else {
-                    let width = (avail * 0.7).floor();
-                    ui.horizontal(|ui| {
-                        ui.add_space(((avail - width) / 2.0).floor());
-                        changed |= wheel(ui, tr(lang, K_DEVELOP_GLOBAL), width, &mut cg.global_hue, &mut cg.global_sat, &mut cg.global_lum);
-                    });
-                }
-                // Blending/Balance shape the WHOLE grade, not one wheel — a
-                // scope caption keeps them from reading as a wheel's own. The
-                // two sliders are capability rows: the band and the reset
-                // (blending 50, not 0) come from the core catalogue's nested
-                // colour-grade table, not from this draw site.
-                sub_caption(ui, tr(lang, K_DEVELOP_ALL_REGIONS));
-                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::GRADE_GLOBALS);
-            });
-        changed
-    }
 }
 
 /// Lightroom's parametric tone curve (v1.5.0), under the point curve in

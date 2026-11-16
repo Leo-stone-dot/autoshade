@@ -6,6 +6,7 @@
 //! type simply does not carry them.
 
 use crate::*;
+use crate::panels::grade_wheel::{grade_wheel, GRADE_VIEWS};
 use autoshade::advisor::catalogue::{family_is_active, CONTROL_FAMILIES};
 use crate::panels::develop_widgets::parametric_curve;
 use crate::panels::ai::{is_working_note, note_args, thinking_notes};
@@ -21,6 +22,218 @@ pub(crate) struct PanelView<'a, 'b> {
 }
 
 impl PanelView<'_, '_> {
+    /// One develop-panel section — body extracted verbatim from
+    /// develop_panel (round-12 decomposition; spacing included).
+    pub(crate) fn dev_grading(&mut self, ui: &mut egui::Ui, grade_active: bool) -> bool {
+        let lang = self.lang;
+        let mut changed = false;
+    
+        ui.add_space(SPACE_MD);
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_COLOR_GRADING), grade_active))
+            .id_salt("sec_grade")
+            .default_open(false)
+            , |ui| {
+                // Lightroom's grading panel (2026-10-13): the 3-way view shows
+                // the shadow, midtone and highlight wheels together, each with
+                // its luminance under it; Global is one wheel for the whole
+                // picture (`panels/grade_wheel.rs`).
+                ui.horizontal(|ui| {
+                    let gap = ui.spacing().item_spacing.x;
+                    let w = ((ui.available_width().min(FIELD_W_MAX) - row_h(ui) - 2.0 * gap) / 2.0).floor();
+                    for (i, name) in GRADE_VIEWS.iter().enumerate() {
+                        if toggle_in(ui, egui::vec2(w, row_h(ui)), self.workspace.ai().grade_region == i, tr(lang, name)).clicked() {
+                            self.workspace.ai_mut().grade_region = i;
+                        }
+                    }
+                    // R38: a glyph square — the same reset in every mixer row.
+                    if glyph(ui, true, "↺").on_hover_text(tr(lang, K_DEVELOP_RESET_ALL)).clicked() {
+                        self.editor.doc_mut().recipe.color_grade = ColorGrade::default();
+                        changed = true;
+                    }
+                });
+                ui.add_space(SPACE_SM);
+                let cg = &mut self.editor.doc_mut().recipe.color_grade;
+                // One wheel with its luminance slider in a column `width` wide.
+                let wheel = |ui: &mut egui::Ui, title: &str, width: f32, h: &mut f32, s: &mut f32, l: &mut f32| {
+                    let mut c = false;
+                    ui.vertical(|ui| {
+                        ui.set_width(width);
+                        c |= grade_wheel(ui, lang, title, (width - 8.0).min(170.0), h, s);
+                        c |= slider(ui, lang, tr(lang, K_DEVELOP_LUMINANCE), l, -100.0, 100.0, 0.0);
+                    });
+                    c
+                };
+                let avail = ui.available_width();
+                if self.workspace.ai().grade_region == 0 {
+                    // Midtones on top, centred; shadows and highlights under it.
+                    let half = ((avail - ui.spacing().item_spacing.x) / 2.0).floor();
+                    ui.horizontal(|ui| {
+                        ui.add_space(((avail - half) / 2.0).floor());
+                        changed |= wheel(ui, tr(lang, K_DEVELOP_MIDTONES), half, &mut cg.midtone_hue, &mut cg.midtone_sat, &mut cg.midtone_lum);
+                    });
+                    ui.add_space(SPACE_SM);
+                    ui.horizontal(|ui| {
+                        changed |= wheel(ui, tr(lang, K_DEVELOP_SHADOWS), half, &mut cg.shadow_hue, &mut cg.shadow_sat, &mut cg.shadow_lum);
+                        changed |= wheel(ui, tr(lang, K_DEVELOP_HIGHLIGHTS), half, &mut cg.highlight_hue, &mut cg.highlight_sat, &mut cg.highlight_lum);
+                    });
+                } else {
+                    let width = (avail * 0.7).floor();
+                    ui.horizontal(|ui| {
+                        ui.add_space(((avail - width) / 2.0).floor());
+                        changed |= wheel(ui, tr(lang, K_DEVELOP_GLOBAL), width, &mut cg.global_hue, &mut cg.global_sat, &mut cg.global_lum);
+                    });
+                }
+                // Blending/Balance shape the WHOLE grade, not one wheel — a
+                // scope caption keeps them from reading as a wheel's own. The
+                // two sliders are capability rows: the band and the reset
+                // (blending 50, not 0) come from the core catalogue's nested
+                // colour-grade table, not from this draw site.
+                sub_caption(ui, tr(lang, K_DEVELOP_ALL_REGIONS));
+                changed |= self.capability_rows(ui, crate::controls::GRADE_GLOBALS);
+            });
+        changed
+    }
+
+    /// ▦ 堆栈 — several frames of one scene merged into a new negative.
+    ///
+    /// The ACTIVE card's frame is the reference and the picked frames join it;
+    /// the result is a new ▦ card. Every input the verb reads is drawn in this
+    /// fold (the user decision of 2026-09-12): which merge to run, and whether
+    /// the frames are registered already.
+    ///
+    /// It returns nothing because it changes no recipe field — the merge
+    /// writes a master and pushes a card, which is not an edit of the develop
+    /// the panel is holding.
+    pub(crate) fn dev_stack(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
+        let lang = self.lang;
+        // The section's ● says this photo HAS a stacked card, which is the
+        // only state this fold owns that outlives the click.
+        let has = self.editor.doc().variants.iter().any(|v| v.kind == VariantKind::Stacked);
+        ui.add_space(SPACE_MD);
+        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_STACK), has))
+            .id_salt("sec_stack")
+            .default_open(false)
+            , |ui| {
+                explainer(ui, lang, tr(lang, K_DEVELOP_MERGE_SEVERAL_FRAMES_OF_ONE_SCENE_INTO_A_NEW_NEG));
+                ui.add_space(SPACE_SM);
+                egui::ComboBox::from_id_salt("stack_kind")
+                    .selected_text(tr(lang, self.workspace.tools().stack_kind.label()))
+                    .show_ui(ui, |ui| {
+                        for k in autoshade::stack::merge::StackKind::ALL {
+                            ui.selectable_value(&mut self.workspace.tools_mut().stack_kind, k, tr(lang, k.label()));
+                        }
+                    })
+                    .response
+                    .on_hover_text(tr(
+                        lang,
+                        K_DEVELOP_HDR_MERGE_AN_EXPOSURE_BRACKET_INTO_ONE_FRAME_HOL,
+                    ));
+                ui.checkbox(&mut self.workspace.tools_mut().stack_tripod, tr(lang, K_DEVELOP_SHOT_ON_A_TRIPOD_SKIP_ALIGNMENT))
+                    .on_hover_text(tr(
+                        lang,
+                        K_DEVELOP_ALIGNMENT_IS_THE_EXPENSIVE_HALF_OF_A_STACK_AND_O,
+                    ));
+                ui.add_space(SPACE_SM);
+                ui.horizontal(|ui| {
+                    let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy();
+                    if action_row(ui, ready, tr(lang, K_DEVELOP_STACK_WITH_OTHER_FRAMES))
+                        .on_hover_text(tr(
+                            lang,
+                            K_DEVELOP_PICK_THE_OTHER_FRAMES_OF_THIS_SCENE_THEY_MUST_BE,
+                        ))
+                        .clicked()
+                        && let Some(extra) = photo_files_dialog()
+                    {
+                        self.act_all(vec![logic::Action::Develop(
+                            logic::develop::DevelopAction::Stack(extra),
+                        )]);
+                    }
+                });
+            });
+            false
+    }
+
+    /// The Lens Blur section of the Develop panel.
+    pub(crate) fn dev_lens_blur(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
+        // A verb section: its body returns the actions the worker start
+        // needs, and the row's draw applies them (the facade does this for
+        // every surface).
+        let actions = self.lens_blur_section(ui);
+        let touched = !actions.is_empty();
+        if touched {
+            self.act_all(actions);
+        }
+        touched
+    }
+
+    pub(crate) fn lens_blur_section(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
+        let lang = self.lang;
+        let active = logic::lens_blur::active(&self.editor.doc().recipe);
+        let mut actions = Vec::new();
+        ui.add_space(SPACE_MD);
+        card_fold(
+            ui,
+            egui::CollapsingHeader::new(section_title(tr(lang, K_LENS_LENS_BLUR), active))
+                .id_salt("sec_lens_blur")
+                .default_open(false),
+            |ui| actions = self.lens_blur_body(ui),
+        );
+        actions
+    }
+
+    pub(crate) fn lens_blur_body(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
+        let lang = self.lang;
+        let mut actions = Vec::new();
+        let has_helper = depth_helper_available();
+        let can_run = !self.workspace.busy() && self.editor.photo().base_preview.is_some() && self.editor.photo().src_path.is_some() && has_helper;
+        let has_blur = self.editor.doc().recipe.lens_blur.is_some();
+        let verb = if has_blur { tr(lang, K_LENS_RE_ESTIMATE_DEPTH) } else { tr(lang, K_LENS_ESTIMATE_DEPTH) };
+        let tip = if has_helper {
+            ai_xref(lang, tr(lang, K_LENS_MOGE_2_ESTIMATES_HOW_FAR_AWAY_EVERY_PART_OF_THE))
+        } else {
+            tr(lang, K_LENS_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPER_WHI).to_string()
+        };
+        if action_row(ui, can_run, verb).on_hover_text(tip).clicked() {
+            actions.push(logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth));
+        }
+        // The card's current values, copied out so the draw below never holds a
+        // borrow into the recipe the facade is about to change.
+        let Some((enabled, amount, range)) = self.editor.doc().recipe.lens_blur.as_ref().map(|l| (l.enabled, l.amount, l.range)) else {
+            let hint = tr(lang, K_LENS_ESTIMATE_THE_DEPTH_FIRST_THEN_CLICK_THE_PHOTO_TO);
+            ui.label(egui::RichText::new(hint).weak().small());
+            return actions;
+        };
+        let picking = self.workspace.tools().lens_focus_picking;
+        ui.horizontal(|ui| {
+            let mute = tr(lang, K_LENS_SHOW_MUTE_THE_LENS_BLUR_WITHOUT_LOSING_ITS_SETTI);
+            if glyph_toggle(ui, enabled, "👁").on_hover_text(mute).clicked() {
+                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::ToggleLensBlur(!enabled)));
+            }
+            let cell = egui::vec2(ui.available_width() - row_h(ui) - ui.spacing().item_spacing.x, row_h(ui));
+            let how = tr(lang, K_LENS_CLICK_THE_PHOTO_WHATEVER_IS_AT_THAT_DISTANCE_STA);
+            if toggle_in(ui, cell, picking, tr(lang, K_LENS_PICK_FOCUS)).on_hover_text(how).clicked() {
+                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusPicking(!picking)));
+            }
+            if glyph(ui, true, "🗑").on_hover_text(tr(lang, K_LENS_REMOVE_THE_LENS_BLUR)).clicked() {
+                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::RemoveLensBlur));
+            }
+        });
+        // The two dials of `render::LensBlur`; the copy is what the view may
+        // touch, the recipe change goes through the action.
+        ui.add_enabled_ui(enabled, |ui| {
+            let mut next = amount;
+            if slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut next, 0.0, 100.0, 50.0) {
+                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetBlurAmount(next)));
+            }
+            let mut next = range;
+            if slider(ui, lang, tr(lang, K_LENS_FOCUS_RANGE), &mut next, 0.0, 100.0, 10.0) {
+                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusRange(next)));
+            }
+        });
+        let carried = tr(lang, K_LENS_RENDERED_HERE_AND_IN_EVERY_EXPORT_FROM_THIS_APP);
+        ui.label(egui::RichText::new(carried).weak().small());
+        actions
+    }
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
     pub(crate) fn dev_presence(&mut self, ui: &mut egui::Ui, presence_active: bool) -> bool {

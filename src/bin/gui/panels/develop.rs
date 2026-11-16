@@ -677,64 +677,6 @@ impl AutoShadeApp {
         changed
     }
 
-    /// ▦ 堆栈 — several frames of one scene merged into a new negative.
-    ///
-    /// The ACTIVE card's frame is the reference and the picked frames join it;
-    /// the result is a new ▦ card. Every input the verb reads is drawn in this
-    /// fold (the user decision of 2026-09-12): which merge to run, and whether
-    /// the frames are registered already.
-    ///
-    /// It returns nothing because it changes no recipe field — the merge
-    /// writes a master and pushes a card, which is not an edit of the develop
-    /// the panel is holding.
-    pub(crate) fn dev_stack(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
-        let lang = self.lang;
-        // The section's ● says this photo HAS a stacked card, which is the
-        // only state this fold owns that outlives the click.
-        let has = self.editor.doc().variants.iter().any(|v| v.kind == VariantKind::Stacked);
-        ui.add_space(SPACE_MD);
-        card_fold(ui, egui::CollapsingHeader::new(section_title(tr(lang, K_DEVELOP_STACK), has))
-            .id_salt("sec_stack")
-            .default_open(false)
-            , |ui| {
-                explainer(ui, lang, tr(lang, K_DEVELOP_MERGE_SEVERAL_FRAMES_OF_ONE_SCENE_INTO_A_NEW_NEG));
-                ui.add_space(SPACE_SM);
-                egui::ComboBox::from_id_salt("stack_kind")
-                    .selected_text(tr(lang, self.workspace.tools().stack_kind.label()))
-                    .show_ui(ui, |ui| {
-                        for k in autoshade::stack::merge::StackKind::ALL {
-                            ui.selectable_value(&mut self.workspace.tools_mut().stack_kind, k, tr(lang, k.label()));
-                        }
-                    })
-                    .response
-                    .on_hover_text(tr(
-                        lang,
-                        K_DEVELOP_HDR_MERGE_AN_EXPOSURE_BRACKET_INTO_ONE_FRAME_HOL,
-                    ));
-                ui.checkbox(&mut self.workspace.tools_mut().stack_tripod, tr(lang, K_DEVELOP_SHOT_ON_A_TRIPOD_SKIP_ALIGNMENT))
-                    .on_hover_text(tr(
-                        lang,
-                        K_DEVELOP_ALIGNMENT_IS_THE_EXPENSIVE_HALF_OF_A_STACK_AND_O,
-                    ));
-                ui.add_space(SPACE_SM);
-                ui.horizontal(|ui| {
-                    let ready = self.editor.photo().src_path.is_some() && !self.workspace.busy();
-                    if action_row(ui, ready, tr(lang, K_DEVELOP_STACK_WITH_OTHER_FRAMES))
-                        .on_hover_text(tr(
-                            lang,
-                            K_DEVELOP_PICK_THE_OTHER_FRAMES_OF_THIS_SCENE_THEY_MUST_BE,
-                        ))
-                        .clicked()
-                        && let Some(extra) = photo_files_dialog()
-                    {
-                        self.apply_actions(vec![logic::Action::Develop(
-                            logic::develop::DevelopAction::Stack(extra),
-                        )]);
-                    }
-                });
-            });
-            false
-    }
 
 
 
