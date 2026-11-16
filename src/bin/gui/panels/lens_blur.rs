@@ -2,7 +2,7 @@
 //! depth and blurs the background progressively; the user picks the focus
 //! point).
 //!
-//! VIEW ONLY. This file draws the section and emits [`logic::Action`]s; what
+//! VIEW ONLY. This file draws the section and emits `LensAction`s; what
 //! each action means, the depth worker and its landing live in
 //! `logic/lens_blur.rs`. It may not mutate the recipe, spawn a worker, touch
 //! the filesystem or open a dialog — `tests/architecture.rs` pins that.
@@ -11,7 +11,7 @@ use crate::*;
 
 impl AutoShadeApp {
     /// The Lens Blur section of the Develop panel.
-    pub(crate) fn dev_lens_blur(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
+    pub(crate) fn dev_lens_blur(&mut self, ui: &mut egui::Ui) -> Vec<logic::lens_blur::LensAction> {
         let lang = self.lang;
         let active = logic::lens_blur::active(&self.doc.recipe);
         let mut actions = Vec::new();
@@ -26,7 +26,7 @@ impl AutoShadeApp {
         actions
     }
 
-    fn lens_blur_body(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
+    fn lens_blur_body(&mut self, ui: &mut egui::Ui) -> Vec<logic::lens_blur::LensAction> {
         let lang = self.lang;
         let mut actions = Vec::new();
         let has_helper = depth_helper_available();
@@ -39,7 +39,7 @@ impl AutoShadeApp {
             tr(lang, "This feature needs AutoShade's Python helper, which this download does not include. Install the full package, or (advanced) set AUTOSHADE_DEPTH_SCRIPT to the path of depth.py").to_string()
         };
         if action_row(ui, can_run, verb).on_hover_text(tip).clicked() {
-            actions.push(logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth));
+            actions.push(logic::lens_blur::LensAction::EstimateDepth);
         }
         // The card's current values, copied out so the draw below never holds a
         // borrow into the recipe the facade is about to change.
@@ -52,15 +52,15 @@ impl AutoShadeApp {
         ui.horizontal(|ui| {
             let mute = tr(lang, "Show/mute the lens blur without losing its settings");
             if glyph_toggle(ui, enabled, "👁").on_hover_text(mute).clicked() {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::ToggleLensBlur(!enabled)));
+                actions.push(logic::lens_blur::LensAction::ToggleLensBlur(!enabled));
             }
             let cell = egui::vec2(ui.available_width() - row_h(ui) - ui.spacing().item_spacing.x, row_h(ui));
             let how = tr(lang, "Click the photo: whatever is at that distance stays sharp; nearer and farther blur by how far they are from it.");
             if toggle_in(ui, cell, picking, tr(lang, "🎯 Pick focus")).on_hover_text(how).clicked() {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusPicking(!picking)));
+                actions.push(logic::lens_blur::LensAction::SetFocusPicking(!picking));
             }
             if glyph(ui, true, "🗑").on_hover_text(tr(lang, "Remove the lens blur")).clicked() {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::RemoveLensBlur));
+                actions.push(logic::lens_blur::LensAction::RemoveLensBlur);
             }
         });
         // The two dials of `render::LensBlur`; the copy is what the view may
@@ -68,11 +68,11 @@ impl AutoShadeApp {
         ui.add_enabled_ui(enabled, |ui| {
             let mut next = amount;
             if Self::slider(ui, lang, tr(lang, "Blur amount"), &mut next, 0.0, 100.0, 50.0) {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetBlurAmount(next)));
+                actions.push(logic::lens_blur::LensAction::SetBlurAmount(next));
             }
             let mut next = range;
             if Self::slider(ui, lang, tr(lang, "Focus range"), &mut next, 0.0, 100.0, 10.0) {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusRange(next)));
+                actions.push(logic::lens_blur::LensAction::SetFocusRange(next));
             }
         });
         let carried = tr(lang, "Rendered here and in every export from this app; Lightroom's sidecar cannot carry it.");
@@ -87,9 +87,9 @@ impl AutoShadeApp {
         ui: &egui::Ui,
         resp: &egui::Response,
         xf: ViewXform,
-    ) -> Option<logic::Action> {
+    ) -> Option<logic::lens_blur::LensAction> {
         let (nx, ny) = self.clicked_orig_norm(ui, resp, xf)?;
-        Some(logic::Action::Lens(logic::lens_blur::LensAction::FocusPicked([nx, ny])))
+        Some(logic::lens_blur::LensAction::FocusPicked([nx, ny]))
     }
 
     /// The focus point as a small ring while the pick is armed, so the

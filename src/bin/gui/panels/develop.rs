@@ -387,12 +387,12 @@ impl AutoShadeApp {
                 SectionId::Detail => self.dev_detail(ui, active),
                 SectionId::Effects => self.dev_effects(ui, active),
                 SectionId::LensBlur => {
-                    // A verb: it returns the actions its worker start needs and
-                    // the facade applies them (the section itself has no ●).
+                    // A verb: it returns the lens actions its worker start needs
+                    // and the local entry applies them (the section has no ●).
                     let lens_actions = self.dev_lens_blur(ui);
                     let touched = !lens_actions.is_empty();
                     if touched {
-                        self.apply_actions(lens_actions);
+                        self.apply_lens_actions(lens_actions);
                     }
                     touched
                 }

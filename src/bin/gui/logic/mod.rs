@@ -65,8 +65,6 @@ pub(crate) enum Action {
     /// Read this folder as the reference library, then look at the photo that
     /// was open when it was picked.
     References(PathBuf),
-    /// The Lens Blur section.
-    Lens(lens_blur::LensAction),
     /// The library gallery.
     Gallery(gallery::GalleryAction),
     /// An on-canvas eyedropper sample.

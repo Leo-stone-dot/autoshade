@@ -2,7 +2,7 @@
 //! estimate's own two halves — the worker body and the landing.
 //!
 //! The view (`panels/lens_blur.rs`, `canvas.rs`) never mutates a recipe: it
-//! emits [`super::Action`]s, and the reach-through into the develop is here.
+//! emits `LensAction`s, and the reach-through into the develop is here.
 
 use super::{Effect, UiText};
 use autoshade::recipe::EditRecipe;

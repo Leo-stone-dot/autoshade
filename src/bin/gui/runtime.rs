@@ -29,15 +29,6 @@ impl AutoShadeApp {
                     );
                     self.run_effects(started);
                 }
-                Action::Lens(action) => {
-                    let start = match action {
-                        logic::lens_blur::LensAction::EstimateDepth => {
-                            self.photo.src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
-                        }
-                        _ => None,
-                    };
-                    effects.extend(logic::lens_blur::apply(&mut self.doc.recipe, action, start, self.busy));
-                }
                 Action::Gallery(action) => self.apply_gallery(action),
                 Action::Pick(action) => {
                     effects.extend(logic::pick::apply(&mut self.doc.recipe, action));
@@ -165,6 +156,22 @@ impl AutoShadeApp {
                     logic::settings::SettingsAction::InstallPython => self.start_python_env_install(),
                 },
             }
+        }
+        self.run_effects(effects);
+    }
+
+    /// Apply Lens Blur verbs as one batch. The depth estimate needs the photo
+    /// and its original-frame base; the other verbs are pure recipe edits.
+    pub(crate) fn apply_lens_actions(&mut self, actions: Vec<logic::lens_blur::LensAction>) {
+        let mut effects = Vec::new();
+        for action in actions {
+            let start = match action {
+                logic::lens_blur::LensAction::EstimateDepth => {
+                    self.photo.src_path.clone().zip(self.original_frame_base())
+                }
+                _ => None,
+            };
+            effects.extend(logic::lens_blur::apply(&mut self.doc.recipe, action, start, self.busy));
         }
         self.run_effects(effects);
     }
