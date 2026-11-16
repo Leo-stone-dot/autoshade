@@ -468,7 +468,7 @@
         assert!(app.editor.can_export_xmp_beside(), "a RAW can hand its sidecar over");
 
         // First delivery: nothing in the way, so it lands with no confirmation.
-        app.export_xmp_beside();
+        app.editor.export_xmp_beside(&mut app.workspace, app.lang);
         assert!(!app.workspace.exp().xmp_beside_confirm, "an unobstructed hand-off needs no confirm");
         assert_eq!(std::fs::read(&beside).unwrap(), b"<x:xmpmeta>ours</x:xmpmeta>");
         assert!(
@@ -479,7 +479,7 @@
 
         // Lightroom's own file appears there. One click must ARM, not write.
         std::fs::write(&beside, b"<x:xmpmeta>LIGHTROOM</x:xmpmeta>").unwrap();
-        app.export_xmp_beside();
+        app.editor.export_xmp_beside(&mut app.workspace, app.lang);
         assert!(app.workspace.exp().xmp_beside_confirm, "the armed state is the confirmation");
         assert_eq!(
             std::fs::read(&beside).unwrap(),
@@ -492,7 +492,7 @@
         );
 
         // Second click: armed ⇒ overwrite, then disarm.
-        app.export_xmp_beside();
+        app.editor.export_xmp_beside(&mut app.workspace, app.lang);
         assert!(!app.workspace.exp().xmp_beside_confirm, "the arm is spent");
         assert_eq!(std::fs::read(&beside).unwrap(), b"<x:xmpmeta>ours</x:xmpmeta>");
 

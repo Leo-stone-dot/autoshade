@@ -94,6 +94,10 @@ fn panel_dev_crop(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool)
     view.dev_crop(ui, active)
 }
 
+fn panel_dev_export(view: &mut PanelView<'_, '_>, ui: &mut egui::Ui, active: bool) -> bool {
+    view.dev_export(ui, active)
+}
+
 /// The panel's sections, in the order it draws them.
 pub(crate) const SECTIONS: &[Section] = &[
     Section {
@@ -200,7 +204,7 @@ pub(crate) const SECTIONS: &[Section] = &[
         id: "export",
         families: &[],
         kind: SectionKind::Form,
-        draw: SectionDraw::App(AutoShadeApp::dev_export),
+        draw: SectionDraw::Panel(panel_dev_export),
     },
 ];
 

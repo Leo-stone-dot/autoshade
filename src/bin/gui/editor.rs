@@ -1188,3 +1188,74 @@ impl Editor {
         self.active_source_path().is_some_and(|p| autoshade::decode::is_raw(&p))
     }
 }
+
+impl Editor {
+    /// SF8-A: hand the stored Lightroom sidecar over to Lightroom — copy this
+    /// photo's `<stem>.xmp` projection out of the hashed develop folder and
+    /// beside the photo itself, the only place Lightroom looks.
+    ///
+    /// Two-click confirm rather than a modal: an existing `.xmp` beside the
+    /// photo may be Lightroom's OWN, so the first click arms
+    /// `xmp_beside_confirm` (the button relabels itself) and only the second
+    /// passes `overwrite = true`. The refusal comes from the store's atomic
+    /// claim, not from an `exists()` probe here, so the arming can never be
+    /// answered by a file that appeared in between.
+    pub(crate) fn export_xmp_beside(&mut self, workspace: &mut WorkspaceView, lang: Lang) {
+        let lang = lang;
+        let Some(path) = self.photo().src_path.clone() else { return };
+        let overwrite = workspace.exp().xmp_beside_confirm;
+        match autoshade::store::export_xmp_beside(&path, overwrite) {
+            Ok(to) => {
+                workspace.exp_mut().xmp_beside_confirm = false;
+                // A file just landed in the user's PHOTO folder — the one place
+                // this app otherwise never writes. That is worth a toast, not
+                // just a status line that the next message scrolls away.
+                let mut t = trf(
+                    lang,
+                    K_EXPORT_LIGHTROOM_SIDECAR_DELIVERED,
+                    &[("path", &abs_display(&to))],
+                );
+                // The file handed over is the projection of the SAVED develop,
+                // so its global half is said again here, where the user is
+                // about to open it in Lightroom (a colour field, a lens blur:
+                // the rendered exports carry them, the sidecar cannot). The
+                // mask half was said on the save that wrote the file.
+                let globals = autoshade::xmp::global_export_losses(&self.session().hist.saved_recipe);
+                if let Some(m) = xmp_loss_line(lang, &[], &globals)
+                    && xmp_loss_interrupts(&[], &globals)
+                {
+                    workspace.toast(ToastKind::Error, m.clone());
+                    t = format!("{t} — ⚠ {m}");
+                }
+                workspace.set_status(t.clone());
+                workspace.toast(ToastKind::Success, t);
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists && !overwrite => {
+                // ARM, do not write. The status says what the second click will
+                // do; the button says it too (develop.rs) so the armed state is
+                // visible even after the status line has moved on.
+                workspace.exp_mut().xmp_beside_confirm = true;
+                let there = autoshade::store::xmp_beside_target(&path)
+                    .map(|p| abs_display(&p))
+                    .unwrap_or_default();
+                let t = trf(
+                    lang,
+                    K_EXPORT_A_XMP_ALREADY_SITS_BESIDE_THIS_PHOTO_CLICK_AGAIN,
+                    &[("path", &there)],
+                );
+                workspace.set_status(t.clone());
+                workspace.toast(ToastKind::Error, t);
+            }
+            Err(e) => {
+                workspace.exp_mut().xmp_beside_confirm = false;
+                let t = trf(
+                    lang,
+                    K_EXPORT_THE_XMP_COULD_NOT_BE_DELIVERED,
+                    &[("err", &e.to_string())],
+                );
+                workspace.set_status(t.clone());
+                workspace.toast(ToastKind::Error, t);
+            }
+        }
+    }
+}
