@@ -371,7 +371,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // compare; an empty curve here sat 0.6–1.4 EV
                             // under After's starting point.
                             let start = self.editor.doc().recipe.start_only();
-                            self.set_before(ctx, &img, &start);
+                            self.editor.set_before(&mut self.workspace, ctx, &img, &start);
                             // New baked base ⇒ the cached masks-cleared
                             // reference develop no longer matches it.
                             self.workspace.overlay_mut().overlay_ref = None;

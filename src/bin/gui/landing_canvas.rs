@@ -194,7 +194,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.editor.photo_mut().base_turns = 0;
                             if active_source {
                                 let start = self.editor.doc().recipe.start_only();
-                                self.set_before(ctx, &base, &start);
+                                self.editor.set_before(&mut self.workspace, ctx, &base, &start);
                                 self.rebind_paint_canvas(mw, mh);
                                 // The range-mask reference develop was computed
                                 // from the OLD base — recipe-only keying would
@@ -248,7 +248,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // (needs the camera curve); a Generated
                                 // canvas recipe carries an empty curve.
                                 let start = self.editor.doc().recipe.start_only();
-                                self.set_before(ctx, bimg, &start);
+                                self.editor.set_before(&mut self.workspace, ctx, bimg, &start);
                                 self.rebind_paint_canvas(bw, bh);
                                 self.workspace.overlay_mut().overlay_ref = None;
                                 self.workspace.overlay_mut().overlay_stale = true;
@@ -665,7 +665,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // as originally tuned.
                         if let Some(b) = self.editor.photo().base_preview.clone() {
                             let start = self.editor.doc().recipe.start_only();
-                            self.set_before(ctx, &b, &start);
+                            self.editor.set_before(&mut self.workspace, ctx, &b, &start);
                         }
                         // A fresh, fully-transparent paint mask sized to the
                         // preview — and a brush session armed on the PREVIOUS
@@ -731,7 +731,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // pixels are a NEUTRAL develop (an empty curve
                             // there compared 0.6–1.4 EV dark).
                             let start = self.editor.doc().recipe.start_only();
-                            self.set_before(ctx, &bimg, &start);
+                            self.editor.set_before(&mut self.workspace, ctx, &bimg, &start);
                             self.editor.photo_mut().base_preview = Some(bimg);
                             self.rebind_paint_canvas(bw, bh);
                         }
@@ -1028,7 +1028,7 @@ pub(crate) fn on_base_redeveloped(
     if self.editor.active_variant().is_none_or(|v| v.base.is_none()) {
         self.editor.photo_mut().base_preview = Some(img.clone());
         let start = self.editor.doc().recipe.start_only();
-        self.set_before(ctx, &img, &start);
+        self.editor.set_before(&mut self.workspace, ctx, &img, &start);
         let (mw, mh) = img.dimensions();
         self.rebind_paint_canvas(mw, mh);
         self.workspace.overlay_mut().overlay_ref = None;

@@ -1001,7 +1001,7 @@ impl AutoShadeApp {
             match self.workspace.view().mode {
                 ViewMode::SideBySide => {
                     let half = (avail.x - 16.0) * 0.5;
-                    let uv = self.view_uv(); // same window for both panes (synced zoom)
+                    let uv = self.editor.view_uv(&mut self.workspace); // same window for both panes (synced zoom)
                     ui.horizontal(|ui| {
                         ui.vertical(|ui| {
                             ui.label(
@@ -1303,7 +1303,7 @@ impl AutoShadeApp {
             && let Some(b) = self.editor.photo().base_preview.clone()
         {
             let start = self.editor.doc().recipe.start_only();
-            self.set_before(ctx, &b, &start);
+            self.editor.set_before(&mut self.workspace, ctx, &b, &start);
         }
         // A held-still pointer still needs a repaint to receive the result.
         if self.editor.session().dirty && !self.editor.scheduler().inflight {

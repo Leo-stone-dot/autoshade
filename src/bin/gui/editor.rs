@@ -918,3 +918,187 @@ impl Editor {
         Some(logic::Action::Lens(logic::lens_blur::LensAction::FocusPicked([nx, ny])))
     }
 }
+
+impl Editor {
+    /// Load the Before texture: `base` with `curve` (a camera-matched base
+    /// look) applied. Lightroom's "Before" is the profile-applied default
+    /// render, not the linear negative — without the curve, Before sat
+    /// 0.6–1.4 EV under After's own starting point and every compare
+    /// exaggerated the edit. Baked rasters pass an empty curve (their pixels
+    /// already carry the look).
+    /// The Before pane: `base` under the canvas recipe's START alone
+    /// (`EditRecipe::start_only` — its camera curve, or since v1.17.0 the
+    /// creative Look's baked half on its profile's base), every slider at 0.
+    pub(crate) fn set_before(&mut self, workspace: &mut WorkspaceView, ctx: &egui::Context, base: &image::DynamicImage, start: &EditRecipe) {
+        let img = if start.start_only() == EditRecipe::default() {
+            to_color_image(base)
+        } else {
+            to_color_image(&autoshade::render::develop_preview(base, &start.start_only()))
+        };
+        self.plates_mut().before_tex = Some(ctx.load_texture("before", img, egui::TextureOptions::LINEAR));
+        workspace.open_mut().before_start = start.start_only();
+    }
+
+    /// The visible full-frame uv window: committed crop (shown cropped, like
+    /// Lightroom — except while the crop tool is open, which needs the full
+    /// frame) narrowed by zoom/pan. `pan` is stored in crop-window coords and
+    /// re-clamped here so edge panning never accumulates out of range.
+    pub(crate) fn view_uv(&mut self, workspace: &mut WorkspaceView) -> egui::Rect {
+        let win = match (&self.doc().recipe.crop, workspace.crop().mode) {
+            (Some(c), false) => egui::Rect::from_min_max(
+                egui::pos2(c.left.min(c.right), c.top.min(c.bottom)),
+                egui::pos2(c.right.max(c.left), c.bottom.max(c.top)),
+            ),
+            _ => egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        };
+        let half = 0.5 / workspace.view().zoom.clamp(1.0, 12.0);
+        workspace.view_mut().pan = egui::vec2(
+            workspace.view().pan.x.clamp(half, 1.0 - half),
+            workspace.view().pan.y.clamp(half, 1.0 - half),
+        );
+        egui::Rect::from_min_max(
+            egui::pos2(
+                win.min.x + (workspace.view().pan.x - half) * win.width(),
+                win.min.y + (workspace.view().pan.y - half) * win.height(),
+            ),
+            egui::pos2(
+                win.min.x + (workspace.view().pan.x + half) * win.width(),
+                win.min.y + (workspace.view().pan.y + half) * win.height(),
+            ),
+        )
+    }
+
+    pub(crate) fn ensure_mask_tex(&mut self, workspace: &mut WorkspaceView, ctx: &egui::Context) {
+        // The canvas lives in the ORIGINAL frame (strokes are mapped there so
+        // fill/heal edit source pixels), but the texture is blitted over the
+        // After image, which has been through distortion + straighten — the
+        // overlay must go through the SAME remap or every stroke displays
+        // offset under a straightened view. Rebuild when the transform moved,
+        // not only when the canvas was painted.
+        // The overlay's remap depends on the PROFILE DISTORTION toggle (CA
+        // never moves an overlay), so it joins the transform key: switching
+        // it must re-blit the canvas (knot data only changes per photo, and
+        // opening a photo resets the texture anyway).
+        // BOTH profile toggles key the cache (L13-9): collapsed to one
+        // bool, "distortion + CA on → turn one off" still compared equal and
+        // the overlay kept the OLD warp — strokes floated off their pixels.
+        let profile_geom = (
+            self.doc().recipe.lens_profile.distortion_on && !self.doc().recipe.lens_profile.distortion.is_empty(),
+            self.doc().recipe.lens_profile.ca_on
+                && !(self.doc().recipe.lens_profile.ca_r.is_empty()
+                    && self.doc().recipe.lens_profile.ca_b.is_empty()),
+        );
+        let xform_now = (
+            self.doc().recipe.straighten_deg,
+            self.doc().recipe.lens_distortion,
+            profile_geom,
+            (self.doc().recipe.ca_r, self.doc().recipe.ca_b),
+        );
+        // The identity key, spelled ONCE (it grew a fourth member with the
+        // manual CA pair in R25 B3, and it is compared in four places).
+        const IDENTITY_XFORM: (f32, f32, (bool, bool), (f32, f32)) =
+            (0.0, 0.0, (false, false), (0.0, 0.0));
+        let stale_xform = workspace.overlay().mask_tex.is_some() && workspace.overlay().mask_tex_xform != xform_now;
+        if workspace.overlay().mask_dirty || stale_xform {
+            // Fast path (the common no-geometry case): the change since the
+            // last upload is a known brush rect — upload ONLY that
+            // sub-rectangle. Brushing used to clone and re-upload the WHOLE
+            // canvas on every pointer move (at an 8192 working preview that
+            // is a ~270 MB round trip per frame).
+            if xform_now == IDENTITY_XFORM && !stale_xform && workspace.overlay().mask_dirty {
+                let upload = {
+                    let (m, tex, rect) = workspace.paint_upload_parts();
+                    match (m, tex, rect) {
+                        (Some(m), Some(tex), Some([x0, y0, x1, y1]))
+                            if tex.size() == [m.width() as usize, m.height() as usize]
+                                && x1 > x0
+                                && y1 > y0
+                                && x1 <= m.width()
+                                && y1 <= m.height() =>
+                        {
+                            let (w, h) = ((x1 - x0) as usize, (y1 - y0) as usize);
+                            let mut sub = Vec::with_capacity(w * h * 4);
+                            for y in y0..y1 {
+                                let start = ((y * m.width() + x0) * 4) as usize;
+                                sub.extend_from_slice(&m.as_raw()[start..start + w * 4]);
+                            }
+                            Some((x0, y0, w, h, sub))
+                        }
+                        _ => None,
+                    }
+                };
+                if let Some((x0, y0, w, h, sub)) = upload {
+                    let overlay = workspace.overlay_mut();
+                    if let Some(tex) = overlay.mask_tex.as_mut() {
+                        tex.set_partial(
+                            [x0 as usize, y0 as usize],
+                            egui::ColorImage::from_rgba_unmultiplied([w, h], &sub),
+                            egui::TextureOptions::LINEAR,
+                        );
+                    }
+                    overlay.mask_dirty_rect = None;
+                    overlay.mask_dirty = false;
+                    return;
+                }
+            }
+            // Geometry active: the remap is whole-frame work — mid-stroke,
+            // rebuild at a bounded cadence instead of on every pointer move
+            // (the stroke's final shape lands on the release frame, when the
+            // pointer is no longer down).
+            if !stale_xform
+                && xform_now != IDENTITY_XFORM
+                && workspace.overlay().mask_tex.is_some()
+                && ctx.input(|i| i.pointer.any_down())
+                && workspace.overlay().mask_tex_built.elapsed() < std::time::Duration::from_millis(120)
+            {
+                return; // mask_dirty stays armed; retried next frame
+            }
+            if let Some(m) = &workspace.masks().mask_paint {
+                let ci = if xform_now != IDENTITY_XFORM {
+                    // Alpha-preserving RGBA twins: the RGB16 photo paths
+                    // flatten transparency to opaque, which turned the whole
+                    // canvas into a red wash under any active geometry.
+                    let mut img = m.clone();
+                    if xform_now.1 != 0.0
+                        || profile_geom != (false, false)
+                        || xform_now.3 != (0.0, 0.0)
+                    {
+                        img = autoshade::render::apply_lens_geometry_rgba(
+                            &img,
+                            &autoshade::render::geometry_profile(&self.doc().recipe),
+                            xform_now.1,
+                        );
+                    }
+                    if xform_now.0 != 0.0 {
+                        img = autoshade::render::rotate_straighten_rgba(&img, xform_now.0);
+                    }
+                    let rgba = img;
+                    egui::ColorImage::from_rgba_unmultiplied(
+                        [rgba.width() as usize, rgba.height() as usize],
+                        rgba.as_raw(),
+                    )
+                } else {
+                    // Common case: no geometry — zero-copy view of the canvas.
+                    egui::ColorImage::from_rgba_unmultiplied(
+                        [m.width() as usize, m.height() as usize],
+                        m.as_raw(),
+                    )
+                };
+                // Update in place: brushing sets mask_dirty on every pointer
+                // move, and a fresh texture per frame is the allocate/free
+                // churn finish_redevelop documents avoiding (set() re-uploads,
+                // size changes included).
+                if let Some(tex) = &mut workspace.overlay_mut().mask_tex {
+                    tex.set(ci, egui::TextureOptions::LINEAR);
+                } else {
+                    workspace.overlay_mut().mask_tex =
+                        Some(ctx.load_texture("paintmask", ci, egui::TextureOptions::LINEAR));
+                }
+                workspace.overlay_mut().mask_tex_xform = xform_now;
+                workspace.overlay_mut().mask_tex_built = Instant::now();
+            }
+            workspace.overlay_mut().mask_dirty_rect = None; // full upload covered everything pending
+            workspace.overlay_mut().mask_dirty = false;
+        }
+    }
+}

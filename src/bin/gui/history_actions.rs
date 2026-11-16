@@ -186,7 +186,7 @@ impl AutoShadeApp {
             // every variant (a Generated recipe's curve is empty by
             // construction; an InPlace master is neutral and needs it).
             let start = self.editor.doc().recipe.start_only();
-            self.set_before(ctx, &base, &start);
+            self.editor.set_before(&mut self.workspace, ctx, &base, &start);
             self.editor.photo_mut().base_preview = Some(base);
             self.rebind_paint_canvas(mw, mh);
         }
@@ -320,7 +320,7 @@ impl AutoShadeApp {
         // disclosed, exactly as at every other replacement door.
         if let Some(b) = self.editor.photo().base_preview.clone() {
             let start = self.editor.doc().recipe.start_only();
-            self.set_before(ctx, &b, &start);
+            self.editor.set_before(&mut self.workspace, ctx, &b, &start);
             let (mw, mh) = b.dimensions();
             self.rebind_paint_canvas(mw, mh);
         }

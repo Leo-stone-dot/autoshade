@@ -91,7 +91,7 @@ impl AutoShadeApp {
             // variant's recipe carries an empty curve by construction — the
             // same expression serves both.
             let start = self.editor.doc().recipe.start_only();
-            self.set_before(ctx, &base, &start);
+            self.editor.set_before(&mut self.workspace, ctx, &base, &start);
             self.editor.photo_mut().base_preview = Some(base);
             // A fresh transparent paint mask sized to THIS base (a generated
             // raster and the source neutral can differ in dimensions).
