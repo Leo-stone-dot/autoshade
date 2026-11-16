@@ -1116,9 +1116,7 @@ impl AutoShadeApp {
                         )) } else { missing.to_string() })
                         .clicked()
                     {
-                        self.apply_actions(vec![logic::Action::Develop(
-                            logic::develop::DevelopAction::AiDenoise,
-                        )]);
+                        self.apply_develop(logic::develop::DevelopAction::AiDenoise);
                     }
                     // No 「Full-res」 checkbox any more (2026-09-15): the
                     // result is a CARD, and a card baked from a ≤2048 px
@@ -1179,9 +1177,7 @@ impl AutoShadeApp {
                         .clicked()
                         && let Some(extra) = photo_files_dialog()
                     {
-                        self.apply_actions(vec![logic::Action::Develop(
-                            logic::develop::DevelopAction::Stack(extra),
-                        )]);
+                        self.apply_develop(logic::develop::DevelopAction::Stack(extra));
                     }
                 });
             });
@@ -1956,9 +1952,7 @@ impl AutoShadeApp {
                     self.cards.version_name_buf = Some((p, n, cur.clone(), cur));
                 }
                 if let Some(n) = load {
-                    self.apply_actions(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::LoadVersion(n),
-                    )]);
+                    self.apply_develop(logic::develop::DevelopAction::LoadVersion(n));
                 }
                 if let Some(n) = delete
                     && let Some(src) = self.photo.src_path.clone()
@@ -1972,9 +1966,7 @@ impl AutoShadeApp {
                     {
                         self.cards.version_name_buf = None;
                     }
-                    self.apply_actions(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::DeleteVersion(n),
-                    )]);
+                    self.apply_develop(logic::develop::DevelopAction::DeleteVersion(n));
                 }
                 if n_ver == 0 {
                     explainer(ui, lang, tr(lang, "Like LR virtual copies: store multiple parameter sets for one photo (B&W, cropped…) without overwriting."));

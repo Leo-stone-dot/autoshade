@@ -77,8 +77,6 @@ pub(crate) enum Action {
     MaskEdit(mask_edit::MaskEditAction),
     /// A box-selected AI region.
     Region(region::RegionAction),
-    /// The develop panel's list verbs.
-    Develop(develop::DevelopAction),
     /// The Portraits panel's verbs.
     Portrait(portrait::PortraitAction),
     /// The recipe-library window's verbs.

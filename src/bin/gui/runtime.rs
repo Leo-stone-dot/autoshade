@@ -59,24 +59,6 @@ impl AutoShadeApp {
                     }
                     logic::portrait::PortraitAction::SetKeepSkin(on) => self.set_keep_skin(on),
                 },
-                Action::Develop(action) => match action {
-                    logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),
-                    logic::develop::DevelopAction::Stack(extra) => self.start_stack(extra),
-                    logic::develop::DevelopAction::MaskBrush(target) => self.start_mask_brush(target),
-                    logic::develop::DevelopAction::Segment { target, label } => {
-                        self.start_segment(target, label)
-                    }
-                    logic::develop::DevelopAction::MaskRefine(i) => self.start_mask_refine(i),
-                    logic::develop::DevelopAction::MoveMaskUp(i) => self.move_mask(i, true),
-                    logic::develop::DevelopAction::MoveMaskDown(i) => self.move_mask(i, false),
-                    logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
-                    logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
-                    logic::develop::DevelopAction::DeleteVersion(n) => {
-                        if let Some(src) = self.photo.src_path.clone() {
-                            self.delete_version_clicked(self.lang, src, n);
-                        }
-                    }
-                },
                 Action::Recipe(action) => match action {
                     logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
                     logic::recipes::RecipeAction::Refresh => self.refresh_recipes(),
@@ -294,6 +276,27 @@ impl AutoShadeApp {
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
     }
 
+
+    /// Apply one Develop-panel verb. Worker starts and version/mask edits stay
+    /// here; the panel no longer wraps them in the umbrella action enum.
+    pub(crate) fn apply_develop(&mut self, action: logic::develop::DevelopAction) {
+        match action {
+            logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),
+            logic::develop::DevelopAction::Stack(extra) => self.start_stack(extra),
+            logic::develop::DevelopAction::MaskBrush(target) => self.start_mask_brush(target),
+            logic::develop::DevelopAction::Segment { target, label } => self.start_segment(target, label),
+            logic::develop::DevelopAction::MaskRefine(i) => self.start_mask_refine(i),
+            logic::develop::DevelopAction::MoveMaskUp(i) => self.move_mask(i, true),
+            logic::develop::DevelopAction::MoveMaskDown(i) => self.move_mask(i, false),
+            logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
+            logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
+            logic::develop::DevelopAction::DeleteVersion(n) => {
+                if let Some(src) = self.photo.src_path.clone() {
+                    self.delete_version_clicked(self.lang, src, n);
+                }
+            }
+        }
+    }
 
     /// Apply one gallery action: the folder dialog, the open/toggle decision,
     /// the thumbnail worker and the bounded texture window are the runtime's.

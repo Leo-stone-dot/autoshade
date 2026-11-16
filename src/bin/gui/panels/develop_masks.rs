@@ -271,9 +271,7 @@ impl AutoShadeApp {
                 if brush_armed {
                     self.disarm_tools();
                 } else if self.photo.base_preview.is_some() {
-                    self.apply_actions(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::MaskBrush(None),
-                    )]);
+                    self.apply_develop(logic::develop::DevelopAction::MaskBrush(None));
                 }
             }
         });
@@ -337,9 +335,10 @@ impl AutoShadeApp {
                 )) } else { missing.to_string() })
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::Segment { target: "subject", label: "Subject" },
-                )]);
+                self.apply_develop(logic::develop::DevelopAction::Segment {
+                    target: "subject",
+                    label: "Subject",
+                });
             }
             if action_in(ui, cell, can_seg, tr(lang, "🤖 Select sky"))
                 .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
@@ -347,9 +346,10 @@ impl AutoShadeApp {
                 )) } else { missing.to_string() })
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::Segment { target: "sky", label: "Sky" },
-                )]);
+                self.apply_develop(logic::develop::DevelopAction::Segment {
+                    target: "sky",
+                    label: "Sky",
+                });
             }
         });
         // Empty state: an open section with zero rows looked like a bug;
@@ -768,17 +768,13 @@ impl AutoShadeApp {
                 .on_hover_text(tr(lang, "Move up (renders earlier)"))
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::MoveMaskUp(i),
-                )]);
+                self.apply_develop(logic::develop::DevelopAction::MoveMaskUp(i));
             }
             if glyph(ui, i + 1 < self.doc.recipe.masks.len(), "⬇")
                 .on_hover_text(tr(lang, "Move down (renders later)"))
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::MoveMaskDown(i),
-                )]);
+                self.apply_develop(logic::develop::DevelopAction::MoveMaskDown(i));
             }
             // Duplicate: a second gradient with the same tuned ten
             // sliders; rasters are DETACHED copies (the version-load
@@ -787,9 +783,7 @@ impl AutoShadeApp {
                 .on_hover_text(tr(lang, "Duplicate this mask (bitmap rasters are copied, so the copies stay independent)"))
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::DuplicateMask(i),
-                )]);
+                self.apply_develop(logic::develop::DevelopAction::DuplicateMask(i));
             }
         });
         // R38: the two switches on their own row, under the verbs.
@@ -888,18 +882,14 @@ impl AutoShadeApp {
                     if edit_armed {
                         self.disarm_tools();
                     } else {
-                        self.apply_actions(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::MaskBrush(Some(i)),
-                    )]);
+                        self.apply_develop(logic::develop::DevelopAction::MaskBrush(Some(i)));
                     }
                 }
                 if action_in(ui, cell, !self.busy, tr(lang, "Full-res refine"))
                     .on_hover_text(tr(lang, "Re-cut this mask against the FULL-resolution source (guided filter). Preview-res AI masks smear their boundary at export — this snaps it to real edges. Decodes the full-size source; takes a few seconds."))
                     .clicked()
                 {
-                    self.apply_actions(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::MaskRefine(i),
-                )]);
+                    self.apply_develop(logic::develop::DevelopAction::MaskRefine(i));
                 }
             });
             ui.horizontal(|ui| {
