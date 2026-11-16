@@ -69,8 +69,6 @@ pub(crate) enum Action {
     Lens(lens_blur::LensAction),
     /// The library gallery.
     Gallery(gallery::GalleryAction),
-    /// An on-canvas eyedropper sample.
-    Pick(pick::PickAction),
     /// A crop gesture (preset pick, handle drag, rotate-straighten).
     Crop(crop::CropAction),
     /// A knob drag on the selected mask's geometry.

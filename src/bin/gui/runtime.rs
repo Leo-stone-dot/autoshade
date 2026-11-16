@@ -39,9 +39,6 @@ impl AutoShadeApp {
                     effects.extend(logic::lens_blur::apply(&mut self.doc.recipe, action, start, self.busy));
                 }
                 Action::Gallery(action) => self.apply_gallery(action),
-                Action::Pick(action) => {
-                    effects.extend(logic::pick::apply(&mut self.doc.recipe, action));
-                }
                 Action::Crop(action) => {
                     effects.extend(logic::crop::apply(&mut self.doc.recipe, action));
                 }

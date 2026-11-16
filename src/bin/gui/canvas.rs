@@ -977,7 +977,7 @@ impl AutoShadeApp {
             let Some(px) = sample_5x5_mean(base, nx, ny) else { return };
             px
         };
-        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::WhiteBalance(px))]);
+        self.apply_pick(logic::pick::PickAction::WhiteBalance(px));
     }
 
     /// Colour-range sample: click keys the pending mask's Color range to that
@@ -1028,12 +1028,12 @@ impl AutoShadeApp {
             let Some(smp) = sample_5x5_mean(reference, bx, by) else { return };
             smp
         };
-        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::RangeColor {
+        self.apply_pick(logic::pick::PickAction::RangeColor {
             mask: mi,
             rgb: smp,
             px: nx,
             py: ny,
-        })]);
+        });
     }
 
     /// Point Color eyedropper (v1.5.0): click a colour and a swatch keyed to
@@ -1067,7 +1067,14 @@ impl AutoShadeApp {
             let Some(px) = sample_5x5_mean(&img, bx, by) else { return };
             px
         };
-        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
+        self.apply_pick(logic::pick::PickAction::PointColor(px));
+    }
+
+    /// Apply one landed eyedropper sample. The recipe decision stays in
+    /// `logic::pick`; the resulting tool/status effects are host effects.
+    pub(crate) fn apply_pick(&mut self, action: logic::pick::PickAction) {
+        let effects = logic::pick::apply(&mut self.doc.recipe, action);
+        self.run_effects(effects);
     }
 
     /// The geometry the canvas tools currently target: the selected mask's
