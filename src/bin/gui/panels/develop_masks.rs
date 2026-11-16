@@ -685,7 +685,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, K_DEVELOP_SOFTEN_THE_MASK_BOUNDARY_ONE_STEP_BAKES_A_NEW_RA))
                     .clicked()
                 {
-                    self.bake_mask_raster(
+                    crate::masks::bake_mask_raster(&mut self.editor, &mut self.workspace, self.lang, 
                         i,
                         |g| {
                             let s = (g.width().max(g.height()) as f32 / 400.0).max(1.0);
@@ -698,7 +698,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, K_DEVELOP_GROW_THE_SELECTION_ONE_STEP_BAKES_A_NEW_RASTER))
                     .clicked()
                 {
-                    self.bake_mask_raster(
+                    crate::masks::bake_mask_raster(&mut self.editor, &mut self.workspace, self.lang, 
                         i,
                         |g| {
                             let r = (g.width().max(g.height()) / 500).max(2) as i32;
@@ -711,7 +711,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, K_DEVELOP_SHRINK_THE_SELECTION_ONE_STEP_BAKES_A_NEW_RASTER))
                     .clicked()
                 {
-                    self.bake_mask_raster(
+                    crate::masks::bake_mask_raster(&mut self.editor, &mut self.workspace, self.lang, 
                         i,
                         |g| {
                             let r = (g.width().max(g.height()) / 500).max(2) as i32;

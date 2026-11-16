@@ -389,64 +389,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// Bake one raster op (feather / expand / contract) on mask `i`'s bitmap:
-    /// load → transform → claim a fresh raster → repoint (immutability rule —
-    /// see commit_mask_brush). Synchronous at the raster's own resolution.
-    pub(crate) fn bake_mask_raster(
-        &mut self,
-        i: usize,
-        op: impl FnOnce(&image::GrayImage) -> image::GrayImage,
-        tag: &str,
-    ) {
-        let Some(src) = self.editor.photo().src_path.clone() else { return };
-        let Some(path) = self.editor.doc().recipe
-            .masks
-            .get(i)
-            .and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
-            .map(str::to_string)
-        else {
-            return;
-        };
-        let lang = self.lang;
-        // Through THE raster entry, baked in the sensor frame the result is
-        // written in (unmarked).
-        let at = std::path::Path::new(&path);
-        let done = autoshade::render::open_mask_raster(at)
-            .and_then(|r| r.into_sensor_gray(&self.editor.doc().recipe, at))
-            .map(|img| op(&img))
-            .and_then(|g| {
-                let p = autoshade::store::claim_raster(&src, tag).map_err(anyhow::Error::from)?;
-                g.save(&p).map_err(anyhow::Error::from)?;
-                // Same L03 rule as the brush writer: payload durable first.
-                autoshade::store::durable_adopt(&p)?;
-                Ok(p)
-            });
-        match done {
-            Ok(p) => {
-                // Repoint in place — same rule, same reason as
-                // `commit_mask_brush`. The read above already proved this
-                // geometry carries a raster, so the slot is there.
-                if let Some(slot) =
-                    autoshade::render::geometry_raster_path_mut(&mut self.editor.doc_mut().recipe.masks[i].mask)
-                {
-                    *slot = p.to_string_lossy().into_owned();
-                }
-                self.editor.session_mut().dirty = true;
-                self.workspace.overlay_mut().overlay_stale = true;
-                *self.workspace.status_mut() =
-                    tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO)
-                        .into();
-            }
-            Err(e) => {
-                let t = trf(
-                    lang,
-                    K_GUI_COULD_NOT_EDIT_THIS_MASK_S_RASTER,
-                    &[("err", &e.to_string())],
-                );
-                self.workspace.toast(ToastKind::Error, t);
-            }
-        }
-    }
 
     /// Refine mask `i`'s raster to FULL resolution: build the full-res GUIDE
     /// pixels in a worker, guided-filter the raster against them
@@ -572,4 +514,65 @@ pub(crate) fn export_png_of(m: &image::RgbaImage) -> Option<Vec<u8>> {
         .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
         .ok()?;
     Some(buf)
+}
+
+/// Bake one raster op (feather / expand / contract) on mask `i`'s bitmap:
+/// load → transform → claim a fresh raster → repoint (immutability rule —
+/// see commit_mask_brush). Synchronous at the raster's own resolution.
+pub(crate) fn bake_mask_raster(
+editor: &mut Editor,
+workspace: &mut WorkspaceView,
+lang: Lang,
+    i: usize,
+    op: impl FnOnce(&image::GrayImage) -> image::GrayImage,
+    tag: &str,
+) {
+    let Some(src) = editor.photo().src_path.clone() else { return };
+    let Some(path) = editor.doc().recipe
+        .masks
+        .get(i)
+        .and_then(|m| autoshade::render::geometry_raster_path(&m.mask))
+        .map(str::to_string)
+    else {
+        return;
+    };
+    let lang = lang;
+    // Through THE raster entry, baked in the sensor frame the result is
+    // written in (unmarked).
+    let at = std::path::Path::new(&path);
+    let done = autoshade::render::open_mask_raster(at)
+        .and_then(|r| r.into_sensor_gray(&editor.doc().recipe, at))
+        .map(|img| op(&img))
+        .and_then(|g| {
+            let p = autoshade::store::claim_raster(&src, tag).map_err(anyhow::Error::from)?;
+            g.save(&p).map_err(anyhow::Error::from)?;
+            // Same L03 rule as the brush writer: payload durable first.
+            autoshade::store::durable_adopt(&p)?;
+            Ok(p)
+        });
+    match done {
+        Ok(p) => {
+            // Repoint in place — same rule, same reason as
+            // `commit_mask_brush`. The read above already proved this
+            // geometry carries a raster, so the slot is there.
+            if let Some(slot) =
+                autoshade::render::geometry_raster_path_mut(&mut editor.doc_mut().recipe.masks[i].mask)
+            {
+                *slot = p.to_string_lossy().into_owned();
+            }
+            editor.session_mut().dirty = true;
+            workspace.overlay_mut().overlay_stale = true;
+            *workspace.status_mut() =
+                tr(lang, K_GUI_MASK_RASTER_UPDATED_ITS_ADJUSTMENTS_NOW_APPLY_TO)
+                    .into();
+        }
+        Err(e) => {
+            let t = trf(
+                lang,
+                K_GUI_COULD_NOT_EDIT_THIS_MASK_S_RASTER,
+                &[("err", &e.to_string())],
+            );
+            workspace.toast(ToastKind::Error, t);
+        }
+    }
 }
