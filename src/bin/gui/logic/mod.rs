@@ -67,8 +67,6 @@ pub(crate) enum Action {
     References(PathBuf),
     /// The Lens Blur section.
     Lens(lens_blur::LensAction),
-    /// The library gallery.
-    Gallery(gallery::GalleryAction),
     /// An on-canvas eyedropper sample.
     Pick(pick::PickAction),
     /// A crop gesture (preset pick, handle drag, rotate-straighten).

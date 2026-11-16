@@ -38,7 +38,6 @@ impl AutoShadeApp {
                     };
                     effects.extend(logic::lens_blur::apply(&mut self.doc.recipe, action, start, self.busy));
                 }
-                Action::Gallery(action) => self.apply_gallery(action),
                 Action::Pick(action) => {
                     effects.extend(logic::pick::apply(&mut self.doc.recipe, action));
                 }
@@ -297,7 +296,7 @@ impl AutoShadeApp {
 
     /// Apply one gallery action: the folder dialog, the open/toggle decision,
     /// the thumbnail worker and the bounded texture window are the runtime's.
-    fn apply_gallery(&mut self, action: logic::gallery::GalleryAction) {
+    pub(crate) fn apply_gallery(&mut self, action: logic::gallery::GalleryAction) {
         use logic::gallery::{Click, GalleryAction};
         match action {
             GalleryAction::OpenFolder => {

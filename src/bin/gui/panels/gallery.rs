@@ -16,9 +16,7 @@ impl AutoShadeApp {
         ui.horizontal_wrapped(|ui| {
             ui.heading(tr(lang, "Library"));
             if action(ui, true, tr(lang, "🗂 Open folder…")).clicked() {
-                self.apply_actions(vec![logic::Action::Gallery(
-                    logic::gallery::GalleryAction::OpenFolder,
-                )]);
+                self.apply_gallery(logic::gallery::GalleryAction::OpenFolder);
             }
         });
         if let Some(d) = &self.gal.gallery_dir {
@@ -48,7 +46,7 @@ impl AutoShadeApp {
             .on_hover_text(tr(lang, "Copy every develop setting from the current photo"))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Gallery(logic::gallery::GalleryAction::CopyRecipe)]);
+            self.apply_gallery(logic::gallery::GalleryAction::CopyRecipe);
         }
         let n = self.gal.multi_sel.len();
         let n_s = n.to_string();
@@ -56,9 +54,7 @@ impl AutoShadeApp {
             .on_hover_text(tr(lang, "Writes each photo's develop into your develop store (recipe JSON; RAW also gets a Lightroom XMP). Leaves library files untouched, renders nothing."))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Gallery(
-                logic::gallery::GalleryAction::PasteToSelected,
-            )]);
+            self.apply_gallery(logic::gallery::GalleryAction::PasteToSelected);
         }
         ui.horizontal(|ui| {
             // The last row lends ✕ (clear the selection) one square of its
@@ -75,14 +71,10 @@ impl AutoShadeApp {
                 ))
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Gallery(
-                    logic::gallery::GalleryAction::RenderSelected,
-                )]);
+                self.apply_gallery(logic::gallery::GalleryAction::RenderSelected);
             }
             if n > 0 && glyph(ui, true, "✕").on_hover_text(tr(lang, "Clear selection")).clicked() {
-                self.apply_actions(vec![logic::Action::Gallery(
-                    logic::gallery::GalleryAction::ClearSelection,
-                )]);
+                self.apply_gallery(logic::gallery::GalleryAction::ClearSelection);
             }
         });
         if self.genai.copied.is_some() {
@@ -97,9 +89,7 @@ impl AutoShadeApp {
             ))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Gallery(
-                logic::gallery::GalleryAction::OpenRecipeLibrary,
-            )]);
+            self.apply_gallery(logic::gallery::GalleryAction::OpenRecipeLibrary);
         }
         ui.separator();
         if self.gal.gallery.is_empty() {
@@ -273,25 +263,19 @@ impl AutoShadeApp {
             }
         }
         if !to_request.is_empty() {
-            let asked: Vec<logic::Action> = to_request
-                .into_iter()
-                .map(|i| logic::Action::Gallery(logic::gallery::GalleryAction::ThumbNeeded(i)))
-                .collect();
-            self.apply_actions(asked);
+            for i in to_request {
+                self.apply_gallery(logic::gallery::GalleryAction::ThumbNeeded(i));
+            }
         }
         // Bounded GPU memory: the window is the logic layer's, the retains
         // are the runtime's (`GalleryAction::Trim`).
         if let Some(keep) =
             logic::gallery::trim_window(visible.clone(), self.gal.thumbs.len(), logic::gallery::THUMB_TEX_CAP)
         {
-            self.apply_actions(vec![logic::Action::Gallery(
-                logic::gallery::GalleryAction::Trim { start: keep.start, end: keep.end },
-            )]);
+            self.apply_gallery(logic::gallery::GalleryAction::Trim { start: keep.start, end: keep.end });
         }
         if let Some((index, multi)) = clicked {
-            self.apply_actions(vec![logic::Action::Gallery(
-                logic::gallery::GalleryAction::Click { index, multi },
-            )]);
+            self.apply_gallery(logic::gallery::GalleryAction::Click { index, multi });
         }
     }
 }

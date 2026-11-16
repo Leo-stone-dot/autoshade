@@ -438,9 +438,7 @@ impl AutoShadeApp {
             });
             if do_open && !self.busy {
                 self.gal.selected = None;
-                self.apply_actions(vec![logic::Action::Gallery(
-                    logic::gallery::GalleryAction::OpenPhotoFile,
-                )]);
+                self.apply_gallery(logic::gallery::GalleryAction::OpenPhotoFile);
             }
             if do_export && self.photo.src_path.is_some() && !self.busy {
                 self.start_export();
@@ -891,9 +889,7 @@ impl AutoShadeApp {
                         .clicked()
                     {
                         self.gal.selected = None; // a one-off file isn't a gallery selection
-                        self.apply_actions(vec![logic::Action::Gallery(
-                            logic::gallery::GalleryAction::OpenPhotoFile,
-                        )]);
+                        self.apply_gallery(logic::gallery::GalleryAction::OpenPhotoFile);
                     }
                     if action(ui, ready, tr(lang, "Reset"))
                         .on_hover_text(tr(lang, "Back to this photo's fresh-open look: sliders neutral on the camera's own default colour and tone, like the in-camera JPEG (one undo brings it back)"))
@@ -1278,14 +1274,10 @@ impl AutoShadeApp {
                         let w = 300.0;
                         ui.add_space((ui.available_width() - w).max(0.0) * 0.5);
                         if primary(ui, true, tr(self.lang, "Open photo…  (Ctrl+O)")).clicked() {
-                            self.apply_actions(vec![logic::Action::Gallery(
-                                logic::gallery::GalleryAction::OpenPhotoFile,
-                            )]);
+                            self.apply_gallery(logic::gallery::GalleryAction::OpenPhotoFile);
                         }
                         if action(ui, true, tr(self.lang, "🗂 Open folder…")).clicked() {
-                            self.apply_actions(vec![logic::Action::Gallery(
-                                logic::gallery::GalleryAction::OpenFolder,
-                            )]);
+                            self.apply_gallery(logic::gallery::GalleryAction::OpenFolder);
                         }
                     });
                     ui.add_space(8.0);
