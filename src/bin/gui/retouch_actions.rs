@@ -90,7 +90,7 @@ pub(crate) fn start_fill(&mut self) {
         let edge = self.canvas_edge(); // show at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
-        let (epoch, flag) = self.arm_cancel();
+        let (epoch, flag) = self.workspace.arm_cancel();
         let ptx = self.services.tx.clone();
         self.spawn_worker(
             move || {
@@ -179,7 +179,7 @@ pub(crate) fn start_adjust(&mut self) {
         let edge = self.canvas_edge();
         let out_claim = out.clone();
         let out_panic = out.clone();
-        let (epoch, flag) = self.arm_cancel();
+        let (epoch, flag) = self.workspace.arm_cancel();
         let ptx = self.services.tx.clone();
         self.spawn_worker(
             move || {
@@ -278,7 +278,7 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
         let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
-        let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
+        let (epoch, _flag) = self.workspace.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
                 let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&path))); // full-frame commit budget (budget.rs)
@@ -364,7 +364,7 @@ pub(crate) fn start_ai_denoise(&mut self) {
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
         let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
-        let (epoch, _flag) = self.arm_cancel(); // sidecar compute: Cancel = abandon (epoch discard)
+        let (epoch, _flag) = self.workspace.arm_cancel(); // sidecar compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
                 let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&path))); // full-frame commit budget (budget.rs)
@@ -423,7 +423,7 @@ pub(crate) fn start_stack(&mut self, extra: Vec<PathBuf>) {
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
         let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
-        let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
+        let (epoch, _flag) = self.workspace.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
                 // Every frame is held decoded at once, so the commit is the
@@ -506,7 +506,7 @@ pub(crate) fn start_clone(&mut self) {
         // recipe's camera profile and Look table, which the card's preview
         // develop cannot add afterwards.
         let part = autoshade::render::BasePart::of(&self.editor.doc().recipe);
-        let (epoch, _flag) = self.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
+        let (epoch, _flag) = self.workspace.arm_cancel(); // local compute: Cancel = abandon (epoch discard)
         self.spawn_worker(
             move || {
                 let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&path))); // full-frame commit budget (budget.rs)
@@ -593,7 +593,7 @@ pub(crate) fn start_reimagine(&mut self) {
         let retry = self.workspace.fit().reimagine_retry; // paid opt-in, captured at click time
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)
-        let (epoch, flag) = self.arm_cancel();
+        let (epoch, flag) = self.workspace.arm_cancel();
         let ptx = self.services.tx.clone();
         self.spawn_worker(
             move || {

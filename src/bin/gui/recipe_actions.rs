@@ -8,18 +8,6 @@ use crate::*;
 
 impl AutoShadeApp {
 
-    /// Re-read the library from disk. Synchronous and cheap: the folder holds
-    /// a handful of small JSON files.
-    pub(crate) fn refresh_recipes(&mut self) {
-        self.workspace.rlib_mut().recipes = autoshade::recipe_library::list();
-        if let Some(sel) = self.workspace.rlib().recipe_sel.clone()
-            && !self.workspace.rlib().recipes.iter().any(|r| r.name == sel)
-        {
-            self.workspace.rlib_mut().recipe_sel = None;
-            self.workspace.rlib_mut().recipe_rename = None;
-            self.workspace.rlib_mut().recipe_delete_armed = None;
-        }
-    }
 
     /// The name a blank field saves under: the open photo's stem.
     fn recipe_default_name(&self) -> String {
@@ -65,14 +53,6 @@ impl AutoShadeApp {
         parts.join(", ")
     }
 
-    /// Report an outcome on both channels (the status line for the record, a
-    /// toast for the failure the user must not miss).
-    pub(crate) fn recipe_status(&mut self, ok: bool, text: String) {
-        self.workspace.set_status(text.clone());
-        if !ok {
-            self.workspace.toast(ToastKind::Error, text);
-        }
-    }
 
     /// Save the open photo's develop into the library under a name.
     pub(crate) fn save_current_recipe(&mut self) {
@@ -90,13 +70,13 @@ impl AutoShadeApp {
             Ok(name) => name,
             Err(e) => {
                 let text = self.recipe_name_error(e);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
                 return;
             }
         };
         if autoshade::recipe_library::exists(&name) {
             let text = trf(self.lang, K_ACTIONS_A_RECIPE_NAMED_ALREADY_EXISTS, &[("name", &name)]);
-            self.recipe_status(false, text);
+            self.workspace.recipe_status(false, text);
             return;
         }
         let (entry, losses) = autoshade::recipe_library::portable(&self.editor.doc().recipe, false);
@@ -104,7 +84,7 @@ impl AutoShadeApp {
             Ok(()) => {
                 let _ = src;
                 self.workspace.rlib_mut().recipe_name_buf.clear();
-                self.refresh_recipes();
+                self.workspace.refresh_recipes();
                 self.workspace.rlib_mut().recipe_sel = Some(name.clone());
                 let base = trf(self.lang, K_ACTIONS_SAVED_RECIPE, &[("name", &name)]);
                 let text = if losses.is_empty() {
@@ -117,11 +97,11 @@ impl AutoShadeApp {
                         self.recipe_losses(losses)
                     )
                 };
-                self.recipe_status(true, text);
+                self.workspace.recipe_status(true, text);
             }
             Err(e) => {
                 let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_SAVED, &[("name", &name), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
             }
         }
     }
@@ -140,7 +120,7 @@ impl AutoShadeApp {
             Ok(r) => r,
             Err(e) => {
                 let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_READ, &[("name", name), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
                 return;
             }
         };
@@ -182,7 +162,7 @@ impl AutoShadeApp {
         self.fork_edited_card();
         self.resync_recipe_display();
         let text = trf(self.lang, K_ACTIONS_APPLIED_RECIPE_CTRL_Z_RETURNS_TO_BEFORE, &[("name", name)]);
-        self.recipe_status(true, text);
+        self.workspace.recipe_status(true, text);
     }
 
     /// Write a library entry into the selected photos' develops (the paste
@@ -203,7 +183,7 @@ impl AutoShadeApp {
             Ok(r) => r,
             Err(e) => {
                 let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_READ, &[("name", name), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
                 return;
             }
         };
@@ -220,7 +200,7 @@ impl AutoShadeApp {
         let (entry, losses) = autoshade::recipe_library::portable(&self.editor.doc().recipe, false);
         match autoshade::recipe_library::replace(name, &entry) {
             Ok(()) => {
-                self.refresh_recipes();
+                self.workspace.refresh_recipes();
                 let base = trf(self.lang, K_ACTIONS_UPDATED_RECIPE, &[("name", name)]);
                 let text = if losses.is_empty() {
                     base
@@ -232,11 +212,11 @@ impl AutoShadeApp {
                         self.recipe_losses(losses)
                     )
                 };
-                self.recipe_status(true, text);
+                self.workspace.recipe_status(true, text);
             }
             Err(e) => {
                 let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_SAVED, &[("name", name), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
             }
         }
     }
@@ -247,7 +227,7 @@ impl AutoShadeApp {
             Ok(name) => name,
             Err(e) => {
                 let text = self.recipe_name_error(e);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
                 return;
             }
         };
@@ -256,19 +236,19 @@ impl AutoShadeApp {
         }
         if autoshade::recipe_library::exists(&to) {
             let text = trf(self.lang, K_ACTIONS_A_RECIPE_NAMED_ALREADY_EXISTS, &[("name", &to)]);
-            self.recipe_status(false, text);
+            self.workspace.recipe_status(false, text);
             return;
         }
         match autoshade::recipe_library::rename(from, &to) {
             Ok(()) => {
-                self.refresh_recipes();
+                self.workspace.refresh_recipes();
                 self.workspace.rlib_mut().recipe_sel = Some(to.clone());
                 let text = trf(self.lang, K_ACTIONS_RENAMED_TO, &[("name", &to)]);
-                self.recipe_status(true, text);
+                self.workspace.recipe_status(true, text);
             }
             Err(e) => {
                 let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_RENAMED, &[("name", from), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
             }
         }
     }
@@ -278,15 +258,15 @@ impl AutoShadeApp {
     pub(crate) fn delete_recipe(&mut self, name: &str) {
         match autoshade::recipe_library::delete(name) {
             Ok(()) => {
-                self.refresh_recipes();
+                self.workspace.refresh_recipes();
                 self.workspace.rlib_mut().recipe_sel = None;
                 self.workspace.rlib_mut().recipe_delete_armed = None;
                 let text = trf(self.lang, K_ACTIONS_DELETED_RECIPE, &[("name", name)]);
-                self.recipe_status(true, text);
+                self.workspace.recipe_status(true, text);
             }
             Err(e) => {
                 let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_DELETED, &[("name", name), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
             }
         }
     }

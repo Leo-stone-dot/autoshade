@@ -99,7 +99,7 @@ pub(crate) fn on_analyzed(
                         // stash and the close guard protect it — and the
                         // user decides: Ctrl+S keeps it, Ctrl+Z steps
                         // back to the pre-analyze edit.
-                        self.show_words(
+                        self.workspace.show_words(
                             lang,
                             logic::analysis_landing::words(
                                 &logic::analysis_landing::SaveReport::NotAccepted {
@@ -118,7 +118,7 @@ pub(crate) fn on_analyzed(
                         // degrade to "applied but NOT saved", never hang
                         // the UI thread behind another process.
                         Some(p) => self.persist_analysis_landing(lang, p, stamped),
-                        None => self.show_words(
+                        None => self.workspace.show_words(
                             lang,
                             logic::analysis_landing::words(&logic::analysis_landing::SaveReport::NoPhoto),
                         ),

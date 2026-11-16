@@ -105,7 +105,7 @@ impl AutoShadeApp {
                 Msg::PortraitFound(found) => self.on_portrait_found(lang, *found),
                 Msg::Exported(Ok(outcome)) => {
                     // Normal's Save group words its own landing (`normal.rs`).
-                    let plain = self.normal_delivery_words(lang, &outcome);
+                    let plain = self.workspace.normal_delivery_words(lang, &outcome);
                     self.workspace.exp_mut().batch_progress = None; // the bar belongs to ONE batch run
                     match outcome {
                         ExportOutcome::Single { out, relooked, warn } => {
@@ -179,7 +179,7 @@ impl AutoShadeApp {
                         }
                     }
                     if let Some(plain) = plain {
-                        self.reword_landing(plain);
+                        self.workspace.reword_landing(plain);
                     }
                 }
                 Msg::Exported(Err(e)) => {
@@ -229,7 +229,7 @@ impl AutoShadeApp {
                 Msg::MaskRefined(res) => self.on_mask_refined(lang, res),
                 Msg::Folder(boxed) => {
                     self.on_folder(lang, *boxed);
-                    self.show_startup_note();
+                    self.workspace.show_startup_note();
                 }
                 Msg::Thumb { generation, idx, img } => self.on_thumb(ctx, generation, idx, *img),
                 Msg::MasterLoaded { photo, origin, edge, stamp, img } => {
@@ -307,34 +307,5 @@ impl AutoShadeApp {
         }
     }
 
-    /// Keep the frame loop alive while any worker (analyze/export/thumbs/
-    /// models/master decodes) runs — at a 100 ms poll, not frame rate:
-    /// worker completion only surfaces through the mpsc poll, and a
-    /// full-rate repaint burned CPU for the whole life of a stalled 600 s AI
-    /// call. Input still repaints immediately; 100 ms only bounds COMPLETION
-    /// latency. `master_loads` is in the gate because a cold-variant master
-    /// decode is NOT `busy` (16-lane scan L06). Called at the END of
-    /// update() — after every panel had its chance to spawn (L12-3): inside
-    /// poll_workers (the top of the frame) it judged a frame whose spawns
-    /// had not happened yet, and the first batch of workers ran with no
-    /// completion pump armed.
-    pub(crate) fn pump_repaint_gate(&mut self, ctx: &egui::Context) {
-        if self.workspace.busy()
-            || self.workspace.gal().thumb_inflight > 0
-            || self.workspace.ui().settings.image_models.fetching
-            || self.workspace.ui().settings.analysis_models.fetching
-            || !self.workspace.open().master_loads.is_empty()
-            // R23-2: the style-library build is NOT busy-gated (it runs for
-            // minutes and the app stays usable), so without it here the
-            // "building…" state would only repaint when a progress tick
-            // happens to arrive — a single slow 60 MP decode would freeze the
-            // counter for as long as it takes. Same reason the two model
-            // fetches are on this list.
-            || self.workspace.ai().style_build_inflight
-            || self.workspace.ai().style_info_loading
-        {
-            ctx.request_repaint_after(Duration::from_millis(100));
-        }
-    }
 
     }

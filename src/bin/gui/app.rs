@@ -373,7 +373,7 @@ impl AutoShadeApp {
                 // fifty presses across the range.
                 let now = ctx.input(|i| i.time);
                 let factor = if brush_delta > 0.0 { 1.15 } else { 1.0 / 1.15 };
-                self.set_brush((self.workspace.masks().brush * factor).round(), now);
+                self.workspace.set_brush((self.workspace.masks().brush * factor).round(), now);
             }
             if do_cheatsheet {
                 self.workspace.ui_mut().show_shortcuts = !self.workspace.ui().show_shortcuts;
@@ -1264,7 +1264,7 @@ impl AutoShadeApp {
         }
 
         self.upd_shortcuts(ctx);
-        self.apply_zoom_glide(ctx);
+        self.workspace.apply_zoom_glide(ctx);
         self.upd_dropped_and_title(ctx);
 
         self.upd_top_bar(ctx);
@@ -1441,7 +1441,7 @@ impl AutoShadeApp {
         // whose spawns had not happened yet, so the FIRST batch of workers
         // each frame started with no completion pump armed and their results
         // sat in the channel until the next input event.
-        self.pump_repaint_gate(ctx);
+        self.workspace.pump_repaint_gate(ctx);
     }
 }
 

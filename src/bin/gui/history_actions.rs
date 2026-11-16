@@ -217,7 +217,7 @@ impl AutoShadeApp {
             self.workspace.toast(ToastKind::Error, t.to_string());
         }
         self.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(w, h));
-        self.paint_mask_changed(Some(false));
+        self.workspace.paint_mask_changed(Some(false));
         // The other tools' areas were in the old frame too.
         self.workspace.masks_mut().paint_store = Default::default();
         self.workspace.overlay_mut().mask_tex = None;

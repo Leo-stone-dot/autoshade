@@ -623,7 +623,7 @@
                 ..Default::default()
             }; view } , ..Default::default() };
         app.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(1024, 768));
-        app.set_brush(57.0, 0.0);
+        app.workspace.set_brush(57.0, 0.0);
         let ctx = egui::Context::default();
         let (_, _, canvas) = paint_frame(&mut app, &ctx, vec![], 0.0);
         let at = canvas.center() + egui::vec2(-100.0, 50.0);
@@ -640,7 +640,7 @@
         let (shapes, _, _) = paint_frame(&mut app, &ctx, vec![], 5.0);
         assert!(rings(&shapes, 57.0).is_empty(), "the flash ring outlived its second");
         // The range clamps.
-        app.set_brush(10_000.0, 6.0);
+        app.workspace.set_brush(10_000.0, 6.0);
         assert_eq!(app.workspace.masks().brush, crate::panels::retouch::BRUSH_R_MAX);
     }
 

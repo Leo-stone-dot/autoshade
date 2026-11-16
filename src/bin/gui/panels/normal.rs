@@ -132,14 +132,6 @@ pub(crate) type AnalyzeRunner = fn(
 ) -> anyhow::Result<(EditRecipe, autoshade::advisor::Verdict, Vec<autoshade::rationale::Note>)>;
 
 impl AutoShadeApp {
-    /// Put a plain sentence in place of the status a shared landing just
-    /// wrote — and in its toast, when it raised one.
-    pub(crate) fn reword_landing(&mut self, plain: String) {
-        let old = std::mem::replace(self.workspace.status_mut(), plain.clone());
-        if let Some(t) = self.workspace.chrome_mut().toasts.iter_mut().rev().find(|t| t.text == old.as_str()) {
-            t.text = plain;
-        }
-    }
 
 
     /// The sidebar: the four groups, behind the same mid-open gate as the

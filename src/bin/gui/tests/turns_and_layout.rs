@@ -981,7 +981,7 @@
     fn each_tool_keeps_its_own_painted_area() {
         let paint = |app: &mut AutoShadeApp| {
             app.workspace.masks_mut().mask_paint.as_mut().unwrap().put_pixel(1, 1, image::Rgba([255, 64, 64, 160]));
-            app.paint_mask_changed(Some(true));
+            app.workspace.paint_mask_changed(Some(true));
         };
         let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
 

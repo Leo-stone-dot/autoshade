@@ -114,7 +114,7 @@ impl AutoShadeApp {
         // and the frame `export_mask_png` hands on.
         if self.workspace.masks().mask_paint.as_ref().is_none_or(|m| m.dimensions() != (mw, mh)) {
             self.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(mw, mh));
-            self.paint_mask_changed(Some(false));
+            self.workspace.paint_mask_changed(Some(false));
         }
         if self.workspace.masks().mask_brush_gray.as_ref().is_none_or(|g| g.dimensions() != (mw, mh)) {
             self.workspace.masks_mut().mask_brush_gray = Some(image::GrayImage::new(mw, mh));
@@ -152,21 +152,13 @@ impl AutoShadeApp {
                 }
             }
         }
-        self.paint_mask_changed(None);
+        self.workspace.paint_mask_changed(None);
         // The whole canvas changed, so a pending sub-rect from an earlier
         // stroke must not turn this into a partial GPU upload (see clear_mask).
         self.workspace.overlay_mut().mask_dirty_rect = None;
         wanted.len()
     }
 
-    /// The one notification door for every paint-buffer replacement/write.
-    /// Callers may supply a known answer only from the pixels they just wrote:
-    /// fresh/cleared = false, an actual red brush stamp = true. Import/erase
-    /// leave it unknown. Texture uploads clear mask_dirty, never this memo.
-    pub(crate) fn paint_mask_changed(&mut self, painted: Option<bool>) {
-        self.workspace.masks().mask_painted.set(painted);
-        self.workspace.overlay_mut().mask_dirty = true;
-    }
 
 
 
@@ -175,7 +167,7 @@ impl AutoShadeApp {
             for p in m.pixels_mut() {
                 *p = image::Rgba([0, 0, 0, 0]);
             }
-            self.paint_mask_changed(Some(false));
+            self.workspace.paint_mask_changed(Some(false));
             // The WHOLE canvas changed: a pending brush sub-rect from an
             // uncommitted stroke would make ensure_mask_tex's partial-upload
             // fast path re-upload only that rectangle, leaving previously
@@ -220,23 +212,13 @@ impl AutoShadeApp {
             None => (image::RgbaImage::new(w, h), Some(false)),
         };
         self.workspace.masks_mut().mask_paint = Some(canvas);
-        self.paint_mask_changed(painted);
+        self.workspace.paint_mask_changed(painted);
         // The whole canvas changed (see clear_mask on the pending sub-rect).
         self.workspace.overlay_mut().mask_dirty_rect = None;
         self.workspace.masks_mut().paint_last = None;
         self.workspace.masks_mut().paint_owner = owner;
     }
 
-    /// Stash the live owner's area for a mask-brush session, which takes the
-    /// canvas; `end_mask_brush` puts it back through `unstash_owner_area`.
-    fn stash_owner_area(&mut self) {
-        if let Some(cur) = self.workspace.masks_mut().mask_paint.take() {
-            let slot = self.workspace.masks().paint_owner.slot();
-            let painted = self.workspace.masks().mask_painted.get();
-            self.workspace.masks_mut().paint_store[slot] =
-                Some(PaintArea { canvas: cur, painted: std::cell::Cell::new(painted) });
-        }
-    }
 
     /// The twin of `stash_owner_area`, once the session's canvas is gone: the
     /// owner's area returns unscanned; with nothing stashed the canvas stays
@@ -246,7 +228,7 @@ impl AutoShadeApp {
         if let Some(a) = self.workspace.masks_mut().paint_store[slot].take() {
             let painted = a.painted.get();
             self.workspace.masks_mut().mask_paint = Some(a.canvas);
-            self.paint_mask_changed(painted);
+            self.workspace.paint_mask_changed(painted);
             self.workspace.overlay_mut().mask_dirty_rect = None;
             self.workspace.masks_mut().paint_last = None;
         }
@@ -309,7 +291,7 @@ impl AutoShadeApp {
         let Some(base) = self.editor.photo().base_preview.as_ref() else { return };
         let (mw, mh) = base.dimensions();
         // The session takes the canvas; the owner's area waits in the store.
-        self.stash_owner_area();
+        self.workspace.stash_owner_area();
         let mut gray = image::GrayImage::new(mw, mh);
         let mut canvas = image::RgbaImage::new(mw, mh);
         // The raster this session SEEDS from, asked by file and not by variant
@@ -350,7 +332,7 @@ impl AutoShadeApp {
             }
         }
         self.workspace.masks_mut().mask_paint = Some(canvas);
-        self.paint_mask_changed(None);
+        self.workspace.paint_mask_changed(None);
         self.workspace.overlay_mut().mask_dirty_rect = None;
         self.workspace.masks_mut().mask_brush_gray = Some(gray);
         self.workspace.masks_mut().mask_brush = Some((target, false));

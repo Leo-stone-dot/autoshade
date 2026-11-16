@@ -66,7 +66,7 @@ impl AutoShadeApp {
                 ModelRole::Image => cfg.openai_api_key.as_deref().unwrap_or(""),
                 ModelRole::Analysis => cfg.analysis_api_key.as_deref().unwrap_or(""),
             });
-            let cat = self.catalogue_mut(role);
+            let cat = self.workspace.catalogue_mut(role);
             if !cat.is_empty() && cat.from_key != fp {
                 cat.clear();
             }
@@ -290,7 +290,7 @@ impl AutoShadeApp {
         } else {
             String::new()
         };
-        let cat = self.catalogue_mut(role);
+        let cat = self.workspace.catalogue_mut(role);
         if cat.fetching {
             return;
         }
@@ -316,12 +316,6 @@ impl AutoShadeApp {
         );
     }
 
-    pub(crate) fn catalogue_mut(&mut self, role: ModelRole) -> &mut ModelCatalogue {
-        match role {
-            ModelRole::Image => &mut self.workspace.ui_mut().settings.image_models,
-            ModelRole::Analysis => &mut self.workspace.ui_mut().settings.analysis_models,
-        }
-    }
 
     /// 「准备 Python 环境」: create the managed environment with `uv` and
     /// install the sidecar requirements into it. Explicit, because the wheel

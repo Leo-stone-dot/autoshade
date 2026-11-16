@@ -543,7 +543,7 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // None-on-None for these nonexistent fixtures, so only the edge
         // component is pinned here; identity-before-read for the stamps is
         // review-enforced and recorded in the remember_base doc.)
-        app.remember_base(
+        app.workspace.remember_base(
             p,
             &(
                 base.clone(),
@@ -555,14 +555,14 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
                 None,
             ),
         );
-        let hit = app.cached_base(p, 2560);
+        let hit = app.workspace.cached_base(p, 2560);
         assert!(hit.is_some(), "same path + the IDENT's edge hits");
         let hit = hit.unwrap();
         assert_eq!(hit.1.0.base_curve, knots, "base-look knots ride the cache entry");
         assert_eq!(hit.2, lens, "the lens profile rides the cache entry too");
         assert_eq!(hit.3, Some((4830.0, 6.0)), "the as-shot anchor rides the cache entry too");
         assert!(
-            app.cached_base(p, 1280).is_none(),
+            app.workspace.cached_base(p, 1280).is_none(),
             "the key's edge comes from the pre-read ident, not preview_edge"
         );
         // Filling past the cap evicts the least-recently-used entry.
@@ -570,13 +570,13 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
             .map(|i| std::env::temp_dir().join(format!("autoshade-nonexistent-{}/{i}.ARW", std::process::id())))
             .collect();
         for o in &others {
-            app.remember_base(
+            app.workspace.remember_base(
                 o,
                 &(base.clone(), Default::default(), Default::default(), None, None, (1280, None, None), None),
             );
         }
-        assert!(app.cached_base(p, 2560).is_none(), "least-recent evicted at cap");
-        assert!(app.cached_base(&others[1], 1280).is_some(), "newer entries survive");
+        assert!(app.workspace.cached_base(p, 2560).is_none(), "least-recent evicted at cap");
+        assert!(app.workspace.cached_base(&others[1], 1280).is_some(), "newer entries survive");
         assert!(app.workspace.open().base_cache.len() <= BASE_CACHE_CAP, "cap holds");
     }
 

@@ -17,7 +17,7 @@ impl AutoShadeApp {
             return;
         }
         if !self.workspace.rlib().recipes_loaded {
-            self.refresh_recipes();
+            self.workspace.refresh_recipes();
         }
         let lang = self.lang;
         let mut open = true;
@@ -248,7 +248,7 @@ impl AutoShadeApp {
                     .clicked()
                     && let Err(e) = reveal_folder(&autoshade::recipe_library::library_dir())
                 {
-                    self.recipe_status(
+                    self.workspace.recipe_status(
                         false,
                         trf(lang, K_RECIPES_THE_LIBRARY_FOLDER_COULD_NOT_BE_OPENED, &[("err", &e.to_string())]),
                     );

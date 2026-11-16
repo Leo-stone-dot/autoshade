@@ -33,34 +33,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// The Save group's landing in plain words — `None` when no Save-group
-    /// delivery is running, or a batch had failures (their error stands).
-    pub(crate) fn normal_delivery_words(&mut self, lang: Lang, outcome: &ExportOutcome) -> Option<String> {
-        if !std::mem::take(&mut self.workspace.normal_mut().delivering) {
-            return None;
-        }
-        match outcome {
-            // The file actually written: a numbered save names its number.
-            ExportOutcome::Single { out, .. } => {
-                let dir = out.parent().map(folder_name).unwrap_or_default();
-                let file = out.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                Some(trf(lang, K_ACTIONS_SAVED_TO, &[("file", &file), ("folder", &dir)]))
-            }
-            ExportOutcome::Batch { ok, errs, dest, renamed, .. } if errs.is_empty() => {
-                let saved = trf(lang, K_ACTIONS_PHOTOS_SAVED_TO, &[("n", &ok.to_string()), ("folder", &folder_name(dest))]);
-                Some(if renamed.is_empty() {
-                    saved
-                } else {
-                    let k = renamed.len().to_string();
-                    let numbered = trf(lang, K_ACTIONS_OF_THEM_HAVE_A_NUMBER_ADDED_TO_THE_NAME_SO_NO_EA, &[("k", &k)]);
-                    format!("{saved}. {numbered}")
-                })
-            }
-            // Every failure was the refusal to save into the photos' own
-            // folder (counted by type in the worker): the plain sentence.
-            ExportOutcome::Batch { .. } => None,
-        }
-    }
 
     /// Is the noise switch on: the card on screen is a ◈ card, or the
     /// switch's own AI denoise is running.
@@ -175,6 +147,6 @@ impl AutoShadeApp {
         if let Some(h) = history {
             self.carry_look_history(h);
         }
-        self.reword_landing(tr(lang, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P).into());
+        self.workspace.reword_landing(tr(lang, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P).into());
     }
 }

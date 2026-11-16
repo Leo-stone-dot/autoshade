@@ -18,7 +18,7 @@ match autoshade::store::with_develop_lock(
     autoshade::store::DevelopLockMode::NoWait,
     || -> std::io::Result<String> {
         Ok(match autoshade::store::backup_saved_develop(&p, Some(&stamped)) {
-    Err(e) => self.show_words(
+    Err(e) => self.workspace.show_words(
         lang,
         logic::analysis_landing::words(
             &logic::analysis_landing::SaveReport::BackupFailed {
@@ -124,7 +124,7 @@ match autoshade::store::with_develop_lock(
                 if backed.is_some() {
                     self.refresh_versions();
                 }
-                let mut s = self.show_words(
+                let mut s = self.workspace.show_words(
                     lang,
                     logic::analysis_landing::words(
                         &logic::analysis_landing::SaveReport::Saved { backed_up: backed },
@@ -209,7 +209,7 @@ match autoshade::store::with_develop_lock(
                 // but this photo's working save
                 // failed, and a status line alone
                 // scrolls away.
-                let t = self.show_words(
+                let t = self.workspace.show_words(
                     lang,
                     logic::analysis_landing::words(
                         &logic::analysis_landing::SaveReport::SidecarFailed {

@@ -510,3 +510,66 @@ impl Editor {
         self.active_canvas_dirty() || self.open_dirty_variants() > 0
     }
 }
+
+impl Editor {
+    /// Persist the open photo's strip beside recipe.json/pixels.json and
+    /// advance the mirror. Trivial strip ⇒ clear (no noise file). An error
+    /// leaves the mirror untouched, so the unsaved protection stays armed.
+    /// Test-only since the single-generation commit (L03): production saves
+    /// stage the strip INTO [`autoshade::store::commit_develop`] and advance
+    /// the mirror on the commit's success — this remains the strip-half
+    /// primitive the guard tests drive in isolation.
+    #[cfg(test)]
+    pub(crate) fn persist_strip(&mut self, path: &std::path::Path) -> std::io::Result<()> {
+        match self.current_strip_record() {
+            Some(rec) => {
+                autoshade::store::write_variants(path, &rec)?;
+                self.session_mut().hist.saved_strip = Some(rec);
+            }
+            None => {
+                autoshade::store::clear_variants(path)?;
+                self.session_mut().hist.saved_strip = None;
+            }
+        }
+        Ok(())
+    }
+
+    /// The After image with its interaction layers — crop tool, mask placement,
+    /// paint canvas, box-select — or the SOURCE flashed in the same rect while
+    /// `comparing` (B held). Scroll zooms to the cursor; middle-drag or
+    /// Space+drag pans; all image-space handlers map through [`ViewXform`].
+    /// The canvas image with its two fades: the B-key compare cross-fades
+    /// between the source and the edit, and a swap's first frame fades in
+    /// over the frame it replaced. `id` is the texture `comparing` selects;
+    /// the other one is painted over it while the compare fade runs.
+    pub(crate) fn paint_canvas_image(&mut self, ui: &egui::Ui, rect: egui::Rect, uv: egui::Rect, id: egui::TextureId, comparing: bool) {
+        let painter = ui.painter_at(rect);
+        let ctx = ui.ctx();
+        // 1 = showing the source. Driven by `comparing`, so a held B fades
+        // in and its release fades back.
+        let to_before = ctx.animate_bool_with_time(egui::Id::new("canvas_compare"), comparing, MOTION_FADE_S);
+        let other_alpha = if comparing { 1.0 - to_before } else { to_before };
+        let swap = self.plates().canvas_fade.as_ref().map(|(old, t)| (old.clone(), ease_out(t.elapsed().as_secs_f32() / MOTION_FADE_S)));
+        match &swap {
+            // A swap still landing: the outgoing frame under, the new one
+            // fading in on top (from the bare canvas when there was none).
+            Some((old, k)) if *k < 1.0 => {
+                if let Some(old) = old {
+                    painter.image(old.id(), rect, uv, egui::Color32::WHITE);
+                }
+                painter.image(id, rect, uv, egui::Color32::WHITE.gamma_multiply(*k));
+                ctx.request_repaint();
+            }
+            _ => {
+                self.plates_mut().canvas_fade = None;
+                painter.image(id, rect, uv, egui::Color32::WHITE);
+            }
+        }
+        let other = if comparing { &self.plates().after_tex } else { &self.plates().before_tex };
+        if other_alpha > 0.0
+            && let Some(t) = other
+        {
+            painter.image(t.id(), rect, uv, egui::Color32::WHITE.gamma_multiply(other_alpha));
+        }
+    }
+}

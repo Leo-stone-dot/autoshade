@@ -1045,7 +1045,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         // The exact pre-fix trap: unsaved strip, guard armed…
         assert!(app.inactive_dirty_variants() > 0, "premise: the strip is unsaved work");
         // …then the save persists the strip (what Ctrl+S / Save-all do now)…
-        app.persist_strip(src).expect("strip persists");
+        app.editor.persist_strip(src).expect("strip persists");
         // …and the guard's orphan term must be genuinely clean: this is the
         // assertion whose absence was the livelock.
         assert_eq!(
@@ -1069,7 +1069,7 @@ variants: vec![mk(master.clone()), mk(master.clone())],
             "a deleted background variant is unsaved work against the mirror"
         );
         // …and switching the active card (identity drift) counts too.
-        app.persist_strip(src).expect("re-persist");
+        app.editor.persist_strip(src).expect("re-persist");
         assert_eq!(app.inactive_dirty_variants(), 0);
         app.editor.doc_mut().active = 0;
         app.editor.doc_mut().variants.swap(0, 1);

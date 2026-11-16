@@ -33,7 +33,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.workspace.toast(ToastKind::Error, t);
                     }
                     if let Some(p) = self.editor.photo().src_path.clone() {
-                        self.remember_base(
+                        self.workspace.remember_base(
                             &p,
                             &(
                                 base.clone(),

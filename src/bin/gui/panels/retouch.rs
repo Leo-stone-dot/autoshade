@@ -125,9 +125,9 @@ impl AutoShadeApp {
         masks.mask_brush_gray = gray;
         if stamped {
             if erase {
-                self.paint_mask_changed(None);
+                self.workspace.paint_mask_changed(None);
             } else {
-                self.paint_mask_changed(Some(true));
+                self.workspace.paint_mask_changed(Some(true));
             }
         }
     }
@@ -317,11 +317,6 @@ impl AutoShadeApp {
     }
 
 
-    /// Set the one brush radius, clamped to its range, and flash the ring.
-    pub(crate) fn set_brush(&mut self, radius: f32, now: f64) {
-        self.workspace.masks_mut().brush = radius.clamp(BRUSH_R_MIN, BRUSH_R_MAX);
-        self.workspace.masks_mut().brush_resized_at = Some(now);
-    }
 
     pub(crate) fn brush_size_slider(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
@@ -344,7 +339,7 @@ impl AutoShadeApp {
             tr(lang, K_RETOUCH_ONE_RADIUS_FOR_EVERY_BRUSH_THE_MASK_BRUSH_AND_TH),
         ) {
             let now = ui.input(|i| i.time);
-            self.set_brush(radius, now);
+            self.workspace.set_brush(radius, now);
         }
         // Feather and Flow (2026-10-13): Lightroom's two brush dials, shared
         // by every brush like the radius. Feather fades the disc's outer part

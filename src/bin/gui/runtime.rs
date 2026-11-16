@@ -79,7 +79,7 @@ impl AutoShadeApp {
                 },
                 Action::Recipe(action) => match action {
                     logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
-                    logic::recipes::RecipeAction::Refresh => self.refresh_recipes(),
+                    logic::recipes::RecipeAction::Refresh => self.workspace.refresh_recipes(),
                     logic::recipes::RecipeAction::SaveCurrent => self.save_current_recipe(),
                     logic::recipes::RecipeAction::ApplyToOpen(name) => self.apply_recipe_to_open(&name),
                     logic::recipes::RecipeAction::ApplyToSelection(name) => {
@@ -358,7 +358,7 @@ impl AutoShadeApp {
                 // shared landing's (and in the toast that landing raised).
                 if matches!(line, LookLine::Done | LookLine::BuiltIn) {
                     let plain = self.workspace.normal_line_text(self.lang).to_string();
-                    self.reword_landing(plain);
+                    self.workspace.reword_landing(plain);
                 }
             }
             LookKind::Portrait => {
@@ -375,20 +375,6 @@ impl AutoShadeApp {
     }
 
 
-    /// Render one landing outcome's words: the one place a logic-authored
-    /// status line and toast become the view's strings.
-    pub(crate) fn show_words(&mut self, lang: Lang, words: logic::Words) -> String {
-        let status = crate::i18n::text(lang, &words.status);
-        self.workspace.set_status(status.clone());
-        if let Some((tone, text)) = words.toast {
-            let kind = match tone {
-                logic::Tone::Error => ToastKind::Error,
-                logic::Tone::Success => ToastKind::Success,
-            };
-            self.workspace.toast(kind, crate::i18n::text(lang, &text));
-        }
-        status
-    }
 
     fn spawn_depth_worker(
         &mut self,

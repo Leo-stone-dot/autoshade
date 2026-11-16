@@ -7,16 +7,6 @@ use autoshade::advisor::{hint_action, FitAction};
 use crate::*;
 
 impl AutoShadeApp {
-    /// Arm the cancellable-worker state for a retouch/generative task: a fresh
-    /// cancel flag (this shows the status-bar ✕) and the epoch its result must
-    /// present to be applied. Streaming generative workers also hand the flag
-    /// to the lib so the download itself stops at the next event; local
-    /// compute is abandon-only (its late result is discarded by epoch).
-    pub(crate) fn arm_cancel(&mut self) -> (u64, Arc<std::sync::atomic::AtomicBool>) {
-        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        self.workspace.tools_mut().gen_cancel = Some(flag.clone());
-        (self.workspace.tools().gen_epoch, flag)
-    }
 
     /// The status-bar ✕: stop the running retouch/generative task. The UI
     /// unblocks NOW; the worker sees the flag at its next checkpoint and its
@@ -777,7 +767,7 @@ impl AutoShadeApp {
         // local-compute starters): the advisor has no cancel checkpoints, so
         // ✕ frees the UI immediately, the call dies at its stall/progress
         // deadline, and the stale-epoch result is discarded on arrival.
-        let (epoch, _flag) = self.arm_cancel();
+        let (epoch, _flag) = self.workspace.arm_cancel();
         self.workspace.tools_mut().analyze_inflight = true;
         self.spawn_worker(
             move || {

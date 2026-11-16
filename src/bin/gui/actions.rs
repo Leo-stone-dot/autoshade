@@ -64,7 +64,7 @@ impl AutoShadeApp {
             app.workspace.chrome_mut().startup_note = Some(note);
         }
         if !app.workspace.busy() {
-            app.show_startup_note();
+            app.workspace.show_startup_note();
         }
         // The quit guard's two process-wide hooks (see `quit.rs`): the repaint
         // handle a vetoed quit wakes the UI with, and — on macOS — the
@@ -168,7 +168,7 @@ impl AutoShadeApp {
         // A restored folder's asynchronous status must not erase the note
         // before the user sees it. Its completion uses the same status line.
         if !app.workspace.busy() {
-            app.show_startup_note();
+            app.workspace.show_startup_note();
         }
     }
 
@@ -184,12 +184,6 @@ impl AutoShadeApp {
         )
     }
 
-    pub(crate) fn show_startup_note(&mut self) {
-        if let Some(note) = self.workspace.chrome_mut().startup_note.take() {
-            self.workspace.status_mut().push_str(" — ");
-            self.workspace.status_mut().push_str(&note);
-        }
-    }
 
     /// What quitting RIGHT NOW would cost, in the terms `quit.rs` publishes.
     ///
@@ -248,35 +242,7 @@ impl AutoShadeApp {
 
 
 
-    /// Decoded-base LRU lookup (most-recent entry kept last). Missing metadata
-    /// (mtime `None`) matches itself, so the cache still works where mtime is
-    /// unavailable — it just loses the staleness guard there.
-    pub(crate) fn cached_base(&mut self, path: &std::path::Path, edge: u32) -> Option<OpenedBase> {
-        let mtime = file_stamp(path);
-        let pixels = pixel_identity(path);
-        crate::logic::lru::get(&mut self.workspace.open_mut().base_cache, |(p, e, t, px)| {
-            p == path && *e == edge && *t == mtime && *px == pixels
-        })
-    }
 
-    /// Remember a freshly decoded base. The KEY comes from the worker's
-    /// pre-read capture (`opened.5`), never from a stat or `preview_edge`
-    /// here: the decode takes seconds, an egui dropdown popup outlives
-    /// add_enabled_ui(!busy) (so the px combo CAN change mid-flight), and
-    /// filing the pixels under completion-time state handed a mid-open
-    /// replacement the previous content's pixels AND knots under its own
-    /// key — the curve memo's identity-before-read rule, applied to its
-    /// missed twin.
-    pub(crate) fn remember_base(&mut self, path: &std::path::Path, opened: &OpenedBase) {
-        let (edge, mtime, pixels) = opened.5.clone();
-        crate::logic::lru::insert(
-            &mut self.workspace.open_mut().base_cache,
-            (path.to_path_buf(), edge, mtime, pixels),
-            opened.clone(),
-            |(p, e, _, _)| p == path && *e == edge,
-            BASE_CACHE_CAP,
-        );
-    }
 
     /// Drop the open photo's decoded-base cache entries. Called whenever its
     /// BAKED pixel identity changes (a retouch lands, a save writes/clears
@@ -329,27 +295,6 @@ impl AutoShadeApp {
     }
 
 
-    /// Persist the open photo's strip beside recipe.json/pixels.json and
-    /// advance the mirror. Trivial strip ⇒ clear (no noise file). An error
-    /// leaves the mirror untouched, so the unsaved protection stays armed.
-    /// Test-only since the single-generation commit (L03): production saves
-    /// stage the strip INTO [`autoshade::store::commit_develop`] and advance
-    /// the mirror on the commit's success — this remains the strip-half
-    /// primitive the guard tests drive in isolation.
-    #[cfg(test)]
-    pub(crate) fn persist_strip(&mut self, path: &std::path::Path) -> std::io::Result<()> {
-        match self.editor.current_strip_record() {
-            Some(rec) => {
-                autoshade::store::write_variants(path, &rec)?;
-                self.editor.session_mut().hist.saved_strip = Some(rec);
-            }
-            None => {
-                autoshade::store::clear_variants(path)?;
-                self.editor.session_mut().hist.saved_strip = None;
-            }
-        }
-        Ok(())
-    }
 
 
 
@@ -523,27 +468,27 @@ impl AutoShadeApp {
             Ok(name) => name,
             Err(e) => {
                 let text = self.recipe_name_error(e);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
                 return;
             }
         };
         if autoshade::recipe_library::exists(&name) {
             let text = trf(self.lang, K_ACTIONS_A_RECIPE_NAMED_ALREADY_EXISTS, &[("name", &name)]);
-            self.recipe_status(false, text);
+            self.workspace.recipe_status(false, text);
             return;
         }
         let recipe = match autoshade::recipe_library::read_file(&path) {
             Ok(r) => r,
             Err(e) => {
                 let text = trf(self.lang, K_ACTIONS_IS_NOT_A_RECIPE, &[("file", &path.display().to_string()), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
                 return;
             }
         };
         let (entry, losses) = autoshade::recipe_library::portable(&recipe, false);
         match autoshade::recipe_library::create(&name, &entry) {
             Ok(()) => {
-                self.refresh_recipes();
+                self.workspace.refresh_recipes();
                 self.workspace.rlib_mut().recipe_sel = Some(name.clone());
                 let base = trf(self.lang, K_ACTIONS_IMPORTED, &[("name", &name)]);
                 let text = if losses.is_empty() {
@@ -556,11 +501,11 @@ impl AutoShadeApp {
                         self.recipe_losses(losses)
                     )
                 };
-                self.recipe_status(true, text);
+                self.workspace.recipe_status(true, text);
             }
             Err(e) => {
                 let text = trf(self.lang, K_ACTIONS_RECIPE_COULD_NOT_BE_SAVED, &[("name", &name), ("err", &e.to_string())]);
-                self.recipe_status(false, text);
+                self.workspace.recipe_status(false, text);
             }
         }
     }
@@ -580,7 +525,7 @@ impl AutoShadeApp {
         let (out, how) = match self.workspace.export_dest_dir() {
             Some(dir) => (dir.join(name), OutName::Numbered),
             None => {
-                let Some(p) = self.pick_save_file(name) else { return };
+                let Some(p) = self.workspace.pick_save_file(name) else { return };
                 (normalize_export_target(p, "jpg"), OutName::Chosen)
             }
         };
@@ -597,18 +542,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// The save window's answer (`None` = cancelled).
-    fn pick_save_file(&mut self, name: String) -> Option<PathBuf> {
-        #[cfg(test)]
-        if let Some(pick) = self.workspace.normal_mut().file_pick.take() {
-            return pick;
-        }
-        let mut dlg = rfd::FileDialog::new().add_filter("jpg", &["jpg"]).set_file_name(name);
-        if let Some(d) = self.workspace.exp().last_dir.clone().filter(|d| d.is_dir()) {
-            dlg = dlg.set_directory(d);
-        }
-        dlg.save_file()
-    }
 
     /// 「Apply this look to every photo in the folder」: the open photo's look
     /// pasted onto every photo of the library folder (crop left out), then —
@@ -620,7 +553,7 @@ impl AutoShadeApp {
         if self.workspace.busy() || self.workspace.gal().gallery.is_empty() || self.editor.photo().src_path.is_none() {
             return;
         }
-        let Some(dest) = self.apply_all_dest() else {
+        let Some(dest) = self.workspace.apply_all_dest() else {
             // Cancelled: nothing was changed, and the line says nothing.
             self.workspace.status_mut().clear();
             return;
@@ -634,18 +567,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// The destination setting's folder, or the folder dialog's answer when
-    /// it asks (`None` = cancelled).
-    fn apply_all_dest(&mut self) -> Option<PathBuf> {
-        if let Some(d) = self.workspace.export_dest_dir() {
-            return Some(d);
-        }
-        #[cfg(test)]
-        if let Some(pick) = self.workspace.normal_mut().folder_pick.take() {
-            return pick;
-        }
-        self.workspace.pick_batch_folder()
-    }
 
     /// Move one mask a row up/down. Mask ORDER is render semantics (masks
     /// stack sequentially; a later mask's range sees earlier masks' output), so

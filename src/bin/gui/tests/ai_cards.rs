@@ -337,7 +337,7 @@
                 app.workspace.genai_mut().adjust_prompt = prompt.into();
                 app.workspace.set_busy(busy);
                 app.workspace.masks_mut().mask_paint = strokes.then(|| image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, 160])));
-                app.paint_mask_changed(None);
+                app.workspace.paint_mask_changed(None);
                 draw_adjust_panel(&mut app);
                 let want = !busy && kind.on_ai_pixels() && (strokes || !prompt.trim().is_empty());
                 assert_eq!(app.seams.adjust_btn_enabled, Some(want),
@@ -348,7 +348,7 @@
         app.workspace.set_busy(false);
         app.workspace.genai_mut().adjust_prompt.clear();
         app.workspace.masks_mut().mask_paint = None;
-        app.paint_mask_changed(Some(false));
+        app.workspace.paint_mask_changed(Some(false));
         app.editor.photo_mut().src_path = Some(PathBuf::from("adjust-guard.png"));
         app.start_adjust();
         assert!(!app.workspace.busy(), "blank whole-image adjustment never reaches a worker");
@@ -367,7 +367,7 @@
             // is whole-image mode, even though the mask buffer exists.
             for alpha in [0, 10, 11, 160] {
                 app.workspace.masks_mut().mask_paint = Some(image::RgbaImage::from_pixel(2, 2, image::Rgba([255, 64, 64, alpha])));
-                app.paint_mask_changed(None);
+                app.workspace.paint_mask_changed(None);
                 let strokes = alpha > 10;
                 assert_eq!(app.workspace.has_painted_mask(), strokes);
                 assert_eq!(app.workspace.export_mask_png().is_some(), strokes);
@@ -533,7 +533,7 @@
             ("variant_actions.rs::load_active", 1),
             ("history_actions.rs::rebind_paint_canvas", 1),
             ("masks.rs::paint_imported_removals", 2),
-            ("masks.rs::paint_mask_changed", 1),
+            ("workspace.rs::paint_mask_changed", 1),
             ("masks.rs::clear_mask", 1),
             ("masks.rs::select_brush_owner", 1),
             ("masks.rs::start_mask_brush", 1),
@@ -546,7 +546,8 @@
         assert!(sources.len() >= 6, "expected the split GUI module tree");
         let replace = concat!("self.", "workspace.masks_mut().", "mask_paint = Some(");
         let dirty = concat!("self.", "workspace.overlay_mut().", "mask_dirty = true");
-        let mutations = [replace, dirty, concat!("masks.mask_paint", ".as_mut()"), concat!("&mut self.", "workspace.masks_mut().", "mask_paint")];
+        let dirty_in_ws = concat!("self.", "overlay_mut().", "mask_dirty = true");
+        let mutations = [replace, dirty, dirty_in_ws, concat!("masks.mask_paint", ".as_mut()"), concat!("&mut self.", "workspace.masks_mut().", "mask_paint")];
         let mut found: std::collections::BTreeMap<String, usize> = Default::default();
         for path in sources {
             let text = std::fs::read_to_string(&path).expect("GUI source readable");
@@ -564,15 +565,15 @@
                 }
                 let site = format!("{name}::{function}");
                 *found.entry(site.clone()).or_default() += 1;
-                if line.contains(dirty) {
-                    assert_eq!(site, "masks.rs::paint_mask_changed", "only the notification door may mark the overlay dirty");
+                if line.contains(dirty) || line.contains(dirty_in_ws) {
+                    assert_eq!(site, "workspace.rs::paint_mask_changed", "only the notification door may mark the overlay dirty");
                     continue;
                 }
                 let end = lines[start..].iter().position(|l| *l == "    }").expect("method end") + start;
                 let body = lines[start..=end].join("\n");
-                assert!(body.contains("self.paint_mask_changed("), "{site} bypasses paint-presence invalidation");
+                assert!(body.contains("self.workspace.paint_mask_changed("), "{site} bypasses paint-presence invalidation");
                 if line.contains(replace) {
-                    assert!(lines[i + 1].trim_start().starts_with("self.paint_mask_changed("),
+                    assert!(lines[i + 1].trim_start().starts_with("self.workspace.paint_mask_changed("),
                         "{site}: a replacement must immediately notify paint presence");
                 }
             }
@@ -967,7 +968,7 @@
         assert_eq!(rec.active_kind, "denoised");
         assert_eq!(rec.active_id.as_deref(), Some("dn-1"));
         assert_eq!(rec.active_name.as_deref(), Some("clean"));
-        app.persist_strip(&src).expect("strip persists");
+        app.editor.persist_strip(&src).expect("strip persists");
         let saved = saved_strip_of(&src);
         assert_eq!(saved.active_kind, "denoised");
         assert_eq!(saved.active_pos, 1);

@@ -138,7 +138,7 @@ impl AutoShadeApp {
         // and a hit skips the multi-second full demosaic entirely. Delivered
         // through the ordinary Msg::Opened channel so the handler stays the one
         // place that resets per-photo state.
-        if let Some(hit) = self.cached_base(&path, edge) {
+        if let Some(hit) = self.workspace.cached_base(&path, edge) {
             let _ = self.services.tx.send(Msg::Opened(Box::new(Ok(hit))));
             return;
         }

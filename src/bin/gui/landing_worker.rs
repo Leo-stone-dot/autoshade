@@ -23,7 +23,7 @@ pub(crate) fn on_style_built(&mut self, lang: Lang, outcome: StyleBuildOutcome) 
             None,
         ),
     };
-    self.show_words(lang, words);
+    self.workspace.show_words(lang, words);
     if let Some(dir) = dir {
         self.aip.style_src_dir = Some(dir);
         // A build has just run the embedding model, so its one-time
@@ -573,12 +573,12 @@ pub(crate) fn on_models(
     // while one flies), so whatever lands, THE flight for this role is
     // over — stale or not, the flag must clear or the fetch button and
     // the auto-probe stay disarmed for the rest of the session.
-    self.catalogue_mut(role).fetching = false;
+    self.workspace.catalogue_mut(role).fetching = false;
     // …but the ids belong to the world the fetch was LAUNCHED in. A key
     // replaced or a URL swapped mid-flight bumped `gen` (via `clear`);
     // installing this completion would resurrect the ids the OLD
     // credential could see and offer them under the new one's name.
-    if generation != self.catalogue_mut(role).generation {
+    if generation != self.workspace.catalogue_mut(role).generation {
         self.workspace.ui_mut().settings.status = crate::i18n::text(lang, &logic::models::discarded_words());
         return;
     }
@@ -587,7 +587,7 @@ pub(crate) fn on_models(
             // The classification and the line are the logic layer's.
             let cat = logic::models::catalogue(&models, role == ModelRole::Image);
             self.workspace.ui_mut().settings.status = crate::i18n::text(lang, &logic::models::installed_words(&cat));
-            let slot = self.catalogue_mut(role);
+            let slot = self.workspace.catalogue_mut(role);
             slot.chat = cat.chat;
             slot.image_gen = cat.image;
             slot.efforts = cat.efforts;

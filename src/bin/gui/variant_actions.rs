@@ -96,7 +96,7 @@ impl AutoShadeApp {
             // A fresh transparent paint mask sized to THIS base (a generated
             // raster and the source neutral can differ in dimensions).
             self.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(mw, mh));
-            self.paint_mask_changed(Some(false));
+            self.workspace.paint_mask_changed(Some(false));
             // Every tool's area is per card, like the canvas itself.
             self.workspace.masks_mut().paint_store = Default::default();
             self.workspace.overlay_mut().mask_tex = None;

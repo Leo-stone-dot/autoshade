@@ -207,7 +207,7 @@ fn rename_moves_the_file_and_update_keeps_the_name() {
     let _ = to;
     recipe_library::create(&from, &EditRecipe { contrast: 5.0, ..Default::default() }).unwrap();
     app.workspace.rlib_mut().recipes_loaded = true;
-    app.refresh_recipes();
+    app.workspace.refresh_recipes();
 
     app.editor.doc_mut().recipe.contrast = 44.0;
     app.update_recipe_from_open(&from);
@@ -230,7 +230,7 @@ fn deleting_an_entry_removes_its_file_and_the_row() {
     let _scrub = Scrub(vec![recipe_library::entry_path(&name)]);
     let mut app = app_with(&PathBuf::from("D:/library/_gui_recipe_del.ARW"), EditRecipe::default());
     recipe_library::create(&name, &EditRecipe::default()).unwrap();
-    app.refresh_recipes();
+    app.workspace.refresh_recipes();
     app.workspace.rlib_mut().recipe_sel = Some(name.clone());
 
     app.delete_recipe(&name);

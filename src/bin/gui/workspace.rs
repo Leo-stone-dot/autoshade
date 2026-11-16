@@ -9,6 +9,8 @@
 //! methods a single draw path needs (`paint_upload_parts`, `brush_parts`).
 
 use crate::*;
+use crate::normal_actions::folder_name;
+use crate::panels::retouch::{BRUSH_R_MAX, BRUSH_R_MIN};
 use crate::export::export_dest_dir;
 use crate::masks::export_png_of;
 use crate::panels::normal::NormalLine;
@@ -801,5 +803,233 @@ impl WorkspaceView {
         self.set_status(text.clone());
         self.chrome_mut().toast(ToastKind::Error, text);
         self.set_busy(false);
+    }
+}
+
+impl WorkspaceView {
+    pub(crate) fn show_startup_note(&mut self) {
+        if let Some(note) = self.chrome_mut().startup_note.take() {
+            self.status_mut().push_str(" — ");
+            self.status_mut().push_str(&note);
+        }
+    }
+
+    /// Decoded-base LRU lookup (most-recent entry kept last). Missing metadata
+    /// (mtime `None`) matches itself, so the cache still works where mtime is
+    /// unavailable — it just loses the staleness guard there.
+    pub(crate) fn cached_base(&mut self, path: &std::path::Path, edge: u32) -> Option<OpenedBase> {
+        let mtime = file_stamp(path);
+        let pixels = pixel_identity(path);
+        crate::logic::lru::get(&mut self.open_mut().base_cache, |(p, e, t, px)| {
+            p == path && *e == edge && *t == mtime && *px == pixels
+        })
+    }
+
+    /// Remember a freshly decoded base. The KEY comes from the worker's
+    /// pre-read capture (`opened.5`), never from a stat or `preview_edge`
+    /// here: the decode takes seconds, an egui dropdown popup outlives
+    /// add_enabled_ui(!busy) (so the px combo CAN change mid-flight), and
+    /// filing the pixels under completion-time state handed a mid-open
+    /// replacement the previous content's pixels AND knots under its own
+    /// key — the curve memo's identity-before-read rule, applied to its
+    /// missed twin.
+    pub(crate) fn remember_base(&mut self, path: &std::path::Path, opened: &OpenedBase) {
+        let (edge, mtime, pixels) = opened.5.clone();
+        crate::logic::lru::insert(
+            &mut self.open_mut().base_cache,
+            (path.to_path_buf(), edge, mtime, pixels),
+            opened.clone(),
+            |(p, e, _, _)| p == path && *e == edge,
+            BASE_CACHE_CAP,
+        );
+    }
+
+    /// The save window's answer (`None` = cancelled).
+    pub(crate) fn pick_save_file(&mut self, name: String) -> Option<PathBuf> {
+        #[cfg(test)]
+        if let Some(pick) = self.normal_mut().file_pick.take() {
+            return pick;
+        }
+        let mut dlg = rfd::FileDialog::new().add_filter("jpg", &["jpg"]).set_file_name(name);
+        if let Some(d) = self.exp().last_dir.clone().filter(|d| d.is_dir()) {
+            dlg = dlg.set_directory(d);
+        }
+        dlg.save_file()
+    }
+
+    /// The destination setting's folder, or the folder dialog's answer when
+    /// it asks (`None` = cancelled).
+    pub(crate) fn apply_all_dest(&mut self) -> Option<PathBuf> {
+        if let Some(d) = self.export_dest_dir() {
+            return Some(d);
+        }
+        #[cfg(test)]
+        if let Some(pick) = self.normal_mut().folder_pick.take() {
+            return pick;
+        }
+        self.pick_batch_folder()
+    }
+
+    /// Arm the cancellable-worker state for a retouch/generative task: a fresh
+    /// cancel flag (this shows the status-bar ✕) and the epoch its result must
+    /// present to be applied. Streaming generative workers also hand the flag
+    /// to the lib so the download itself stops at the next event; local
+    /// compute is abandon-only (its late result is discarded by epoch).
+    pub(crate) fn arm_cancel(&mut self) -> (u64, Arc<std::sync::atomic::AtomicBool>) {
+        let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        self.tools_mut().gen_cancel = Some(flag.clone());
+        (self.tools().gen_epoch, flag)
+    }
+
+    /// Glide the zoom one step toward its target — run BEFORE any layout
+    /// reads it, so the canvas, the % readout and the pan clamp all see one
+    /// value. Extracted as the testable seam (L16-10): tests used to drive
+    /// the pure glide_step while the update-loop call could be deleted with
+    /// every test green; this method IS the behaviour now, and update() is
+    /// one call.
+    pub(crate) fn apply_zoom_glide(&mut self, ctx: &egui::Context) {
+        if self.view().zoom != self.view().zoom_target {
+            let dt = ctx.input(|i| i.stable_dt);
+            self.view_mut().zoom = glide_step(self.view().zoom, self.view().zoom_target, dt);
+            ctx.request_repaint(); // keep stepping while in flight
+        }
+    }
+
+    /// The one notification door for every paint-buffer replacement/write.
+    /// Callers may supply a known answer only from the pixels they just wrote:
+    /// fresh/cleared = false, an actual red brush stamp = true. Import/erase
+    /// leave it unknown. Texture uploads clear mask_dirty, never this memo.
+    pub(crate) fn paint_mask_changed(&mut self, painted: Option<bool>) {
+        self.masks().mask_painted.set(painted);
+        self.overlay_mut().mask_dirty = true;
+    }
+
+    /// Stash the live owner's area for a mask-brush session, which takes the
+    /// canvas; `end_mask_brush` puts it back through `unstash_owner_area`.
+    pub(crate) fn stash_owner_area(&mut self) {
+        if let Some(cur) = self.masks_mut().mask_paint.take() {
+            let slot = self.masks().paint_owner.slot();
+            let painted = self.masks().mask_painted.get();
+            self.masks_mut().paint_store[slot] =
+                Some(PaintArea { canvas: cur, painted: std::cell::Cell::new(painted) });
+        }
+    }
+
+    /// The Save group's landing in plain words — `None` when no Save-group
+    /// delivery is running, or a batch had failures (their error stands).
+    pub(crate) fn normal_delivery_words(&mut self, lang: Lang, outcome: &ExportOutcome) -> Option<String> {
+        if !std::mem::take(&mut self.normal_mut().delivering) {
+            return None;
+        }
+        match outcome {
+            // The file actually written: a numbered save names its number.
+            ExportOutcome::Single { out, .. } => {
+                let dir = out.parent().map(folder_name).unwrap_or_default();
+                let file = out.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                Some(trf(lang, K_ACTIONS_SAVED_TO, &[("file", &file), ("folder", &dir)]))
+            }
+            ExportOutcome::Batch { ok, errs, dest, renamed, .. } if errs.is_empty() => {
+                let saved = trf(lang, K_ACTIONS_PHOTOS_SAVED_TO, &[("n", &ok.to_string()), ("folder", &folder_name(dest))]);
+                Some(if renamed.is_empty() {
+                    saved
+                } else {
+                    let k = renamed.len().to_string();
+                    let numbered = trf(lang, K_ACTIONS_OF_THEM_HAVE_A_NUMBER_ADDED_TO_THE_NAME_SO_NO_EA, &[("k", &k)]);
+                    format!("{saved}. {numbered}")
+                })
+            }
+            // Every failure was the refusal to save into the photos' own
+            // folder (counted by type in the worker): the plain sentence.
+            ExportOutcome::Batch { .. } => None,
+        }
+    }
+
+    /// Put a plain sentence in place of the status a shared landing just
+    /// wrote — and in its toast, when it raised one.
+    pub(crate) fn reword_landing(&mut self, plain: String) {
+        let old = std::mem::replace(self.status_mut(), plain.clone());
+        if let Some(t) = self.chrome_mut().toasts.iter_mut().rev().find(|t| t.text == old.as_str()) {
+            t.text = plain;
+        }
+    }
+
+    /// Set the one brush radius, clamped to its range, and flash the ring.
+    pub(crate) fn set_brush(&mut self, radius: f32, now: f64) {
+        self.masks_mut().brush = radius.clamp(BRUSH_R_MIN, BRUSH_R_MAX);
+        self.masks_mut().brush_resized_at = Some(now);
+    }
+
+    /// Re-read the library from disk. Synchronous and cheap: the folder holds
+    /// a handful of small JSON files.
+    pub(crate) fn refresh_recipes(&mut self) {
+        self.rlib_mut().recipes = autoshade::recipe_library::list();
+        if let Some(sel) = self.rlib().recipe_sel.clone()
+            && !self.rlib().recipes.iter().any(|r| r.name == sel)
+        {
+            self.rlib_mut().recipe_sel = None;
+            self.rlib_mut().recipe_rename = None;
+            self.rlib_mut().recipe_delete_armed = None;
+        }
+    }
+
+    /// Report an outcome on both channels (the status line for the record, a
+    /// toast for the failure the user must not miss).
+    pub(crate) fn recipe_status(&mut self, ok: bool, text: String) {
+        self.set_status(text.clone());
+        if !ok {
+            self.toast(ToastKind::Error, text);
+        }
+    }
+
+    /// Render one landing outcome's words: the one place a logic-authored
+    /// status line and toast become the view's strings.
+    pub(crate) fn show_words(&mut self, lang: Lang, words: logic::Words) -> String {
+        let status = crate::i18n::text(lang, &words.status);
+        self.set_status(status.clone());
+        if let Some((tone, text)) = words.toast {
+            let kind = match tone {
+                logic::Tone::Error => ToastKind::Error,
+                logic::Tone::Success => ToastKind::Success,
+            };
+            self.toast(kind, crate::i18n::text(lang, &text));
+        }
+        status
+    }
+
+    pub(crate) fn catalogue_mut(&mut self, role: ModelRole) -> &mut ModelCatalogue {
+        match role {
+            ModelRole::Image => &mut self.ui_mut().settings.image_models,
+            ModelRole::Analysis => &mut self.ui_mut().settings.analysis_models,
+        }
+    }
+
+    /// Keep the frame loop alive while any worker (analyze/export/thumbs/
+    /// models/master decodes) runs — at a 100 ms poll, not frame rate:
+    /// worker completion only surfaces through the mpsc poll, and a
+    /// full-rate repaint burned CPU for the whole life of a stalled 600 s AI
+    /// call. Input still repaints immediately; 100 ms only bounds COMPLETION
+    /// latency. `master_loads` is in the gate because a cold-variant master
+    /// decode is NOT `busy` (16-lane scan L06). Called at the END of
+    /// update() — after every panel had its chance to spawn (L12-3): inside
+    /// poll_workers (the top of the frame) it judged a frame whose spawns
+    /// had not happened yet, and the first batch of workers ran with no
+    /// completion pump armed.
+    pub(crate) fn pump_repaint_gate(&mut self, ctx: &egui::Context) {
+        if self.busy()
+            || self.gal().thumb_inflight > 0
+            || self.ui().settings.image_models.fetching
+            || self.ui().settings.analysis_models.fetching
+            || !self.open().master_loads.is_empty()
+            // R23-2: the style-library build is NOT busy-gated (it runs for
+            // minutes and the app stays usable), so without it here the
+            // "building…" state would only repaint when a progress tick
+            // happens to arrive — a single slow 60 MP decode would freeze the
+            // counter for as long as it takes. Same reason the two model
+            // fetches are on this list.
+            || self.ai().style_build_inflight
+            || self.ai().style_info_loading
+        {
+            ctx.request_repaint_after(Duration::from_millis(100));
+        }
     }
 }
