@@ -124,44 +124,6 @@ impl AutoShadeApp {
         state.store(ui.ctx());
     }
 
-    /// Sub-area ① continued — the deep-thinking WORKING as a block of its own.
-    ///
-    /// User feedback 2026-09-11: listed inline in the rationale sentence, the
-    /// three R23-4 sentences and the R23-1b pixel-tool line ran the fold to a
-    /// wall of italic text. Here they are a captioned block under the
-    /// sentence, one row per note with the note's SUBJECT as a bold lead and
-    /// the model's own sentence selectable beside it — the arg text rides
-    /// verbatim, exactly as it did inside the sentence (the rationale
-    /// contract: model prose is never reworded on a surface). Its height is
-    /// bounded by the analysis box it sits in (2026-10-13), not by a scroll
-    /// of its own: a scroll inside that box would steal the wheel.
-    ///
-    /// Drawn only when the caller's split actually took these notes OUT of
-    /// the sentence; on the fallback path they are still in it, and drawing
-    /// them too would print the working twice.
-    fn thinking_notes(&self, ui: &mut egui::Ui, working: &[&autoshade::rationale::Note]) {
-        use autoshade::rationale::keys;
-        let lang = self.lang;
-        ui.add_space(SPACE_SM);
-        ui.label(egui::RichText::new(tr(lang, K_AI_DEEP_THINKING_ITS_WORKING)).small().strong());
-        for n in working {
-            // The lead is OURS (one catalogue literal per key, so the i18n
-            // audit sees each); the body is the note's single arg, the
-            // model's sentence.
-            let lead = match n.key {
-                keys::THINK_SCENE => tr(lang, K_AI_WHAT_IT_SAW),
-                keys::THINK_LOOK => tr(lang, K_AI_THE_LOOK_IT_AIMED_FOR),
-                keys::THINK_CRITIQUE => tr(lang, K_AI_ITS_OWN_CRITIQUE_AGAINST_YOUR_STRENGTH_TARGET),
-                keys::PIXEL_TOOLS => tr(lang, K_AI_PIXEL_TOOLS_IT_SUGGESTS_NOTHING_WAS_RUN),
-                _ => continue,
-            };
-            let Some((_, body)) = n.args.first() else { continue };
-            ui.horizontal_wrapped(|ui| {
-                ui.label(egui::RichText::new(lead).strong());
-                ui.add(egui::Label::new(body.as_str()).selectable(true));
-            });
-        }
-    }
 
 
     /// What one Analyze run wrote — the verdict, the rationale sentence and
@@ -230,7 +192,7 @@ impl AutoShadeApp {
             );
         }
         if localized.is_some() && !working.is_empty() {
-            self.thinking_notes(ui, &working);
+            thinking_notes(self.lang, ui, &working);
         }
     }
 
@@ -1190,4 +1152,43 @@ pub(crate) fn fit_explainer(lang: Lang) -> &'static str {
     tr(lang,
         K_AI_STATISTICAL_FIT_REVERSE_THE_FRESHLY_GENERATED_LO,
     )
+}
+
+/// Sub-area ① continued — the deep-thinking WORKING as a block of its own.
+///
+/// User feedback 2026-09-11: listed inline in the rationale sentence, the
+/// three R23-4 sentences and the R23-1b pixel-tool line ran the fold to a
+/// wall of italic text. Here they are a captioned block under the
+/// sentence, one row per note with the note's SUBJECT as a bold lead and
+/// the model's own sentence selectable beside it — the arg text rides
+/// verbatim, exactly as it did inside the sentence (the rationale
+/// contract: model prose is never reworded on a surface). Its height is
+/// bounded by the analysis box it sits in (2026-10-13), not by a scroll
+/// of its own: a scroll inside that box would steal the wheel.
+///
+/// Drawn only when the caller's split actually took these notes OUT of
+/// the sentence; on the fallback path they are still in it, and drawing
+/// them too would print the working twice.
+pub(crate) fn thinking_notes(lang: Lang, ui: &mut egui::Ui, working: &[&autoshade::rationale::Note]) {
+    use autoshade::rationale::keys;
+    let lang = lang;
+    ui.add_space(SPACE_SM);
+    ui.label(egui::RichText::new(tr(lang, K_AI_DEEP_THINKING_ITS_WORKING)).small().strong());
+    for n in working {
+        // The lead is OURS (one catalogue literal per key, so the i18n
+        // audit sees each); the body is the note's single arg, the
+        // model's sentence.
+        let lead = match n.key {
+            keys::THINK_SCENE => tr(lang, K_AI_WHAT_IT_SAW),
+            keys::THINK_LOOK => tr(lang, K_AI_THE_LOOK_IT_AIMED_FOR),
+            keys::THINK_CRITIQUE => tr(lang, K_AI_ITS_OWN_CRITIQUE_AGAINST_YOUR_STRENGTH_TARGET),
+            keys::PIXEL_TOOLS => tr(lang, K_AI_PIXEL_TOOLS_IT_SUGGESTS_NOTHING_WAS_RUN),
+            _ => continue,
+        };
+        let Some((_, body)) = n.args.first() else { continue };
+        ui.horizontal_wrapped(|ui| {
+            ui.label(egui::RichText::new(lead).strong());
+            ui.add(egui::Label::new(body.as_str()).selectable(true));
+        });
+    }
 }
