@@ -173,40 +173,8 @@ impl AutoShadeApp {
     }
 
 
-    pub(crate) fn selected_denoise_strength(&self, on_export: bool) -> f32 {
-        crate::logic::noise::selected_strength(
-            self.editor.denoise_uses_raw(),
-            on_export,
-            self.workspace.exp().denoise_strength,
-            self.workspace.exp().save_denoise_strength,
-            self.workspace.exp().baked_denoise_strength,
-            self.workspace.exp().baked_save_denoise_strength,
-        )
-    }
 
 
-    /// What quitting RIGHT NOW would cost, in the terms `quit.rs` publishes.
-    ///
-    /// Built from the same predicates as the close guard in `app.rs`, plus the
-    /// one thing that guard reaches by MUTATING: a typed but uncommitted mask,
-    /// card or version name. The guard may call `commit_pending_names` because
-    /// it runs on the way out; a per-frame reading may not write, so it counts
-    /// an uncommitted name as unsaved work directly. Leaving that out would be
-    /// the U10 loss over again — an otherwise clean recipe whose pending
-    /// rename dies with the process.
-    ///
-    /// The `||` chain is ordered by cost: `inactive_dirty_variants` walks the
-    /// strip deep-comparing recipes, so it is asked last.
-    pub(crate) fn quit_state(&self) -> crate::quit::QuitState {
-        crate::quit::QuitState::from_app(self.workspace.busy(), self.workspace.open().discard_requested, || {
-            self.workspace.masks().mask_name_buf.is_some()
-                || self.workspace.cards().version_name_buf.is_some()
-                || self.workspace.cards().variant_name_buf.is_some()
-                || !self.workspace.open().nav_stash.is_empty()
-                || self.editor.quit_guard_open_dirty()
-                || self.inactive_dirty_variants() > 0
-        })
-    }
 
     /// L12#3: disclose gallery names whose script no installed font can
     /// draw — once per script per session. Runs over the CURRENT gallery
@@ -282,17 +250,6 @@ impl AutoShadeApp {
 
 
 
-    pub(crate) fn inactive_dirty_variants(&self) -> usize {
-        // Photos NAVIGATED AWAY FROM count too. Since batch 47 a photo is
-        // stashed when only a BACKGROUND variant is dirty, so the quit dialog
-        // lists it. Save-all persists each stashed photo's strip record along
-        // with its active canvas (v0.22), so these are savable — the count
-        // deliberately stays conservative (every stashed background variant,
-        // not only those differing from their photo's on-disk record: that
-        // comparison would cost a disk read per stash entry per check).
-        let stashed: usize = self.workspace.open().nav_stash.values().map(|st| st.others.len()).sum();
-        self.editor.open_dirty_variants() + stashed
-    }
 
 
 

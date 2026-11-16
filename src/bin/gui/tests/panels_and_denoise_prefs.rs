@@ -674,9 +674,9 @@
                 ..Default::default()
             }; view } , ..Default::default() };
         assert!(
-            app.export_summary(Lang::En).contains("AI Denoise 35%"),
+            app.editor.export_summary(&app.workspace, Lang::En).contains("AI Denoise 35%"),
             "{}",
-            app.export_summary(Lang::En)
+            app.editor.export_summary(&app.workspace, Lang::En)
         );
         // …and each verb reads ITS fold's dial: no literal strength survives
         // in either worker, and neither reads the other's field.
@@ -705,11 +705,11 @@
         let mut reopened = AutoShadeApp::default();
         reopened.restore_prefs(prefs);
         reopened.editor.photo_mut().src_path = Some(PathBuf::from("master.tif"));
-        assert_eq!(reopened.selected_denoise_strength(false), 0.45);
-        assert_eq!(reopened.selected_denoise_strength(true), 0.6);
+        assert_eq!(reopened.editor.selected_denoise_strength(&reopened.workspace, false), 0.45);
+        assert_eq!(reopened.editor.selected_denoise_strength(&reopened.workspace, true), 0.6);
         assert!(!reopened.workspace.status().contains("reset to"));
         reopened.editor.photo_mut().src_path = Some(PathBuf::from("frame.ARW"));
-        assert_eq!(reopened.selected_denoise_strength(false), autoshade::denoise::DEFAULT_STRENGTH_RAW);
+        assert_eq!(reopened.editor.selected_denoise_strength(&reopened.workspace, false), autoshade::denoise::DEFAULT_STRENGTH_RAW);
     }
 
     /// User decision 2026-09-12 (「该在哪就在哪」): a control belongs to the fold

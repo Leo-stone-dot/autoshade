@@ -168,7 +168,7 @@
         );
         assert_eq!(app.editor.open_dirty_variants(), 0, "this photo's strip is clean");
         assert!(
-            app.inactive_dirty_variants() > 0,
+            app.editor.inactive_dirty_variants(&app.workspace, ) > 0,
             "the quit surfaces still see the other photo's work"
         );
         app.open_path(std::env::temp_dir().join(format!("autoshade-chain-{}/next.ARW", std::process::id())));
@@ -206,7 +206,7 @@
         // into the Err arm, which never reads a sidecar.
         let old = std::env::temp_dir().join(format!("autoshade-h4-{}/__autoshade_h4_a__.ARW", std::process::id()));
         app.editor.photo_mut().src_path = Some(old.clone());
-        assert_eq!(app.inactive_dirty_variants(), 1, "premise: background dirty");
+        assert_eq!(app.editor.inactive_dirty_variants(&app.workspace, ), 1, "premise: background dirty");
         // Navigate away — the stash snapshot is written synchronously.
         app.open_path(std::env::temp_dir().join(format!("autoshade-h4-{}/__autoshade_h4_b__.ARW", std::process::id())));
         {

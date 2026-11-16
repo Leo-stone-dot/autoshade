@@ -810,7 +810,7 @@
         assert!(deleted.editor.nav_stash_gate_dirty(), "navigation protects the deletion");
         assert!(deleted.editor.pending_save_gate_dirty(), "quit Save-all persists the deletion");
         assert!(
-            deleted.editor.quit_guard_open_dirty() || deleted.inactive_dirty_variants() > 0,
+            deleted.editor.quit_guard_open_dirty() || deleted.editor.inactive_dirty_variants(&deleted.workspace) > 0,
             "the complete quit guard remains armed for a deletion"
         );
     }
@@ -855,7 +855,7 @@
         assert!(app.editor.nav_stash_gate_dirty(), "navigation protects the rename");
         assert!(app.editor.pending_save_gate_dirty(), "Save-all includes the rename");
         assert!(
-            app.editor.quit_guard_open_dirty() || app.inactive_dirty_variants() > 0,
+            app.editor.quit_guard_open_dirty() || app.editor.inactive_dirty_variants(&app.workspace, ) > 0,
             "the complete quit guard remains armed for the rename"
         );
     }
@@ -1043,13 +1043,13 @@ variants: vec![mk(master.clone()), mk(master.clone())],
 
             }; editor } , ..Default::default() };
         // The exact pre-fix trap: unsaved strip, guard armed…
-        assert!(app.inactive_dirty_variants() > 0, "premise: the strip is unsaved work");
+        assert!(app.editor.inactive_dirty_variants(&app.workspace, ) > 0, "premise: the strip is unsaved work");
         // …then the save persists the strip (what Ctrl+S / Save-all do now)…
         app.editor.persist_strip(src).expect("strip persists");
         // …and the guard's orphan term must be genuinely clean: this is the
         // assertion whose absence was the livelock.
         assert_eq!(
-            app.inactive_dirty_variants(),
+            app.editor.inactive_dirty_variants(&app.workspace, ),
             0,
             "after a save the close guard must let the window go"
         );
@@ -1065,12 +1065,12 @@ variants: vec![mk(master.clone()), mk(master.clone())],
         app.editor.doc_mut().variants.remove(1);
         app.editor.doc_mut().active = 1;
         assert!(
-            app.inactive_dirty_variants() > 0,
+            app.editor.inactive_dirty_variants(&app.workspace, ) > 0,
             "a deleted background variant is unsaved work against the mirror"
         );
         // …and switching the active card (identity drift) counts too.
         app.editor.persist_strip(src).expect("re-persist");
-        assert_eq!(app.inactive_dirty_variants(), 0);
+        assert_eq!(app.editor.inactive_dirty_variants(&app.workspace, ), 0);
         app.editor.doc_mut().active = 0;
         app.editor.doc_mut().variants.swap(0, 1);
         assert!(

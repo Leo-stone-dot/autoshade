@@ -10,6 +10,7 @@
 //! when another photo opens and are never splintered across clients.
 
 use crate::*;
+use crate::panels::normal::DENOISE_FIRST_DOWNLOAD_MB;
 use autoshade::recipe::MaskRole;
 use crate::actions::PersistedCard;
 use crate::actions::ActiveBaseline;
@@ -769,5 +770,137 @@ impl Editor {
         }
         let searched = workspace.portrait().found.as_ref().is_some_and(|(p, n)| self.photo().src_path.as_ref() == Some(p) && *n == 0);
         Some(if searched { tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO) } else { tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP) })
+    }
+}
+
+impl Editor {
+    /// `<stem>.developed.{tif|jpg}` — the file name every destination shares.
+    /// The stem follows the ACTIVE variant's pixel source, so a Generated
+    /// variant exports under its reimagine stem (and its AI pixels), not the
+    /// original's.
+    pub(crate) fn export_file_name(&self, workspace: &WorkspaceView) -> String {
+        self.export_file_name_as(workspace.exp().format.ext())
+    }
+
+    /// What the Export button will do this click — resolved BEFORE anything is
+    /// written, so "Ask every time" cannot fall through to a silent write.
+    pub(crate) fn export_route(&self, workspace: &WorkspaceView) -> ExportRoute {
+        match workspace.export_dest_dir() {
+            Some(dir) => ExportRoute::Render(dir.join(self.export_file_name(&workspace, ))),
+            None => ExportRoute::Ask,
+        }
+    }
+
+    pub(crate) fn selected_denoise_strength(&self, workspace: &WorkspaceView, on_export: bool) -> f32 {
+        crate::logic::noise::selected_strength(
+            self.denoise_uses_raw(),
+            on_export,
+            workspace.exp().denoise_strength,
+            workspace.exp().save_denoise_strength,
+            workspace.exp().baked_denoise_strength,
+            workspace.exp().baked_save_denoise_strength,
+        )
+    }
+
+    pub(crate) fn inactive_dirty_variants(&self, workspace: &WorkspaceView) -> usize {
+        // Photos NAVIGATED AWAY FROM count too. Since batch 47 a photo is
+        // stashed when only a BACKGROUND variant is dirty, so the quit dialog
+        // lists it. Save-all persists each stashed photo's strip record along
+        // with its active canvas (v0.22), so these are savable — the count
+        // deliberately stays conservative (every stashed background variant,
+        // not only those differing from their photo's on-disk record: that
+        // comparison would cost a disk read per stash entry per check).
+        let stashed: usize = workspace.open().nav_stash.values().map(|st| st.others.len()).sum();
+        self.open_dirty_variants() + stashed
+    }
+
+    /// What quitting RIGHT NOW would cost, in the terms `quit.rs` publishes.
+    ///
+    /// Built from the same predicates as the close guard in `app.rs`, plus the
+    /// one thing that guard reaches by MUTATING: a typed but uncommitted mask,
+    /// card or version name. The guard may call `commit_pending_names` because
+    /// it runs on the way out; a per-frame reading may not write, so it counts
+    /// an uncommitted name as unsaved work directly. Leaving that out would be
+    /// the U10 loss over again — an otherwise clean recipe whose pending
+    /// rename dies with the process.
+    ///
+    /// The `||` chain is ordered by cost: `inactive_dirty_variants` walks the
+    /// strip deep-comparing recipes, so it is asked last.
+    pub(crate) fn quit_state(&self, workspace: &WorkspaceView) -> crate::quit::QuitState {
+        crate::quit::QuitState::from_app(workspace.busy(), workspace.open().discard_requested, || {
+            workspace.masks().mask_name_buf.is_some()
+                || workspace.cards().version_name_buf.is_some()
+                || workspace.cards().variant_name_buf.is_some()
+                || !workspace.open().nav_stash.is_empty()
+                || self.quit_guard_open_dirty()
+                || self.inactive_dirty_variants(&workspace, ) > 0
+        })
+    }
+
+    /// Adjust owns every input, its painted area included (`BrushOwner::Adjust`).
+    /// Generated and Edited both read AI pixels; the negative never does.
+    pub(crate) fn can_adjust(&self, workspace: &WorkspaceView) -> bool {
+        !workspace.busy() && self.active_on_ai_pixels()
+            && (workspace.area_painted(BrushOwner::Adjust) || !workspace.genai().adjust_prompt.trim().is_empty())
+    }
+
+    /// The lines under the noise switch, given whether the denoise helper is
+    /// installed (a process-wide probe, so it is passed in).
+    pub(crate) fn noise_lines(&self, workspace: &WorkspaceView, lang: Lang, helper: bool) -> Vec<String> {
+        if !helper {
+            return vec![tr(lang, K_NORMAL_THIS_DOWNLOAD_DOES_NOT_INCLUDE_THE_NOISE_TOOL).into()];
+        }
+        // The switch is the Retouch panel's denoise: the preview shows it.
+        let mut lines = vec![tr(lang, K_NORMAL_IT_TAKES_A_MOMENT_THE_PREVIEW_THEN_SHOWS_THE_RES).to_string()];
+        if workspace.normal().denoise_ready != Some(true) && !self.denoise_uses_raw() {
+            lines.push(trf(
+                lang,
+                K_NORMAL_THE_FIRST_TIME_THE_NOISE_MODEL_IS_DOWNLOADED_ABO,
+                &[("mb", &DENOISE_FIRST_DOWNLOAD_MB.to_string())],
+            ));
+        }
+        lines
+    }
+
+    /// One-line echo of the current delivery settings for the Export hover —
+    /// e.g. "JPEG · 2560 px · q95 · sRGB (universal) · → <delivery>" — so the
+    /// state stays glanceable now that the settings live in the Export section
+    /// instead of a toolbar row. The DESTINATION is the last segment (R22-7):
+    /// it is the one delivery setting whose wrong value sends a file somewhere
+    /// the user then has to hunt for.
+    pub(crate) fn export_summary(&self, workspace: &WorkspaceView, lang: Lang) -> String {
+        let mut parts: Vec<String> = Vec::new();
+        parts.push(tr(lang, workspace.exp().format.label()).to_string());
+        parts.push(if workspace.exp().long_edge == 0 {
+            tr(lang, K_EXPORT_ORIGINAL_SIZE).to_string()
+        } else {
+            format!("{} px", workspace.exp().long_edge)
+        });
+        if workspace.exp().format == ExportFormat::Jpeg {
+            parts.push(format!("q{:.0}", workspace.exp().quality));
+        }
+        if workspace.exp().sharpen > 0.0 {
+            parts.push(format!("{} {:.0}", tr(lang, K_EXPORT_OUTPUT_SHARPENING), workspace.exp().sharpen));
+        }
+        parts.push(tr(lang, EXPORT_SPACES[(workspace.exp().space as usize).min(2)]).to_string());
+        if self.export_denoise_applies(&workspace) {
+            // With its amount: the dial under the checkbox is the one number
+            // that decides how much of the minutes-long sidecar result lands.
+            // Absent on a ◈ card, where the pass sits out (the echo says what
+            // will actually land).
+            parts.push(format!(
+                "{} {:.0}%",
+                tr(lang, K_EXPORT_AI_DENOISE),
+                self.selected_denoise_strength(&workspace, true) * 100.0
+            ));
+        }
+        parts.push(match workspace.export_dest_dir() {
+            // Absolute, like every other place a target is named now: "./out"
+            // is relative to whatever directory the app was launched from, and
+            // that is exactly the thing users could not find.
+            Some(d) => format!("→ {}", abs_display(&d)),
+            None => format!("→ {}", tr(lang, ExportDest::Ask.label())),
+        });
+        parts.join(" · ")
     }
 }

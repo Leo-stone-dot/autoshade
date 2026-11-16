@@ -1099,11 +1099,11 @@
             app.editor.doc_mut().variants = vec![card(kind)];
             app.editor.doc_mut().active = 0;
             assert!(app.editor.export_denoise_applies(&app.workspace), "{kind:?}");
-            assert!(app.export_summary(Lang::En).contains("AI Denoise 35%"), "{kind:?}");
+            assert!(app.editor.export_summary(&app.workspace, Lang::En).contains("AI Denoise 35%"), "{kind:?}");
         }
         app.editor.doc_mut().variants = vec![card(VariantKind::Denoised)];
         assert!(!app.editor.export_denoise_applies(&app.workspace));
-        assert!(!app.export_summary(Lang::En).contains("AI Denoise"), "{}", app.export_summary(Lang::En));
+        assert!(!app.editor.export_summary(&app.workspace, Lang::En).contains("AI Denoise"), "{}", app.editor.export_summary(&app.workspace, Lang::En));
         app.workspace.exp_mut().save_denoise = false;
         app.editor.doc_mut().variants = vec![card(VariantKind::Original)];
         assert!(!app.editor.export_denoise_applies(&app.workspace), "unticked is unticked on any card");
@@ -1286,12 +1286,12 @@
         // Each denoise verb reads ITS fold's dial and no literal strength.
         let now = &src[src.find("pub(crate) fn start_ai_denoise(").expect("start_ai_denoise moved")..];
         let now = &now[..now.find("pub(crate) fn start_clone(").expect("start_clone moved")];
-        assert!(now.contains("let strength = self.selected_denoise_strength(false);"));
+        assert!(now.contains("let strength = self.editor.selected_denoise_strength(&self.workspace, false);"));
         assert!(now.contains("DenoiseOpts::from_config(&cfg, None, strength)"));
         assert!(!now.contains("save_denoise_strength"), "「AI Denoise now」 must not read the Export dial");
         let export = &src[src.find("pub(crate) fn start_render_to(").expect("start_render_to moved")..];
         let export = &export[..export.find("\n    pub(crate) fn ").unwrap()];
-        assert!(export.contains("let denoise_strength = self.selected_denoise_strength(true);"));
+        assert!(export.contains("let denoise_strength = self.editor.selected_denoise_strength(&self.workspace, true);"));
         assert!(!export.contains("self.workspace.exp().denoise_strength"), "the export must not read the Detail dial");
         for (name, text) in [("start_ai_denoise", now), ("start_render_to", export)] {
             assert!(

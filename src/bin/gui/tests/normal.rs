@@ -496,26 +496,26 @@
      src_path: Some(PathBuf::from("phone.jpg")),
      ..Default::default()
  }; editor } , lang, ..Default::default() };
-            assert_eq!(app.noise_lines(lang, false), vec![tr(lang, K_NORMAL_THIS_DOWNLOAD_DOES_NOT_INCLUDE_THE_NOISE_TOOL).to_string()]);
+            assert_eq!(app.editor.noise_lines(&app.workspace, lang, false), vec![tr(lang, K_NORMAL_THIS_DOWNLOAD_DOES_NOT_INCLUDE_THE_NOISE_TOOL).to_string()]);
             app.workspace.normal_mut().denoise_ready = Some(true);
-            assert_eq!(app.noise_lines(lang, true), vec![plain.clone()], "{lang:?}: the model is there");
+            assert_eq!(app.editor.noise_lines(&app.workspace, lang, true), vec![plain.clone()], "{lang:?}: the model is there");
             for ready in [Some(false), None] {
                 app.workspace.normal_mut().denoise_ready = ready;
-                let lines = app.noise_lines(lang, true);
+                let lines = app.editor.noise_lines(&app.workspace, lang, true);
                 assert_eq!(lines.len(), 2, "{lang:?} {ready:?}: {lines:?}");
                 assert_eq!(lines[0], plain);
                 assert!(lines[1].contains("72 MB"), "{lang:?}: {lines:?}");
             }
             app.editor.photo_mut().src_path = Some(PathBuf::from("camera.arw"));
-            assert_eq!(app.noise_lines(lang, true), vec![plain.clone()], "{lang:?}: a RAW downloads nothing new");
+            assert_eq!(app.editor.noise_lines(&app.workspace, lang, true), vec![plain.clone()], "{lang:?}: a RAW downloads nothing new");
             let (moment, preview) = match lang {
                 Lang::En => ("takes a moment", "preview"),
                 Lang::Zh => ("稍等", "预览"),
             };
             assert!(plain.contains(moment) && plain.contains(preview), "{lang:?}: {plain}");
-            let mut said = app.noise_lines(lang, true);
+            let mut said = app.editor.noise_lines(&app.workspace, lang, true);
             app.editor.photo_mut().src_path = Some(PathBuf::from("phone.jpg"));
-            said.extend(app.noise_lines(lang, true));
+            said.extend(app.editor.noise_lines(&app.workspace, lang, true));
             said.extend(
                 [
                     tr(lang, K_NORMAL_CLEANS_THE_GRAIN_OUT_OF_THE_PHOTO_AND_THE_PREVIE),

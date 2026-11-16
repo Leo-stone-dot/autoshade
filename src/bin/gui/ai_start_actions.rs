@@ -246,7 +246,7 @@ impl AutoShadeApp {
         // variants.json beside the develop. The count still gates the
         // empty-pending close below (defence-in-depth — a strip-dirty photo
         // is also pushed into `pending` above).
-        let orphan_variants = self.inactive_dirty_variants();
+        let orphan_variants = self.editor.inactive_dirty_variants(&self.workspace, );
         if pending.is_empty() && orphan_variants == 0 {
             // Saved (or discarded) since the guard fired — nothing to protect.
             self.workspace.ui_mut().confirm_quit = false;
@@ -586,7 +586,7 @@ impl AutoShadeApp {
                     // anything is STILL dirty (logic drift, a future writer
                     // this loop misses), the bounce must be SAID: a silently
                     // re-armed dialog is the v0.21 dead-button livelock.
-                    let residue = self.inactive_dirty_variants();
+                    let residue = self.editor.inactive_dirty_variants(&self.workspace, );
                     if residue > 0 {
                         let t = trf(
                             lang,

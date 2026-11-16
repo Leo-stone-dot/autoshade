@@ -161,7 +161,7 @@ pub(crate) fn start_fill(&mut self) {
 pub(crate) fn start_adjust(&mut self) {
         let Some(src) = self.editor.photo().src_path.clone() else { return };
         let Some(path) = self.editor.active_source_path() else { return };
-        if !self.can_adjust() || self.refuse_pixel_work_on_a_turned_photo() {
+        if !self.editor.can_adjust(&self.workspace, ) || self.refuse_pixel_work_on_a_turned_photo() {
             return;
         }
         let lang = self.lang;
@@ -356,7 +356,7 @@ pub(crate) fn start_ai_denoise(&mut self) {
         let on_mosaic = autoshade::decode::is_raw(&path);
         // This fold's OWN dial (the Export fold's 「on export」 has its own):
         // captured at the click, like every other input the worker reads.
-        let strength = self.selected_denoise_strength(false);
+        let strength = self.editor.selected_denoise_strength(&self.workspace, false);
         let edge = self.editor.canvas_edge(&self.workspace); // show at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)

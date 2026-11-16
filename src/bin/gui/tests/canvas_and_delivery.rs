@@ -335,7 +335,7 @@
                 last_dir: Some(std::env::temp_dir().join(format!("autoshade-deliver-{}/tripA", std::process::id()))),
                 ..Default::default()
             }; view } , ..Default::default() };
-        assert_eq!(asking.export_route(), ExportRoute::Ask);
+        assert_eq!(asking.editor.export_route(&asking.workspace), ExportRoute::Ask);
         // The out-folder destination is the configured delivery root, `out`
         // only while the machine's settings leave it unset.
         let candidate = autoshade::config::delivery_root().join("DSC00042.developed.jpg");
@@ -358,7 +358,7 @@
                 format: ExportFormat::Jpeg,
                 ..Default::default()
             }; view } , ..Default::default() };
-        assert_eq!(direct.export_route(), ExportRoute::Render(candidate));
+        assert_eq!(direct.editor.export_route(&direct.workspace), ExportRoute::Render(candidate));
     }
 
     /// R22-7: the landing names an ABSOLUTE path. `./out` is relative to the

@@ -709,7 +709,7 @@ impl AutoShadeApp {
                     // is the one-off escape hatch that leaves the setting alone.
                     // Zero item_spacing joins the two halves visually into one
                     // control (egui has no split-button widget).
-                    let summary = self.export_summary(lang);
+                    let summary = self.editor.export_summary(&self.workspace, lang);
                     ui.scope(|ui| {
                         ui.spacing_mut().item_spacing.x = 0.0;
                         if primary(ui, ready, tr(lang, K_APP_EXPORT))
@@ -1200,7 +1200,7 @@ impl AutoShadeApp {
         // Dock's Quit and log-out (see `quit.rs`). On every other platform
         // this is a cheap store nothing reads — the state machine is compiled
         // and tested everywhere so the Windows battery gates it.
-        crate::quit::publish(self.quit_state());
+        crate::quit::publish(self.editor.quit_state(&self.workspace, ));
         // A vetoed quit becomes an ordinary close request, so ⌘Q lands in the
         // SAME guard below as the title-bar ✕ rather than a parallel dialog
         // that would have to be kept in step with it.
@@ -1234,7 +1234,7 @@ impl AutoShadeApp {
             } else if !self.workspace.open().discard_requested
                 && (unsaved_open
                     || !self.workspace.open().nav_stash.is_empty()
-                    || self.inactive_dirty_variants() > 0)
+                    || self.editor.inactive_dirty_variants(&self.workspace, ) > 0)
             {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
                 self.workspace.ui_mut().confirm_quit = true;

@@ -298,28 +298,11 @@ impl AutoShadeApp {
                 logic::normal::NormalAction::SetDenoise(on),
             )]);
         }
-        for line in self.noise_lines(lang, helper) {
+        for line in self.editor.noise_lines(&self.workspace, lang, helper) {
             ui.label(egui::RichText::new(line).weak().small());
         }
     }
 
-    /// The lines under the noise switch, given whether the denoise helper is
-    /// installed (a process-wide probe, so it is passed in).
-    pub(crate) fn noise_lines(&self, lang: Lang, helper: bool) -> Vec<String> {
-        if !helper {
-            return vec![tr(lang, K_NORMAL_THIS_DOWNLOAD_DOES_NOT_INCLUDE_THE_NOISE_TOOL).into()];
-        }
-        // The switch is the Retouch panel's denoise: the preview shows it.
-        let mut lines = vec![tr(lang, K_NORMAL_IT_TAKES_A_MOMENT_THE_PREVIEW_THEN_SHOWS_THE_RES).to_string()];
-        if self.workspace.normal().denoise_ready != Some(true) && !self.editor.denoise_uses_raw() {
-            lines.push(trf(
-                lang,
-                K_NORMAL_THE_FIRST_TIME_THE_NOISE_MODEL_IS_DOWNLOADED_ABO,
-                &[("mb", &DENOISE_FIRST_DOWNLOAD_MB.to_string())],
-            ));
-        }
-        lines
-    }
 
     /// Group 4 — save: a jpg of this photo, or the look on every photo of the
     /// folder.

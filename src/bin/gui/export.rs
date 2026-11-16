@@ -278,66 +278,10 @@ pub(crate) fn paste_payload(src: EditRecipe, paste_geometry: bool) -> PastePaylo
 
 impl AutoShadeApp {
 
-    /// One-line echo of the current delivery settings for the Export hover —
-    /// e.g. "JPEG · 2560 px · q95 · sRGB (universal) · → <delivery>" — so the
-    /// state stays glanceable now that the settings live in the Export section
-    /// instead of a toolbar row. The DESTINATION is the last segment (R22-7):
-    /// it is the one delivery setting whose wrong value sends a file somewhere
-    /// the user then has to hunt for.
-    pub(crate) fn export_summary(&self, lang: Lang) -> String {
-        let mut parts: Vec<String> = Vec::new();
-        parts.push(tr(lang, self.workspace.exp().format.label()).to_string());
-        parts.push(if self.workspace.exp().long_edge == 0 {
-            tr(lang, K_EXPORT_ORIGINAL_SIZE).to_string()
-        } else {
-            format!("{} px", self.workspace.exp().long_edge)
-        });
-        if self.workspace.exp().format == ExportFormat::Jpeg {
-            parts.push(format!("q{:.0}", self.workspace.exp().quality));
-        }
-        if self.workspace.exp().sharpen > 0.0 {
-            parts.push(format!("{} {:.0}", tr(lang, K_EXPORT_OUTPUT_SHARPENING), self.workspace.exp().sharpen));
-        }
-        parts.push(tr(lang, EXPORT_SPACES[(self.workspace.exp().space as usize).min(2)]).to_string());
-        if self.editor.export_denoise_applies(&self.workspace) {
-            // With its amount: the dial under the checkbox is the one number
-            // that decides how much of the minutes-long sidecar result lands.
-            // Absent on a ◈ card, where the pass sits out (the echo says what
-            // will actually land).
-            parts.push(format!(
-                "{} {:.0}%",
-                tr(lang, K_EXPORT_AI_DENOISE),
-                self.selected_denoise_strength(true) * 100.0
-            ));
-        }
-        parts.push(match self.workspace.export_dest_dir() {
-            // Absolute, like every other place a target is named now: "./out"
-            // is relative to whatever directory the app was launched from, and
-            // that is exactly the thing users could not find.
-            Some(d) => format!("→ {}", abs_display(&d)),
-            None => format!("→ {}", tr(lang, ExportDest::Ask.label())),
-        });
-        parts.join(" · ")
-    }
-
-    /// `<stem>.developed.{tif|jpg}` — the file name every destination shares.
-    /// The stem follows the ACTIVE variant's pixel source, so a Generated
-    /// variant exports under its reimagine stem (and its AI pixels), not the
-    /// original's.
-    pub(crate) fn export_file_name(&self) -> String {
-        self.editor.export_file_name_as(self.workspace.exp().format.ext())
-    }
 
 
 
-    /// What the Export button will do this click — resolved BEFORE anything is
-    /// written, so "Ask every time" cannot fall through to a silent write.
-    pub(crate) fn export_route(&self) -> ExportRoute {
-        match self.workspace.export_dest_dir() {
-            Some(dir) => ExportRoute::Render(dir.join(self.export_file_name())),
-            None => ExportRoute::Ask,
-        }
-    }
+
 
     /// Render the full-resolution develop to `out` on a worker thread (16-bit
     /// TIFF, or 8-bit JPEG when the path ends in .jpg). Renders the ACTIVE
@@ -355,7 +299,7 @@ impl AutoShadeApp {
         let denoise = self.editor.export_denoise_applies(&self.workspace);
         // The Export fold's OWN dial (the Detail fold's 「AI Denoise now」 has
         // its own), captured at the click like every other export input.
-        let denoise_strength = self.selected_denoise_strength(true);
+        let denoise_strength = self.editor.selected_denoise_strength(&self.workspace, true);
         let export = self.workspace.export_opts();
         self.start_render_with(out, export, denoise.then_some(denoise_strength), self.workspace.exp().save_denoise, OutName::Guarded)
     }
@@ -851,7 +795,7 @@ impl AutoShadeApp {
     /// toolbar buttons differed only in where the path came from, so "ask"
     /// became a value of the setting instead of a second button.
     pub(crate) fn start_export(&mut self) {
-        match self.export_route() {
+        match self.editor.export_route(&self.workspace, ) {
             ExportRoute::Render(out) => {
                 self.start_render_to(out);
             }
@@ -867,7 +811,7 @@ impl AutoShadeApp {
     pub(crate) fn export_to_chosen_path(&mut self) {
         let ext = self.workspace.exp().format.ext();
         let mut dlg =
-            rfd::FileDialog::new().add_filter(ext, &[ext]).set_file_name(self.export_file_name());
+            rfd::FileDialog::new().add_filter(ext, &[ext]).set_file_name(self.editor.export_file_name(&self.workspace, ));
         // Reopen where the last export landed (阶段4) — persisted in Prefs, so
         // it survives restarts.
         if let Some(d) = self.workspace.exp().last_dir.clone().filter(|d| d.is_dir()) {

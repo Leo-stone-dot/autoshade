@@ -855,12 +855,6 @@ impl AutoShadeApp {
             });
     }
 
-    /// Adjust owns every input, its painted area included (`BrushOwner::Adjust`).
-    /// Generated and Edited both read AI pixels; the negative never does.
-    pub(crate) fn can_adjust(&self) -> bool {
-        !self.workspace.busy() && self.editor.active_on_ai_pixels()
-            && (self.workspace.area_painted(BrushOwner::Adjust) || !self.workspace.genai().adjust_prompt.trim().is_empty())
-    }
 
     fn ai_adjust(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
@@ -899,7 +893,7 @@ impl AutoShadeApp {
                     tr(lang, K_AI_WHOLE_IMAGE_PAINT_AN_AREA_TO_LIMIT_IT)
                 };
                 ui.label(egui::RichText::new(note).weak().small());
-                let resp = primary_row(ui, self.can_adjust(), tr(lang, K_AI_ADJUST))
+                let resp = primary_row(ui, self.editor.can_adjust(&self.workspace, ), tr(lang, K_AI_ADJUST))
                     .on_hover_text(tr(lang,
                         K_AI_CHANGE_THE_GENERATED_PICTURE_WITH_THE_PROMPT_THE,
                     ));
