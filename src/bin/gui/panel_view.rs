@@ -6,6 +6,7 @@
 //! type simply does not carry them.
 
 use crate::*;
+use crate::model::AiPrefs;
 use crate::panels::retouch::{BRUSH_R_MAX, BRUSH_R_MIN};
 use crate::sliders::*;
 use crate::panels::grade_wheel::{grade_wheel, GRADE_VIEWS};
@@ -17,6 +18,7 @@ pub(crate) struct PanelView<'a, 'b> {
     pub(crate) editor: &'a mut Editor,
     pub(crate) workspace: &'a mut WorkspaceView,
     pub(crate) lang: Lang,
+    pub(crate) aip: &'a mut AiPrefs,
     /// The frame's action sink: a panel reports intents, the app runs them.
     pub(crate) actions: &'b mut Vec<logic::Action>,
     #[cfg(test)]
@@ -24,6 +26,33 @@ pub(crate) struct PanelView<'a, 'b> {
 }
 
 impl PanelView<'_, '_> {
+    /// The READ side: whether an analysis searches the library, and whether
+    /// the references also go to the model as pictures.
+    pub(crate) fn ai_library_use(&mut self, ui: &mut egui::Ui) {
+        let lang = self.lang;
+        let built = matches!(self.workspace.ai().style_info, Some(autoshade::library::Summary::Built { .. }));
+        ui.checkbox(&mut self.aip.style_embed, tr(lang, K_AI_SEARCH_THE_LIBRARY_WHEN_ANALYSING))
+            .on_hover_text(tr(lang,
+                K_AI_EACH_ANALYSIS_MEASURES_THIS_PHOTO_WITH_A_LOCAL_M,
+            ));
+        if built && !self.aip.style_embed {
+            ui.label(
+                egui::RichText::new(tr(lang, K_AI_BUILT_BUT_NOT_SEARCHED_THE_SWITCH_ABOVE_IS_OFF))
+                    .color(ui.visuals().warn_fg_color)
+                    .small(),
+            );
+        }
+        ui.add_enabled_ui(built && self.aip.style_embed, |ui| {
+            ui.checkbox(&mut self.aip.send_style_ref_image, tr(lang, K_AI_ALSO_SHOW_THE_MODEL_THE_REFERENCE_PHOTOS))
+                .on_hover_text(if built {
+                    tr(lang,
+                        K_AI_WILL_UPLOAD_UP_TO_3_MORE_IMAGES_PER_ANALYSIS_CAL,
+                    )
+                } else {
+                    tr(lang, K_AI_BUILD_A_REFERENCE_LIBRARY_FIRST_THERE_IS_NO_REFE)
+                });
+        });
+    }
     /// Which library, how big, how old, and where — or why there is none.
     pub(crate) fn ai_library_status(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;

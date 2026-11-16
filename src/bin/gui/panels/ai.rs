@@ -455,7 +455,7 @@ impl AutoShadeApp {
                     {
                         self.seams.ai_library_read_enabled = Some(ui.is_enabled());
                     }
-                    self.ai_library_use(ui);
+                    self.panel_view(&mut Vec::new()).ai_library_use(ui);
                 });
             });
     }
@@ -552,33 +552,6 @@ impl AutoShadeApp {
         }
     }
 
-    /// The READ side: whether an analysis searches the library, and whether
-    /// the references also go to the model as pictures.
-    fn ai_library_use(&mut self, ui: &mut egui::Ui) {
-        let lang = self.lang;
-        let built = matches!(self.workspace.ai().style_info, Some(autoshade::library::Summary::Built { .. }));
-        ui.checkbox(&mut self.aip.style_embed, tr(lang, K_AI_SEARCH_THE_LIBRARY_WHEN_ANALYSING))
-            .on_hover_text(tr(lang,
-                K_AI_EACH_ANALYSIS_MEASURES_THIS_PHOTO_WITH_A_LOCAL_M,
-            ));
-        if built && !self.aip.style_embed {
-            ui.label(
-                egui::RichText::new(tr(lang, K_AI_BUILT_BUT_NOT_SEARCHED_THE_SWITCH_ABOVE_IS_OFF))
-                    .color(ui.visuals().warn_fg_color)
-                    .small(),
-            );
-        }
-        ui.add_enabled_ui(built && self.aip.style_embed, |ui| {
-            ui.checkbox(&mut self.aip.send_style_ref_image, tr(lang, K_AI_ALSO_SHOW_THE_MODEL_THE_REFERENCE_PHOTOS))
-                .on_hover_text(if built {
-                    tr(lang,
-                        K_AI_WILL_UPLOAD_UP_TO_3_MORE_IMAGES_PER_ANALYSIS_CAL,
-                    )
-                } else {
-                    tr(lang, K_AI_BUILD_A_REFERENCE_LIBRARY_FIRST_THERE_IS_NO_REFE)
-                });
-        });
-    }
 
     /// Sub-area ③ — WHOLE-IMAGE GENERATION (paid API): let gpt-image DIRECTLY produce the
     /// picture (the optional "GPT makes the image" path). Distinct from AI

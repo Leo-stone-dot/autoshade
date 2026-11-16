@@ -47,6 +47,7 @@ impl AutoShadeApp {
             editor: &mut self.editor,
             workspace: &mut self.workspace,
             lang: self.lang,
+            aip: &mut self.aip,
             actions,
             #[cfg(test)]
             seams: &mut self.seams,
