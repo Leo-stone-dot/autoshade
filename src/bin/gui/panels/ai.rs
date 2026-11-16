@@ -566,7 +566,7 @@ impl AutoShadeApp {
         // starve it. Not in tests: a headless frame would spawn a worker
         // reading the developer's own store; tests set `style_info` directly.
         if self.ai.style_info.is_none() && !self.ai.style_info_loading {
-            self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::RefreshLibraryStatus)]);
+            self.apply_ai(logic::ai::AiAction::RefreshLibraryStatus);
         }
         ui.add_space(SPACE_XS);
         // Read off the SAME comparison the pipeline makes
@@ -716,7 +716,7 @@ impl AutoShadeApp {
             };
             ui.label(egui::RichText::new(raw_note).small().weak());
             if pick_raw {
-                self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::PickRawFolder)]);
+                self.apply_ai(logic::ai::AiAction::PickRawFolder);
             }
             ui.checkbox(&mut self.aip.style_describe, tr(lang, "Write look phrases (local model)"))
                 .on_hover_text(tr(lang,
@@ -737,10 +737,10 @@ impl AutoShadeApp {
         // The dialog is modal and blocks: the runtime opens it after the row
         // is laid out (it remembers the pick before starting the build).
         if pick {
-            self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::PickReferenceFolder)]);
+            self.apply_ai(logic::ai::AiAction::PickReferenceFolder);
         }
         if build.is_some() {
-            self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::BuildReferenceLibrary)]);
+            self.apply_ai(logic::ai::AiAction::BuildReferenceLibrary);
         }
     }
 
@@ -877,7 +877,7 @@ impl AutoShadeApp {
                             ))
                             .clicked()
                         {
-                            self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::Reimagine)]);
+                            self.apply_ai(logic::ai::AiAction::Reimagine);
                         }
                     });
                 });
@@ -953,7 +953,7 @@ impl AutoShadeApp {
                     self.seams.adjust_btn_enabled = Some(resp.enabled());
                 }
                 if resp.clicked() {
-                    self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::AdjustGenerated)]);
+                    self.apply_ai(logic::ai::AiAction::AdjustGenerated);
                 }
             });
     }
@@ -1159,7 +1159,7 @@ impl AutoShadeApp {
                     ))
                     .clicked()
                 {
-                    self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::ReverseFit)]);
+                    self.apply_ai(logic::ai::AiAction::ReverseFit);
                 }
                 if action_in(ui, cell, can, tr(lang, "Extract style"))
                     .on_hover_text(tr(lang,
@@ -1169,7 +1169,7 @@ impl AutoShadeApp {
                     ))
                     .clicked()
                 {
-                    self.apply_actions(vec![logic::Action::Ai(logic::ai::AiAction::StylePrompt)]);
+                    self.apply_ai(logic::ai::AiAction::StylePrompt);
                 }
             });
             // R20 opt-in LLM-as-a-judge. OUTSIDE the can_fit gate: the

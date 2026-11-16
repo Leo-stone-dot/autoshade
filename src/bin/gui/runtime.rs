@@ -91,42 +91,6 @@ impl AutoShadeApp {
                     logic::recipes::RecipeAction::Rename { from, to } => self.rename_recipe(&from, &to),
                     logic::recipes::RecipeAction::Delete(name) => self.delete_recipe(&name),
                 },
-                Action::Ai(action) => match action {
-                    logic::ai::AiAction::PickRawFolder => {
-                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                            self.aip.style_raw_dir = Some(dir);
-                        }
-                    }
-                    logic::ai::AiAction::RefreshLibraryStatus => {
-                        // Not in tests: a headless frame would spawn a worker
-                        // reading the developer's own store.
-                        if !cfg!(test) && self.ai.style_info.is_none() && !self.ai.style_info_loading {
-                            self.start_style_info();
-                        }
-                    }
-                    logic::ai::AiAction::BuildReferenceLibrary => {
-                        if let Some(dir) = self.aip.style_src_dir.clone().filter(|d| d.is_dir()) {
-                            self.start_style_build(dir);
-                        }
-                    }
-                    logic::ai::AiAction::Reimagine => self.start_reimagine(),
-                    logic::ai::AiAction::AdjustGenerated => self.start_adjust(),
-                    logic::ai::AiAction::ReverseFit => self.start_fit(),
-                    logic::ai::AiAction::StylePrompt => self.start_style_prompt(),
-                    logic::ai::AiAction::PickReferenceFolder => {
-                        let mut dialog = rfd::FileDialog::new();
-                        // Reopen where the last build ran, when it still exists.
-                        if let Some(d) = self.aip.style_src_dir.clone().filter(|d| d.is_dir()) {
-                            dialog = dialog.set_directory(d);
-                        }
-                        if let Some(dir) = dialog.pick_folder() {
-                            // Remembered on the PICK: a build that then fails must
-                            // not lose the folder the rebuild button needs.
-                            self.aip.style_src_dir = Some(dir.clone());
-                            self.start_style_build(dir);
-                        }
-                    }
-                },
                 Action::Normal(action) => match action {
                     logic::normal::NormalAction::SaveJpg => self.start_normal_save(),
                     logic::normal::NormalAction::ApplyToFolder => self.start_apply_to_folder(),
@@ -294,6 +258,47 @@ impl AutoShadeApp {
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
     }
 
+
+    /// Apply one AI-panel verb. Folder dialogs and worker starts stay here;
+    /// the panel only emits `AiAction`s.
+    pub(crate) fn apply_ai(&mut self, action: logic::ai::AiAction) {
+        match action {
+            logic::ai::AiAction::PickRawFolder => {
+                if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                    self.aip.style_raw_dir = Some(dir);
+                }
+            }
+            logic::ai::AiAction::RefreshLibraryStatus => {
+                // Not in tests: a headless frame would spawn a worker reading
+                // the developer's own store.
+                if !cfg!(test) && self.ai.style_info.is_none() && !self.ai.style_info_loading {
+                    self.start_style_info();
+                }
+            }
+            logic::ai::AiAction::BuildReferenceLibrary => {
+                if let Some(dir) = self.aip.style_src_dir.clone().filter(|d| d.is_dir()) {
+                    self.start_style_build(dir);
+                }
+            }
+            logic::ai::AiAction::Reimagine => self.start_reimagine(),
+            logic::ai::AiAction::AdjustGenerated => self.start_adjust(),
+            logic::ai::AiAction::ReverseFit => self.start_fit(),
+            logic::ai::AiAction::StylePrompt => self.start_style_prompt(),
+            logic::ai::AiAction::PickReferenceFolder => {
+                let mut dialog = rfd::FileDialog::new();
+                // Reopen where the last build ran, when it still exists.
+                if let Some(d) = self.aip.style_src_dir.clone().filter(|d| d.is_dir()) {
+                    dialog = dialog.set_directory(d);
+                }
+                if let Some(dir) = dialog.pick_folder() {
+                    // Remembered on the PICK: a build that then fails must not
+                    // lose the folder the rebuild button needs.
+                    self.aip.style_src_dir = Some(dir.clone());
+                    self.start_style_build(dir);
+                }
+            }
+        }
+    }
 
     /// Apply one gallery action: the folder dialog, the open/toggle decision,
     /// the thumbnail worker and the bounded texture window are the runtime's.
