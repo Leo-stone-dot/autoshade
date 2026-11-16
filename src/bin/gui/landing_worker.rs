@@ -132,7 +132,7 @@ pub(crate) fn on_folder(&mut self, lang: Lang, res: anyhow::Result<(PathBuf, Vec
                     // no installed face covers renders as boxes — say
                     // so ONCE per script per session, at folder open
                     // (the one cheap point; never per frame).
-                    self.disclose_undrawable_names();
+                    crate::actions::disclose_undrawable_names(&mut self.editor, &mut self.workspace, self.lang);
                 }
                 Err(e) => {
                     self.workspace.fail(tr(lang, K_LANDING_SCAN_FAILED), e);

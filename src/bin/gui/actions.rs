@@ -163,36 +163,7 @@ impl AutoShadeApp {
 
 
 
-    /// L12#3: disclose gallery names whose script no installed font can
-    /// draw — once per script per session. Runs over the CURRENT gallery
-    /// (folder-open granularity); pure classification, no file I/O.
-    pub(crate) fn disclose_undrawable_names(&mut self) {
-        self.disclose_undrawable_names_given(installed_scripts());
-    }
 
-    /// [`Self::disclose_undrawable_names`] against an explicit set of
-    /// installed scripts. The session's set is process-wide (filled once by
-    /// `install_fonts`), so a test that reads it sees whatever another test
-    /// in the same process installed; tests pass their own.
-    pub(crate) fn disclose_undrawable_names_given(&mut self, installed: &[&'static str]) {
-        let stems: Vec<String> = self.workspace.gal().gallery
-            .iter()
-            .map(|p| autoshade::pipeline::stem(p).to_string())
-            .collect();
-        for stem in &stems {
-            for (script, sample) in undrawable_scripts(stem, installed) {
-                if self.editor.analysis_mut().disclosed_scripts.insert(script) {
-                    let t = trf(
-                        self.lang,
-                        K_ACTIONS_SOME_FILE_NAMES_USE_CHARACTERS_NO_INSTALLED_FONT,
-                        &[("sample", &sample.to_string())],
-                    );
-                    self.workspace.toast(ToastKind::Error, t.clone());
-                    self.workspace.set_status(t);
-                }
-            }
-        }
-    }
 
 
 
@@ -498,4 +469,40 @@ impl AutoShadeApp {
         self.editor.session_mut().dirty = true;
     }
 
+}
+
+/// L12#3: disclose gallery names whose script no installed font can
+/// draw — once per script per session. Runs over the CURRENT gallery
+/// (folder-open granularity); pure classification, no file I/O.
+pub(crate) fn disclose_undrawable_names(editor: &mut Editor, workspace: &mut WorkspaceView, lang: Lang) {
+    disclose_undrawable_names_given(editor, workspace, lang, installed_scripts());
+}
+
+/// [`Self::disclose_undrawable_names`] against an explicit set of
+/// installed scripts. The session's set is process-wide (filled once by
+/// `install_fonts`), so a test that reads it sees whatever another test
+/// in the same process installed; tests pass their own.
+pub(crate) fn disclose_undrawable_names_given(
+    editor: &mut Editor,
+    workspace: &mut WorkspaceView,
+    lang: Lang,
+    installed: &[&'static str],
+) {
+    let stems: Vec<String> = workspace.gal().gallery
+        .iter()
+        .map(|p| autoshade::pipeline::stem(p).to_string())
+        .collect();
+    for stem in &stems {
+        for (script, sample) in undrawable_scripts(stem, installed) {
+            if editor.analysis_mut().disclosed_scripts.insert(script) {
+                let t = trf(
+                    lang,
+                    K_ACTIONS_SOME_FILE_NAMES_USE_CHARACTERS_NO_INSTALLED_FONT,
+                    &[("sample", &sample.to_string())],
+                );
+                workspace.toast(ToastKind::Error, t.clone());
+                workspace.set_status(t);
+            }
+        }
+    }
 }

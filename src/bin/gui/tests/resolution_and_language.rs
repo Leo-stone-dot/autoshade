@@ -935,10 +935,10 @@ source_preview: Some(Arc::new(image::DynamicImage::new_rgb8(800, 600))),
         // The installed set is this test's own: the session's is
         // process-wide, and a test that ran `install_fonts` first (any
         // window-drawing test) leaves Thai in it on a machine with Tahoma.
-        app.disclose_undrawable_names_given(&[]);
+        crate::actions::disclose_undrawable_names_given(&mut app.editor, &mut app.workspace, app.lang, &[]);
         let after_first = app.workspace.chrome().toasts.len();
         assert_eq!(after_first, 1, "one script, one toast");
-        app.disclose_undrawable_names_given(&[]);
+        crate::actions::disclose_undrawable_names_given(&mut app.editor, &mut app.workspace, app.lang, &[]);
         assert_eq!(app.workspace.chrome().toasts.len(), after_first, "the second open stays silent");
         assert!(app.editor.analysis().disclosed_scripts.contains("thai"));
     }
