@@ -1158,3 +1158,27 @@ impl Editor {
         }
     }
 }
+
+impl Editor {
+    /// Write the status for a door that just installed a canvas, in BOTH
+    /// directions: the disclosure when this canvas disagrees with what the
+    /// preference can deliver, and `plain` when it does not.
+    ///
+    /// The `plain` arm is not decoration. Announcing the disagreement without
+    /// retracting it left the previous door's "stays at 1280px — edits and
+    /// retouches follow that" standing after a redo had put the canvas back
+    /// where the preference could reach: both halves false, on the status
+    /// bar, which never expires. A door that can create the disagreement can
+    /// also end it, so every door writes on every path.
+    pub(crate) fn set_canvas_status(&mut self, workspace: &mut WorkspaceView, lang: Lang, plain: &'static str) {
+        let lang = lang;
+        *workspace.status_mut() = match self.baked_canvas_edge(workspace) {
+            Some(px) => trf(
+                lang,
+                K_CANVAS_THE_CANVAS_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE_EDIT,
+                &[("px", &px.to_string())],
+            ),
+            None => tr(lang, plain).to_string(),
+        };
+    }
+}

@@ -163,7 +163,7 @@ impl AutoShadeApp {
             // status at all — so the combo was left to imply the canvas had
             // followed it. BOTH directions: the redo back to a reachable
             // canvas has to retract the claim, or it stands there false.
-            self.set_canvas_status("restored the canvas pixels");
+            self.editor.set_canvas_status(&mut self.workspace, self.lang, "restored the canvas pixels");
         }
         self.editor.session_mut().dirty = true;
         self.resync_recipe_display();

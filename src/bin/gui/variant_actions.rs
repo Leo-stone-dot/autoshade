@@ -268,7 +268,7 @@ pub(crate) fn delete_variant(&mut self, idx: usize, ctx: &egui::Context) {
         // variant can land on a background BAKED one, whose raster the
         // preference cannot re-decode. Silent before — and it carried the
         // deleted canvas's own disclosure forward as if it still applied.
-        self.set_canvas_status("variant removed");
+        self.editor.set_canvas_status(&mut self.workspace, self.lang, "variant removed");
     }
 }
 
