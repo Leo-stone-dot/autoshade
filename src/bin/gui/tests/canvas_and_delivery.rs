@@ -571,6 +571,76 @@
         (out.shapes, out.platform_output.cursor_icon, canvas)
     }
 
+    /// One frame of the region-selecting canvas with `events`.
+    fn region_frame(
+        app: &mut AutoShadeApp,
+        ctx: &egui::Context,
+        events: Vec<egui::Event>,
+        time: f64,
+    ) -> egui::Rect {
+        let mut canvas = egui::Rect::NOTHING;
+        let _ = ctx.run(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1100.0, 850.0))),
+                events,
+                time: Some(time),
+                ..Default::default()
+            },
+            |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    let (rect, resp) =
+                        ui.allocate_exact_size(egui::vec2(1024.0, 768.0), egui::Sense::click_and_drag());
+                    canvas = rect;
+                    let xf = ViewXform {
+                        rect,
+                        uv: egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                    };
+                    app.handle_region_select(ui, &resp, xf);
+                });
+            },
+        );
+        canvas
+    }
+
+    /// The region gesture has two user-visible results: the normalized box
+    /// stored on the canvas and the size line in the status bar. This is the
+    /// characterization test for moving its outcome out of the application
+    /// dispatcher; either result changing is a behavior change.
+    #[test]
+    fn a_canvas_region_drag_sets_the_region_and_its_status_line() {
+        let mut app = AutoShadeApp::default();
+        let ctx = egui::Context::default();
+        let canvas = region_frame(&mut app, &ctx, vec![], 0.0);
+        let start = canvas.min + egui::vec2(canvas.width() * 0.2, canvas.height() * 0.2);
+        let end = canvas.min + egui::vec2(canvas.width() * 0.7, canvas.height() * 0.5);
+        let press = |pos, pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+
+        region_frame(
+            &mut app,
+            &ctx,
+            vec![egui::Event::PointerMoved(start), press(start, true)],
+            0.1,
+        );
+        region_frame(&mut app, &ctx, vec![egui::Event::PointerMoved(end)], 0.2);
+        region_frame(&mut app, &ctx, vec![press(end, false)], 0.3);
+
+        let [l, t, r, b] = app.overlay.region.expect("the drag committed a region");
+        assert!((l - 0.2).abs() < 1e-4, "left: {l}");
+        assert!((t - 0.2).abs() < 1e-4, "top: {t}");
+        assert!((r - 0.7).abs() < 1e-4, "right: {r}");
+        assert!((b - 0.5).abs() < 1e-4, "bottom: {b}");
+        assert!(
+            app.status.contains("50×30%"),
+            "the committed region names its size: {}",
+            app.status
+        );
+    }
+
     fn painted_pixels(app: &AutoShadeApp) -> usize {
         app.masks.mask_paint.as_ref().map_or(0, |m| m.pixels().filter(|p| p[3] > 10).count())
     }
