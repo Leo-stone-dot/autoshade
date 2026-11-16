@@ -1229,6 +1229,13 @@ impl AutoShadeApp {
         // this handler only owns the gesture.)
     }
 
+    /// Apply one crop gesture. The geometry stays in `logic::crop`; the
+    /// resulting dirty/histogram effects are host effects.
+    pub(crate) fn apply_crop(&mut self, action: logic::crop::CropAction) {
+        let effects = logic::crop::apply(&mut self.doc.recipe, action);
+        self.run_effects(effects);
+    }
+
     /// The interactive crop overlay: darkened surround, thirds grid, corner +
     /// edge handles (aspect-constrained), move-inside, and drag OUTSIDE the
     /// box to rotate-straighten (the LR gesture set). The crop lives in
@@ -1258,11 +1265,11 @@ impl AutoShadeApp {
             // The box is the logic layer's geometry (`logic::crop`); this view
             // keeps the pick, the handles and the overlay.
             let current = self.doc.recipe.crop.map(|c| [c.left, c.top, c.right, c.bottom]);
-            self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Preset {
+            self.apply_crop(logic::crop::CropAction::Preset {
                 current,
                 aspect_px: aspect,
                 tex: (tex_size.x, tex_size.y),
-            })]);
+            });
         }
         let cur = self
             .doc.recipe
@@ -1348,19 +1355,19 @@ impl AutoShadeApp {
                 let centre = egui::pos2((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
                 let ang = |q: egui::Pos2| (q.y - centre.y).atan2(q.x - centre.x);
                 let raw_delta_deg = (ang(p) - ang(start)).to_degrees();
-                self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Rotate {
+                self.apply_crop(logic::crop::CropAction::Rotate {
                     base_deg: deg0,
                     raw_delta_deg,
-                })]);
+                });
             } else {
                 let (sn, pn) = (xf.to_norm(start), xf.to_norm(p));
-                self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Drag {
+                self.apply_crop(logic::crop::CropAction::Drag {
                     handle: h,
                     start: orig,
                     delta: (pn.0 - sn.0, pn.1 - sn.1),
                     aspect_px: aspect,
                     tex: (tex_size.x, tex_size.y),
-                })]);
+                });
             }
         }
         if resp.drag_stopped() {
