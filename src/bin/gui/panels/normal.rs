@@ -283,7 +283,7 @@ impl AutoShadeApp {
             self.workspace.normal_mut().denoise_pair = None;
         }
         let helper = denoise_helper_available();
-        let mut on = self.normal_denoise_on();
+        let mut on = self.editor.normal_denoise_on(&self.workspace);
         let toggled = ui
             .add_enabled(helper && !self.workspace.busy(), egui::Checkbox::new(&mut on, tr(lang, K_NORMAL_AI_DENOISE)))
             .on_hover_text(tr(lang, K_NORMAL_CLEANS_THE_GRAIN_OUT_OF_THE_PHOTO_AND_THE_PREVIE))

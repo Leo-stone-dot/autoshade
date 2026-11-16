@@ -15,11 +15,11 @@
                 preview_edge: 4096,
                 ..Default::default()
             }; view } , ..Default::default() };
-        assert_eq!(app.canvas_edge(), 4096, "no canvas yet: the preference is all there is");
+        assert_eq!(app.editor.canvas_edge(&app.workspace), 4096, "no canvas yet: the preference is all there is");
         app.editor.photo_mut().base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(1280, 853)));
-        assert_eq!(app.canvas_edge(), 1280, "a baked canvas bakes at its OWN resolution");
+        assert_eq!(app.editor.canvas_edge(&app.workspace), 1280, "a baked canvas bakes at its OWN resolution");
         app.editor.photo_mut().base_preview = Some(Arc::new(image::DynamicImage::new_rgb8(853, 1280)));
-        assert_eq!(app.canvas_edge(), 1280, "…measured on the long edge, portrait included");
+        assert_eq!(app.editor.canvas_edge(&app.workspace), 1280, "…measured on the long edge, portrait included");
     }
 
     #[test]
@@ -197,7 +197,7 @@
                 ..Default::default()
             }; view } , ..Default::default() };
         app.switch_variant(1, &ctx);
-        assert_eq!(app.canvas_edge(), 800, "premise: the canvas is below the preference");
+        assert_eq!(app.editor.canvas_edge(&app.workspace), 800, "premise: the canvas is below the preference");
         assert!(
             !app.workspace.status().contains("baked"),
             "a source-based canvas is not a bake: {}",

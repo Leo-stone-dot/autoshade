@@ -34,16 +34,6 @@ impl AutoShadeApp {
     }
 
 
-    /// Is the noise switch on: the card on screen is a ◈ card, or the
-    /// switch's own AI denoise is running.
-    pub(crate) fn normal_denoise_on(&self) -> bool {
-        self.editor.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
-            || (self.workspace.busy()
-                && self.workspace.normal()
-                    .denoise_pair
-                    .as_ref()
-                    .is_some_and(|d| d.denoised.is_none() && self.editor.photo().src_path.as_ref() == Some(&d.photo)))
-    }
 
 
     /// Put card `idx` under the canvas with the look on screen: the switch
@@ -88,7 +78,7 @@ impl AutoShadeApp {
     /// make it).
     pub(crate) fn set_normal_denoise(&mut self, on: bool) {
         let Some(photo) = self.editor.photo().src_path.clone() else { return };
-        if self.workspace.busy() || on == self.normal_denoise_on() {
+        if self.workspace.busy() || on == self.editor.normal_denoise_on(&self.workspace) {
             return;
         }
         let Some(active) = self.editor.active_variant().map(|v| v.id.clone()) else { return };

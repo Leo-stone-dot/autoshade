@@ -4,69 +4,7 @@ use super::*;
 
 impl AutoShadeApp {
 
-    /// The edge a BAKE renders at: the canvas's own resolution, not the
-    /// global preference.
-    ///
-    /// They part company whenever the canvas is a baked raster the preference
-    /// could not re-decode — a background retouched / Generated variant keeps
-    /// its own resolution because switching variants cannot re-decode a
-    /// master, and an undo can restore a superseded one. Baking at the
-    /// preference there installed a NEW-edge raster under an OLD-edge canvas
-    /// and the frame jumped resolution mid-retouch: the same disagreement the
-    /// refused resolution switch exists to prevent, one door along.
-    /// `preview_edge` remains the DECODE edge (`open_path`) — a source-based
-    /// canvas is developed from a source decoded AT it, so those two agree by
-    /// construction.
-    pub(crate) fn canvas_edge(&self) -> u32 {
-        self.editor.photo().base_preview
-            .as_ref()
-            .map(|b| b.width().max(b.height()))
-            .unwrap_or(self.workspace.genai().preview_edge)
-            .clamp(640, 8192)
-    }
 
-    /// The resolution a canvas must DISCLOSE, when it holds baked pixels the
-    /// preview preference cannot reach. `None` when there is nothing to say.
-    ///
-    /// FOUR doors install such a canvas: the strip click, an undo to a
-    /// SUPERSEDED master (the re-decode repoints only the Arc the canvas
-    /// held), the navigation stash restore (which reinstalls the raster the
-    /// photo was left with while this open decoded the source at the current
-    /// preference), and deleting the active variant (which re-anchors onto a
-    /// background one).
-    pub(crate) fn baked_canvas_edge(&self) -> Option<u32> {
-        // A canvas has TWO legitimate resolutions, and measuring against
-        // either one alone produced a false claim:
-        //  · the PREFERENCE — a recorded master is re-decoded with an
-        //    UNGUARDED `thumbnail`, which upscales, so a re-decode lands
-        //    exactly there whatever the sensor is;
-        //  · what the source DELIVERS — the RAW decode is guarded against
-        //    upscaling, so a fresh bake on a sensor smaller than the
-        //    preference lands there instead, and is perfectly current.
-        // Only a THIRD value is stale: a raster baked under an older
-        // preference, or a superseded master an undo brought back. Measuring
-        // against the preference alone called every fresh sub-preference bake
-        // stale; against the delivered edge alone it called every REOPENED
-        // sub-preference master stale ("not the preview preference" while the
-        // preference was exactly that). It takes both.
-        let delivered = self.editor.photo().source_preview
-            .as_ref()
-            .map(|s| s.width().max(s.height()))
-            .unwrap_or(self.workspace.genai().preview_edge)
-            .clamp(640, 8192);
-        let canvas = self.canvas_edge();
-        // The baked-raster gate is DEFENCE IN DEPTH, not load-bearing: a
-        // source-based canvas IS the source decode (`load_active` falls back
-        // to `source_preview`, and every install keeps the pair in lockstep),
-        // so `canvas == delivered` already silences it. No test can kill this
-        // conjunct; it stays because a future canvas that is neither would
-        // otherwise be announced with a word — "bake" — that would not be
-        // true of it.
-        (canvas != delivered
-            && canvas != self.workspace.genai().preview_edge
-            && self.editor.active_variant().is_some_and(|v| v.base.is_some()))
-        .then_some(canvas)
-    }
 
     /// Write the status for a door that just installed a canvas, in BOTH
     /// directions: the disclosure when this canvas disagrees with what the
@@ -80,7 +18,7 @@ impl AutoShadeApp {
     /// also end it, so every door writes on every path.
     pub(crate) fn set_canvas_status(&mut self, plain: &'static str) {
         let lang = self.lang;
-        *self.workspace.status_mut() = match self.baked_canvas_edge() {
+        *self.workspace.status_mut() = match self.editor.baked_canvas_edge(&self.workspace) {
             Some(px) => trf(
                 lang,
                 K_CANVAS_THE_CANVAS_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE_EDIT,
@@ -90,40 +28,6 @@ impl AutoShadeApp {
         };
     }
 
-    /// The reverse-fit / style-prompt target: a finished rendition of THIS
-    /// frame whose look is to be solved back into develop parameters.
-    ///
-    /// Two entries, in precedence order (R23-6 B, user decision 2026-08-17
-    /// ⑤ — "a second develop of the same frame", i.e. the photographer's own
-    /// Lightroom export or the camera's JPEG, not only what this app
-    /// generated):
-    ///
-    ///   1. `fit_ref` — a file the user picked on purpose. It wins, because
-    ///      an explicit choice must not be shadowed by whichever variant
-    ///      happens to be active.
-    ///   2. the ./out raster behind the active variant when that variant is
-    ///      an AI-generated rendition — the original entry, unchanged.
-    ///
-    /// The restriction to (2) was never a property of the fit: `fit.rs`'s
-    /// own doc has always said "any finished reference of the SAME frame",
-    /// and the CLI `match` has always accepted an arbitrary path. It was a
-    /// GUI-side `then(...)` that made the generative path the only reachable
-    /// one — and, downstream of that, made "the target is not pixel-aligned"
-    /// read as an axiom of the method rather than a consequence of the only
-    /// target the desktop app could offer.
-    pub(crate) fn fit_target(&self) -> Option<PathBuf> {
-        if let Some(p) = &self.workspace.fit().fit_ref {
-            return Some(p.clone());
-        }
-        let v = self.editor.active_variant()?;
-        // Deliberately NOT `on_ai_pixels()` (R24-1): this is a POLICY about
-        // which raster the fit DEFAULTS to, not a claim about the card's
-        // axis — an ✎ card sits on the same raster as its ✨ card, but its
-        // edits are sliders the user already has, not a look to solve for
-        // (the AI panel's empty-state line says so), and re-fitting a fit is
-        // not what the button means either.
-        (v.kind == VariantKind::Generated).then(|| v.origin.clone()).flatten()
-    }
 
     /// Load the Before texture: `base` with `curve` (a camera-matched base
     /// look) applied. Lightroom's "Before" is the profile-applied default
@@ -585,7 +489,7 @@ impl AutoShadeApp {
             && ui.input(|i| i.key_down(egui::Key::Space));
         let ctrl = ui.input(|i| i.modifiers.command);
         let over_knob = self.workspace.masks().mask_drag.is_some()
-            || self.sel_target_geometry().is_some_and(|g| {
+            || self.editor.sel_target_geometry(&self.workspace).is_some_and(|g| {
                 let (dims, deg, dist) = self.editor.geom_ctx();
                 // Probe BOTH positions: egui reports drag_started only
                 // after ~6 px of travel, so a fast flick's CURRENT pointer
@@ -934,17 +838,6 @@ impl AutoShadeApp {
         self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
     }
 
-    /// The geometry the canvas tools currently target: the selected mask's
-    /// selected COMPONENT when one is selected (and still in bounds), else
-    /// the selected mask's base geometry.
-    pub(crate) fn sel_target_geometry(&self) -> Option<&MaskGeometry> {
-        let i = self.workspace.masks().sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len())?;
-        let m = &self.editor.doc().recipe.masks[i];
-        match self.workspace.masks().sel_component {
-            Some(c) if c < m.components.len() => Some(&m.components[c].geometry),
-            _ => Some(&m.mask),
-        }
-    }
 
     /// On-image editing of the SELECTED mask's geometry (the LR gesture):
     /// drag an end/edge knob to reshape, the centre knob to move the whole
@@ -959,7 +852,7 @@ impl AutoShadeApp {
         if self.workspace.overlay().region_drag.is_some() {
             return false;
         }
-        let Some(target_geom) = self.sel_target_geometry().cloned() else {
+        let Some(target_geom) = self.editor.sel_target_geometry(&self.workspace).cloned() else {
             self.workspace.masks_mut().mask_drag = None;
             return false;
         };

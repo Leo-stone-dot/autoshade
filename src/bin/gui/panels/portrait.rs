@@ -129,14 +129,6 @@ impl AutoShadeApp {
     }
 
 
-    /// Why the skin and eyes groups are greyed, or `None` when they work.
-    pub(crate) fn portrait_face_gate(&self, lang: Lang) -> Option<&'static str> {
-        if self.editor.doc().recipe.masks.iter().any(|m| matches!(m.role, MaskRole::Face | MaskRole::Skin)) {
-            return None;
-        }
-        let searched = self.workspace.portrait().found.as_ref().is_some_and(|(p, n)| self.editor.photo().src_path.as_ref() == Some(p) && *n == 0);
-        Some(if searched { tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO) } else { tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP) })
-    }
 
     /// The panel: a first-level heading and the four groups, behind the same
     /// mid-open gate as the shared panels.
@@ -207,7 +199,7 @@ impl AutoShadeApp {
     fn portrait_skin(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
         portrait_group(ui, tr(lang, K_PORTRAIT_SKIN));
-        let gate = self.portrait_face_gate(lang);
+        let gate = self.editor.portrait_face_gate(&self.workspace, lang);
         let guarded = self.keep_skin_on();
         let mut changed = false;
         ui.add_enabled_ui(gate.is_none(), |ui| {
@@ -259,7 +251,7 @@ impl AutoShadeApp {
     fn portrait_eyes(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
         portrait_group(ui, tr(lang, K_PORTRAIT_EYES));
-        let gate = self.portrait_face_gate(lang).or_else(|| {
+        let gate = self.editor.portrait_face_gate(&self.workspace, lang).or_else(|| {
             (!self.editor.doc().recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP))
         });
         let mut changed = false;

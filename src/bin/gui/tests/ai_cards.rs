@@ -267,7 +267,7 @@
                 assert_eq!(app.editor.doc().variants[1].origin.as_ref(), Some(&out));
                 assert_eq!(app.editor.active_source_path().as_ref(), Some(&out), "the next adjust follows this master");
                 assert!(app.editor.doc().recipe.is_noop() && app.editor.doc().variants[1].recipe.is_noop());
-                assert_eq!(app.fit_target().as_ref(), Some(&out), "reverse-fit reads the new generated card");
+                assert_eq!(app.editor.fit_target(&app.workspace).as_ref(), Some(&out), "reverse-fit reads the new generated card");
                 let note = match (lang, region) {
                     (Lang::En, true) => "adjusted → new ✨ card (painted area only)",
                     (Lang::En, false) => "adjusted → new ✨ card (whole image, divergence D = 0.12)",
@@ -754,15 +754,15 @@
         let (mut app, ctx, _dir, _src, master, _ai_px, _scrub) =
             ai_card_fixture("fit", EditRecipe::default());
         assert_eq!(
-            app.fit_target().as_deref(),
+            app.editor.fit_target(&app.workspace).as_deref(),
             Some(master.as_path()),
             "premise: the ✨ card's raster is the default target"
         );
         app.editor.doc_mut().recipe.contrast = 7.0;
         assert!(app.fork_edited_card());
-        assert_eq!(app.fit_target(), None, "an ✎ card is not a fit target");
+        assert_eq!(app.editor.fit_target(&app.workspace), None, "an ✎ card is not a fit target");
         app.switch_variant(1, &ctx);
-        assert_eq!(app.fit_target().as_deref(), Some(master.as_path()));
+        assert_eq!(app.editor.fit_target(&app.workspace).as_deref(), Some(master.as_path()));
     }
 
     /// 2026-09-13 (the user's own store: ▣ `origin = …denoise.png`, the ◭
@@ -1098,15 +1098,15 @@
         for kind in [VariantKind::Original, VariantKind::Generated, VariantKind::Fitted, VariantKind::Edited] {
             app.editor.doc_mut().variants = vec![card(kind)];
             app.editor.doc_mut().active = 0;
-            assert!(app.export_denoise_applies(), "{kind:?}");
+            assert!(app.editor.export_denoise_applies(&app.workspace), "{kind:?}");
             assert!(app.export_summary(Lang::En).contains("AI Denoise 35%"), "{kind:?}");
         }
         app.editor.doc_mut().variants = vec![card(VariantKind::Denoised)];
-        assert!(!app.export_denoise_applies());
+        assert!(!app.editor.export_denoise_applies(&app.workspace));
         assert!(!app.export_summary(Lang::En).contains("AI Denoise"), "{}", app.export_summary(Lang::En));
         app.workspace.exp_mut().save_denoise = false;
         app.editor.doc_mut().variants = vec![card(VariantKind::Original)];
-        assert!(!app.export_denoise_applies(), "unticked is unticked on any card");
+        assert!(!app.editor.export_denoise_applies(&app.workspace), "unticked is unticked on any card");
         // The render reads the gate, not the raw checkbox: `export_summary`'s
         // line above and `export_denoise_applies` are the same two answers the
         // render asks for, so the behaviour is already on the table.

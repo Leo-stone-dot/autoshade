@@ -814,7 +814,7 @@ impl AutoShadeApp {
     /// active variant's base IS the generated raster, and fitting a rendition
     /// onto itself would recover ~neutral. Fit must map the negative → the look.
     pub(crate) fn start_fit(&mut self) {
-        let (Some(base), Some(tgt)) = (self.editor.photo().source_preview.clone(), self.fit_target())
+        let (Some(base), Some(tgt)) = (self.editor.photo().source_preview.clone(), self.editor.fit_target(&self.workspace))
         else {
             return;
         };

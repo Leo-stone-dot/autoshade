@@ -150,12 +150,12 @@
         for lang in [Lang::En, Lang::Zh] {
             let mut app = portrait_app(lang, false);
             let photo = app.editor.photo().src_path.clone().unwrap();
-            assert_eq!(app.portrait_face_gate(lang), Some(tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP)));
+            assert_eq!(app.editor.portrait_face_gate(&app.workspace, lang), Some(tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP)));
             // A search that found the person and no face.
             app.workspace.portrait_mut().found = Some((photo, 0));
             app.editor.doc_mut().recipe.masks.push(autoshade::face::background_adjustment("mask-subject.png".into()));
             let no_face = tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO);
-            assert_eq!(app.portrait_face_gate(lang), Some(no_face));
+            assert_eq!(app.editor.portrait_face_gate(&app.workspace, lang), Some(no_face));
             let texts = portrait_panel_texts(&mut app);
             assert_eq!(texts.iter().filter(|t| *t == no_face).count(), 2, "{lang:?}: both groups say it: {texts:?}");
             assert!(
@@ -165,7 +165,7 @@
             assert_eq!(autoshade_subject(&app), Some("mask-subject.png".into()));
             // With a face, the gate opens.
             app.editor.doc_mut().recipe.masks.extend(found_masks());
-            assert_eq!(app.portrait_face_gate(lang), None);
+            assert_eq!(app.editor.portrait_face_gate(&app.workspace, lang), None);
         }
     }
 
@@ -239,7 +239,7 @@
         none.on_portrait_found(Lang::En, PortraitFind { faces: Ok(None), ..find("c", 0) });
         assert_eq!(none.workspace.status(), "No face found in this photo");
         assert_eq!(none.editor.doc().recipe.masks.iter().filter(|m| m.role != autoshade::recipe::MaskRole::Custom).count(), 1, "the background alone");
-        assert_eq!(none.portrait_face_gate(Lang::En), Some("No face found in this photo"));
+        assert_eq!(none.editor.portrait_face_gate(&none.workspace, Lang::En), Some("No face found in this photo"));
         // Both halves failed: nothing lands, the line says why.
         let mut failed = portrait_app(Lang::En, false);
         failed.on_portrait_found(
@@ -586,7 +586,7 @@
             assert!(!roles.contains(&gone), "{gone:?} is gone: {roles:?}");
         }
         assert!(roles.contains(&autoshade::recipe::MaskRole::Background), "the person still lands");
-        assert_eq!(app.portrait_face_gate(Lang::En), Some("No face found in this photo"));
+        assert_eq!(app.editor.portrait_face_gate(&app.workspace, Lang::En), Some("No face found in this photo"));
         assert_eq!(autoshade::face::face_raster(&app.editor.doc().recipe), None, "🤖 Remove blemishes has no face");
     }
 

@@ -582,9 +582,9 @@
         app.set_normal_denoise(true);
         assert!(app.workspace.busy(), "the denoise worker runs: {}", app.workspace.status());
         assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_REMOVING_THE_GRAIN_THIS_TAKES_A_MOMENT));
-        assert!(app.normal_denoise_on(), "the switch reads on while it runs");
+        assert!(app.editor.normal_denoise_on(&app.workspace), "the switch reads on while it runs");
         land_all(&mut app, &ctx);
-        assert!(!app.normal_denoise_on(), "a failed run leaves the switch off");
+        assert!(!app.editor.normal_denoise_on(&app.workspace), "a failed run leaves the switch off");
         assert_eq!(app.editor.doc().variants.len(), 1, "and no card");
         // A landed run, through the same message the worker sends.
         app.workspace.normal_mut().denoise_pair =
@@ -596,7 +596,7 @@
         app.poll_workers(&ctx);
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         assert_eq!(app.editor.active_source_path().as_deref(), Some(master.as_path()), "…and is what a save renders");
-        assert!(app.normal_denoise_on());
+        assert!(app.editor.normal_denoise_on(&app.workspace));
         let made = app.editor.doc().variants[app.editor.doc().active].id.clone();
         assert_eq!(app.workspace.normal_mut().denoise_pair.as_ref().and_then(|d| d.denoised.clone()), Some(made.clone()), "remembered");
         assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_AI_DENOISE_DONE_TURN_THE_SWITCH_OFF_TO_SEE_THE_P));
@@ -607,7 +607,7 @@
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, ORIGINAL_VARIANT_ID, "back to the un-denoised card");
         assert_eq!(app.editor.active_source_path().as_deref(), Some(src.as_path()));
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.7, "the look rides across");
-        assert!(!app.normal_denoise_on());
+        assert!(!app.editor.normal_denoise_on(&app.workspace));
         assert_eq!(app.workspace.status(), tr(Lang::En, K_ACTIONS_AI_DENOISE_OFF));
         // On again: the same ◈ card, no second run.
         app.editor.doc_mut().recipe.contrast = 12.0;

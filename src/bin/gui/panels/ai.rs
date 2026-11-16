@@ -36,25 +36,6 @@
 use crate::*;
 
 impl AutoShadeApp {
-    /// Does the AI area carry state worth a ● on its collapsed header?
-    ///
-    /// Written next to the panel it describes, and enumerating that panel's OWN
-    /// field set in reading order: the verdict `ai_analysis` prints and the
-    /// Direction it consumes.
-    /// R22 #16 added the taste dials on the ground that a non-default dial is
-    /// state. On 2026-09-20 they were removed because they are persisted
-    /// preferences, so the dot never went out.
-    ///
-    /// Deliberately NOT in the set: `style_strength`, `grade_strength`, and
-    /// `fit_strength` are remembered dial preferences, not this photo's state;
-    /// `reimagine_prompt`, `fit_ai_judge`, `zoned_fit`, and (R23-2)
-    /// `send_style_ref_image` / `style_src_dir` are persisted preferences of
-    /// paid verbs or library bookkeeping. The dot means "this PHOTO's AI
-    /// inputs carry state", and a remembered dial or folder says nothing
-    /// about this photo.
-    pub(crate) fn ai_section_active(&self) -> bool {
-        self.editor.analysis().verdict.is_some() || !self.workspace.ai().guidance.is_empty()
-    }
 
     /// The AI area — TWO first-level sections (user ruling 2026-10-20: the two
     /// AI paths read as one 「AI」 heap before, and they are different
@@ -91,7 +72,7 @@ impl AutoShadeApp {
             // ② Analysis: the ● is a verdict or a Direction. Same persistent id
             // as the single heading it grew out of, so an open state a user
             // already has carries over.
-            let analysed = self.ai_section_active();
+            let analysed = self.editor.ai_section_active(&self.workspace);
             self.ai_section(ui, "sec_ai", tr(lang, K_AI_AI_ANALYSIS_AUTO_DEVELOP), analysed, |app, ui| {
                 #[cfg(test)]
                 {
@@ -945,7 +926,7 @@ impl AutoShadeApp {
             // exists to catch.
             .open(fold_open_in_tests())
             , |ui| {
-            let can_fit = self.fit_target().is_some() && self.editor.photo().source_preview.is_some();
+            let can_fit = self.editor.fit_target(&self.workspace).is_some() && self.editor.photo().source_preview.is_some();
             if !can_fit {
                 // An ✎ card is not a fit target (`fit_target`): the fit reads
                 // pixels, and the card's edits are sliders the user already
@@ -967,7 +948,7 @@ impl AutoShadeApp {
             // choosable. Until then the fold showed the target only, and the
             // source was a rule nobody could see (`negative_index`).
             let (auto, sources) = self.fit_source_menu();
-            let to = (self.workspace.fit().fit_ref.is_none() && self.fit_target().is_some())
+            let to = (self.workspace.fit().fit_ref.is_none() && self.editor.fit_target(&self.workspace).is_some())
                 .then(|| trf(lang, K_ACTIONS_TO, &[("card", &self.numbered_card_label(self.editor.doc().active))]));
             if !sources.is_empty() {
                 let shown = match self.workspace.fit().fit_from.as_deref() {

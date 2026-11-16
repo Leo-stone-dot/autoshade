@@ -277,14 +277,6 @@ pub(crate) fn paste_payload(src: EditRecipe, paste_geometry: bool) -> PastePaylo
 }
 
 impl AutoShadeApp {
-    /// Does 「🤖 AI Denoise on export」 run for THIS export? Ticked, and the
-    /// active card is not a ◈ Denoised card — whose master is already the
-    /// denoised negative, so a second pass (SCUNet over a baked master) would
-    /// only smooth it further (2026-09-15).
-    pub(crate) fn export_denoise_applies(&self) -> bool {
-        self.workspace.exp().save_denoise
-            && !self.editor.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
-    }
 
     /// One-line echo of the current delivery settings for the Export hover —
     /// e.g. "JPEG · 2560 px · q95 · sRGB (universal) · → <delivery>" — so the
@@ -307,7 +299,7 @@ impl AutoShadeApp {
             parts.push(format!("{} {:.0}", tr(lang, K_EXPORT_OUTPUT_SHARPENING), self.workspace.exp().sharpen));
         }
         parts.push(tr(lang, EXPORT_SPACES[(self.workspace.exp().space as usize).min(2)]).to_string());
-        if self.export_denoise_applies() {
+        if self.editor.export_denoise_applies(&self.workspace) {
             // With its amount: the dial under the checkbox is the one number
             // that decides how much of the minutes-long sidecar result lands.
             // Absent on a ◈ card, where the pass sits out (the echo says what
@@ -360,7 +352,7 @@ impl AutoShadeApp {
         // A ◈ card's master IS the denoised negative: the export-time denoise
         // would run SCUNet over it a second time, so it sits out and the
         // status says so (`export_denoise_applies`, 2026-09-15).
-        let denoise = self.export_denoise_applies();
+        let denoise = self.editor.export_denoise_applies(&self.workspace);
         // The Export fold's OWN dial (the Detail fold's 「AI Denoise now」 has
         // its own), captured at the click like every other export input.
         let denoise_strength = self.selected_denoise_strength(true);

@@ -172,7 +172,7 @@ pub(crate) fn switch_variant(&mut self, idx: usize, ctx: &egui::Context) {
     // followed it.
     // (Both arms, like every canvas door — see `set_canvas_status`; this
     // one names the variant, so it writes its own pair.)
-    *self.workspace.status_mut() = match self.baked_canvas_edge() {
+    *self.workspace.status_mut() = match self.editor.baked_canvas_edge(&self.workspace) {
         None => trf(
             lang,
             K_ACTIONS_SWITCHED_TO_VARIANT_VARIANTS_ARE_INDEPENDENT_SWI,

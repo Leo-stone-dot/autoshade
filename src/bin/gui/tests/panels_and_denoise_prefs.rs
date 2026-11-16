@@ -477,10 +477,10 @@
 
         // A remembered preference stays quiet, including a move DOWN to the
         // calibration point, which differs from the shipped default.
-        assert!(!app.ai_section_active(), "a fresh AI area has no state to flag");
+        assert!(!app.editor.ai_section_active(&app.workspace), "a fresh AI area has no state to flag");
         app.aip.grade_strength = autoshade::recipe::GradeStrength::CALIBRATED;
         assert!(
-            !app.ai_section_active(),
+            !app.editor.ai_section_active(&app.workspace),
             "a moved Strength slider is a preference, not this photo's AI state"
         );
         let seen = tall_frame(&mut app, |a, ui| a.ai_panel(ui));
@@ -491,7 +491,7 @@
             "a moved Strength slider must leave the AI header plain: {seen:?}"
         );
         app.aip.grade_strength = GRADE_STRENGTH_DEFAULT;
-        assert!(!app.ai_section_active(), "resetting a preference also leaves the dot unlit");
+        assert!(!app.editor.ai_section_active(&app.workspace), "resetting a preference also leaves the dot unlit");
 
         // …and it reaches the worker's request, on its OWN axis (the two dials
         // must not be able to swap: `style` is a bare fraction, `strength` a
@@ -773,11 +773,11 @@
             "the dial must exist in the fold: {seen:?}"
         );
         // The saved reverse-fit dial is a preference, so it leaves the ● unlit.
-        assert!(!app.ai_section_active(), "a fresh AI area has no state to flag");
+        assert!(!app.editor.ai_section_active(&app.workspace), "a fresh AI area has no state to flag");
         app.aip.fit_strength = 0.85;
-        assert!(!app.ai_section_active(), "a moved reverse-fit dial is still a preference");
+        assert!(!app.editor.ai_section_active(&app.workspace), "a moved reverse-fit dial is still a preference");
         app.aip.fit_strength = autoshade::recipe::GradeStrength::DEFAULT;
-        assert!(!app.ai_section_active(), "resetting a preference also leaves the dot unlit");
+        assert!(!app.editor.ai_section_active(&app.workspace), "resetting a preference also leaves the dot unlit");
         // Persisted on its own key; an older prefs file without it loads at the default.
         let prefs = Prefs { fit_strength: 0.85, ..Prefs::default() };
         let json = serde_json::to_string(&prefs).expect("prefs serialize");

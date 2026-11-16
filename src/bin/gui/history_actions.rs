@@ -225,40 +225,6 @@ impl AutoShadeApp {
         self.workspace.masks_mut().paint_last = None;
     }
 
-    /// May the photographer turn this photo right now? (Drives both the
-    /// toolbar buttons' enabled state and the plate reconciler's own gate, so
-    /// the two can never disagree about which photos rotate.)
-    ///
-    /// The one exclusion is BAKED PIXELS. A retouched/generated master is a
-    /// raster on disk in the frame it was baked in, and this build has no way
-    /// to record that a file was written before a turn — so turning the canvas
-    /// under it would put the master back sideways on the next open, which is
-    /// the silent-corruption shape the whole orientation chain exists to
-    /// prevent. Rotate FIRST, bake after: the master is then written in the
-    /// turned frame and everything agrees. The whole strip counts, not just
-    /// the active card — an inactive variant's master is on disk exactly the
-    /// same way. (Registered limitation, R27 A6.)
-    ///
-    /// An ARMED tool is excluded for a smaller reason: brush and retouch
-    /// gestures bind screen coordinates to plate pixels mid-drag, and the
-    /// plate is about to move under them.
-    pub(crate) fn can_rotate(&self) -> bool {
-        self.editor.photo().src_path.is_some()
-            && self.editor.photo().base_preview.is_some()
-            && !self.workspace.busy()
-            && !self.workspace.open().open_in_flight
-            && !self.workspace.masks().paint_mode
-            && self.workspace.overlay().region.is_none()
-            && self.editor.doc().variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
-            // A fill layer is pixels in the frame it was made in, like a
-            // baked master (2026-10-01): the live card and every stored one.
-            && self.editor.doc().recipe.pixel_layers.is_empty()
-            && self.editor.doc().variants.iter().all(|v| v.recipe.pixel_layers.is_empty())
-            // …and so is a lens blur's depth map (2026-10-13): estimated in
-            // the frame the photo had, its texels would not follow a turn.
-            && self.editor.doc().recipe.lens_blur.is_none()
-            && self.editor.doc().variants.iter().all(|v| v.recipe.lens_blur.is_none())
-    }
 
     /// Turn the open photo by `delta` clockwise quarter turns — ONE undo step,
     /// the whole develop moving together ([`autoshade::pipeline::rotate_recipe`]
@@ -269,7 +235,7 @@ impl AutoShadeApp {
     /// same path an UNDO of this action takes. One mover, so the two
     /// directions cannot drift.
     pub(crate) fn rotate_photo(&mut self, delta: u8, ctx: &egui::Context) {
-        if !self.can_rotate() {
+        if !self.editor.can_rotate(&self.workspace) {
             return;
         }
         let Some(src) = self.editor.photo().src_path.clone() else { return };

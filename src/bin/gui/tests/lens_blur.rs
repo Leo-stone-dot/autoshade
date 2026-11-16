@@ -52,7 +52,7 @@
                 ..Default::default()
 
             }; editor } , ..Default::default() };
-        assert!(app.can_rotate(), "premise: the photo is rotatable without a blur");
+        assert!(app.editor.can_rotate(&app.workspace), "premise: the photo is rotatable without a blur");
         app.editor.doc_mut().recipe.lens_blur = Some(blur);
-        assert!(!app.can_rotate(), "a depth map estimated in this frame must block the turn");
+        assert!(!app.editor.can_rotate(&app.workspace), "a depth map estimated in this frame must block the turn");
     }

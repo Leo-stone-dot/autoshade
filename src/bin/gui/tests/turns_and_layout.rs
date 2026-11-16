@@ -26,7 +26,7 @@
         std::fs::write(&src, b"raw").unwrap();
         app.editor.photo_mut().src_path = Some(src);
 
-        assert!(app.can_rotate(), "a parametric photo with a plate is rotatable");
+        assert!(app.editor.can_rotate(&app.workspace), "a parametric photo with a plate is rotatable");
         app.rotate_photo(1, &ctx);
         assert_eq!(app.editor.doc().recipe.quarter_turns, 1);
         assert_eq!(app.editor.photo().base_turns, 1);
@@ -60,7 +60,7 @@
         // a master raster is a file in the frame it was baked in, and this
         // build cannot record that it predates a turn.
         app.editor.doc_mut().variants[0].origin = Some("master.png".into());
-        assert!(!app.can_rotate(), "a baked master must block the turn, not be turned under");
+        assert!(!app.editor.can_rotate(&app.workspace), "a baked master must block the turn, not be turned under");
         let before = app.editor.doc().recipe.quarter_turns;
         app.rotate_photo(1, &ctx);
         assert_eq!(app.editor.doc().recipe.quarter_turns, before, "a refused turn changes nothing");

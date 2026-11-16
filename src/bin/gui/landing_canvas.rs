@@ -890,7 +890,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // edge, while this open decoded the source at the
                         // current preference — which may have moved while
                         // the user was on another photo.
-                        if let Some(px) = self.baked_canvas_edge() {
+                        if let Some(px) = self.editor.baked_canvas_edge(&self.workspace) {
                             let extra = trf(
                                 lang,
                                 K_CANVAS_RESTORED_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE,

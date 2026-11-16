@@ -10,6 +10,7 @@
 //! when another photo opens and are never splintered across clients.
 
 use crate::*;
+use autoshade::recipe::MaskRole;
 use crate::actions::PersistedCard;
 use crate::actions::ActiveBaseline;
 
@@ -571,5 +572,202 @@ impl Editor {
         {
             painter.image(t.id(), rect, uv, egui::Color32::WHITE.gamma_multiply(other_alpha));
         }
+    }
+}
+
+impl Editor {
+    /// The edge a BAKE renders at: the canvas's own resolution, not the
+    /// global preference.
+    ///
+    /// They part company whenever the canvas is a baked raster the preference
+    /// could not re-decode — a background retouched / Generated variant keeps
+    /// its own resolution because switching variants cannot re-decode a
+    /// master, and an undo can restore a superseded one. Baking at the
+    /// preference there installed a NEW-edge raster under an OLD-edge canvas
+    /// and the frame jumped resolution mid-retouch: the same disagreement the
+    /// refused resolution switch exists to prevent, one door along.
+    /// `preview_edge` remains the DECODE edge (`open_path`) — a source-based
+    /// canvas is developed from a source decoded AT it, so those two agree by
+    /// construction.
+    pub(crate) fn canvas_edge(&self, workspace: &WorkspaceView) -> u32 {
+        self.photo().base_preview
+            .as_ref()
+            .map(|b| b.width().max(b.height()))
+            .unwrap_or(workspace.genai().preview_edge)
+            .clamp(640, 8192)
+    }
+
+    /// The resolution a canvas must DISCLOSE, when it holds baked pixels the
+    /// preview preference cannot reach. `None` when there is nothing to say.
+    ///
+    /// FOUR doors install such a canvas: the strip click, an undo to a
+    /// SUPERSEDED master (the re-decode repoints only the Arc the canvas
+    /// held), the navigation stash restore (which reinstalls the raster the
+    /// photo was left with while this open decoded the source at the current
+    /// preference), and deleting the active variant (which re-anchors onto a
+    /// background one).
+    pub(crate) fn baked_canvas_edge(&self, workspace: &WorkspaceView) -> Option<u32> {
+        // A canvas has TWO legitimate resolutions, and measuring against
+        // either one alone produced a false claim:
+        //  · the PREFERENCE — a recorded master is re-decoded with an
+        //    UNGUARDED `thumbnail`, which upscales, so a re-decode lands
+        //    exactly there whatever the sensor is;
+        //  · what the source DELIVERS — the RAW decode is guarded against
+        //    upscaling, so a fresh bake on a sensor smaller than the
+        //    preference lands there instead, and is perfectly current.
+        // Only a THIRD value is stale: a raster baked under an older
+        // preference, or a superseded master an undo brought back. Measuring
+        // against the preference alone called every fresh sub-preference bake
+        // stale; against the delivered edge alone it called every REOPENED
+        // sub-preference master stale ("not the preview preference" while the
+        // preference was exactly that). It takes both.
+        let delivered = self.photo().source_preview
+            .as_ref()
+            .map(|s| s.width().max(s.height()))
+            .unwrap_or(workspace.genai().preview_edge)
+            .clamp(640, 8192);
+        let canvas = self.canvas_edge(workspace);
+        // The baked-raster gate is DEFENCE IN DEPTH, not load-bearing: a
+        // source-based canvas IS the source decode (`load_active` falls back
+        // to `source_preview`, and every install keeps the pair in lockstep),
+        // so `canvas == delivered` already silences it. No test can kill this
+        // conjunct; it stays because a future canvas that is neither would
+        // otherwise be announced with a word — "bake" — that would not be
+        // true of it.
+        (canvas != delivered
+            && canvas != workspace.genai().preview_edge
+            && self.active_variant().is_some_and(|v| v.base.is_some()))
+        .then_some(canvas)
+    }
+
+    /// The reverse-fit / style-prompt target: a finished rendition of THIS
+    /// frame whose look is to be solved back into develop parameters.
+    ///
+    /// Two entries, in precedence order (R23-6 B, user decision 2026-08-17
+    /// ⑤ — "a second develop of the same frame", i.e. the photographer's own
+    /// Lightroom export or the camera's JPEG, not only what this app
+    /// generated):
+    ///
+    ///   1. `fit_ref` — a file the user picked on purpose. It wins, because
+    ///      an explicit choice must not be shadowed by whichever variant
+    ///      happens to be active.
+    ///   2. the ./out raster behind the active variant when that variant is
+    ///      an AI-generated rendition — the original entry, unchanged.
+    ///
+    /// The restriction to (2) was never a property of the fit: `fit.rs`'s
+    /// own doc has always said "any finished reference of the SAME frame",
+    /// and the CLI `match` has always accepted an arbitrary path. It was a
+    /// GUI-side `then(...)` that made the generative path the only reachable
+    /// one — and, downstream of that, made "the target is not pixel-aligned"
+    /// read as an axiom of the method rather than a consequence of the only
+    /// target the desktop app could offer.
+    pub(crate) fn fit_target(&self, workspace: &WorkspaceView) -> Option<PathBuf> {
+        if let Some(p) = &workspace.fit().fit_ref {
+            return Some(p.clone());
+        }
+        let v = self.active_variant()?;
+        // Deliberately NOT `on_ai_pixels()` (R24-1): this is a POLICY about
+        // which raster the fit DEFAULTS to, not a claim about the card's
+        // axis — an ✎ card sits on the same raster as its ✨ card, but its
+        // edits are sliders the user already has, not a look to solve for
+        // (the AI panel's empty-state line says so), and re-fitting a fit is
+        // not what the button means either.
+        (v.kind == VariantKind::Generated).then(|| v.origin.clone()).flatten()
+    }
+
+    /// The geometry the canvas tools currently target: the selected mask's
+    /// selected COMPONENT when one is selected (and still in bounds), else
+    /// the selected mask's base geometry.
+    pub(crate) fn sel_target_geometry(&self, workspace: &WorkspaceView) -> Option<&MaskGeometry> {
+        let i = workspace.masks().sel_mask.filter(|&i| i < self.doc().recipe.masks.len())?;
+        let m = &self.doc().recipe.masks[i];
+        match workspace.masks().sel_component {
+            Some(c) if c < m.components.len() => Some(&m.components[c].geometry),
+            _ => Some(&m.mask),
+        }
+    }
+
+    /// May the photographer turn this photo right now? (Drives both the
+    /// toolbar buttons' enabled state and the plate reconciler's own gate, so
+    /// the two can never disagree about which photos rotate.)
+    ///
+    /// The one exclusion is BAKED PIXELS. A retouched/generated master is a
+    /// raster on disk in the frame it was baked in, and this build has no way
+    /// to record that a file was written before a turn — so turning the canvas
+    /// under it would put the master back sideways on the next open, which is
+    /// the silent-corruption shape the whole orientation chain exists to
+    /// prevent. Rotate FIRST, bake after: the master is then written in the
+    /// turned frame and everything agrees. The whole strip counts, not just
+    /// the active card — an inactive variant's master is on disk exactly the
+    /// same way. (Registered limitation, R27 A6.)
+    ///
+    /// An ARMED tool is excluded for a smaller reason: brush and retouch
+    /// gestures bind screen coordinates to plate pixels mid-drag, and the
+    /// plate is about to move under them.
+    pub(crate) fn can_rotate(&self, workspace: &WorkspaceView) -> bool {
+        self.photo().src_path.is_some()
+            && self.photo().base_preview.is_some()
+            && !workspace.busy()
+            && !workspace.open().open_in_flight
+            && !workspace.masks().paint_mode
+            && workspace.overlay().region.is_none()
+            && self.doc().variants.iter().all(|v| v.base.is_none() && v.origin.is_none())
+            // A fill layer is pixels in the frame it was made in, like a
+            // baked master (2026-10-01): the live card and every stored one.
+            && self.doc().recipe.pixel_layers.is_empty()
+            && self.doc().variants.iter().all(|v| v.recipe.pixel_layers.is_empty())
+            // …and so is a lens blur's depth map (2026-10-13): estimated in
+            // the frame the photo had, its texels would not follow a turn.
+            && self.doc().recipe.lens_blur.is_none()
+            && self.doc().variants.iter().all(|v| v.recipe.lens_blur.is_none())
+    }
+
+    /// Does the AI area carry state worth a ● on its collapsed header?
+    ///
+    /// Written next to the panel it describes, and enumerating that panel's OWN
+    /// field set in reading order: the verdict `ai_analysis` prints and the
+    /// Direction it consumes.
+    /// R22 #16 added the taste dials on the ground that a non-default dial is
+    /// state. On 2026-09-20 they were removed because they are persisted
+    /// preferences, so the dot never went out.
+    ///
+    /// Deliberately NOT in the set: `style_strength`, `grade_strength`, and
+    /// `fit_strength` are remembered dial preferences, not this photo's state;
+    /// `reimagine_prompt`, `fit_ai_judge`, `zoned_fit`, and (R23-2)
+    /// `send_style_ref_image` / `style_src_dir` are persisted preferences of
+    /// paid verbs or library bookkeeping. The dot means "this PHOTO's AI
+    /// inputs carry state", and a remembered dial or folder says nothing
+    /// about this photo.
+    pub(crate) fn ai_section_active(&self, workspace: &WorkspaceView) -> bool {
+        self.analysis().verdict.is_some() || !workspace.ai().guidance.is_empty()
+    }
+
+    /// Is the noise switch on: the card on screen is a ◈ card, or the
+    /// switch's own AI denoise is running.
+    pub(crate) fn normal_denoise_on(&self, workspace: &WorkspaceView) -> bool {
+        self.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
+            || (workspace.busy()
+                && workspace.normal()
+                    .denoise_pair
+                    .as_ref()
+                    .is_some_and(|d| d.denoised.is_none() && self.photo().src_path.as_ref() == Some(&d.photo)))
+    }
+
+    /// Does 「🤖 AI Denoise on export」 run for THIS export? Ticked, and the
+    /// active card is not a ◈ Denoised card — whose master is already the
+    /// denoised negative, so a second pass (SCUNet over a baked master) would
+    /// only smooth it further (2026-09-15).
+    pub(crate) fn export_denoise_applies(&self, workspace: &WorkspaceView) -> bool {
+        workspace.exp().save_denoise
+            && !self.active_variant().is_some_and(|v| v.kind == VariantKind::Denoised)
+    }
+
+    /// Why the skin and eyes groups are greyed, or `None` when they work.
+    pub(crate) fn portrait_face_gate(&self, workspace: &WorkspaceView, lang: Lang) -> Option<&'static str> {
+        if self.doc().recipe.masks.iter().any(|m| matches!(m.role, MaskRole::Face | MaskRole::Skin)) {
+            return None;
+        }
+        let searched = workspace.portrait().found.as_ref().is_some_and(|(p, n)| self.photo().src_path.as_ref() == Some(p) && *n == 0);
+        Some(if searched { tr(lang, K_PORTRAIT_NO_FACE_FOUND_IN_THIS_PHOTO) } else { tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP) })
     }
 }

@@ -182,10 +182,10 @@
         let reference = std::env::temp_dir().join(format!("autoshade-exports-{}/P21-lightroom.tif", std::process::id()));
         // A stock app: ONE Original variant, nothing generated.
         let mut app = AutoShadeApp::default();
-        assert_eq!(app.fit_target(), None, "premise: nothing to fit against yet");
+        assert_eq!(app.editor.fit_target(&app.workspace), None, "premise: nothing to fit against yet");
         app.workspace.fit_mut().fit_ref = Some(reference.clone());
         assert_eq!(
-            app.fit_target(),
+            app.editor.fit_target(&app.workspace),
             Some(reference.clone()),
             "an explicitly chosen reference IS the target"
         );
@@ -202,11 +202,11 @@
             thumb: None,
         });
         app.editor.doc_mut().active = app.editor.doc().variants.len() - 1;
-        assert_eq!(app.fit_target(), Some(reference), "the chosen reference wins");
+        assert_eq!(app.editor.fit_target(&app.workspace), Some(reference), "the chosen reference wins");
         // Clearing it hands the entry back to the generated variant — both
         // doors stay open, which is the whole shape of this change.
         app.workspace.fit_mut().fit_ref = None;
-        assert_eq!(app.fit_target(), Some(generated));
+        assert_eq!(app.editor.fit_target(&app.workspace), Some(generated));
     }
 
     /// The panel half of the same change: the door has to be visible, and the
@@ -263,7 +263,7 @@
         // Same rule as `fit_ai_judge` / `send_style_ref_image`: a remembered
         // preference is not "this photo's AI inputs carry state".
         app.aip.deep_think = true;
-        assert!(!app.ai_section_active(), "a preference must not light the section ●");
+        assert!(!app.editor.ai_section_active(&app.workspace), "a preference must not light the section ●");
 
         let request_app = AutoShadeApp {
             aip: AiPrefs { deep_think: true, ..Default::default() },

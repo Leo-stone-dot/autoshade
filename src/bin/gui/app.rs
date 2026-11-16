@@ -651,7 +651,7 @@ impl AutoShadeApp {
                     // 「Clear」/「↻ Redraw」 in the panels. ⭯/⭮ (U+2B6F/U+2B6E) are
                     // unused anywhere in the tree and both ship in
                     // NotoSansSymbols2-autoshade.ttf, so no subset regeneration.
-                    let can_rotate = self.can_rotate();
+                    let can_rotate = self.editor.can_rotate(&self.workspace);
                     // Disabled buttons state their reason (the pixel-state rule):
                     // a control that greys out in silence reads as a broken app.
                     // Spelled at each site rather than through a helper — the
