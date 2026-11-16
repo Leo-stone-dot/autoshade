@@ -1,6 +1,7 @@
 //! App actions: open/variants/versions/history/quit flow.
 
 use super::*;
+use crate::recipe_actions::{recipe_losses, recipe_name_error};
 
 
 /// The persisted develop state belonging to the card that is on the canvas.
@@ -359,7 +360,7 @@ impl AutoShadeApp {
         let name = match autoshade::recipe_library::check_name(&stem) {
             Ok(name) => name,
             Err(e) => {
-                let text = self.recipe_name_error(e);
+                let text = recipe_name_error(self.lang, e);
                 self.workspace.recipe_status(false, text);
                 return;
             }
@@ -390,7 +391,7 @@ impl AutoShadeApp {
                         "{} — {} {}",
                         base,
                         tr(self.lang, K_ACTIONS_LEFT_OUT_WHAT_BELONGS_TO_THE_SOURCE_PHOTO),
-                        self.recipe_losses(losses)
+                        recipe_losses(self.lang, losses)
                     )
                 };
                 self.workspace.recipe_status(true, text);

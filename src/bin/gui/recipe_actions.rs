@@ -18,40 +18,8 @@ impl AutoShadeApp {
     }
 
     /// Localized wording for a refused name.
-    pub(crate) fn recipe_name_error(&self, e: autoshade::recipe_library::NameError) -> String {
-        use autoshade::recipe_library::NameError as N;
-        match e {
-            N::Empty => tr(self.lang, K_ACTIONS_A_RECIPE_NEEDS_A_NAME).to_string(),
-            N::TooLong => trf(
-                self.lang,
-                K_ACTIONS_THE_NAME_IS_LONGER_THAN_CHARACTERS,
-                &[("n", &autoshade::store::MAX_STORE_NAME.to_string())],
-            ),
-            N::Illegal(c) => trf(self.lang, K_ACTIONS_THE_NAME_CANNOT_CONTAIN, &[("char", &c.to_string())]),
-        }
-    }
 
     /// What a portable entry left behind, as one list of user-facing fragments.
-    pub(crate) fn recipe_losses(&self, losses: autoshade::recipe_library::Losses) -> String {
-        let lang = self.lang;
-        let mut parts: Vec<String> = Vec::new();
-        if losses.masks > 0 {
-            parts.push(trf(lang, K_ACTIONS_BITMAP_MASK_S, &[("n", &losses.masks.to_string())]));
-        }
-        if losses.colour_field {
-            parts.push(tr(lang, K_ACTIONS_THE_COLOUR_FIELD).to_string());
-        }
-        if losses.layers > 0 {
-            parts.push(trf(lang, K_ACTIONS_FILL_LAYER_S, &[("n", &losses.layers.to_string())]));
-        }
-        if losses.lens_blur {
-            parts.push(tr(lang, K_ACTIONS_THE_LENS_BLUR).to_string());
-        }
-        if losses.geometry {
-            parts.push(tr(lang, K_ACTIONS_CROP_STRAIGHTEN).to_string());
-        }
-        parts.join(", ")
-    }
 
 
     /// Save the open photo's develop into the library under a name.
@@ -69,7 +37,7 @@ impl AutoShadeApp {
         let name = match autoshade::recipe_library::check_name(&name) {
             Ok(name) => name,
             Err(e) => {
-                let text = self.recipe_name_error(e);
+                let text = recipe_name_error(self.lang, e);
                 self.workspace.recipe_status(false, text);
                 return;
             }
@@ -94,7 +62,7 @@ impl AutoShadeApp {
                         "{} — {} {}",
                         base,
                         tr(self.lang, K_ACTIONS_LEFT_OUT_WHAT_BELONGS_TO_THE_SOURCE_PHOTO),
-                        self.recipe_losses(losses)
+                        recipe_losses(self.lang, losses)
                     )
                 };
                 self.workspace.recipe_status(true, text);
@@ -209,7 +177,7 @@ impl AutoShadeApp {
                         "{} — {} {}",
                         base,
                         tr(self.lang, K_ACTIONS_LEFT_OUT_WHAT_BELONGS_TO_THE_SOURCE_PHOTO),
-                        self.recipe_losses(losses)
+                        recipe_losses(self.lang, losses)
                     )
                 };
                 self.workspace.recipe_status(true, text);
@@ -226,7 +194,7 @@ impl AutoShadeApp {
         let to = match autoshade::recipe_library::check_name(to) {
             Ok(name) => name,
             Err(e) => {
-                let text = self.recipe_name_error(e);
+                let text = recipe_name_error(self.lang, e);
                 self.workspace.recipe_status(false, text);
                 return;
             }
@@ -270,4 +238,38 @@ impl AutoShadeApp {
             }
         }
     }
+}
+
+pub(crate) fn recipe_name_error(lang: Lang, e: autoshade::recipe_library::NameError) -> String {
+    use autoshade::recipe_library::NameError as N;
+    match e {
+        N::Empty => tr(lang, K_ACTIONS_A_RECIPE_NEEDS_A_NAME).to_string(),
+        N::TooLong => trf(
+            lang,
+            K_ACTIONS_THE_NAME_IS_LONGER_THAN_CHARACTERS,
+            &[("n", &autoshade::store::MAX_STORE_NAME.to_string())],
+        ),
+        N::Illegal(c) => trf(lang, K_ACTIONS_THE_NAME_CANNOT_CONTAIN, &[("char", &c.to_string())]),
+    }
+}
+
+pub(crate) fn recipe_losses(lang: Lang, losses: autoshade::recipe_library::Losses) -> String {
+    let lang = lang;
+    let mut parts: Vec<String> = Vec::new();
+    if losses.masks > 0 {
+        parts.push(trf(lang, K_ACTIONS_BITMAP_MASK_S, &[("n", &losses.masks.to_string())]));
+    }
+    if losses.colour_field {
+        parts.push(tr(lang, K_ACTIONS_THE_COLOUR_FIELD).to_string());
+    }
+    if losses.layers > 0 {
+        parts.push(trf(lang, K_ACTIONS_FILL_LAYER_S, &[("n", &losses.layers.to_string())]));
+    }
+    if losses.lens_blur {
+        parts.push(tr(lang, K_ACTIONS_THE_LENS_BLUR).to_string());
+    }
+    if losses.geometry {
+        parts.push(tr(lang, K_ACTIONS_CROP_STRAIGHTEN).to_string());
+    }
+    parts.join(", ")
 }

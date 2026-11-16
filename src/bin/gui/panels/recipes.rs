@@ -307,7 +307,7 @@ impl AutoShadeApp {
                 ui.label(egui::RichText::new(name).strong());
                 match &entry {
                     Ok(r) => {
-                        let facts = self.recipe_facts(r);
+                        let facts = recipe_facts(self.lang, r);
                         if facts.is_empty() {
                             ui.label(
                                 egui::RichText::new(tr(lang, K_RECIPES_NO_EDITS_THIS_RECIPE_IS_NEUTRAL)).weak().small(),
@@ -442,62 +442,8 @@ impl AutoShadeApp {
         Some(shown)
     }
 
-    /// What the entry CHANGES, as label/value rows: only the controls that
-    /// differ from a neutral develop, because "what is in this recipe" is the
-    /// question the list could not answer. The numbers are the engine's own.
-    fn recipe_facts(&self, r: &EditRecipe) -> Vec<(String, String)> {
-        let lang = self.lang;
-        let d = EditRecipe::default();
-        let mut out: Vec<(String, String)> = Vec::new();
-        if (r.exposure_ev - d.exposure_ev).abs() > 1e-4 {
-            out.push((tr(lang, K_DEVELOP_EXPOSURE).to_string(), format!("{:+.2}", r.exposure_ev)));
-        }
-        for (label, v, neutral) in [
-            ("Contrast", r.contrast, d.contrast),
-            ("Highlights", r.highlights, d.highlights),
-            ("Shadows", r.shadows, d.shadows),
-            ("Whites", r.whites, d.whites),
-            ("Blacks", r.blacks, d.blacks),
-            ("Tint", r.tint, d.tint),
-            ("Vibrance", r.vibrance, d.vibrance),
-            ("Saturation", r.saturation, d.saturation),
-            ("Texture", r.texture, d.texture),
-            ("Clarity", r.clarity, d.clarity),
-            ("Dehaze", r.dehaze, d.dehaze),
-            ("Sharpening", r.sharpening, d.sharpening),
-            ("Noise Reduction", r.noise_reduction, d.noise_reduction),
-        ] {
-            if (v - neutral).abs() > 0.05 {
-                out.push((tr(lang, label).to_string(), format!("{v:+.0}")));
-            }
-        }
-        if let Some(k) = r.temperature_k.filter(|k| *k > 0.0) {
-            out.push((tr(lang, K_RECIPES_TEMPERATURE).to_string(), format!("{k:.0} K")));
-        }
-        let points = r.tone_curve.len() + r.red_curve.len() + r.green_curve.len() + r.blue_curve.len();
-        if points > 0 {
-            out.push((
-                tr(lang, K_DEVELOP_CURVE).to_string(),
-                trf(lang, K_RECIPES_POINTS, &[("n", &points.to_string())]),
-            ));
-        }
-        if r.convert_to_grayscale {
-            out.push((tr(lang, K_NORMAL_BLACK_WHITE).to_string(), "✓".to_string()));
-        }
-        if r.hsl != d.hsl {
-            out.push((tr(lang, K_DEVELOP_COLOR_MIXER_HSL).to_string(), "✓".to_string()));
-        }
-        if r.color_grade != d.color_grade {
-            out.push((tr(lang, K_DEVELOP_COLOR_GRADING).to_string(), "✓".to_string()));
-        }
-        if !r.point_colors.is_empty() {
-            out.push((tr(lang, K_DEVELOP_POINT_COLOR).to_string(), r.point_colors.len().to_string()));
-        }
-        if !r.masks.is_empty() {
-            out.push((tr(lang, K_RECIPES_MASKS__2).to_string(), r.masks.len().to_string()));
-        }
-        out
-    }
+    // What the entry CHANGES, as label/value rows: only the controls that
+    // differ from a neutral develop. The numbers are the engine's own.
 }
 
 /// One library row: 34 px, the name at the left, its meta at the right edge,
@@ -629,4 +575,58 @@ mod age_text_tests {
         );
         assert_eq!(age_text(Lang::En, now + Duration::from_secs(60)), None, "a future stamp says nothing");
     }
+}
+
+pub(crate) fn recipe_facts(lang: Lang, r: &EditRecipe) -> Vec<(String, String)> {
+    let lang = lang;
+    let d = EditRecipe::default();
+    let mut out: Vec<(String, String)> = Vec::new();
+    if (r.exposure_ev - d.exposure_ev).abs() > 1e-4 {
+        out.push((tr(lang, K_DEVELOP_EXPOSURE).to_string(), format!("{:+.2}", r.exposure_ev)));
+    }
+    for (label, v, neutral) in [
+        ("Contrast", r.contrast, d.contrast),
+        ("Highlights", r.highlights, d.highlights),
+        ("Shadows", r.shadows, d.shadows),
+        ("Whites", r.whites, d.whites),
+        ("Blacks", r.blacks, d.blacks),
+        ("Tint", r.tint, d.tint),
+        ("Vibrance", r.vibrance, d.vibrance),
+        ("Saturation", r.saturation, d.saturation),
+        ("Texture", r.texture, d.texture),
+        ("Clarity", r.clarity, d.clarity),
+        ("Dehaze", r.dehaze, d.dehaze),
+        ("Sharpening", r.sharpening, d.sharpening),
+        ("Noise Reduction", r.noise_reduction, d.noise_reduction),
+    ] {
+        if (v - neutral).abs() > 0.05 {
+            out.push((tr(lang, label).to_string(), format!("{v:+.0}")));
+        }
+    }
+    if let Some(k) = r.temperature_k.filter(|k| *k > 0.0) {
+        out.push((tr(lang, K_RECIPES_TEMPERATURE).to_string(), format!("{k:.0} K")));
+    }
+    let points = r.tone_curve.len() + r.red_curve.len() + r.green_curve.len() + r.blue_curve.len();
+    if points > 0 {
+        out.push((
+            tr(lang, K_DEVELOP_CURVE).to_string(),
+            trf(lang, K_RECIPES_POINTS, &[("n", &points.to_string())]),
+        ));
+    }
+    if r.convert_to_grayscale {
+        out.push((tr(lang, K_NORMAL_BLACK_WHITE).to_string(), "✓".to_string()));
+    }
+    if r.hsl != d.hsl {
+        out.push((tr(lang, K_DEVELOP_COLOR_MIXER_HSL).to_string(), "✓".to_string()));
+    }
+    if r.color_grade != d.color_grade {
+        out.push((tr(lang, K_DEVELOP_COLOR_GRADING).to_string(), "✓".to_string()));
+    }
+    if !r.point_colors.is_empty() {
+        out.push((tr(lang, K_DEVELOP_POINT_COLOR).to_string(), r.point_colors.len().to_string()));
+    }
+    if !r.masks.is_empty() {
+        out.push((tr(lang, K_RECIPES_MASKS__2).to_string(), r.masks.len().to_string()));
+    }
+    out
 }
