@@ -255,9 +255,7 @@ impl AutoShadeApp {
             ui.label(egui::RichText::new(line).small());
         });
         if find {
-            self.apply_actions(vec![logic::Action::Portrait(
-                logic::portrait::PortraitAction::FindPeople,
-            )]);
+            self.apply_portrait(logic::portrait::PortraitAction::FindPeople);
         }
         if look {
             self.start_portrait_look();
@@ -294,9 +292,7 @@ impl AutoShadeApp {
             ))
             .changed();
         if flipped {
-            self.apply_actions(vec![logic::Action::Portrait(
-                logic::portrait::PortraitAction::SetKeepSkin(on),
-            )]);
+            self.apply_portrait(logic::portrait::PortraitAction::SetKeepSkin(on));
         }
         let can_heal = face_raster(&self.doc.recipe).is_some() && !self.busy && self.photo.src_path.is_some();
         if action_row(ui, can_heal, tr(lang, "🤖 Remove blemishes"))
@@ -306,9 +302,7 @@ impl AutoShadeApp {
             ))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Portrait(
-                logic::portrait::PortraitAction::RemoveBlemishes,
-            )]);
+            self.apply_portrait(logic::portrait::PortraitAction::RemoveBlemishes);
         }
         if let Some(why) = gate {
             ui.label(egui::RichText::new(why).weak().small());
@@ -366,9 +360,7 @@ impl AutoShadeApp {
                 .on_disabled_hover_text(tr(lang, "Find the people and faces first (the first group)."))
                 .changed();
             if toggled {
-                self.apply_actions(vec![logic::Action::Portrait(
-                    logic::portrait::PortraitAction::KeepPersonSharp(keep),
-                )]);
+                self.apply_portrait(logic::portrait::PortraitAction::KeepPersonSharp(keep));
             }
         }
         let has_bg = self.doc.recipe.masks.iter().any(|m| m.role == MaskRole::Background);

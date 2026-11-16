@@ -49,16 +49,6 @@ impl AutoShadeApp {
                     effects.extend(logic::mask_edit::apply(&mut self.doc.recipe, action));
                 }
                 Action::Region(action) => effects.extend(logic::region::apply(action)),
-                Action::Portrait(action) => match action {
-                    logic::portrait::PortraitAction::FindPeople => self.start_find_people(),
-                    logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
-                    logic::portrait::PortraitAction::KeepPersonSharp(on) => {
-                        if self.set_keep_person_sharp(on) {
-                            self.session.dirty = true;
-                        }
-                    }
-                    logic::portrait::PortraitAction::SetKeepSkin(on) => self.set_keep_skin(on),
-                },
                 Action::Develop(action) => match action {
                     logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),
                     logic::develop::DevelopAction::Stack(extra) => self.start_stack(extra),
@@ -167,6 +157,21 @@ impl AutoShadeApp {
             }
         }
         self.run_effects(effects);
+    }
+
+    /// Apply one Portraits panel verb. Worker starts and skin bookkeeping stay
+    /// here; the panel no longer has to wrap them in the umbrella action enum.
+    pub(crate) fn apply_portrait(&mut self, action: logic::portrait::PortraitAction) {
+        match action {
+            logic::portrait::PortraitAction::FindPeople => self.start_find_people(),
+            logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
+            logic::portrait::PortraitAction::KeepPersonSharp(on) => {
+                if self.set_keep_person_sharp(on) {
+                    self.session.dirty = true;
+                }
+            }
+            logic::portrait::PortraitAction::SetKeepSkin(on) => self.set_keep_skin(on),
+        }
     }
 
     /// Execute the effects the logic asked for: worker spawns, lines, flags.
