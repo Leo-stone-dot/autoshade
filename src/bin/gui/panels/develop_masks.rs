@@ -301,7 +301,7 @@ impl AutoShadeApp {
             // `[` / `]` keys) — one session block covers both arms, the
             // 「＋ Brush」 above and 「🖌 Edit raster」 down in the mask row.
             // Outside the row closure: that closure holds `&mut self`.
-            self.brush_size_slider(ui);
+            self.panel_view(&mut Vec::new()).brush_size_slider(ui);
         }
     }
 

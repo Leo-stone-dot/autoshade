@@ -318,63 +318,6 @@ impl AutoShadeApp {
 
 
 
-    pub(crate) fn brush_size_slider(&mut self, ui: &mut egui::Ui) {
-        let lang = self.lang;
-        // The band the slider occupies, read off the layout cursor before and
-        // after — a wrapper (scope/horizontal) would be one more thing that
-        // can move the geometry the width tests pin. Test seam only.
-        #[cfg(test)]
-        let before = ui.cursor();
-        // The radius is live tool state, never a recipe field: no dirty flag,
-        // no redevelop — a change only flashes the ring on the canvas.
-        let mut radius = self.workspace.masks().brush;
-        if slider_hinted(
-            ui,
-            lang,
-            tr(lang, K_RETOUCH_BRUSH_SIZE),
-            &mut radius,
-            BRUSH_R_MIN,
-            BRUSH_R_MAX,
-            30.0,
-            tr(lang, K_RETOUCH_ONE_RADIUS_FOR_EVERY_BRUSH_THE_MASK_BRUSH_AND_TH),
-        ) {
-            let now = ui.input(|i| i.time);
-            self.workspace.set_brush(radius, now);
-        }
-        // Feather and Flow (2026-10-13): Lightroom's two brush dials, shared
-        // by every brush like the radius. Feather fades the disc's outer part
-        // (the inner ring on the canvas marks where the fade starts); Flow is
-        // how much one pass lays down, so a low flow builds up stroke by
-        // stroke. The defaults are the hard full-strength brush of before.
-        slider_pct_hinted(
-            ui,
-            lang,
-            tr(lang, K_DEVELOP_FEATHER),
-            &mut self.workspace.masks_mut().brush_feather,
-            1.0,
-            0.0,
-            tr(lang, K_RETOUCH_HOW_SOFT_THE_BRUSH_EDGE_IS_0_A_HARD_EDGE_100_FAD),
-        );
-        slider_pct_hinted(
-            ui,
-            lang,
-            tr(lang, K_RETOUCH_FLOW),
-            &mut self.workspace.masks_mut().brush_flow,
-            1.0,
-            1.0,
-            tr(lang, K_RETOUCH_HOW_MUCH_ONE_PASS_LAYS_DOWN_100_FULL_STRENGTH_AT),
-        );
-        #[cfg(test)]
-        {
-            // x from the Ui's USED region (cursor().max.x can be infinite in an
-            // unbounded layout), y from the cursor the slider just advanced.
-            let used = ui.min_rect();
-            self.seams.brush_slider_rect = Some(egui::Rect::from_min_max(
-                egui::pos2(used.left(), before.top()),
-                egui::pos2(used.right(), ui.cursor().top()),
-            ));
-        }
-    }
 
     /// ONE tool's brush controls, drawn inside that tool's fold (user
     /// decision 2026-09-27: the brush a fold's verb reads sits in that fold,
@@ -405,7 +348,7 @@ impl AutoShadeApp {
             }
         });
         if armed {
-            self.brush_size_slider(ui);
+            self.panel_view(&mut Vec::new()).brush_size_slider(ui);
         }
     }
 
@@ -665,7 +608,7 @@ impl AutoShadeApp {
                     }
                 });
                 if armed {
-                    self.brush_size_slider(ui);
+                    self.panel_view(&mut Vec::new()).brush_size_slider(ui);
                 }
                 if primary_row(ui, !self.workspace.busy() && self.workspace.tools().clone_mode, tr(lang, K_RETOUCH_CLONE_AREA))
                     .on_hover_text(tr(lang, K_RETOUCH_COPY_THE_SAMPLED_SOURCE_OVER_THE_BRUSHED_AREA_VE))
