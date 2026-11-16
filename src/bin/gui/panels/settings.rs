@@ -136,9 +136,7 @@ impl AutoShadeApp {
             ))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Settings(
-                logic::settings::SettingsAction::ImportLegacyFolder,
-            )]);
+            self.apply_settings(logic::settings::SettingsAction::ImportLegacyFolder);
         }
         // --- the DELIVERY ROOT (R24-5 M8) ------------------------------------
         // The counterpart to the develop store above: that folder holds the
@@ -172,9 +170,7 @@ impl AutoShadeApp {
             });
         }
         if browse_delivery {
-            self.apply_actions(vec![logic::Action::Settings(
-                logic::settings::SettingsAction::PickDeliveryFolder,
-            )]);
+            self.apply_settings(logic::settings::SettingsAction::PickDeliveryFolder);
         }
         // The RESOLVED root, absolute: a relative setting (the default
         // included) means nothing without saying which directory it is
@@ -298,9 +294,7 @@ impl AutoShadeApp {
             ))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Settings(
-                logic::settings::SettingsAction::InstallPython,
-            )]);
+            self.apply_settings(logic::settings::SettingsAction::InstallPython);
         }
         if let Some(line) = &self.ui.python_env_line {
             ui.label(egui::RichText::new(line).small().weak());
@@ -650,17 +644,13 @@ impl AutoShadeApp {
             .small(),
         );
         if do_save {
-            self.apply_actions(vec![logic::Action::Settings(
-                logic::settings::SettingsAction::SaveForm,
-            )]);
+            self.apply_settings(logic::settings::SettingsAction::SaveForm);
         }
         if let Some(role) = fetch {
-            self.apply_actions(vec![logic::Action::Settings(
-                logic::settings::SettingsAction::FetchModels(match role {
-                    ModelRole::Analysis => logic::settings::ModelSide::Analysis,
-                    ModelRole::Image => logic::settings::ModelSide::Image,
-                }),
-            )]);
+            self.apply_settings(logic::settings::SettingsAction::FetchModels(match role {
+                ModelRole::Analysis => logic::settings::ModelSide::Analysis,
+                ModelRole::Image => logic::settings::ModelSide::Image,
+            }));
         }
     }
 }

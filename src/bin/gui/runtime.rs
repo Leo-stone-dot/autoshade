@@ -143,27 +143,6 @@ impl AutoShadeApp {
                         }
                     }
                 },
-                Action::Settings(action) => match action {
-                    logic::settings::SettingsAction::ImportLegacyFolder => {
-                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                            self.start_import_legacy(dir);
-                        }
-                    }
-                    logic::settings::SettingsAction::PickDeliveryFolder => {
-                        if let Some(dir) = rfd::FileDialog::new().pick_folder() {
-                            self.ui.settings.out_dir = dir.display().to_string();
-                        }
-                    }
-                    logic::settings::SettingsAction::SaveForm => self.save_settings_form(),
-                    logic::settings::SettingsAction::FetchModels(side) => {
-                        let role = match side {
-                            logic::settings::ModelSide::Analysis => ModelRole::Analysis,
-                            logic::settings::ModelSide::Image => ModelRole::Image,
-                        };
-                        self.fetch_models(role);
-                    }
-                    logic::settings::SettingsAction::InstallPython => self.start_python_env_install(),
-                },
             }
         }
         self.run_effects(effects);
@@ -294,6 +273,32 @@ impl AutoShadeApp {
         self.spawn_analyze(job.photo, job.pixels, job.guidance, job.base, job.req, job.library);
     }
 
+
+    /// Apply one Settings-panel verb. Dialogs, form saves and worker starts
+    /// stay here; the panel only emits `SettingsAction`s.
+    pub(crate) fn apply_settings(&mut self, action: logic::settings::SettingsAction) {
+        match action {
+            logic::settings::SettingsAction::ImportLegacyFolder => {
+                if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                    self.start_import_legacy(dir);
+                }
+            }
+            logic::settings::SettingsAction::PickDeliveryFolder => {
+                if let Some(dir) = rfd::FileDialog::new().pick_folder() {
+                    self.ui.settings.out_dir = dir.display().to_string();
+                }
+            }
+            logic::settings::SettingsAction::SaveForm => self.save_settings_form(),
+            logic::settings::SettingsAction::FetchModels(side) => {
+                let role = match side {
+                    logic::settings::ModelSide::Analysis => ModelRole::Analysis,
+                    logic::settings::ModelSide::Image => ModelRole::Image,
+                };
+                self.fetch_models(role);
+            }
+            logic::settings::SettingsAction::InstallPython => self.start_python_env_install(),
+        }
+    }
 
     /// Apply one gallery action: the folder dialog, the open/toggle decision,
     /// the thumbnail worker and the bounded texture window are the runtime's.
