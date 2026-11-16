@@ -18,6 +18,16 @@ pub(crate) struct PanelView<'a, 'b> {
 }
 
 impl PanelView<'_, '_> {
+    /// One capability table through the registry (the panel's only write
+    /// surface for sliders).
+    pub(crate) fn capability_rows(
+        &mut self,
+        ui: &mut egui::Ui,
+        table: &[&dyn crate::controls::ControlWidget],
+    ) -> bool {
+        crate::panels::develop_forms::render_and_apply(ui, self.lang, &mut self.editor.doc_mut().recipe, table)
+    }
+
     /// Report a batch of intents.
     pub(crate) fn act_all(&mut self, actions: impl IntoIterator<Item = logic::Action>) {
         self.actions.extend(actions);

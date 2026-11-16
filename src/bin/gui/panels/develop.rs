@@ -453,10 +453,6 @@ impl AutoShadeApp {
     /// One capability table: the renderer draws each control through its own
     /// implementation and reports a data change (id + value); the registry
     /// applies it. The panel does not know a control by name.
-    pub(crate) fn capability_rows(&mut self, ui: &mut egui::Ui, table: &[&dyn crate::controls::ControlWidget]) -> bool {
-        crate::panels::develop_forms::render_and_apply(ui, self.lang, &mut self.editor.doc_mut().recipe, table)
-    }
-
     pub(crate) fn dev_tone_wb(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
         let lang = self.lang;
         let mut changed = false;
@@ -555,12 +551,12 @@ impl AutoShadeApp {
                 // recipe counts as Custom (see the checkbox above) so its
                 // slider stays reachable.
                 ui.add_enabled_ui(custom_wb, |ui| {
-                    changed |= self.capability_rows(ui, crate::controls::WB_TINT);
+                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::WB_TINT);
                 });
                 // The tone band is a capability table row each: the panel owns
                 // the fold and the white balance controls above; the fields,
                 // bands and resets live in `logic::capability::TONE`.
-                changed |= self.capability_rows(ui, crate::controls::TONE);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::TONE);
             });
         changed
     }
@@ -586,7 +582,7 @@ impl AutoShadeApp {
                 // (R25 B2 put the global texture stage between clarity and
                 // saturation). The rows live in `logic::capability::PRESENCE`;
                 // rows and order are one table.
-                changed |= self.capability_rows(ui, crate::controls::PRESENCE);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::PRESENCE);
             });
         changed
     }
@@ -619,7 +615,7 @@ impl AutoShadeApp {
                 // then a hue + saturation pair per primary. The group captions
                 // stay here; the rows are capability tables.
                 ui.label(egui::RichText::new(tr(lang, K_DEVELOP_SHADOWS)).weak().small());
-                changed |= self.capability_rows(ui, crate::controls::CAL_TINT);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::CAL_TINT);
                 for (primary, table) in [
                     (tr(lang, K_DEVELOP_RED_PRIMARY), crate::controls::CAL_RED),
                     (tr(lang, K_DEVELOP_GREEN_PRIMARY), crate::controls::CAL_GREEN),
@@ -627,7 +623,7 @@ impl AutoShadeApp {
                 ] {
                     ui.add_space(SPACE_XS);
                     ui.label(egui::RichText::new(primary).weak().small());
-                    changed |= self.capability_rows(ui, table);
+                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, table);
                 }
             });
         changed
@@ -660,7 +656,7 @@ impl AutoShadeApp {
                 {
                     changed = true;
                 }
-                changed |= self.capability_rows(ui, crate::controls::HDR_HEADROOM);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::HDR_HEADROOM);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, K_DEVELOP_SDR_RENDITION)).weak().small());
                 ui.label(
@@ -668,7 +664,7 @@ impl AutoShadeApp {
                         .weak()
                         .small(),
                 );
-                changed |= self.capability_rows(ui, crate::controls::HDR_SDR);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::HDR_SDR);
             });
         changed
     }
@@ -705,11 +701,11 @@ impl AutoShadeApp {
                     // their bands, feels and companion defaults live in
                     // `logic::capability` (the radius is a Fine companion: the
                     // sidecar writes one decimal, so the track shows one).
-                    changed |= self.capability_rows(ui, crate::controls::SHARPEN);
+                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::SHARPEN);
                     ui.add_space(SPACE_SM);
-                    changed |= self.capability_rows(ui, crate::controls::NOISE_LUMA);
+                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::NOISE_LUMA);
                     ui.add_space(SPACE_SM);
-                    changed |= self.capability_rows(ui, crate::controls::NOISE_COLOR);
+                    changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::NOISE_COLOR);
                 }
                 let denoise_raw = self.editor.denoise_uses_raw();
                 // AI denoise as an ACTIVE op: run now, see it on canvas —
@@ -853,10 +849,10 @@ impl AutoShadeApp {
                 // companion encoding live in `logic::capability`. The style row
                 // is an operator INDEX (1/2/3); the track starts at 1 because
                 // 0 means "the sidecar named none" and only a reset reaches it.
-                changed |= self.capability_rows(ui, crate::controls::VIGNETTE);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::VIGNETTE);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, K_DEVELOP_GRAIN)).weak().small());
-                changed |= self.capability_rows(ui, crate::controls::GRAIN);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::GRAIN);
             });
         changed
     }
@@ -962,7 +958,7 @@ impl AutoShadeApp {
                 // work; that one is a creative darkening after the crop.
                 // Manual vignetting / midpoint / distortion: one capability
                 // table (bands and resets from `logic::capability`).
-                changed |= self.capability_rows(ui, crate::controls::LENS_MANUAL);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::LENS_MANUAL);
                 // --- manual lateral CA (R25 B3) -------------------------
                 // RENDERED, so NO disclosure line: these two fold onto the
                 // very per-channel radius LUT the profile CA above uses
@@ -978,10 +974,10 @@ impl AutoShadeApp {
                 // imported from Lightroom shows what it carries.
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, K_DEVELOP_PROFILE_CORRECTION_STRENGTH)).weak().small());
-                changed |= self.capability_rows(ui, crate::controls::LENS_PROFILE);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::LENS_PROFILE);
                 ui.add_space(SPACE_SM);
                 ui.label(egui::RichText::new(tr(lang, K_DEVELOP_CHROMATIC_ABERRATION_MANUAL)).weak().small());
-                changed |= self.capability_rows(ui, crate::controls::LENS_CA);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::LENS_CA);
                 // …and the rest of the same panel: Adobe's auto switch and the
                 // whole de-fringe block. Carried and unrendered until v1.5.0;
                 // the switch is an INSTRUCTION, so its tooltip says what the
@@ -1001,7 +997,7 @@ impl AutoShadeApp {
                 // Adobe's bands and neutrals: amounts rest at 0, the hue
                 // windows at 30/70 and 40/60 (the one block whose neutral is
                 // not zero — the row resets carry them).
-                changed |= self.capability_rows(ui, crate::controls::LENS_DEFRINGE);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::LENS_DEFRINGE);
                 ui.add_space(SPACE_SM);
                 explainer(ui, lang, tr(lang, K_DEVELOP_VIGNETTE_POSITIVE_BRIGHTENS_THE_CORNERS_COMPENSA));
             });
@@ -1092,7 +1088,7 @@ impl AutoShadeApp {
                 ui.add_space(SPACE_SM);
                 // One capability table: bands and resets (Rotate ±10, scale
                 // 50..150 resetting to 100) come from `logic::capability`.
-                changed |= self.capability_rows(ui, crate::controls::TRANSFORM);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::TRANSFORM);
                 if ui
                     .checkbox(&mut self.editor.doc_mut().recipe.crop_constrain_to_warp, tr(lang, K_DEVELOP_CONSTRAIN_CROP))
                     .on_hover_text(tr(lang, K_DEVELOP_SHRINK_THE_CROP_UNTIL_IT_LIES_INSIDE_THE_WARPED))
@@ -1259,7 +1255,7 @@ impl AutoShadeApp {
                 // Straighten: rotate + auto-crop (engine rotate_straighten);
                 // the preview shows exactly the export geometry. Fine class:
                 // levelling needs 0.1°, not the wide-range integer snap.
-                changed |= self.capability_rows(ui, crate::controls::CROP);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::CROP);
                 explainer(ui, lang, tr(lang, K_DEVELOP_ONCE_IN_R_DRAG_CORNER_EDGE_HANDLES_TO_RESIZE_DRA));
             });
         changed

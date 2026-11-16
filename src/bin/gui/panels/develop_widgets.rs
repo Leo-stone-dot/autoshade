@@ -283,7 +283,7 @@ impl AutoShadeApp {
                 // (blending 50, not 0) come from the core catalogue's nested
                 // colour-grade table, not from this draw site.
                 sub_caption(ui, tr(lang, K_DEVELOP_ALL_REGIONS));
-                changed |= self.capability_rows(ui, crate::controls::GRADE_GLOBALS);
+                changed |= self.panel_view(&mut Vec::new()).capability_rows(ui, crate::controls::GRADE_GLOBALS);
             });
         changed
     }
