@@ -230,7 +230,7 @@ impl AutoShadeApp {
                 changed = true;
             }
             changed |= self.panel_view(&mut Vec::new()).dev_mask_colour_field(ui);
-            changed |= self.dev_mask_selected_or_hint(ui, n_masks);
+            changed |= self.panel_view(&mut Vec::new()).dev_mask_selected_or_hint(ui, n_masks);
         });
         changed
     }
@@ -306,51 +306,7 @@ impl AutoShadeApp {
     }
 
 
-    /// The selected mask's detail block, or the explainer when there are no
-    /// masks, or the "select a mask" hint when the list is non-empty and
-    /// nothing is selected. All three arms used to live inline in the section.
-    fn dev_mask_selected_or_hint(&mut self, ui: &mut egui::Ui, n_masks: usize) -> bool {
-        let lang = self.lang;
-        let mut changed = false;
-        // Selected mask: its full slider set.
-        if let Some(i) = self.workspace.masks().sel_mask.filter(|&i| i < self.editor.doc().recipe.masks.len()) {
-            let coverage = self.dev_mask_geometry_and_range(ui, i);
-            // Any edit up to here — geometry, range, Amount — can move the
-            // coverage wash (the overlay key carries them all); the key
-            // compare inside refresh_mask_overlay dedupes rebuilds, so
-            // over-flagging is free. The tone sliders below are not coverage
-            // and deliberately stay out.
-            if coverage {
-                self.workspace.overlay_mut().overlay_stale = true;
-            }
-            changed |= coverage;
-            changed |= self.panel_view(&mut Vec::new()).dev_mask_adjustments(ui, i);
-        } else if n_masks == 0 {
-            explainer(ui, lang, tr(lang, K_DEVELOP_LIGHTROOM_STYLE_LOCAL_ADJUSTMENTS_ADD_A_GRADIENT));
-        } else {
-            // Masks exist, none is selected — one click on the selected
-            // row (it toggles) lands here, and the section then showed a
-            // list with no adjustments under it and no reason why.
-            ui.add_space(SPACE_XS);
-            ui.label(
-                egui::RichText::new(tr(lang, K_DEVELOP_SELECT_A_MASK_ABOVE_TO_EDIT_ITS_ADJUSTMENTS))
-                    .weak()
-                    .small(),
-            );
-        }
-        changed
-    }
 
-    /// The selected mask's geometry half: the name/verb row, the radial knobs,
-    /// the raster tools, the composed shapes and the range editor — every edit
-    /// up to and including Amount, i.e. the edits that can move the coverage
-    /// wash. The caller invalidates the overlay when this returns true.
-    fn dev_mask_geometry_and_range(&mut self, ui: &mut egui::Ui, i: usize) -> bool {
-        let mut changed = self.panel_view(&mut Vec::new()).dev_mask_verbs_and_geometry(ui, i);
-        changed |= self.panel_view(&mut Vec::new()).dev_mask_shapes(ui, i);
-        changed |= self.panel_view(&mut Vec::new()).dev_mask_range_and_amount(ui, i);
-        changed
-    }
 
 
 
