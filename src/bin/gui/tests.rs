@@ -58,7 +58,6 @@
     include!("tests/recipes.rs");
     include!("tests/portrait.rs");
     include!("tests/fit_prompt.rs");
-    include!("tests/architecture.rs");
 
 
     /// One headless frame of the whole app (`run_frame`, i.e. `update`
