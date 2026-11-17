@@ -58,16 +58,19 @@ impl AutoShadeApp {
                 Msg::PythonEnvLine(line) => self.workspace.ui_mut().python_env_line = Some(line),
                 Msg::PythonEnvReady(res) => self.commands().on_python_env_ready(lang, res),
                 Msg::PortraitFound(found) => self.editor.on_portrait_found(&mut self.workspace, lang, *found),
-                Msg::Exported(Ok(outcome)) => {
+                Msg::Exported(res) => {
                     // Normal's Save group words its own landing (`normal.rs`).
-                    let plain = self.workspace.normal_delivery_words(lang, &outcome);
+                    let plain = res
+                        .as_ref()
+                        .ok()
+                        .and_then(|outcome| self.workspace.normal_delivery_words(lang, outcome));
                     self.workspace.exp_mut().batch_progress = None; // the bar belongs to ONE batch run
-                    match outcome {
-                        ExportOutcome::Single { out, relooked, warn } => {
-                            // ABSOLUTE (R22-7): the deliverable exists NOW, and
-                            // a folder relative to the launch directory was the
-                            // single most-reported "where did my file go".
-                            let p = abs_display(&out);
+                    match export_workflow::land(lang, res) {
+                        export_workflow::ExportLanding::Failed(e) => {
+                            self.workspace.normal_mut().delivering = false;
+                            self.workspace.fail(tr(lang, K_GUI_EXPORT_FAILED), e);
+                        }
+                        export_workflow::ExportLanding::Single { relooked, line, error } => {
                             if relooked
                                 && let Some(photo) = self.editor.photo().src_path.clone()
                                 && autoshade::pipeline::repair_pre_era_base_curve(
@@ -81,25 +84,14 @@ impl AutoShadeApp {
                                 // divergent for the rest of the session.
                                 self.editor.session_mut().dirty = true;
                             }
-                            let words =
-                                logic::export_landing::single_words(&p, relooked, warn.as_deref());
-                            let mut line = crate::i18n::text(lang, &words.line);
-                            if let Some(relook) = words.relook {
-                                line = format!("{line} — {}", crate::i18n::text(lang, &relook));
-                            }
-                            match words.warn {
-                                Some(warn) => {
-                                    let t = format!(
-                                        "{line} · {}",
-                                        crate::i18n::text(lang, &warn)
-                                    );
-                                    self.workspace.set_status(t.clone());
-                                    self.workspace.toast(ToastKind::Error, t);
-                                }
-                                None => self.workspace.done(line),
+                            if error {
+                                self.workspace.set_status(line.clone());
+                                self.workspace.toast(ToastKind::Error, line);
+                            } else {
+                                self.workspace.done(line);
                             }
                         }
-                        ExportOutcome::Batch { ok, errs, renamed, relooked, warns, dest } => {
+                        export_workflow::ExportLanding::Batch { ok, dest, line, error } => {
                             // Where the batch actually DELIVERED becomes the
                             // remembered destination — here, not at the dialog
                             // (R22 M1): a folder inside the photo library is
@@ -107,40 +99,20 @@ impl AutoShadeApp {
                             // lands nothing and must not be remembered. `ok > 0`
                             // is the proof that at least one file is there.
                             if ok > 0 {
-                                self.workspace.exp_mut().last_dir = Some(dest.clone());
+                                self.workspace.exp_mut().last_dir = Some(dest);
                             }
-                            let words = logic::export_landing::batch_words(
-                                ok,
-                                &errs,
-                                &renamed,
-                                relooked,
-                                &warns,
-                                &abs_display(&dest),
-                            );
-                            let mut line = crate::i18n::text(lang, &words.base);
-                            for part in [words.renamed, words.relooked, words.develops]
-                                .into_iter()
-                                .flatten()
-                            {
-                                line.push_str(&crate::i18n::text(lang, &part));
-                            }
-                            if errs.is_empty() {
-                                self.workspace.done(line);
-                            } else {
+                            if error {
                                 // A partial failure keeps the error channel,
                                 // exactly as the worker-side bail! did.
                                 self.workspace.fail(tr(lang, K_GUI_EXPORT_FAILED), anyhow::anyhow!("{line}"));
+                            } else {
+                                self.workspace.done(line);
                             }
                         }
                     }
                     if let Some(plain) = plain {
                         self.workspace.reword_landing(plain);
                     }
-                }
-                Msg::Exported(Err(e)) => {
-                    self.workspace.exp_mut().batch_progress = None;
-                    self.workspace.normal_mut().delivering = false;
-                    self.workspace.fail(tr(lang, K_GUI_EXPORT_FAILED), e);
                 }
                 Msg::BatchProgress { done, total } => {
                     self.workspace.exp_mut().batch_progress = Some((done, total));

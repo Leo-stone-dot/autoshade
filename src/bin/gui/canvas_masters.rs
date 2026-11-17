@@ -195,35 +195,56 @@ pub(crate) fn start_redevelop(&mut self) {
     }
     // The canvas is only right over pixels that carry its recipe's base
     // part (v1.17.0): hold the frame until they do.
-    if !self.ensure_source_part() {
-        self.editor.session_mut().dirty = false;
-        return;
-    }
-    let Some(base) = self.editor.photo().base_preview.clone() else {
-        self.editor.session_mut().dirty = false;
-        return;
-    };
+    let source_part_ready = self.ensure_source_part();
+    let base = self.editor.photo().base_preview.clone();
+    let can_start = source_part_ready && base.is_some();
     // The frame of the pixels (v1.17.0): a master's own marker says
     // whether it is lens-corrected, and a recipe that develops other lens
     // geometry than the one baked into it is refused, as the export
     // refuses it — the canvas keeps its last frame and says why.
-    let source = match self.editor.source_frame().and_then(|f| f.check(&self.editor.doc().recipe).map(|()| f)) {
-        Ok(f) => f,
-        Err(e) => {
-            self.editor.session_mut().dirty = false;
-            self.workspace.set_status(format!("{}: {e:#}", tr(self.lang, K_GUI_PREVIEW_DEVELOP_FAILED)));
-            return;
-        }
+    let source = if can_start {
+        self.editor.source_frame()
+            .and_then(|f| f.check(&self.editor.doc().recipe).map(|()| f))
+            .map_err(|e| format!("{e:#}"))
+    } else {
+        // `plan_dispatch` returns Skip before reading this when the part is
+        // not ready.
+        Err(String::new())
     };
+    let film = if can_start { self.editor.film_short_edge() } else { None };
     let recipe = self.editor.doc().recipe.clone();
-    let show_clipping = self.workspace.chrome().show_clipping;
-    let film = self.editor.film_short_edge();
-    self.editor.scheduler_mut().inflight = true;
-    self.editor.session_mut().dirty = false;
-    self.services.spawn_worker(
-        move || Msg::Developed(Box::new(Ok(build_preview(base, recipe, show_clipping, film, source)))),
-        |e| Msg::Developed(Box::new(Err(e))),
+    let command = develop_workflow::plan_dispatch(
+        self.editor.scheduler().inflight,
+        source_part_ready,
+        base,
+        &recipe,
+        self.workspace.chrome().show_clipping,
+        film,
+        source,
     );
+    match command {
+        develop_workflow::DevelopDispatch::Skip => self.editor.session_mut().dirty = false,
+        develop_workflow::DevelopDispatch::Fail(e) => {
+            self.editor.session_mut().dirty = false;
+            self.workspace.set_status(format!("{}: {e}", tr(self.lang, K_GUI_PREVIEW_DEVELOP_FAILED)));
+        }
+        develop_workflow::DevelopDispatch::Start { base, recipe, show_clipping, film, source } => {
+            self.editor.scheduler_mut().inflight = true;
+            self.editor.session_mut().dirty = false;
+            self.services.spawn_worker(
+                move || {
+                    Msg::Developed(Box::new(Ok(build_preview(
+                        base,
+                        *recipe,
+                        show_clipping,
+                        film,
+                        source,
+                    ))))
+                },
+                |e| Msg::Developed(Box::new(Err(e))),
+            );
+        }
+    }
 }
 
 /// Is the source base the right one for the canvas recipe — `true` — or is
@@ -285,11 +306,7 @@ pub(crate) fn finish_redevelop(&mut self, ctx: &egui::Context, done: anyhow::Res
             return;
         }
     };
-    let current = self.editor.photo().base_preview
-        .as_ref()
-        .is_some_and(|base| Arc::ptr_eq(base, &frame.base))
-        && self.editor.doc().recipe == frame.recipe;
-    if !current {
+    if develop_workflow::is_stale(&frame, self.editor.photo().base_preview.as_ref(), &self.editor.doc().recipe) {
         // The frame was solved for a recipe that changed mid-flight. The
         // redispatch gate is `dirty && !develop_inflight`, so a caller
         // that mutated the recipe WITHOUT setting dirty (historically the
