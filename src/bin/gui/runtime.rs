@@ -107,25 +107,29 @@ impl Commands<'_> {
                         }
                     }
                 },
-                Action::Normal(action) => match action {
-                    logic::normal::NormalAction::SaveJpg => self.start_normal_save(),
-                    logic::normal::NormalAction::ApplyToFolder => self.start_apply_to_folder(),
-                    logic::normal::NormalAction::SetDenoise(on) => self.set_normal_denoise(on),
-                    logic::normal::NormalAction::PickReferencesFolder => {
-                        let mut dialog = rfd::FileDialog::new();
-                        if let Some(d) = self.workspace.normal().ref_dir.clone().filter(|d| d.is_dir()) {
-                            dialog = dialog.set_directory(d);
-                        }
-                        if let Some(dir) = dialog.pick_folder() {
-                            // The known folder goes through the same landing
-                            // the view's own `References` action uses.
-                            self.apply_actions(vec![Action::References(dir)]);
-                        }
-                    }
-                },
             }
         }
         self.run_effects(effects);
+    }
+
+    /// The Normal panel's Save group and reference folder.
+    pub(crate) fn apply_normal(&mut self, action: logic::normal::NormalAction) {
+        match action {
+            logic::normal::NormalAction::SaveJpg => self.start_normal_save(),
+            logic::normal::NormalAction::ApplyToFolder => self.start_apply_to_folder(),
+            logic::normal::NormalAction::SetDenoise(on) => self.set_normal_denoise(on),
+            logic::normal::NormalAction::PickReferencesFolder => {
+                let mut dialog = rfd::FileDialog::new();
+                if let Some(d) = self.workspace.normal().ref_dir.clone().filter(|d| d.is_dir()) {
+                    dialog = dialog.set_directory(d);
+                }
+                if let Some(dir) = dialog.pick_folder() {
+                    // The known folder goes through the same landing the
+                    // view's own reference pick uses.
+                    self.apply_actions(vec![Action::References(dir)]);
+                }
+            }
+        }
     }
 
     /// The Portraits panel's verbs.

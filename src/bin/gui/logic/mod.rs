@@ -78,8 +78,6 @@ pub(crate) enum Action {
     Recipe(recipes::RecipeAction),
     /// The AI panel's folder verbs.
     Ai(ai::AiAction),
-    /// The Normal panel's Save group.
-    Normal(normal::NormalAction),
 }
 
 /// A short display list: the first three entries joined, with an ellipsis when
