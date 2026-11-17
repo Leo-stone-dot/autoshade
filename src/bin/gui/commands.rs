@@ -40,6 +40,7 @@ impl Commands<'_> {
             lang: self.lang,
             aip: &mut *self.aip,
             actions: &mut actions,
+            gallery: Vec::new(),
             #[cfg(test)]
             seams: &mut *self.seams,
         });

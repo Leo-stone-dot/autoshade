@@ -65,6 +65,7 @@ impl AutoShadeApp {
             lang: self.lang,
             aip: &mut self.aip,
             actions,
+            gallery: Vec::new(),
             #[cfg(test)]
             seams: &mut self.seams,
         }
@@ -73,7 +74,13 @@ impl AutoShadeApp {
     /// Draw one projected panel and run the intents it reported.
     pub(crate) fn draw_panel(&mut self, draw: impl FnOnce(&mut PanelView<'_, '_>)) {
         let mut actions = Vec::new();
-        draw(&mut self.panel_view(&mut actions));
+        let mut view = self.panel_view(&mut actions);
+        draw(&mut view);
+        let gallery = std::mem::take(&mut view.gallery);
+        drop(view);
+        for action in gallery {
+            self.commands().apply_gallery(action);
+        }
         self.commands().apply_actions(actions);
     }
 
@@ -143,9 +150,7 @@ impl AutoShadeApp {
             });
             if do_open && !self.workspace.busy() {
                 self.workspace.gal_mut().selected = None;
-                self.commands().apply_actions(vec![logic::Action::Gallery(
-                    logic::gallery::GalleryAction::OpenPhotoFile,
-                )]);
+                self.commands().apply_gallery(logic::gallery::GalleryAction::OpenPhotoFile);
             }
             if do_export && self.editor.photo().src_path.is_some() && !self.workspace.busy() {
                 self.commands().start_export();
@@ -596,9 +601,7 @@ impl AutoShadeApp {
                         .clicked()
                     {
                         self.workspace.gal_mut().selected = None; // a one-off file isn't a gallery selection
-                        self.commands().apply_actions(vec![logic::Action::Gallery(
-                            logic::gallery::GalleryAction::OpenPhotoFile,
-                        )]);
+                        self.commands().apply_gallery(logic::gallery::GalleryAction::OpenPhotoFile);
                     }
                     if action(ui, ready, tr(lang, K_APP_RESET))
                         .on_hover_text(tr(lang, K_APP_BACK_TO_THIS_PHOTO_S_FRESH_OPEN_LOOK_SLIDERS_NEU))
@@ -983,14 +986,10 @@ impl AutoShadeApp {
                         let w = 300.0;
                         ui.add_space((ui.available_width() - w).max(0.0) * 0.5);
                         if primary(ui, true, tr(self.lang, K_APP_OPEN_PHOTO_CTRL_O)).clicked() {
-                            self.commands().apply_actions(vec![logic::Action::Gallery(
-                                logic::gallery::GalleryAction::OpenPhotoFile,
-                            )]);
+                            self.commands().apply_gallery(logic::gallery::GalleryAction::OpenPhotoFile);
                         }
                         if action(ui, true, tr(self.lang, K_APP_OPEN_FOLDER)).clicked() {
-                            self.commands().apply_actions(vec![logic::Action::Gallery(
-                                logic::gallery::GalleryAction::OpenFolder,
-                            )]);
+                            self.commands().apply_gallery(logic::gallery::GalleryAction::OpenFolder);
                         }
                     });
                     ui.add_space(8.0);

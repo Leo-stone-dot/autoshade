@@ -21,6 +21,8 @@ pub(crate) struct PanelView<'a, 'b> {
     pub(crate) aip: &'a mut AiPrefs,
     /// The frame's action sink: a panel reports intents, the app runs them.
     pub(crate) actions: &'b mut Vec<logic::Action>,
+    /// The gallery's intents this pass reported.
+    pub(crate) gallery: Vec<logic::gallery::GalleryAction>,
     #[cfg(test)]
     pub(crate) seams: &'a mut TestSeams,
 }
@@ -3022,6 +3024,11 @@ impl PanelView<'_, '_> {
     /// Report a batch of intents.
     pub(crate) fn act_all(&mut self, actions: impl IntoIterator<Item = logic::Action>) {
         self.actions.extend(actions);
+    }
+
+    /// Report one gallery verb; the host applies it after the pass.
+    pub(crate) fn act_gallery(&mut self, action: logic::gallery::GalleryAction) {
+        self.gallery.push(action);
     }
 
     /// Toggle the clipping overlay (the J overlay and the histogram's corner
