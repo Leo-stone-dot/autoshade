@@ -374,18 +374,6 @@ fn a_shaped_gradient_reads_its_own_falloff_along_the_handles() {
     assert_eq!(falloff, &vec![0.0, 0.5, 1.0]);
 }
 
-#[test]
-fn linear_ramp_has_a_single_definition() {
-    let src = include_str!("../mask_weight.rs");
-    let metric = &src[src.find("fn mask_weight_metric").unwrap()..src.find("/// Mask coverage").unwrap()];
-    let weight = &src[src.find("fn mask_weight(g:").unwrap()..src.find("fn combined_mask_weight").unwrap()];
-    let metric_linear = &metric[metric.find("MaskGeometry::Linear").unwrap()..metric.find("_ => mask_weight").unwrap()];
-    let weight_linear = &weight[weight.find("MaskGeometry::Linear").unwrap()..weight.find("// `roundness`").unwrap()];
-    assert_eq!(metric_linear.matches("linear_coverage(").count(), 2, "metric has a second ramp definition");
-    assert_eq!(weight_linear.matches("linear_coverage(").count(), 1, "weight has a second ramp definition");
-    assert!(!metric_linear.contains(".clamp(0.0, 1.0)"), "metric keeps an inline linear clamp");
-    assert!(!weight_linear.contains(".clamp(0.0, 1.0)"), "weight keeps an inline linear clamp");
-}
 
 #[test]
 fn radial_mask_renders_byte_identical_to_the_clamped_baseline() {

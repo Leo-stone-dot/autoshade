@@ -117,51 +117,6 @@ use write::{
 };
 use xml::{attr, local_fmt, signed, xml_attr_escape, xml_char_allowed, xml_text_escape};
 
-/// The sidecar module's source as ONE text, for the source-text gates that read what
-/// `xmp.rs` alone held before it was split into files: the modules in their
-/// declaration order, the root last (so `source_before_tests` cuts at the root's
-/// own test modules and nowhere else). Test-only: nothing here is compiled into a
-/// shipped binary.
-#[cfg(test)]
-pub(crate) const SOURCE_FILES: [(&str, &str); 14] = [
-    ("src/xmp/brush_table.rs", include_str!("xmp/brush_table.rs")),
-    ("src/xmp/crs_source.rs", include_str!("xmp/crs_source.rs")),
-    ("src/xmp/frame.rs", include_str!("xmp/frame.rs")),
-    ("src/xmp/geometry.rs", include_str!("xmp/geometry.rs")),
-    ("src/xmp/losses.rs", include_str!("xmp/losses.rs")),
-    ("src/xmp/mask_xml.rs", include_str!("xmp/mask_xml.rs")),
-    ("src/xmp/merge.rs", include_str!("xmp/merge.rs")),
-    ("src/xmp/read.rs", include_str!("xmp/read.rs")),
-    ("src/xmp/read_corrections.rs", include_str!("xmp/read_corrections.rs")),
-    ("src/xmp/read_masks.rs", include_str!("xmp/read_masks.rs")),
-    ("src/xmp/scan.rs", include_str!("xmp/scan.rs")),
-    ("src/xmp/write.rs", include_str!("xmp/write.rs")),
-    ("src/xmp/xml.rs", include_str!("xmp/xml.rs")),
-    ("src/xmp.rs", include_str!("xmp.rs")),
-];
-
-/// The module's own tests, which `xmp.rs` carried inline before the split.
-#[cfg(test)]
-pub(crate) const TESTS_SOURCE: &str = concat!(
-    include_str!("xmp/tests/globals_and_scope.rs"),
-    include_str!("xmp/tests/detail_passthrough_looks.rs"),
-    include_str!("xmp/tests/render_gaps_and_radials.rs"),
-    include_str!("xmp/tests/crops_hdr_orientation.rs"),
-    include_str!("xmp/tests/inversion_and_era_gates.rs"),
-    include_str!("xmp/tests/curves_calibration_losses.rs"),
-    include_str!("xmp/tests/brush_groups_and_real_sidecars.rs"),
-    include_str!("xmp/tests/bands_prerename_merge.rs"),
-    include_str!("xmp/tests/round_trips_and_attribute_forms.rs"),
-    include_str!("xmp/tests/ai_masks_and_frame_scope.rs"),
-    include_str!("xmp/tests/mask_brush_tables.rs"),
-    include_str!("xmp/tests.rs"),
-);
-
-#[cfg(test)]
-pub(crate) fn source_text() -> String {
-    SOURCE_FILES.iter().map(|(_, text)| *text).collect()
-}
-
 #[cfg(test)]
 mod tests;
 

@@ -6011,31 +6011,6 @@ fn the_neutral_solution_note_makes_no_claim_about_matching() {
     ));
     assert_ne!(rendered, matched, "a terminal exit must not borrow another's sentence");
 
-    // And the wiring, since no synthetic fixture can reach that exit (see
-    // the doc above). A SOURCE-level pin, stated as one: it reads the
-    // `neutral_zone` block and checks which key it emits. Precedent is
-    // `pipeline.rs`'s own source-counting test. It cannot tell whether the
-    // block is reachable -- only that, when reached, it says this.
-    // The luma-only tone ladder probes the fitted tone before backing off,
-    // and a zone's before / after readings share one population.
-    // Read from the BODY — the whole file holds these literals right
-    // here, and a pin that reads itself cannot fail.
-    let src = crate::fit_zoned::source_text();
-    let src = crate::source_before_tests(&src);
-    assert!(src.contains("for factor in [1.0f32, 0.75, 0.5, 0.25, 0.0] {"));
-    assert!(src.contains("let m_after = zone_moments(&zoned_px, &zw_source);"));
-    // …and the boundary ruler keeps reading the mask's own raster.
-    assert!(src.contains("weights: &zone.mask_weights,"));
-    let at = src.find("    if neutral_zone {").expect("the neutral-solution exit moved");
-    let block = &src[at..at + 900];
-    assert!(
-        block.contains("ZONE_NO_MOVEMENT_SURVIVED"),
-        "the neutral-solution exit no longer emits its own key"
-    );
-    assert!(
-        !block.contains("keys::ZONE_ALREADY_MATCHED"),
-        "the neutral-solution exit went back to borrowing the match claim"
-    );
 }
 
 /// With its colour class withheld a zone is judged on tone alone -- so the

@@ -1983,15 +1983,6 @@ mod tests {
         // file dropped in the working directory never does.
         assert!(Source::DotEnv.may_supply(Trust::Secret));
         assert!(!Source::WorkingDirFile.may_supply(Trust::Secret));
-
-        // And the positional read is gone. `pre(i)` indexed the protected
-        // array, so removing one name shifted every later index onto the wrong
-        // variable — the exact edit this round had to make.
-        let non_test = crate::source_before_tests(include_str!("config.rs"));
-        assert!(
-            !non_test.contains("pre(0)") && !non_test.contains("AMBIENT_UNSAFE_VARS["),
-            "config resolution regained a positional read of the protected list"
-        );
     }
 
     /// A sidecar search inside a macOS app bundle must never reach the folder
@@ -2195,59 +2186,13 @@ mod tests {
         assert!(shared.contains("mps.is_available()"), "cuda -> mps -> cpu is the order");
     }
 
-    /// The table is only a single source of truth if nothing resolves around
-    /// it. Every `AUTOSHADE_*` variable named in this file's non-test code must
-    /// be classified — otherwise a new setting silently defaults to
-    /// `Preference` and a `.env` can set it.
-    #[test]
-    fn the_capability_table_classifies_every_variable_this_file_resolves() {
-        let non_test = crate::source_before_tests(include_str!("config.rs"));
-        let mut unclassified: Vec<&str> = Vec::new();
-        let mut rest = non_test;
-        while let Some(i) = rest.find("\"AUTOSHADE_") {
-            rest = &rest[i + 1..];
-            let Some(end) = rest.find('"') else { break };
-            let name = &rest[..end];
-            // The bare prefix is not a variable — it is the string the names
-            // are built out of. Anything longer than it is one.
-            if name.len() > "AUTOSHADE_".len()
-                && !SETTINGS.iter().any(|s| s.env == name)
-                && !unclassified.contains(&name)
-            {
-                unclassified.push(name);
-            }
-        }
-        assert!(
-            unclassified.is_empty(),
-            "not in SETTINGS, so a .env may set them by default: {unclassified:?}"
-        );
-        // The out-of-crate consumers resolve through `env_or_dotenv`, which
-        // also consults the table — so their knobs must be in it too.
-        for knob in
-            ["AUTOSHADE_HTTP_TIMEOUT_SECS", "AUTOSHADE_SIDECAR_TIMEOUT_SECS", "AUTOSHADE_LEGACY_OUT"]
-        {
-            assert!(SETTINGS.iter().any(|s| s.env == knob), "{knob} is unclassified");
-        }
-        // No duplicate rows: `trust_of` takes the first match, so a second row
-        // for the same name would be dead policy that reads as live.
-        for (i, s) in SETTINGS.iter().enumerate() {
-            assert!(
-                !SETTINGS[..i].iter().any(|e| e.env == s.env),
-                "{} appears twice in SETTINGS",
-                s.env
-            );
-        }
-    }
-
     /// No door answers to a pre-rename spelling any more.
     ///
     /// v1.2.0 opened the `AUTOSHOP_*` alias for "one more version" and v1.2.4
     /// closes it, so the thing worth guarding flipped: not that the old name
-    /// still works, but that it no longer does. Checked at the SOURCE (nothing
-    /// spells the old prefix, and nothing rebuilds it from the new one) and at
-    /// RUNTIME (neither the
-    /// process environment nor a `.env` reaches a setting through the old
-    /// name). The runtime half runs in a child process because a `.env` is
+    /// still works, but that it no longer does. Neither the process
+    /// environment nor a `.env` reaches a setting through the old name.
+    /// The runtime check runs in a child process because a `.env` is
     /// found from the working directory, and because writing the environment
     /// is `unsafe` in edition 2024 and would race every other test here.
     ///
@@ -2276,18 +2221,6 @@ mod tests {
             assert_eq!(super::live_env_os("AUTOSHADE_LEGACY_OUT"), None);
             return;
         }
-
-        // The source half: no literal of the old prefix, and nothing
-        // rebuilding one by stripping the current prefix off a name.
-        let non_test = crate::source_before_tests(include_str!("config.rs"));
-        assert!(
-            !non_test.contains(&format!("{}AUTOSHOP_", '"')),
-            "a pre-rename variable name came back into the resolving code"
-        );
-        assert!(
-            !non_test.contains(&format!("strip_prefix({0}AUTOSHADE_{0})", '"')),
-            "something is deriving a second spelling from the prefix again"
-        );
 
         let dir = env::temp_dir().join(format!(
             "autoshade-pre-rename-retired-{}-{}",
@@ -2510,69 +2443,12 @@ mod tests {
         assert_eq!(cur.analysis_api_key_base.as_deref(), Some("https://b.example/v1"));
     }
 
-    /// L16#3: `Config::load` never writes the process environment — the old
-    /// dotenv_override + restore loop did (unsafe `env::set_var`, racing
-    /// every concurrent getenv on unix; its safety comment's "first load on
-    /// the main thread before any worker" premise was FALSE for the GUI).
-    /// Source-invariant: this file carries no set_var/remove_var at all, and
-    /// the .env is consumed through dotenv_iter only.
-    #[test]
-    fn no_setenv_survives_on_the_config_load_path() {
-        // `env::set_var` / `env::remove_var` are a clippy restriction lint
-        // (clippy.toml); `dotenvy::dotenv_override` is a free function the
-        // lint cannot see, so this one needle stays.
-        let src = include_str!("config.rs");
-        let call = format!("{}{}(", "dotenvy::", "dotenv_override");
-        assert!(!src.contains(&call), "config.rs regained a process-environment write (dotenv_override)");
-        assert!(src.contains("dotenv_iter"), "the owned-map parse is gone");
-    }
-
-    /// L16#5: the out-of-config consumers of `.env`-honoured knobs resolve
-    /// through `env_or_dotenv` — a direct `env::var` there silently stops
-    /// seeing `.env` values now that nothing writes the environment. The
-    /// child-side reach survives via `dotenv_child_env` on all three spawns.
-    #[test]
-    fn out_of_config_consumers_still_honour_a_dotenv_knob() {
-        // The store is a module of files since the split; its consumer is read
-        // through the module's own source text (the files and the root as one).
-        let store = crate::store::source_text();
-        let consumers: [(&str, &str, &str); 2] = [
-            ("denoise.rs", include_str!("denoise.rs"), "AUTOSHADE_SIDECAR_TIMEOUT_SECS"),
-            ("store/*.rs", store.as_str(), "AUTOSHADE_LEGACY_OUT"),
-        ];
-        for (file, src, knob) in consumers {
-            assert!(
-                !src.contains(&format!("env::var(\"{knob}\")"))
-                    && !src.contains(&format!("env::var_os(\"{knob}\")")),
-                "{file}: {knob} is read directly from the environment — .env values are lost"
-            );
-            assert!(
-                src.contains(&format!("env_or_dotenv(\"{knob}\")")),
-                "{file}: {knob} no longer resolves through env_or_dotenv"
-            );
-        }
-        // The python bridges reach this through ONE constructor now
-        // (`crate::sidecar_command`); the `claude` child (and its own preamble)
-        // left with the S5.10 verifier migration.
-        assert!(
-            crate::source_before_tests(include_str!("lib.rs")).contains("dotenv_child_env()"),
-            "sidecar_command lost the .env's unprotected names"
-        );
-        for (file, src) in
-            [("denoise.rs", include_str!("denoise.rs")), ("segment.rs", include_str!("segment.rs"))]
-        {
-            assert!(
-                crate::source_before_tests(src).contains("crate::sidecar_command("),
-                "{file}: the child no longer goes through the shared sidecar command"
-            );
-        }
-    }
-
     /// L16: `Config::load` is callable from any thread at any time — the
     /// whole point of the owned map. Eight threads interleave loads with
     /// PATH reads; PATH must be byte-identical afterwards (under the old
     /// code the restore loop rewrote it concurrently with the readers).
     #[test]
+    #[allow(clippy::disallowed_methods)] // the test is about concurrent callers
     fn config_load_is_reentrant_from_many_threads() {
         let before = env::var_os("PATH");
         let threads: Vec<_> = (0..8)

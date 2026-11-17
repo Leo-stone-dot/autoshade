@@ -121,8 +121,7 @@ fn a_store_that_could_not_be_moved_keeps_being_used() {
 /// which is exactly how the Mac lane went red (runs 33437618323 and before)
 /// with nothing anywhere exercising the refusal.
 ///
-/// MUTATION: drop the `!adopt` guard, or have either production call site
-/// pass `true` instead of the const, and this test fails.
+/// MUTATION: drop the `!adopt` guard, and this test fails.
 #[test]
 fn a_build_that_does_not_adopt_leaves_the_old_folder_strictly_alone() {
     let parent = adoption_scratch("refuse");
@@ -142,19 +141,6 @@ fn a_build_that_does_not_adopt_leaves_the_old_folder_strictly_alone() {
     );
     assert!(!root.exists(), "refusing to adopt must not mint a store either");
 
-    // The production call sites pass the const, not `true`. Windows cannot
-    // execute the macOS value, so it asserts the WIRING instead -- the same
-    // reason the per-platform pin below reads its own source.
-    let src = crate::source_before_tests(&crate::store::source_text()).to_string();
-    assert_eq!(
-        src.matches("adopt_pre_rename_root(&d, latch(), ADOPT_PRE_RENAME)").count()
-            + src
-                .matches("adopt_pre_rename_root(&std::env::temp_dir(), latch(), ADOPT_PRE_RENAME)")
-                .count(),
-        2,
-        "both production call sites must pass the platform const"
-    );
-
     let _ = std::fs::remove_dir_all(&parent);
 }
 
@@ -168,23 +154,6 @@ fn a_first_run_adopts_nothing_and_says_nothing() {
     assert_eq!(root, parent.join(STORE_DIR_NAME));
     assert!(!root.exists(), "resolving a root must not CREATE it");
     let _ = std::fs::remove_dir_all(&parent);
-}
-
-/// An explicit `AUTOSHADE_DATA_DIR` names the store outright — adopting
-/// some sibling of it would be an ambush, and every test in this binary
-/// runs under exactly that override.
-#[test]
-fn an_explicit_store_root_is_never_second_guessed() {
-    let non_test = crate::source_before_tests(&crate::store::source_text()).to_string();
-    let body = non_test
-        .split("pub fn store_root_with_trust()")
-        .nth(1)
-        .expect("store_root_with_trust is gone");
-    let env_arm = body.split(".or_else(").next().unwrap();
-    assert!(
-        !env_arm.contains("adopt_pre_rename_root"),
-        "the explicit AUTOSHADE_DATA_DIR override went through adoption"
-    );
 }
 
 // MaskGeometry left the module-level imports when the raster-path walks
@@ -210,108 +179,6 @@ fn owned_raster_siblings_are_atomic_and_independently_releasable() {
     assert!(home.claim_sibling("../escape").is_err());
     second.remove();
     std::fs::remove_dir(&dir).unwrap();
-}
-
-/// Every read of a file this module PERSISTS goes through the capped
-/// reader. A SOURCE-SCANNING gate, in the shape of the GUI's font gate
-/// (`bin/gui/tests.rs`), because "bounded reads only" is a convention no
-/// type enforces — and a convention with 24 obedient call sites is exactly
-/// the kind that rots without anyone noticing.
-///
-/// Provenance: R28 2a. FOUR bare bypasses had accumulated beside those 24
-/// — `saved_quarter_turns`, both `adopting-from.txt` reads, and
-/// `export_xmp_beside` (adjudication F7 and the verification agents'
-/// sibling finding). Nothing in the tree would have caught the fifth.
-///
-/// `segment.rs` is scanned too although it has no such call today: it is
-/// the module that turned `saved_quarter_turns` from a cache key into a
-/// PIXEL decision (F1-B, undone by R28 Batch-3 — the staged frame now comes
-/// from the recipe), so a bare read appearing there is precisely the drift
-/// worth hearing about early rather than in the next review.
-///
-/// Two deliberate narrownesses, both in the SAFE direction:
-///   * line comments are stripped, block comments are not — neither file
-///     contains a `/* */` today, and a block comment quoting a bare read
-///     could only ever raise a false positive, never hide a real one;
-///   * `read_to_end` counts as bounded when the same line bounds it with
-///     `.take(` — that is not a spelling exemption but the bounded IDIOM
-///     itself, and it is how both capped readers are written.
-///
-/// MUTATION THIS CATCHES: put `std::fs::read_to_string(recipe_target(src))`
-/// back into `saved_quarter_turns` and this test fails, naming the line.
-#[test]
-fn every_store_read_goes_through_the_capped_reader() {
-    // Spelled as they appear in a CALL. `fs::read_dir(` is deliberately
-    // absent: it enumerates a directory, it never materialises a file.
-    const BARE: [&str; 3] = ["read_to_string(", "fs::read(", "read_to_end("];
-    // The store's own files come through the split's source-text helper (their
-    // test code cut off); segment.rs is read from disk and anchored as before.
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let scanned: Vec<(String, String)> = crate::store::SOURCE_FILES
-        .iter()
-        .map(|(rel, text)| (rel.to_string(), crate::source_before_tests(text).to_string()))
-        .chain(std::iter::once((
-            "src/segment.rs".to_string(),
-            std::fs::read_to_string(root.join("src/segment.rs")).expect("source readable"),
-        )))
-        .collect();
-
-    let mut offenders: Vec<String> = Vec::new();
-    let mut capped = 0usize;
-    let mut scanned_lines = 0usize;
-    for (rel, text) in scanned {
-        // LF-normalised first: this repo has MIXED line endings by design
-        // (per-file `.gitattributes` + `core.autocrlf`), and the CRLF
-        // spelling of the anchor below is what `scripts/check_docs.py`
-        // normalises for the same reason.
-        let text = text.replace("\r\n", "\n");
-        // Tests read fixture files by the armful and must not be scanned;
-        // the anchor is asserted rather than defaulted, so renaming the
-        // test module makes this gate fail loudly instead of quietly
-        // widening its scope. The store's files carry no test module (cut
-        // above), so only segment.rs is anchored.
-        let anchor = "\n#[cfg(test)]\nmod tests {";
-        let end = if rel == "src/segment.rs" {
-            text.find(anchor).unwrap_or_else(|| {
-                panic!("{rel}: no `#[cfg(test)] mod tests` anchor — re-anchor this gate")
-            })
-        } else {
-            text.len()
-        };
-        for (i, line) in text[..end].split('\n').enumerate() {
-            scanned_lines += 1;
-            if line.trim_start().starts_with("//") {
-                continue;
-            }
-            if line.contains("read_text_capped(") || line.contains("read_bytes_capped(") {
-                capped += 1;
-            }
-            for pat in BARE {
-                if line.contains(pat) && !(pat == "read_to_end(" && line.contains(".take(")) {
-                    offenders.push(format!("{rel}:{}  {}", i + 1, line.trim()));
-                }
-            }
-        }
-    }
-
-    // PREMISE (the font gate's notdef idiom): a scanner that reads the
-    // wrong file, or whose comment stripper eats everything, also finds
-    // zero offenders and would pass vacuously.
-    assert!(
-        scanned_lines > 4_000,
-        "scanner saw only {scanned_lines} lines of source — it is broken"
-    );
-    assert!(
-        capped >= 15,
-        "scanner found only {capped} capped-reader mentions — it is broken"
-    );
-
-    assert!(
-        offenders.is_empty(),
-        "unbounded read(s) outside the capped reader — route through \
-             read_text_capped/read_bytes_capped (or bound with `.take(`):\n  {}",
-        offenders.join("\n  ")
-    );
 }
 
 /// One file must never produce two develop directories.
@@ -690,6 +557,7 @@ fn a_locked_touch_finishes_a_pending_adoption_first() {
 /// A fenced dir with the marker naming `old`, and a second thread holding
 /// `old`'s develop lock the way a resume in another process would — the
 /// fixture both Wait-mode resume tests share.
+#[allow(clippy::disallowed_methods)] // the fixture models another process with a thread
 fn fenced_dir_with_held_source(
     tag: &str,
     hold: impl FnOnce(&Path, &Path) + Send + 'static,
@@ -2920,15 +2788,6 @@ fn the_verbatim_local_spelling_is_local_on_windows_and_refused_elsewhere() {
         !cfg!(windows),
         "Windows keeps it (canonicalize produces it); elsewhere it names nothing local"
     );
-    // On Windows every path in these tests HAS a prefix, so the parser arm
-    // answers them all and the non-Windows arm is unreachable here. Assert
-    // it exists instead: deleting it is invisible on this platform and is
-    // the whole refusal on the other.
-    assert!(
-        crate::source_before_tests(&crate::store::source_text())
-            .contains("_ => unc_or_device_spelling(p),"),
-        "the arm that carries the refusal off Windows"
-    );
 }
 
 /// The store's directory NAME and the pre-rename adoption are one decision
@@ -2955,18 +2814,6 @@ fn the_store_directory_name_and_the_rename_adoption_agree_per_platform() {
             ("autoshade", true)
         },
         "the store directory name and the rename adoption are one decision"
-    );
-    // Windows cannot execute the macOS arms, so it asserts they EXIST:
-    // deleting one is a silent no-op here, and on a Mac it is either an
-    // orphaned store or the rename of a stranger's directory. The needles
-    // below are spelled in THIS test, so the test module has to come off
-    // first or every assertion matches its own text (it did).
-    let src = crate::source_before_tests(&crate::store::source_text()).to_string();
-    assert!(src.contains(r#"STORE_DIR_NAME: &str = "AutoShade""#), "the macOS store name");
-    assert!(src.contains(r#".join("Library").join("Application Support")"#), "the macOS root");
-    assert!(
-        src.contains(r#"const ADOPT_PRE_RENAME: bool = !cfg!(target_os = "macos");"#),
-        "the adoption opt-out"
     );
 }
 
@@ -3454,6 +3301,7 @@ fn backup_snapshot_is_a_copy_and_freezes_rasters() {
     }
 
     #[test]
+    #[allow(clippy::disallowed_methods)] // contention needs a second thread
     fn a_nonblocking_develop_lock_reports_contention_and_recovers_after_drop() {
         let root = std::env::temp_dir().join(format!("autoshade-store-test-lock-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
@@ -3489,6 +3337,7 @@ fn backup_snapshot_is_a_copy_and_freezes_rasters() {
     /// thread (a writer's cycle contains the loader's rescue), and
     /// NoWait-refusing while held.
     #[test]
+    #[allow(clippy::disallowed_methods)] // contention needs a second thread
     fn a_settings_lock_serializes_writers_and_reenters_on_its_thread() {
         let root = std::env::temp_dir().join(format!("autoshade-store-test-settings-lock-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);

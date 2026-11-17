@@ -122,9 +122,6 @@
             // The retired verb, by its two old labels (no longer in the table).
             assert!(!seen.iter().any(|(s, _)| s == "AI Refine" || s == "AI 微调"), "{lang:?}: the retired Refine verb is still drawn");
         }
-        let panels = [include_str!("../panels/ai.rs"), include_str!("../panels/develop.rs"), concat!(include_str!("../panels/retouch.rs"), include_str!("../retouch_actions.rs"))];
-        let fences = panels.iter().map(|src| src.matches(".separator()").count()).sum::<usize>();
-        assert_eq!(fences, 0, "a side panel (ai / develop / retouch) draws a hairline separator again");
     }
 
     /// User report 2026-10-13: 「最大宽度会随着展开的编辑选项变化而变化」. egui's

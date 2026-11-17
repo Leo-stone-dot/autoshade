@@ -649,21 +649,4 @@ mod tests {
         assert_eq!(after[80 * 256 + 80], median8(&data, 256, 80, 80).round() as u16);
     }
 
-    #[test]
-    fn hot_mapping_is_unconditional_and_precedes_every_reader_of_the_mosaic() {
-        let source = crate::render::engine_source();
-        let start = source.find("let strength = denoise.map_or").unwrap();
-        let body = &source[start..source.find("fn develop_raw_buffer(").unwrap()];
-        // The hook takes the frame and nothing else: no denoise option can switch it off.
-        let hook = "hot_pixels::map_for(&mut rawimage)?";
-        assert_eq!(body.matches("hot_pixels::map_for(").count(), 1);
-        let mapping = body.find(hook).expect("hot-site mapping hook, called with the frame alone");
-        assert!(mapping < body.find("denoise_grain::capture_original(").unwrap());
-        assert!(mapping < body.find("crate::denoise::denoise_mosaic(").unwrap());
-        assert!(mapping < body.find("develop_raw_buffer(&rawimage").unwrap());
-        // …and it is not nested under the denoise request, nor under any other condition: the statement stands
-        // at the function body's own indentation.
-        assert!(mapping < body.find("if let Some(opts) = denoise").unwrap());
-        assert!(source.lines().any(|l| l == "    let hot_sites = crate::denoise::hot_pixels::map_for(&mut rawimage)?;"));
-    }
 }

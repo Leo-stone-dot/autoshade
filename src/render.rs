@@ -24,6 +24,8 @@
 //! calibration, Adobe's being unpublished, but now one calibration instead of
 //! a local-only one with nothing to align against.
 
+#![deny(clippy::print_stderr)]
+
 use std::borrow::Cow;
 use std::path::Path;
 
@@ -240,72 +242,13 @@ use wb::{
 #[cfg(test)]
 use wb::{kelvin_to_rgb};
 
-/// The engine's source as ONE text, for the source-text gates that read what
-/// `render.rs` alone held before it was split into files: the modules in their
-/// declaration order, the root last (so `source_before_tests` cuts at the root's
-/// own test modules and nowhere else). Test-only: nothing here is compiled into a
-/// shipped binary.
-#[cfg(test)]
-pub(crate) const SOURCE_FILES: [(&str, &str); 20] = [
-    ("src/render/as_shot.rs", include_str!("render/as_shot.rs")),
-    ("src/render/base_look.rs", include_str!("render/base_look.rs")),
-    ("src/render/brush.rs", include_str!("render/brush.rs")),
-    ("src/render/camera.rs", include_str!("render/camera.rs")),
-    ("src/render/colour.rs", include_str!("render/colour.rs")),
-    ("src/render/develop.rs", include_str!("render/develop.rs")),
-    ("src/render/export.rs", include_str!("render/export.rs")),
-    ("src/render/geometry.rs", include_str!("render/geometry.rs")),
-    ("src/render/luma.rs", include_str!("render/luma.rs")),
-    ("src/render/mask_falloff.rs", include_str!("render/mask_falloff.rs")),
-    ("src/render/mask_raster.rs", include_str!("render/mask_raster.rs")),
-    ("src/render/mask_warp.rs", include_str!("render/mask_warp.rs")),
-    ("src/render/mask_weight.rs", include_str!("render/mask_weight.rs")),
-    ("src/render/masks.rs", include_str!("render/masks.rs")),
-    ("src/render/orient.rs", include_str!("render/orient.rs")),
-    ("src/render/resample.rs", include_str!("render/resample.rs")),
-    ("src/render/source.rs", include_str!("render/source.rs")),
-    ("src/render/tone.rs", include_str!("render/tone.rs")),
-    ("src/render/wb.rs", include_str!("render/wb.rs")),
-    ("src/render.rs", include_str!("render.rs")),
-];
-
-/// The engine's own tests, the module `render.rs` carried inline before the split.
-#[cfg(test)]
-pub(crate) const TESTS_SOURCE: &str = concat!(
-    include_str!("render/tests/sources_and_base_look.rs"),
-    include_str!("render/tests/tone_and_colour.rs"),
-    include_str!("render/tests/local_wb_and_colour_management.rs"),
-    include_str!("render/tests/geometry_and_lens.rs"),
-    include_str!("render/tests/radial_and_bitmap_masks.rs"),
-    include_str!("render/tests/orientation_and_shift.rs"),
-    include_str!("render/tests/brush.rs"),
-    include_str!("render/tests/coverage_and_ramps.rs"),
-    include_str!("render/tests/dehaze_texture_clarity.rs"),
-    include_str!("render/tests/local_effects_and_hsl.rs"),
-    include_str!("render/tests/budgets_and_refine.rs"),
-    include_str!("render/tests/raw_matrix_and_ca.rs"),
-    include_str!("render/tests/ai_masks_and_cfa.rs"),
-    include_str!("render/tests.rs"),
-);
-
-#[cfg(test)]
-pub(crate) fn engine_source() -> String {
-    // Strip EACH file's trailing #[cfg(test)] module before concatenating:
-    // truncating the concatenation at the first occurrence cut the engine at
-    // the camera settle tests (file 4 of 20) and hid source.rs from the
-    // source-order assertions.
-    SOURCE_FILES
-        .iter()
-        .map(|(_, text)| crate::source_before_tests(text))
-        .collect()
-}
-
 /// The Lightroom export pack's producer and its pinned measurements — a test
 /// module, so nothing here is compiled into a shipped binary.
 #[cfg(test)]
 mod lr_pack;
 
 #[cfg(test)]
+#[allow(clippy::print_stderr)] // calibration tests print their measurements
 mod tests;
 
 #[cfg(test)]
