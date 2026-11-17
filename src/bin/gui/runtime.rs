@@ -29,7 +29,7 @@ impl Commands<'_> {
                 logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
             logic::develop::DevelopAction::SaveVersion => self.save_version(),
             logic::develop::DevelopAction::CommitVersionName => {
-                self.editor.commit_version_name_buf(&mut self.workspace, self.lang)
+                self.editor.commit_version_name_buf(self.workspace, self.lang)
             }
                 logic::develop::DevelopAction::DeleteVersion(n) => {
                     if let Some(src) = self.editor.photo().src_path.clone() {
