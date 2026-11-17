@@ -998,6 +998,29 @@ fn synthetic_full_region_wb_rotation_exceeds_seventy_percent_budget() {
     assert!(rotated_share > FitBudget::for_strength(crate::recipe::GradeStrength::new(0.70)).wb_rotation_share);
 }
 
+/// The joint arm of the terminal do-no-harm check was documented as a live
+/// veto from the day it was written (899798e) and never wired: both
+/// terminal sites computed `joint_base` / `joint_after` and then handed
+/// `terminal_harm` two `None`s, so `harm.joint` was false on every
+/// photograph and `FIT_NOTE_JOINT_REGRESSED` was unreachable. The two
+/// readings are what the sites must pass.
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
+#[test]
+fn the_joint_veto_is_wired_at_both_terminal_sites() {
+    // The BODY, not the file: this test's own literals would count.
+    let src = crate::fit::source_text();
+    let src = crate::source_before_tests(&src);
+    assert_eq!(
+        src.matches("terminal_harm(err_before, err_after, joint_base, joint_after)").count(),
+        2,
+        "both terminal sites hand the joint readings to terminal_harm"
+    );
+    assert!(
+        !src.contains("terminal_harm(err_before, err_after, None, None)"),
+        "a terminal site still discards its joint readings"
+    );
+}
+
 /// A flat side has no gradient to correlate at any offset, so the
 /// correlation term contributes nothing and D is the band-energy ratio
 /// alone: a checkerboard that became flat (or a flat patch that grew a

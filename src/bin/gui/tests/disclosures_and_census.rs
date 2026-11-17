@@ -105,6 +105,7 @@
             assert!(raw.contains("some_future_control"), "{lang:?}: {raw}");
         }
     }
+
     /// The line a ZONED save actually produces now, which is two different
     /// sentences in one breath.
     ///
@@ -614,4 +615,124 @@
         );
         // Nothing lost, nothing said, nothing to interrupt.
         assert!(!xmp_loss_interrupts(&[], &[]));
+    }
+
+    /// **Inclusion law, GUI half** (R24-5 M0): every develop control this
+    /// window can MUTATE must be one the engine renders — or an agreed
+    /// `CarriedOnly` (`catalogue::CARRIED_ONLY_{GLOBAL,LOCAL}`).
+    ///
+    /// A slider that moves a number nothing renders is the worst kind of bug
+    /// here: it looks like it works, it survives a save, it reloads, and the
+    /// photo never changes. The AI half of this law lives in
+    /// `catalogue::every_control_the_ai_may_set_is_one_the_engine_renders`;
+    /// this is the same law over the other surface, and both sides are read
+    /// off the tier registry rather than transcribed from it.
+    ///
+    /// The settable set is EXTRACTED from the GUI's own source (the whole
+    /// module tree, walked at runtime like the font gate does — an
+    /// `include_str!` list would lose a new file silently), by the two textual
+    /// shapes a Rust mutation takes: `&mut <path>.<field>` and
+    /// `<path>.<field> =`. Known limits, stated rather than papered over: it
+    /// over-includes (any struct with a field named like a control — which
+    /// only makes the gate STRICTER), and a mutation reached purely through an
+    /// autoref method call (`…masks.push(x)`) is invisible to it. Names the
+    /// registry does not know are ignored: a new control cannot be one of
+    /// those, because `catalogue::global_value`/`local_value` fail the build
+    /// until it has a row.
+    #[test]
+    fn the_gui_only_offers_controls_the_engine_renders() {
+        use autoshade::advisor::catalogue::{
+            Tier, CARRIED_ONLY_GLOBAL, CARRIED_ONLY_LOCAL, LOCAL_CONTROLS, RECIPE_CONTROLS,
+        };
+        fn walk_rs(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+            for e in std::fs::read_dir(dir).expect("gui source dir listable") {
+                let p = e.expect("dir entry").path();
+                if p.is_dir() {
+                    walk_rs(&p, out);
+                } else if p.extension().is_some_and(|x| x == "rs") {
+                    out.push(p);
+                }
+            }
+        }
+        // A field name ends at the first character that cannot be in an
+        // identifier; a path segment before the dot is whatever precedes it.
+        fn field_after(text: &str, at: usize) -> Option<&str> {
+            let rest = &text[at..];
+            let end = rest
+                .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .unwrap_or(rest.len());
+            (end > 0).then(|| &rest[..end])
+        }
+        let gui_src =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join("bin").join("gui");
+        let mut sources = Vec::new();
+        walk_rs(&gui_src, &mut sources);
+        assert!(sources.len() >= 6, "expected the split module tree, found {}", sources.len());
+
+        let mut mutated: std::collections::BTreeSet<String> = Default::default();
+        for p in &sources {
+            // This file is the GATE, not a surface: its own fixtures build
+            // recipes field by field and would swamp the extraction. The parts
+            // under tests/ are this file (include!d), skipped the same way.
+            if p.file_name().is_some_and(|n| n == "tests.rs")
+                || p.parent().and_then(|d| d.file_name()).is_some_and(|d| d == "tests")
+            {
+                continue;
+            }
+            let text = std::fs::read_to_string(p).expect("gui source readable");
+            let bytes = text.as_bytes();
+            for (i, _) in text.match_indices('.') {
+                let Some(name) = field_after(&text, i + 1) else { continue };
+                let after = i + 1 + name.len();
+                // `&mut …<name>` — the borrow every slider helper takes.
+                let borrowed = text[..i].trim_end().ends_with(|c: char| {
+                    c.is_ascii_alphanumeric() || c == '_' || c == ')' || c == ']'
+                }) && text[..i].rsplit_once("&mut ").is_some_and(|(_, tail)| {
+                    !tail.contains(['\n', ';', ',', '(']) && !tail.trim().is_empty()
+                });
+                // `… = ` (but not `==`, `>=`, `<=`, `!=`), `+=`, `-=`, `*=`.
+                let assigned = {
+                    let mut j = after;
+                    while bytes.get(j) == Some(&b' ') {
+                        j += 1;
+                    }
+                    match (bytes.get(j), bytes.get(j + 1)) {
+                        (Some(b'='), Some(c)) => *c != b'=',
+                        (Some(b'+' | b'-' | b'*'), Some(b'=')) => true,
+                        _ => false,
+                    }
+                };
+                if borrowed || assigned {
+                    mutated.insert(name.to_string());
+                }
+            }
+        }
+        // Premise: this window is a develop panel. Finding almost nothing
+        // means the extractor broke and every assertion below is vacuous.
+        for known in ["exposure_ev", "clarity", "saturation", "tone_curve", "texture", "amount"] {
+            assert!(
+                mutated.contains(known),
+                "the extractor missed `{known}`, which the develop panel plainly sets — \
+                 it is broken, and this gate would pass vacuously"
+            );
+        }
+
+        for (label, rows, allow) in [
+            ("EditRecipe", RECIPE_CONTROLS.as_slice(), CARRIED_ONLY_GLOBAL),
+            ("LocalAdjustment", LOCAL_CONTROLS.as_slice(), CARRIED_ONLY_LOCAL),
+        ] {
+            for c in rows.iter().filter(|c| mutated.contains(c.name)) {
+                // Envelope rows (the era stamp, the AI's rationale) carry no
+                // develop value and the GUI legitimately copies them around;
+                // they own no sidecar key, which is what keeps this narrow.
+                let Some(t) = c.tier else { continue };
+                assert!(
+                    t.renders() || allow.iter().any(|(n, _)| *n == c.name),
+                    "{label}.{}: the GUI sets a {t:?} control the engine renders nothing \
+                     from — a slider that moves a number and no pixel",
+                    c.name
+                );
+                assert_ne!(t, Tier::PassThrough, "{label}.{} is not for a surface to set", c.name);
+            }
+        }
     }

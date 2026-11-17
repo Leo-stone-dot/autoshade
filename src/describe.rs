@@ -487,6 +487,66 @@ mod tests {
         );
     }
 
+    /// ONE MODEL RESIDENT AT A TIME. The description sidecar runs through the
+    /// SHARED executor, so it takes the process-wide model slot that the
+    /// embedding and correspondence sidecars take.
+    ///
+    /// This is a hardware contract, not tidiness: Qwen3-VL-2B in bf16 peaks at
+    /// 4.03 GiB and SigLIP 2 at about 1.5 GB on the 8 GB card this was measured
+    /// on, and a build runs BOTH — the description stage between the image and
+    /// text stages. Spawning the second while the first is still resident is
+    /// how a library rebuild turns into an out-of-memory failure two hundred
+    /// photographs in.
+    ///
+    /// The slot's own behaviour is pinned by
+    /// `embed::tests::the_model_slot_admits_one_caller_at_a_time`; what is
+    /// pinned HERE is that this bridge is inside it.
+    ///
+    /// MUTATION THIS KILLS: replace `crate::run_model_sidecar` in
+    /// `describe_manifest` with a direct `Command` spawn — the sidecar still
+    /// works, and two checkpoints become co-resident.
+    #[test]
+    fn the_description_sidecar_runs_inside_the_shared_model_slot() {
+        // include_str! carries the checkout's line endings (LF on CI,
+        // CRLF under autocrlf); normalize or the trimming split silently
+        // returns the whole tail.
+        let me = include_str!("describe.rs").replace("\r\n", "\n");
+        let body = me
+            .split("pub fn describe_manifest(")
+            .nth(1)
+            .expect("the bridge exists")
+            .split("\npub fn ")
+            .next()
+            .unwrap();
+        assert!(
+            body.contains("crate::run_model_sidecar("),
+            "the description run must go through the shared executor"
+        );
+        for direct in ["Command::new", "std::process::Command"] {
+            assert!(!body.contains(direct), "the bridge must not spawn {direct} itself");
+        }
+        // …and the shared executor really is what holds the slot.
+        let lib = include_str!("lib.rs").replace("\r\n", "\n");
+        let body_of = |name: &str| {
+            lib.split(&format!("pub fn {name}("))
+                .nth(1)
+                .unwrap_or_else(|| panic!("{name} exists"))
+                .split("\npub fn ")
+                .next()
+                .unwrap()
+                .to_string()
+        };
+        // The text reader runs through the artifact run (2026-10-13), and THAT
+        // is what holds the slot — for the depth PNG as for every text output.
+        assert!(
+            body_of("run_model_sidecar_bounded").contains("run_model_sidecar_artifact("),
+            "the shared text executor must run through the artifact run"
+        );
+        assert!(
+            body_of("run_model_sidecar_artifact").contains("with_model_slot("),
+            "the shared executor must take the process-wide model slot"
+        );
+    }
 
     /// The phrase bound lives in two files and must agree: the sidecar cuts
     /// at its own number, and the library door refuses past this one.

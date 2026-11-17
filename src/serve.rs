@@ -3907,7 +3907,7 @@ mod tests {
     ///
     /// MUTATION: pin the analyze handler back to a bare
     /// `DirectionAdherence::default()`, or drop its `Guide::resolve` of the
-    /// request's own field.
+    /// request's own field — a source guard at the end fails.
     #[test]
     fn an_analyze_body_chooses_its_guide_and_dial_and_omitting_them_keeps_the_defaults() {
         use crate::recipe::{AdherenceTier, DirectionAdherence};
@@ -3939,7 +3939,15 @@ mod tests {
         assert_eq!((both.style_strength, both.grade_strength, both.adherence),
             (Some(0.3), Some(0.9), Some(0.2)));
 
-        // The shipped page sends both controls.
+        // WIRED: the handler reads the fields, and the shipped page sends them.
+        // Without both halves a field is a dial nothing turns. The needles
+        // are assembled so this test cannot match itself.
+        let guard = concat!("DirectionAdherence::from_optional", "(req.adherence)");
+        assert_eq!(
+            include_str!("serve.rs").matches(guard).count(),
+            1,
+            "the analyze handler must resolve the request's own dial"
+        );
         assert!(
             INDEX_HTML.contains(concat!("class=", "\"adherence\"")),
             "the page needs the control"
@@ -3947,6 +3955,10 @@ mod tests {
         assert!(
             INDEX_HTML.contains(concat!("style_strength: style,", " adherence")),
             "the page must put it on the wire"
+        );
+        assert!(
+            include_str!("serve.rs").contains(concat!("pipeline::Guide::resolve", "(req.guide, guidance)")),
+            "the analyze handler must resolve the request's own guide"
         );
         assert!(INDEX_HTML.contains(concat!("class=", "\"guide\"")), "the page needs the switch");
         assert!(INDEX_HTML.contains(concat!("const body = { id, ", "guide,")), "and must put it on the wire");

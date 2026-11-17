@@ -269,6 +269,24 @@ mod tests {
 
     #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
     #[test]
+    fn semantic_limits_have_one_definition() {
+        let sources = [
+            include_str!("../main.rs"),
+            include_str!("../segment.rs"),
+            include_str!("../bin/gui/actions.rs"),
+        ];
+        for source in sources {
+            assert!(!source.contains("regions.min(4)"));
+            assert!(!source.contains("regions.len() > 4"));
+            assert!(!source.contains("clamp(1, 4)"));
+            assert!(!source.contains("..=4"));
+        }
+        assert_eq!(MAX_SEMANTIC_REGIONS, 4);
+        assert_eq!(DEFAULT_SEMANTIC_REGIONS, 2);
+    }
+
+    #[cfg_attr(not(feature = "slow-tests"), ignore = "slow raster/engine tier: real frames or segmentation; --features slow-tests or --ignored")]
+    #[test]
     fn worst_region_residual_is_the_maximum_accepted_residual() {
         assert_eq!(worst_region_residual(&[0.02, 0.15, 0.08]), 0.15);
     }

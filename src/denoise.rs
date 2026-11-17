@@ -2062,6 +2062,26 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// The hook sits BEFORE demosaic — the whole point: the noise is white
+    /// per CFA plane there and spatially correlated after — and the
+    /// developed-frame pass is gated off once the mosaic was denoised.
+    /// MUTATION: drop the `denoise_mosaic(` call from `render_to_image_in`,
+    /// or move it below `develop_intermediate(`, and this names it.
+    #[test]
+    fn the_mosaic_denoise_runs_before_demosaic() {
+        let engine = crate::render::engine_source();
+        let src = crate::source_before_tests(&engine);
+        let start = src.find("fn render_to_image_in(").expect("render_to_image_in moved");
+        let body = &src[start..];
+        let hook = body.find("crate::denoise::denoise_mosaic(").expect("the mosaic hook is gone");
+        let demosaic = body.find(".develop_intermediate(").expect("develop_intermediate moved");
+        assert!(hook < demosaic, "the mosaic denoise must run before demosaic");
+        assert!(
+            body.contains("denoise.filter(|_| !mosaic_denoised)"),
+            "the developed-frame pass must sit out once the mosaic was denoised"
+        );
+    }
+
     /// python/denoise_raw.py is pinned like denoise.py: its weights — OUR
     /// fine-tune since v1.5.0 — and the two KAIR network files each carry a
     /// sha256 and a byte cap and go through `_fetch_verified`; the model is
@@ -2078,6 +2098,13 @@ mod tests {
             "standalone callers keep their per-plane strength contract");
         assert!(RAW_SIDECAR_SRC.contains("return np.clip(v, 0, white).astype(np.uint16)"),
             "below-black clean samples must not be rectified");
+        let source = crate::source_before_tests(include_str!("denoise.rs"));
+        let start = source.find("pub fn denoise_mosaic(").unwrap();
+        let end = source[start..].find("\nfn run_sidecar(").unwrap() + start;
+        let bridge = &source[start..end];
+        assert!(bridge.contains(".arg(\"1.0000\")"), "RAW sidecar must receive the whole output");
+        assert!(!bridge.contains("format!(\"{:.4}\", opts.strength)"),
+            "RAW strength belongs to the renderer");
     }
 
     #[test]

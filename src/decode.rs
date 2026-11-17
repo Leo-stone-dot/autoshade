@@ -2814,6 +2814,29 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Two doors, one construction each: every `get_decoder` in this file goes
+    /// through `decoder_for` (the one wording for a refusal — the CR3/RAF
+    /// XMP-packet read had its own), and every baked `ImageReader` is
+    /// `baked_reader`'s (the one set of limits — `source_window` opened its
+    /// own, under the crate's 512 MB default). A second direct call of either
+    /// is the drift this pins against.
+    ///
+    /// MUTATION: call `rawler::get_decoder` or `image::ImageReader::open`
+    /// directly anywhere above the tests.
+    #[test]
+    fn decoder_and_baked_reader_construction_each_have_one_door() {
+        let src = crate::source_before_tests(include_str!("decode.rs"));
+        assert_eq!(
+            src.matches("get_decoder(").count(),
+            1,
+            "a `get_decoder` call outside `decoder_for`"
+        );
+        assert_eq!(
+            src.matches("ImageReader::open(").count(),
+            1,
+            "an `ImageReader` opened outside `baked_reader`"
+        );
+    }
 
     /// The TIFF path is the one README's LR/Topaz round-trip actually takes,
     /// and it needs the fallback query: image's `TiffDecoder::set_limits`
@@ -3199,6 +3222,63 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// EVERY door that asks the third-party decoder for a `RawImage` measures
+    /// the plane first. The guard is worth nothing at three of four doors: the
+    /// panic it prevents is raised by whichever one is reached first, and the
+    /// gallery, the CLI batch and the render funnel each reach a different one.
+    ///
+    /// A structural test because there is nothing to call — what is asserted
+    /// is that the line IS there, the same shape as
+    /// `the_one_raw_develop_funnel_charges_the_ceiling_before_it_decompresses`.
+    ///
+    /// MUTATION THIS KILLS: deleting the guard from any single door, or adding
+    /// a fifth `raw_image` call site without one.
+    #[test]
+    fn every_raw_image_door_measures_the_plane_first() {
+        for (file, doors_expected) in [("src/decode.rs", 2usize), ("src/render.rs", 2usize)] {
+            // LF-normalised: this repo has MIXED line endings by design. The engine is
+            // read as the one text `render.rs` was before it was split into files.
+            let text = if file == "src/render.rs" {
+                crate::render::engine_source()
+            } else {
+                std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(file))
+                    .unwrap_or_else(|e| panic!("{file} readable: {e}"))
+            }
+            .replace("\r\n", "\n");
+            // TOP-LEVEL functions only. A test helper lives inside `mod tests`
+            // and is therefore indented, so it never starts one of these
+            // chunks; a chunk that runs into a test module stops at it.
+            let mut starts: Vec<usize> = text
+                .match_indices("\nfn ")
+                .chain(text.match_indices("\npub fn "))
+                .chain(text.match_indices("\npub(crate) fn "))
+                .chain(text.match_indices("\npub(super) fn "))
+                .map(|(i, _)| i)
+                .collect();
+            starts.sort_unstable();
+            assert!(!starts.is_empty(), "{file}: no top-level fn — re-anchor this test");
+            let mut doors = 0usize;
+            for (n, &s) in starts.iter().enumerate() {
+                let whole = &text[s..starts.get(n + 1).copied().unwrap_or(text.len())];
+                let body = &whole[..whole.find("\n#[cfg(test)]").unwrap_or(whole.len())];
+                if !body.contains(".raw_image(") {
+                    continue;
+                }
+                doors += 1;
+                assert!(
+                    body.contains("guard_raw_plane_extent("),
+                    "{file}: a `raw_image` door with no plane measurement — {}",
+                    body.lines().nth(1).unwrap_or_default().trim()
+                );
+            }
+            assert_eq!(
+                doors, doors_expected,
+                "{file}: the number of `raw_image` doors changed — a new one needs the guard \
+                 line, and this count updated deliberately"
+            );
+        }
+    }
+
     /// A minimal little-endian TIFF whose root IFD carries ONE entry: tag
     /// 0x02BC (XMP), type BYTE, the given payload. Word-aligned data offset,
     /// no image data — exactly what the packet reader consults.
@@ -3503,6 +3583,42 @@ mod tests {
             MAX_ALLOC.div_ceil(RAW_DEVELOP_BYTES_PER_PIXEL)
         )));
         assert!(allocation_over_ceiling(MAX_ALLOC));
+    }
+
+    /// A ceiling is only a ceiling if the ONE funnel charges it, and the pure
+    /// tests above cannot see a call site. This is that half: a SOURCE SCAN,
+    /// the idiom this repo already uses where the property is about WHERE code
+    /// is called rather than what it computes (`store`'s capped-reader gate,
+    /// the GUI font gate).
+    ///
+    /// MUTATION THIS KILLS: deleting the call from `render::render_to_image_in`
+    /// — every RAW is admitted again and no unit test of the pure function
+    /// would notice — or moving it AFTER the non-dummy sensor read, which
+    /// would refuse only once the decompression it exists to prevent had
+    /// already happened.
+    #[test]
+    fn the_one_raw_develop_funnel_charges_the_ceiling_before_it_decompresses() {
+        // LF-normalised: this repo has MIXED line endings by design (per-file
+        // `.gitattributes` + `core.autocrlf`).
+        // The engine as the one text `render.rs` was before it was split into files.
+        let text = crate::render::engine_source().replace("\r\n", "\n");
+        assert_eq!(
+            text.matches("refuse_raw_develop_over_ceiling_for(").count(),
+            1,
+            "exactly ONE call site — a second would be the per-caller copy this design refuses"
+        );
+        let gate = text
+            .find("refuse_raw_develop_over_ceiling_for(")
+            .expect("the RAW develop funnel must charge the ceiling");
+        // Non-vacuity AND the ordering: the gate exists to run before the
+        // sensor is decompressed, which is the `dummy = false` read.
+        let sensor = text
+            .find("decoder.raw_image(&src, &params, false)")
+            .expect("extractor anchor: the non-dummy sensor read moved — re-anchor this gate");
+        assert!(
+            gate < sensor,
+            "the ceiling must be charged BEFORE the sensor decompression it bounds"
+        );
     }
 
     /// The planner's half (R28 Batch-4 4a): a baked source answers its own

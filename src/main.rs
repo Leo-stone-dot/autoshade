@@ -4365,6 +4365,22 @@ mod tests {
         );
     }
 
+    /// The search diagnostic prints the develop's own notes through the
+    /// pipeline's helpers, not a second spelling of them.
+    #[test]
+    fn library_search_renders_the_develops_own_notes() {
+        let body = include_str!("main.rs")
+            .split("fn library_search_cmd(")
+            .nth(1)
+            .expect("the diagnostic exists")
+            .split("\nfn ")
+            .next()
+            .unwrap();
+        for call in ["pipeline::references_note(", "library::reference_block(", "lib.search("] {
+            assert!(body.contains(call), "the diagnostic must call {call}");
+        }
+    }
+
     #[test]
     fn the_manuals_cli_synopsis_matches_every_commands_help() {
         use clap::CommandFactory;

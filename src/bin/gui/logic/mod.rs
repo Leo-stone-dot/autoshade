@@ -7,10 +7,10 @@
 //! wording leaves this layer as [`UiText`] — an i18n key plus its named
 //! arguments, not a rendered sentence.
 //!
-//! The rules are pinned by `tests/architecture.rs`: nothing under `logic/`
-//! mentions the widget library, renders text, spawns workers, opens dialogs or
-//! touches the filesystem; and a migrated panel does not mutate business state
-//! or reach past the seam.
+//! The rules are pinned by `clippy.toml`: nothing under `logic/` mentions the
+//! widget library, renders text, spawns workers or opens dialogs. The module
+//! carries `#[deny(clippy::disallowed_types, clippy::disallowed_methods)]`;
+//! the crate root allows those lints everywhere else.
 
 pub(crate) mod ai;
 pub(crate) mod command;

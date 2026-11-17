@@ -337,8 +337,8 @@ pub fn sidecar_script_present(script: &std::path::Path) -> bool {
 /// Seven spellings is a summary nobody can compute: a green battery with three
 /// silent skips and a green battery with none read identically, which is
 /// exactly the difference a release wants to see. `scripts/release_battery.sh`
-/// greps this prefix, so a test that skips itself calls [`test_skipped`]
-/// rather than printing its own line.
+/// greps this prefix, and `no_test_prints_its_own_skip_line` keeps the
+/// spelling single.
 ///
 /// `test` is the test's own name and `why` the reason in the user's terms, so
 /// a transcript line stands on its own: what did not run, and what would make
@@ -631,6 +631,40 @@ pub fn sidecar_tail(stderr: &[u8], stdout: &[u8]) -> String {
     }
 }
 
+/// TEST-ONLY: a source file with its test module cut off.
+///
+/// Several tests pin an arm they cannot EXECUTE — a `cfg(target_os)` branch
+/// for another platform — by asserting the arm still exists in the source
+/// (`include_str!`). Written naively that assertion is VACUOUS: the needle is
+/// spelled inside the assertion, the assertion is inside the file, so the file
+/// contains the needle whether or not the arm survives. The macOS store-name
+/// mutation passed a green test that way before this existed.
+///
+/// Cutting the test code off is what makes such a check able to fail, and the
+/// cut is made at the first test MODULE rather than at the first `#[cfg(test)]`
+/// of any kind. That distinction is not pedantry: `store.rs` carries test-only
+/// free functions from line 739 onwards, thousands of lines above its test
+/// modules, so cutting at the first attribute threw away most of the
+/// production source — and an assertion about an arm defined below that point
+/// then failed no matter what the arm said, which is a red that proves nothing.
+///
+/// It is deliberately the WHOLE rule in one place: the two hand-rolled copies
+/// this replaced were correct only because what they searched for happened to
+/// sit above every `#[cfg(test)]` in their file.
+#[cfg(test)]
+pub(crate) fn source_before_tests(src: &str) -> &str {
+    const ATTR: &str = "#[cfg(test)]";
+    let mut at = 0;
+    while let Some(i) = src[at..].find(ATTR) {
+        let start = at + i;
+        at = start + ATTR.len();
+        if src[at..].trim_start().starts_with("mod ") {
+            return &src[..start];
+        }
+    }
+    src
+}
+
 /// A17: the full-resolution section, and where the two engines scope it.
 #[cfg(test)]
 mod full_res_slot_tests {
@@ -663,6 +697,57 @@ mod full_res_slot_tests {
         waiter.join().unwrap();
     }
 
+    /// The generative fill LEAVES the section for the model call and comes back
+    /// for the composite.
+    ///
+    /// A source check, because the property is about a call that runs for
+    /// minutes against a paid API: what is under test is the ORDER of three
+    /// statements, and no test that can run offline reaches them.
+    ///
+    /// MUTATION: delete the `drop(heavy);` in `generative::retouch` and this
+    /// names it — every export would then queue behind a model call, which is
+    /// exactly why the whole-handler form was refused in `serve`.
+    #[test]
+    fn the_generative_fill_holds_the_section_only_for_its_local_phases() {
+        let src = crate::source_before_tests(include_str!("generative.rs"));
+        let enter = src.find("let heavy = crate::full_res_slot();").expect("no local phase");
+        let rest = &src[enter..];
+        let release = rest.find("drop(heavy);").expect("the local phase never releases");
+        let call = rest.find("call_images_edit(").expect("the model call moved");
+        assert!(release < call, "the section is still held across the model call");
+        let composite = rest[call..]
+            .find("let _heavy = crate::full_res_slot();")
+            .expect("the composite phase is unbounded");
+        let blend = rest[call..].find("composite_in_place(").expect("the composite moved");
+        assert!(composite < blend, "the section is entered after the blend, not before it");
+    }
+
+    /// Healing takes the section at the one door both of its callers use.
+    #[test]
+    fn healing_takes_the_section_where_it_allocates() {
+        let src = crate::source_before_tests(include_str!("retouch.rs"));
+        let door = src.find("fn heal_and_save(").expect("the shared heal door moved");
+        let body = &src[door..];
+        let slot = body.find("crate::full_res_slot();").expect("heal_and_save is unbounded");
+        let alpha = body.find("split_alpha(&base)").expect("the phase moved");
+        assert!(slot < alpha, "the section must open before the first allocation");
+    }
+
+    /// The server's two full-resolution handlers take the LIBRARY's slot — one
+    /// policy, not a second mutex that bounds nothing the engines do.
+    #[test]
+    fn the_servers_heavy_handlers_take_the_one_library_slot() {
+        let src = crate::source_before_tests(include_str!("serve.rs"));
+        assert!(
+            src.contains("fn heavy() -> crate::FullResSlot"),
+            "serve grew its own admission lock again"
+        );
+        assert_eq!(
+            src.matches("let _heavy = heavy();").count(),
+            2,
+            "the full-resolution export and download handlers are the two that take it"
+        );
+    }
 }
 
 /// A14: one door for every python sidecar, and it behaves the same at it.
@@ -966,7 +1051,34 @@ pub(crate) fn write_stand_in(
 
 #[cfg(test)]
 mod tests {
-    use super::{artifact_state, sidecar_tail, sidecar_wrote};
+    use super::{artifact_state, sidecar_tail, sidecar_wrote, source_before_tests};
+
+    /// The cut is at the first test MODULE, not the first `#[cfg(test)]`.
+    ///
+    /// This test exists because the first version cut at the attribute and was
+    /// WRONG in the one file that matters: `store.rs` defines test-only free
+    /// functions thousands of lines above its test modules, so the cut threw
+    /// away most of the production source and an assertion about an arm below
+    /// it failed whatever the arm said. A source assertion that cannot pass and
+    /// one that cannot fail are the same defect wearing different colours.
+    #[test]
+    fn the_source_cut_keeps_test_only_helpers_and_drops_only_the_test_modules() {
+        let src = concat!(
+            "fn production() {}\n",
+            "#[cfg(test)]\n",
+            "fn a_test_only_helper() { NEEDLE }\n",
+            "fn more_production() { ARM }\n",
+            "#[cfg(test)]\n",
+            "mod tests { assert!(src.contains(\"ARM\")); }\n",
+        );
+        let kept = source_before_tests(src);
+        assert!(kept.contains("ARM"), "production below a test-only fn must survive the cut");
+        assert!(kept.contains("NEEDLE"), "the cut is not at the attribute");
+        assert!(!kept.contains("mod tests"), "the test module itself must be gone");
+        // And a file with no test module at all is returned whole, rather than
+        // silently becoming empty.
+        assert_eq!(source_before_tests("fn only_production() {}"), "fn only_production() {}");
+    }
 
     /// M-D2: the `len == 0` refusal weakened; M-D3: the `before` comparison
     /// dropped. All four arms of the contract, each on its own unique dir so
@@ -1008,6 +1120,57 @@ mod tests {
         assert!(sidecar_wrote("x sidecar", &real, None).is_ok());
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A44 — a test that skips itself says so through [`test_skipped`] and
+    /// nowhere else, so a battery transcript can COUNT the skips.
+    ///
+    /// Seven call sites across four modules wrote their own `eprintln!`; a
+    /// summary over seven spellings is a summary somebody has to maintain, and
+    /// the one it replaced (a reader noticing three silent lines in 1,300) is
+    /// the one this batch was opened to remove.
+    ///
+    /// MUTATION THIS KILLS: any new `eprintln!("SKIPPED …")` anywhere under
+    /// `src/`. The walk is over the real tree rather than an `include_str!`
+    /// list, so a file added tomorrow is covered without anyone adding it
+    /// here.
+    #[test]
+    fn no_test_prints_its_own_skip_line() {
+        fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+            for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(&path, out);
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    out.push(path);
+                }
+            }
+        }
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut files = Vec::new();
+        walk(&root, &mut files);
+        assert!(files.len() > 20, "premise: the walk found the tree ({} files)", files.len());
+        // The literal, spelled in two halves so this assertion's own source
+        // is not the thing it forbids. Only the first four letters, so a
+        // hand-written `"SKIP …"` line is caught as well as `"SKIPPED …"`
+        // (one such spelling hid in xmp.rs until the v1.2.4 merge).
+        let banned = format!("\"{}", &crate::SKIP_PREFIX[..4]);
+        let mut offenders: Vec<String> = Vec::new();
+        for file in &files {
+            if file.file_name().is_some_and(|n| n == "lib.rs") {
+                continue; // the helper and this test live here
+            }
+            let src = std::fs::read_to_string(file).expect("read a source file");
+            if src.contains(&banned) {
+                offenders.push(file.display().to_string());
+            }
+        }
+        assert!(
+            offenders.is_empty(),
+            "these print their own skip line instead of calling test_skipped: {offenders:?}"
+        );
+        // …and the helper really writes the prefix the battery greps for.
+        assert_eq!(crate::SKIP_PREFIX, "SKIPPED");
     }
 
     #[test]

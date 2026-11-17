@@ -91,6 +91,246 @@
         assert_eq!((old.theme, old.accent), (ThemePref::Light, AccentPref::Gold));
     }
 
+    /// Every symbol the GUI renders must have a glyph in the guaranteed font
+    /// chain (egui's bundle + the embedded subsets) — system fonts vary, and
+    /// this is exactly how the v0.22 tofu boxes (⧉ ⊖ ◭ ▭ ◯ ◌ ✓ ✕ 🖌 …)
+    /// shipped: those glyphs existed only on SOME machines. Scans the STRING
+    /// LITERALS of the whole GUI module tree (comments never render) —
+    /// including the CJK the zh catalogue renders, embedded since W18 (the
+    /// cjk-ui subset), so picking 中文 needs no system font. Only DYNAMIC
+    /// text (a user's own file names) still rides the runtime fallbacks;
+    /// `undrawable_scripts` + the folder-open disclosure own that half
+    /// (L12#3). Fails ⇒ re-run scripts/subset_gui_fonts.py and commit the
+    /// refreshed assets/fonts/.
+    #[test]
+    fn embedded_fonts_cover_every_ui_symbol() {
+        use ab_glyph::Font as _;
+        // Non-ASCII chars inside Rust string/char literals only. Mirrors the
+        // extractor in scripts/subset_gui_fonts.py — keep the two in sync.
+        fn literal_chars(src: &str, out: &mut std::collections::BTreeSet<char>) {
+            let b: Vec<char> = src.chars().collect();
+            let n = b.len();
+            let mut i = 0;
+            while i < n {
+                match b[i] {
+                    '/' if i + 1 < n && b[i + 1] == '/' => {
+                        while i < n && b[i] != '\n' {
+                            i += 1;
+                        }
+                    }
+                    '/' if i + 1 < n && b[i + 1] == '*' => {
+                        let mut depth = 1;
+                        i += 2;
+                        while i < n && depth > 0 {
+                            if i + 1 < n && b[i] == '/' && b[i + 1] == '*' {
+                                depth += 1;
+                                i += 2;
+                            } else if i + 1 < n && b[i] == '*' && b[i + 1] == '/' {
+                                depth -= 1;
+                                i += 2;
+                            } else {
+                                i += 1;
+                            }
+                        }
+                    }
+                    'r' if i + 1 < n && (b[i + 1] == '#' || b[i + 1] == '"') => {
+                        let mut j = i + 1;
+                        let mut hashes = 0;
+                        while j < n && b[j] == '#' {
+                            hashes += 1;
+                            j += 1;
+                        }
+                        if j < n && b[j] == '"' {
+                            j += 1;
+                            while j < n {
+                                if b[j] == '"' {
+                                    let mut k = 0;
+                                    while k < hashes && j + 1 + k < n && b[j + 1 + k] == '#' {
+                                        k += 1;
+                                    }
+                                    if k == hashes {
+                                        j += 1 + hashes;
+                                        break;
+                                    }
+                                }
+                                if !b[j].is_ascii() {
+                                    out.insert(b[j]);
+                                }
+                                j += 1;
+                            }
+                            i = j;
+                        } else {
+                            i += 1;
+                        }
+                    }
+                    '"' => {
+                        i += 1;
+                        while i < n {
+                            if b[i] == '\\' {
+                                // `\u{...}` renders exactly like the literal
+                                // char, so it needs the same glyph. STRING
+                                // literals only: the one char-literal escape
+                                // in this tree is the notdef sentinel below,
+                                // which must stay out of the needed set.
+                                if i + 2 < n && b[i + 1] == 'u' && b[i + 2] == '{' {
+                                    let mut j = i + 3;
+                                    let mut hex = String::new();
+                                    while j < n && b[j] != '}' {
+                                        hex.push(b[j]);
+                                        j += 1;
+                                    }
+                                    if j < n {
+                                        if let Some(c) = u32::from_str_radix(&hex, 16)
+                                            .ok()
+                                            .and_then(char::from_u32)
+                                            && !c.is_ascii()
+                                        {
+                                            out.insert(c);
+                                        }
+                                        i = j + 1;
+                                        continue;
+                                    }
+                                }
+                                i += 2;
+                            } else if b[i] == '"' {
+                                i += 1;
+                                break;
+                            } else {
+                                if !b[i].is_ascii() {
+                                    out.insert(b[i]);
+                                }
+                                i += 1;
+                            }
+                        }
+                    }
+                    '\'' => {
+                        // 'x' char literal (possibly non-ASCII); '\n'-style
+                        // escapes; anything else is a lifetime — skip the quote.
+                        if i + 2 < n && b[i + 1] != '\\' && b[i + 2] == '\'' {
+                            if !b[i + 1].is_ascii() {
+                                out.insert(b[i + 1]);
+                            }
+                            i += 3;
+                        } else if i + 3 < n && b[i + 1] == '\\' && b[i + 3] == '\'' {
+                            i += 4;
+                        } else {
+                            i += 1;
+                        }
+                    }
+                    _ => i += 1,
+                }
+            }
+        }
+
+        // Walk the whole GUI module tree at runtime (round-12 split): an
+        // include_str! list would silently lose coverage the moment a new
+        // module file is added — the exact drift this gate exists to catch.
+        fn walk_rs(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+            for e in std::fs::read_dir(dir).expect("gui source dir listable") {
+                let p = e.expect("dir entry").path();
+                if p.is_dir() {
+                    walk_rs(&p, out);
+                } else if p.extension().is_some_and(|x| x == "rs") {
+                    out.push(p);
+                }
+            }
+        }
+        let gui_src = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src")
+            .join("bin")
+            .join("gui");
+        let mut sources = Vec::new();
+        walk_rs(&gui_src, &mut sources);
+        assert!(
+            sources.len() >= 6,
+            "font gate expected the split module tree, found {} files",
+            sources.len()
+        );
+        let mut syms = std::collections::BTreeSet::new();
+        for p in &sources {
+            let text = std::fs::read_to_string(p).expect("gui source readable");
+            literal_chars(&text, &mut syms);
+        }
+        // The Chinese text is no longer in the sources: it lives in the
+        // resource bundle (`resources/strings/zh-Hans.toml`). Add every glyph
+        // the translated UI can draw, so the embedded-subset gate still covers
+        // them.
+        for i in 0..autoshade::text::key_count() {
+            let key = autoshade::text::Key::Resource(i as u16);
+            for c in autoshade::text::tr(autoshade::text::Lang::Zh, key).chars() {
+                if !c.is_control() {
+                    syms.insert(c);
+                }
+            }
+        }
+        let is_cjk = |c: char| {
+            matches!(c as u32, 0x2E80..=0x9FFF | 0xF900..=0xFAFF | 0xFF00..=0xFFEF)
+        };
+        // Premise: the GUI uses dozens of symbols. Finding almost none means
+        // the extractor broke, and the assertions below would pass vacuously.
+        assert!(
+            syms.iter().filter(|&&c| !is_cjk(c)).count() >= 40,
+            "literal extractor found too few symbols — it is broken"
+        );
+
+        let defaults = egui::FontDefinitions::default();
+        let mut faces: Vec<ab_glyph::FontVec> = Vec::new();
+        for data in defaults.font_data.values() {
+            faces.push(
+                ab_glyph::FontVec::try_from_vec_and_index(data.font.to_vec(), data.index)
+                    .expect("egui bundled font parses"),
+            );
+        }
+        for (name, bytes) in EMBEDDED_SYMBOL_FONTS {
+            faces.push(
+                ab_glyph::FontVec::try_from_vec_and_index(bytes.to_vec(), 0)
+                    .unwrap_or_else(|_| panic!("embedded font {name} parses")),
+            );
+        }
+        let covered = |c: char| faces.iter().any(|f| f.glyph_id(c).0 != 0);
+        // Negative control: an unassigned codepoint must read as uncovered —
+        // this is what makes `glyph_id().0 == 0` trustworthy as "no glyph".
+        assert!(
+            !covered('\u{0378}'),
+            "notdef sentinel covered?! the coverage probe is meaningless"
+        );
+
+        let missing: Vec<String> = syms
+            .iter()
+            .filter(|&&c| !is_cjk(c) && !covered(c))
+            .map(|&c| format!("U+{:04X} {c}", c as u32))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "UI symbols with no glyph in the guaranteed font chain \
+             (re-run scripts/subset_gui_fonts.py): {missing:?}"
+        );
+
+        // CJK is embedded too (W18): choosing 中文 must not depend on the
+        // machine owning a system CJK font — without one the whole window
+        // rendered as tofu. Asserted separately so a regression names the
+        // hanzi, and premise-checked so a broken extractor cannot pass here
+        // by finding nothing.
+        let cjk: Vec<char> = syms.iter().copied().filter(|&c| is_cjk(c)).collect();
+        assert!(
+            cjk.len() >= 300,
+            "only {} CJK codepoints extracted — the translations or the \
+             extractor are broken",
+            cjk.len()
+        );
+        let missing_cjk: Vec<String> = cjk
+            .iter()
+            .filter(|&&c| !covered(c))
+            .map(|&c| format!("U+{:04X} {c}", c as u32))
+            .collect();
+        assert!(
+            missing_cjk.is_empty(),
+            "translated text with no embedded glyph — the Chinese UI would \
+             show tofu on a machine with no system CJK font \
+             (re-run scripts/subset_gui_fonts.py): {missing_cjk:?}"
+        );
+    }
+
     #[test]
     fn the_pickers_average_their_window_instead_of_point_sampling() {
         // Shared by the WB eyedropper and the colour-range sample. A point

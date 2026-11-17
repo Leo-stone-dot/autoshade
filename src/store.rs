@@ -155,6 +155,33 @@ use versions::{
 #[cfg(test)]
 use versions::{version_meta_path};
 
+/// The store's source as ONE text, for the source-text gates that read what
+/// `store.rs` alone held before it was split into files: the modules in their
+/// declaration order, the root last (so `source_before_tests` cuts at the root's
+/// own test modules and nowhere else). Test-only: nothing here is compiled into a
+/// shipped binary.
+#[cfg(test)]
+pub(crate) const SOURCE_FILES: [(&str, &str); 14] = [
+    ("src/store/backup.rs", include_str!("store/backup.rs")),
+    ("src/store/clear.rs", include_str!("store/clear.rs")),
+    ("src/store/commit.rs", include_str!("store/commit.rs")),
+    ("src/store/durable.rs", include_str!("store/durable.rs")),
+    ("src/store/key.rs", include_str!("store/key.rs")),
+    ("src/store/lock.rs", include_str!("store/lock.rs")),
+    ("src/store/migrate.rs", include_str!("store/migrate.rs")),
+    ("src/store/paths.rs", include_str!("store/paths.rs")),
+    ("src/store/root.rs", include_str!("store/root.rs")),
+    ("src/store/sidecar.rs", include_str!("store/sidecar.rs")),
+    ("src/store/snapshot.rs", include_str!("store/snapshot.rs")),
+    ("src/store/variants.rs", include_str!("store/variants.rs")),
+    ("src/store/versions.rs", include_str!("store/versions.rs")),
+    ("src/store.rs", include_str!("store.rs")),
+];
+
+#[cfg(test)]
+pub(crate) fn source_text() -> String {
+    SOURCE_FILES.iter().map(|(_, text)| *text).collect()
+}
 /// Two spellings of the same photo must land in the same develop dir on a
 /// case-insensitive volume — and the folded name must actually RESOLVE to any
 /// directory an earlier build created.

@@ -301,6 +301,32 @@ fn grain_is_deterministic_sized_in_film_pixels_and_fades_out_of_both_ends() {
     }
 }
 
+/// The web preview reaches its frame through the ENGINE's tail, with the
+/// policy that keeps the frame whole. Pinned in the source, the house pattern
+/// for a choice inside a request handler no offline test drives (the GUI
+/// canvas's half of this pin lives in `bin/gui/tests.rs`).
+///
+/// MUTATION: `CropPolicy::Cut` there, or the old geometry-only chain back, and
+/// this names it — a web pane that cropped would answer a different photograph
+/// from the one the sliders are moving.
+#[test]
+fn the_web_preview_finishes_through_the_engines_own_tail() {
+    let src = include_str!("../../serve.rs");
+    let head = src.find("let mut after = render::develop_preview_film(").expect("preview moved");
+    let body = &src[head..head + 1200];
+    assert!(
+        body.contains("render::frame_and_finish("),
+        "the web preview no longer runs the engine's tail: {body}"
+    );
+    assert!(
+        body.contains("render::CropPolicy::Keep"),
+        "the web preview must keep the whole frame and only POSITION the finish: {body}"
+    );
+    assert!(
+        !body.contains("render::apply_lens_geometry("),
+        "a second copy of the geometry chain is exactly what the tail replaced"
+    );
+}
 
 #[test]
 fn a_recipe_with_neither_effect_leaves_every_byte_alone() {

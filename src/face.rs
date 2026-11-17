@@ -943,6 +943,17 @@ mod tests {
         assert!(!out.exists(), "nothing may be written when the sidecar is absent");
     }
 
+    /// The bridge spawns nothing itself: the shared run holds the model slot
+    /// and caps the result's size.
+    #[test]
+    fn the_face_run_goes_through_the_shared_model_sidecar() {
+        let src = include_str!("face.rs");
+        let body = src.split("pub fn detect_faces(").nth(1).unwrap().split("fn fill_polygon(").next().unwrap();
+        assert!(body.contains("crate::run_model_sidecar_bounded(") && body.contains("Some(FACES_MAX_BYTES)"));
+        for direct in ["Command::new", "sidecar_command("] {
+            assert!(!body.contains(direct), "the bridge must not spawn through {direct}");
+        }
+    }
 
     /// The guardrail's table, one row per limit: a value past the limit comes
     /// back AT the limit, a value inside it is untouched, and no row moves

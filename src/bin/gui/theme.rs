@@ -386,7 +386,7 @@ pub(crate) fn palette(theme: ThemePref, accent: AccentPref) -> &'static ThemeCol
 /// on system fonts made rendering machine-dependent — a stock Windows install
 /// shows tofu boxes because DengXian lacks them too. ~684 KB total buys
 /// identical rendering on every OS. Order = lookup priority; the
-/// `scripts/subset_gui_fonts.py --check` gate pins coverage.
+/// `embedded_fonts_cover_every_ui_symbol` test pins full-chain coverage.
 ///
 /// The `cjk-ui` subset carries the hanzi the CHINESE UI ITSELF renders, so
 /// picking 中文 no longer depends on the machine owning a system CJK font —

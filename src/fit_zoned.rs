@@ -117,6 +117,31 @@ use zone_fit::{
     zone_accepts, zone_skips, zone_tonal,
 };
 
+/// The zoned fit's source as ONE text, for the source-text gates that read what
+/// `fit_zoned.rs` alone held before it was split into files: the modules in their
+/// declaration order, the root last (so `source_before_tests` cuts at the root's
+/// own test modules and nowhere else). Test-only: nothing here is compiled into a
+/// shipped binary.
+#[cfg(test)]
+pub(crate) const SOURCE_FILES: [(&str, &str); 11] = [
+    ("src/fit_zoned/accept.rs", include_str!("fit_zoned/accept.rs")),
+    ("src/fit_zoned/attach.rs", include_str!("fit_zoned/attach.rs")),
+    ("src/fit_zoned/boundary.rs", include_str!("fit_zoned/boundary.rs")),
+    ("src/fit_zoned/entry.rs", include_str!("fit_zoned/entry.rs")),
+    ("src/fit_zoned/joint.rs", include_str!("fit_zoned/joint.rs")),
+    ("src/fit_zoned/limits.rs", include_str!("fit_zoned/limits.rs")),
+    ("src/fit_zoned/one_zone.rs", include_str!("fit_zoned/one_zone.rs")),
+    ("src/fit_zoned/rasters.rs", include_str!("fit_zoned/rasters.rs")),
+    ("src/fit_zoned/regions.rs", include_str!("fit_zoned/regions.rs")),
+    ("src/fit_zoned/zone_fit.rs", include_str!("fit_zoned/zone_fit.rs")),
+    ("src/fit_zoned.rs", include_str!("fit_zoned.rs")),
+];
+
+#[cfg(test)]
+pub(crate) fn source_text() -> String {
+    SOURCE_FILES.iter().map(|(_, text)| *text).collect()
+}
+
 #[cfg(test)]
 mod tests;
 

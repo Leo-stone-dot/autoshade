@@ -226,6 +226,37 @@ pub(crate) use tone::{fit_tone_sliders};
 #[cfg(test)]
 use tone::{TONE_PRIOR, residual_tone_curve};
 
+/// The reverse fit's source as ONE text, for the source-text gates that read what
+/// `fit.rs` alone held before it was split into files: the modules in their
+/// declaration order, the root last (so `source_before_tests` cuts at the root's
+/// own test modules and nowhere else). Test-only: nothing here is compiled into a
+/// shipped binary.
+#[cfg(test)]
+pub(crate) const SOURCE_FILES: [(&str, &str); 17] = [
+    ("src/fit/atmosphere.rs", include_str!("fit/atmosphere.rs")),
+    ("src/fit/budget.rs", include_str!("fit/budget.rs")),
+    ("src/fit/cast_outcome.rs", include_str!("fit/cast_outcome.rs")),
+    ("src/fit/curves.rs", include_str!("fit/curves.rs")),
+    ("src/fit/detail.rs", include_str!("fit/detail.rs")),
+    ("src/fit/evidence.rs", include_str!("fit/evidence.rs")),
+    ("src/fit/gates.rs", include_str!("fit/gates.rs")),
+    ("src/fit/hsl.rs", include_str!("fit/hsl.rs")),
+    ("src/fit/hue_gates.rs", include_str!("fit/hue_gates.rs")),
+    ("src/fit/look.rs", include_str!("fit/look.rs")),
+    ("src/fit/pairing.rs", include_str!("fit/pairing.rs")),
+    ("src/fit/pixels.rs", include_str!("fit/pixels.rs")),
+    ("src/fit/report.rs", include_str!("fit/report.rs")),
+    ("src/fit/solve.rs", include_str!("fit/solve.rs")),
+    ("src/fit/structure.rs", include_str!("fit/structure.rs")),
+    ("src/fit/tone.rs", include_str!("fit/tone.rs")),
+    ("src/fit.rs", include_str!("fit.rs")),
+];
+
+#[cfg(test)]
+pub(crate) fn source_text() -> String {
+    SOURCE_FILES.iter().map(|(_, text)| *text).collect()
+}
+
 #[cfg(test)]
 mod tests;
 

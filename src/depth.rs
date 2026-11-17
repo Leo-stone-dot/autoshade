@@ -46,4 +46,14 @@ mod tests {
         assert!(!out.exists(), "nothing may be written when the sidecar is absent");
     }
 
+    /// The bridge spawns nothing itself: the shared run holds the model slot.
+    #[test]
+    fn the_depth_run_goes_through_the_shared_model_sidecar() {
+        let src = include_str!("depth.rs");
+        let body = src.split("pub fn estimate_depth(").nth(1).unwrap().split("#[cfg(test)]").next().unwrap();
+        assert!(body.contains("crate::run_model_sidecar_artifact("));
+        for direct in ["Command::new", "sidecar_command("] {
+            assert!(!body.contains(direct), "the bridge must not spawn through {direct}");
+        }
+    }
 }
