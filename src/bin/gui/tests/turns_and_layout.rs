@@ -526,7 +526,7 @@
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             app.ai_panel(ui);
                             sections[0] = ui.min_rect().width();
-                            app.develop_panel(ui);
+                            app.commands().develop_panel(ui);
                             sections[1] = ui.min_rect().width();
                             app.commands().retouch_panel(ui);
                             sections[2] = ui.min_rect().width();
@@ -921,7 +921,7 @@
                             let y0 = ui.min_rect().top();
                             app.ai_panel(ui);
                             let y1 = ui.min_rect().bottom();
-                            app.develop_panel(ui);
+                            app.commands().develop_panel(ui);
                             let y2 = ui.min_rect().bottom();
                             app.commands().retouch_panel(ui);
                             let y3 = ui.min_rect().bottom();

@@ -883,7 +883,7 @@ impl AutoShadeApp {
                         // fragments: a section inside Develop, a section in
                         // the middle of Retouch, and a switch in Settings.
                         self.ai_panel(ui);
-                        self.develop_panel(ui);
+                        self.commands().develop_panel(ui);
                         self.commands().retouch_panel(ui);
                     } else {
                         // Empty state with the same voice as the canvas hero:
@@ -930,7 +930,7 @@ impl AutoShadeApp {
                 // — height and its derivation live on VARIANT_STRIP_H.
                 .exact_height(Self::VARIANT_STRIP_H)
                 .show(ctx, |ui| {
-                    self.variant_strip(ui);
+                    self.commands().variant_strip(ui);
                 });
         }
 

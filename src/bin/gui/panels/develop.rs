@@ -7,7 +7,7 @@ use crate::*;
 use crate::sections::{section_active, SECTIONS};
 
 
-impl AutoShadeApp {
+impl Commands<'_> {
 
 
 
@@ -32,7 +32,7 @@ impl AutoShadeApp {
         // mid-open outcome is one preview build whose frame `finish_redevelop`
         // then discards by its base+recipe identity check. Greying the tone
         // readout during every open would be the bigger regression.
-        self.panel_view(&mut Vec::new()).histogram_ui(ui);
+        self.with_panel(|p| p.histogram_ui(ui));
         ui.add_space(SPACE_SM);
 
         // Mid-open (decode in flight) these controls would edit the STASHED
@@ -58,17 +58,15 @@ impl AutoShadeApp {
         // The section table (`sections.rs`) owns the display order, the
         // family set each ● reads, and which sections are registered custom
         // widgets. This loop is the only place the panel enumerates them.
-        let mut panel_actions = Vec::new();
         for section in SECTIONS {
             let active = section_active(&self.editor.doc().recipe, section);
             changed |= match section.draw {
                 crate::sections::SectionDraw::App(draw) => draw(self, ui, active),
                 crate::sections::SectionDraw::Panel(draw) => {
-                    draw(&mut self.panel_view(&mut panel_actions), ui, active)
+                    self.with_panel(|p| draw(p, ui, active))
                 }
             };
         }
-        self.commands().apply_actions(panel_actions);
         });
 
         if changed {
@@ -292,7 +290,7 @@ impl AutoShadeApp {
                                         self.seams.strip_name_rect = Some(resp.rect);
                                     }
                                     if resp.lost_focus() {
-                                        self.commands().commit_variant_name_buf();
+                                        self.commit_variant_name_buf();
                                         self.workspace.cards_mut().variant_name_buf = None;
                                     } else if !resp.has_focus() {
                                         resp.request_focus();
@@ -317,13 +315,13 @@ impl AutoShadeApp {
                                 } else if let Some(n) = &named {
                                     ui.label(egui::RichText::new(format!("「{n}」")).small().weak());
                                 }
-                                if let Some(a) = self.panel_view(&mut Vec::new()).variant_card_buttons(
+                                if let Some(a) = self.with_panel(|p| p.variant_card_buttons(
                                     ui,
                                     i,
                                     active,
                                     busy,
                                     VariantSurface::Strip,
-                                ) {
+                                )) {
                                     act = Some(a);
                                 }
                             });
@@ -338,7 +336,7 @@ impl AutoShadeApp {
             });
         });
         if let Some(a) = act {
-            self.commands().dispatch_variant_action(a, ui.ctx());
+            self.dispatch_variant_action(a, ui.ctx());
         }
     }
 
@@ -514,13 +512,13 @@ impl AutoShadeApp {
                         if has_actions {
                             ui.horizontal(|ui| {
                                 ui.add_space(SPACE_LG);
-                                if let Some(a) = self.panel_view(&mut Vec::new()).variant_card_buttons(
+                                if let Some(a) = self.with_panel(|p| p.variant_card_buttons(
                                     ui,
                                     i,
                                     i == active_i,
                                     busy,
                                     VariantSurface::List,
-                                ) {
+                                )) {
                                     act = Some(a);
                                 }
                             });
@@ -532,7 +530,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, K_DEVELOP_SNAPSHOT_THIS_CARD_S_DEVELOP_ONLY_AS_A_NUMBERED))
                     .clicked()
                 {
-                    self.commands().save_version();
+                    self.save_version();
                 }
                 // R24-2: a version row is 「v3 「日落偏暖」· 来自 ◭ 反推」 —
                 // the number, the user's own name, and which VARIANT the
@@ -680,7 +678,7 @@ impl AutoShadeApp {
                     self.workspace.cards_mut().version_name_buf = Some((p, n, cur.clone(), cur));
                 }
                 if let Some(n) = load {
-                    self.commands().apply_actions(vec![logic::Action::Develop(
+                    self.apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::LoadVersion(n),
                     )]);
                 }
@@ -696,7 +694,7 @@ impl AutoShadeApp {
                     {
                         self.workspace.cards_mut().version_name_buf = None;
                     }
-                    self.commands().apply_actions(vec![logic::Action::Develop(
+                    self.apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::DeleteVersion(n),
                     )]);
                 }
@@ -708,7 +706,7 @@ impl AutoShadeApp {
         // The edit-state list's card action, performed through the SAME owner
         // the strip uses — after the section's closures have released `self`.
         if let Some(a) = act {
-            self.commands().dispatch_variant_action(a, ui.ctx());
+            self.dispatch_variant_action(a, ui.ctx());
         }
         false
     }

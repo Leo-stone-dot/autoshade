@@ -459,7 +459,7 @@
              panel assertions below would pass on an empty list and prove nothing"
         );
         let seen = tall_frame(&mut app, |a, ui| {
-            a.develop_panel(ui);
+            a.commands().develop_panel(ui);
         });
         // The ● rides on the header text, so this is a prefix match — the
         // count is what is being pinned.

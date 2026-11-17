@@ -586,7 +586,7 @@
             let _ = ctx.run(input, |ctx| {
                 egui::TopBottomPanel::bottom("variants")
                     .exact_height(AutoShadeApp::VARIANT_STRIP_H)
-                    .show(ctx, |ui| app.variant_strip(ui));
+                    .show(ctx, |ui| app.commands().variant_strip(ui));
             });
             let row = app.seams.strip_row_rect.expect("the strip records its row (test seam)");
             let card = app.seams.strip_card_rect.expect("the strip records its card (test seam)");
@@ -773,7 +773,7 @@
                     let r = egui::SidePanel::left("controls")
                         .default_width(320.0)
                         .show(ctx, |ui| {
-                            egui::ScrollArea::vertical().show(ui, |ui| app.develop_panel(ui));
+                            egui::ScrollArea::vertical().show(ui, |ui| app.commands().develop_panel(ui));
                         });
                     widths.push(r.response.rect.width());
                 });

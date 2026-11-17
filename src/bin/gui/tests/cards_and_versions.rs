@@ -579,7 +579,7 @@ rationale: "stale rationale".into(),
                 // hook opens every collapsible (the brush-slider test's idiom).
                 ctx.memory_mut(|m| m.set_everything_is_visible(true));
                 egui::SidePanel::left("controls").default_width(320.0).show(ctx, |ui| {
-                    egui::ScrollArea::vertical().show(ui, |ui| app.develop_panel(ui));
+                    egui::ScrollArea::vertical().show(ui, |ui| app.commands().develop_panel(ui));
                 });
             },
         );
@@ -659,7 +659,7 @@ rationale: "stale rationale".into(),
                         let r = egui::SidePanel::left("controls")
                             .default_width(320.0)
                             .show(ctx, |ui| {
-                                egui::ScrollArea::vertical().show(ui, |ui| app.develop_panel(ui));
+                                egui::ScrollArea::vertical().show(ui, |ui| app.commands().develop_panel(ui));
                             });
                         widths.push(r.response.rect.width());
                     },
@@ -697,7 +697,7 @@ rationale: "stale rationale".into(),
             |ctx| {
                 ctx.memory_mut(|m| m.set_everything_is_visible(true));
                 egui::SidePanel::left("controls").default_width(320.0).show(ctx, |ui| {
-                    egui::ScrollArea::vertical().show(ui, |ui| app.develop_panel(ui));
+                    egui::ScrollArea::vertical().show(ui, |ui| app.commands().develop_panel(ui));
                 });
             },
         );
@@ -758,7 +758,7 @@ rationale: "stale rationale".into(),
             let _ = ctx.run(input(), |ctx| {
                 egui::TopBottomPanel::bottom("variants")
                     .exact_height(AutoShadeApp::VARIANT_STRIP_H)
-                    .show(ctx, |ui| app.variant_strip(ui));
+                    .show(ctx, |ui| app.commands().variant_strip(ui));
             });
             let (rect, enabled) = app
                 .seams.strip_apply
@@ -780,7 +780,7 @@ rationale: "stale rationale".into(),
             let _ = ctx.run(input(), |ctx| {
                 egui::TopBottomPanel::bottom("variants")
                     .exact_height(AutoShadeApp::VARIANT_STRIP_H)
-                    .show(ctx, |ui| app.variant_strip(ui));
+                    .show(ctx, |ui| app.commands().variant_strip(ui));
             });
             assert!(
                 app.seams.strip_name_rect.is_some_and(|r| r.width() > 0.0),
