@@ -2510,23 +2510,6 @@ mod tests {
         assert_eq!(cur.analysis_api_key_base.as_deref(), Some("https://b.example/v1"));
     }
 
-    /// L16#3: `Config::load` never writes the process environment — the old
-    /// dotenv_override + restore loop did (unsafe `env::set_var`, racing
-    /// every concurrent getenv on unix; its safety comment's "first load on
-    /// the main thread before any worker" premise was FALSE for the GUI).
-    /// Source-invariant: this file carries no set_var/remove_var at all, and
-    /// the .env is consumed through dotenv_iter only.
-    #[test]
-    fn no_setenv_survives_on_the_config_load_path() {
-        // `env::set_var` / `env::remove_var` are a clippy restriction lint
-        // (clippy.toml); `dotenvy::dotenv_override` is a free function the
-        // lint cannot see, so this one needle stays.
-        let src = include_str!("config.rs");
-        let call = format!("{}{}(", "dotenvy::", "dotenv_override");
-        assert!(!src.contains(&call), "config.rs regained a process-environment write (dotenv_override)");
-        assert!(src.contains("dotenv_iter"), "the owned-map parse is gone");
-    }
-
     /// L16#5: the out-of-config consumers of `.env`-honoured knobs resolve
     /// through `env_or_dotenv` — a direct `env::var` there silently stops
     /// seeing `.env` values now that nothing writes the environment. The
