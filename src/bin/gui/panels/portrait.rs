@@ -125,7 +125,7 @@ impl Commands<'_> {
         let mut intent = logic::look::LookIntent::of(logic::look::LookKind::Portrait);
         intent.kept_masks = kept;
         intent.kept_blur = self.editor.doc().recipe.lens_blur.clone();
-        self.apply_actions(vec![logic::Action::Look(intent)]);
+        self.start_look(intent);
     }
 
 
@@ -186,9 +186,7 @@ impl Commands<'_> {
             ui.label(egui::RichText::new(line).small());
         });
         if find {
-            self.apply_actions(vec![logic::Action::Portrait(
-                logic::portrait::PortraitAction::FindPeople,
-            )]);
+            self.apply_portrait(logic::portrait::PortraitAction::FindPeople,);
         }
         if look {
             self.start_portrait_look();
@@ -225,9 +223,7 @@ impl Commands<'_> {
             ))
             .changed();
         if flipped {
-            self.apply_actions(vec![logic::Action::Portrait(
-                logic::portrait::PortraitAction::SetKeepSkin(on),
-            )]);
+            self.apply_portrait(logic::portrait::PortraitAction::SetKeepSkin(on),);
         }
         let can_heal = face_raster(&self.editor.doc().recipe).is_some() && !self.workspace.busy() && self.editor.photo().src_path.is_some();
         if action_row(ui, can_heal, tr(lang, K_PORTRAIT_REMOVE_BLEMISHES))
@@ -237,9 +233,7 @@ impl Commands<'_> {
             ))
             .clicked()
         {
-            self.apply_actions(vec![logic::Action::Portrait(
-                logic::portrait::PortraitAction::RemoveBlemishes,
-            )]);
+            self.apply_portrait(logic::portrait::PortraitAction::RemoveBlemishes,);
         }
         if let Some(why) = gate {
             ui.label(egui::RichText::new(why).weak().small());
@@ -298,9 +292,7 @@ impl Commands<'_> {
                 .on_disabled_hover_text(tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP))
                 .changed();
             if toggled {
-                self.apply_actions(vec![logic::Action::Portrait(
-                    logic::portrait::PortraitAction::KeepPersonSharp(keep),
-                )]);
+                self.apply_portrait(logic::portrait::PortraitAction::KeepPersonSharp(keep),);
             }
         }
         let has_bg = self.editor.doc().recipe.masks.iter().any(|m| m.role == MaskRole::Background);

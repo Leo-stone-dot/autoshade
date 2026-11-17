@@ -39,16 +39,6 @@ impl Commands<'_> {
                     effects.extend(logic::mask_edit::apply(&mut self.editor.doc_mut().recipe, action));
                 }
                 Action::Region(action) => effects.extend(logic::region::apply(action)),
-                Action::Portrait(action) => match action {
-                    logic::portrait::PortraitAction::FindPeople => self.start_find_people(),
-                    logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
-                    logic::portrait::PortraitAction::KeepPersonSharp(on) => {
-                        if self.editor.set_keep_person_sharp(on) {
-                            self.editor.session_mut().dirty = true;
-                        }
-                    }
-                    logic::portrait::PortraitAction::SetKeepSkin(on) => self.editor.set_keep_skin(&mut self.workspace, self.lang, on),
-                },
                 Action::Develop(action) => match action {
                     logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),
                     logic::develop::DevelopAction::Stack(extra) => self.start_stack(extra),
@@ -136,6 +126,22 @@ impl Commands<'_> {
             }
         }
         self.run_effects(effects);
+    }
+
+    /// The Portraits panel's verbs.
+    pub(crate) fn apply_portrait(&mut self, action: logic::portrait::PortraitAction) {
+        match action {
+            logic::portrait::PortraitAction::FindPeople => self.start_find_people(),
+            logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
+            logic::portrait::PortraitAction::KeepPersonSharp(on) => {
+                if self.editor.set_keep_person_sharp(on) {
+                    self.editor.session_mut().dirty = true;
+                }
+            }
+            logic::portrait::PortraitAction::SetKeepSkin(on) => {
+                self.editor.set_keep_skin(&mut self.workspace, self.lang, on)
+            }
+        }
     }
 
     /// The Lens Blur section's verbs.
@@ -268,7 +274,7 @@ impl Commands<'_> {
 
     /// Plan and start one AI look: snapshot the panel prefs on this thread, let
     /// `logic::look::plan` decide, store the pending look and run the worker.
-    fn start_look(&mut self, intent: LookIntent) {
+    pub(crate) fn start_look(&mut self, intent: LookIntent) {
         let prefs = logic::look::LookPrefs {
             guide: self.aip.guide,
             style: self.aip.style_strength,
