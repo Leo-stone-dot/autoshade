@@ -6,34 +6,13 @@
 //! those three crossings live here, on purpose.
 
 use crate::logic::look::{AnalysisJob, LookIntent, LookKind, LookLine, OneClick};
-use crate::logic::{self, Action, Effect};
+use crate::logic::{self, Effect};
 use crate::*;
 
 impl Commands<'_> {
     /// Apply what the view saw the user do. One arm per domain; each arm ends
     /// in `logic::<domain>`, and the effects run at the end, in the order the
     /// logic asked for them.
-    pub(crate) fn apply_actions(&mut self, actions: Vec<Action>) {
-        let mut effects = Vec::new();
-        for action in actions {
-            match action {
-                Action::Look(intent) => self.start_look(intent),
-                Action::References(dir) => {
-                    let photo = self.editor.photo().src_path.clone();
-                    let started = logic::look::references_start(
-                        photo.as_deref(),
-                        dir,
-                        self.workspace.busy(),
-                        self.workspace.tools().analyze_inflight,
-                        self.workspace.normal().building,
-                    );
-                    self.run_effects(started);
-                }
-            }
-        }
-        self.run_effects(effects);
-    }
-
     /// The Develop panel's list and mask verbs.
     pub(crate) fn apply_develop(&mut self, action: logic::develop::DevelopAction) {
     match action {
@@ -44,8 +23,8 @@ impl Commands<'_> {
                     self.start_segment(target, label)
                 }
                 logic::develop::DevelopAction::MaskRefine(i) => self.start_mask_refine(i),
-                logic::develop::DevelopAction::MoveMaskUp(i) => self.editor.move_mask(&mut self.workspace, i, true),
-                logic::develop::DevelopAction::MoveMaskDown(i) => self.editor.move_mask(&mut self.workspace, i, false),
+                logic::develop::DevelopAction::MoveMaskUp(i) => self.editor.move_mask(self.workspace, i, true),
+                logic::develop::DevelopAction::MoveMaskDown(i) => self.editor.move_mask(self.workspace, i, false),
                 logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
                 logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
                 logic::develop::DevelopAction::DeleteVersion(n) => {
@@ -74,6 +53,20 @@ impl Commands<'_> {
     /// A box-selected AI region.
     pub(crate) fn apply_region(&mut self, action: logic::region::RegionAction) -> Vec<logic::Effect> {
         logic::region::apply(action)
+    }
+
+    /// Read this folder as the reference library, then look at the photo that
+    /// was open when it was picked.
+    pub(crate) fn apply_references(&mut self, dir: std::path::PathBuf) {
+        let photo = self.editor.photo().src_path.clone();
+        let started = logic::look::references_start(
+            photo.as_deref(),
+            dir,
+            self.workspace.busy(),
+            self.workspace.tools().analyze_inflight,
+            self.workspace.normal().building,
+        );
+        self.run_effects(started);
     }
 
     /// The AI panel's folder and generative verbs.
@@ -144,7 +137,7 @@ impl Commands<'_> {
                 if let Some(dir) = dialog.pick_folder() {
                     // The known folder goes through the same landing the
                     // view's own reference pick uses.
-                    self.apply_actions(vec![Action::References(dir)]);
+                    self.apply_references(dir);
                 }
             }
         }
@@ -161,7 +154,7 @@ impl Commands<'_> {
                 }
             }
             logic::portrait::PortraitAction::SetKeepSkin(on) => {
-                self.editor.set_keep_skin(&mut self.workspace, self.lang, on)
+                self.editor.set_keep_skin(self.workspace, self.lang, on)
             }
         }
     }
@@ -227,7 +220,7 @@ impl Commands<'_> {
                     logic::pick::Picker::Range => self.workspace.tools_mut().range_picking = None,
                     logic::pick::Picker::PointColor => self.workspace.tools_mut().point_color_picking = false,
                 },
-                Effect::DisarmTools => self.workspace.disarm_tools(&mut self.editor),
+                Effect::DisarmTools => self.workspace.disarm_tools(self.editor),
                 Effect::MarkDirty => self.editor.session_mut().dirty = true,
             }
         }

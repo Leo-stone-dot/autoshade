@@ -2,7 +2,7 @@
 
 use crate::*;
 
-impl PanelView<'_, '_> {
+impl PanelView<'_> {
     /// Left-most panel: the working-folder thumbnail gallery. Only visible rows
     /// are laid out (show_rows) and only their thumbnails are queued to decode.
     pub(crate) fn gallery_panel(&mut self, ui: &mut egui::Ui) {

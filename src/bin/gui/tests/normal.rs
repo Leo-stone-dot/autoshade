@@ -343,9 +343,9 @@
         let (mut app, _src, _scrub) = normal_photo("nokey");
         let ctx = egui::Context::default();
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0);
-        app.commands().apply_actions(vec![logic::Action::Look(logic::look::LookIntent::of(
+        app.commands().start_look(logic::look::LookIntent::of(
             logic::look::LookKind::OneClick(crate::logic::look::OneClick::Preset("natural")),
-        ))]);
+        ));
         assert!(app.workspace.busy() && app.workspace.tools().analyze_inflight);
         land_analysis(&mut app, &ctx);
         assert!(!app.workspace.busy());
@@ -843,7 +843,7 @@
         app.workspace.gal_mut().gallery = vec![src.clone()];
         app.workspace.exp_mut().dest = ExportDest::LastUsed;
         app.workspace.exp_mut().last_dir = Some(refs.clone());
-        app.commands().apply_actions(vec![logic::Action::References(refs.clone())]);
+        app.commands().apply_references(refs.clone());
         assert!(app.workspace.normal_mut().building);
         assert!(app.workspace.busy(), "the build is work: the buttons that start work wait for it");
         app.commands().start_normal_save();

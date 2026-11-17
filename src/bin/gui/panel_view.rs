@@ -14,13 +14,11 @@ use autoshade::advisor::catalogue::{family_is_active, CONTROL_FAMILIES};
 use crate::panels::develop_widgets::parametric_curve;
 use crate::panels::ai::{is_working_note, note_args, thinking_notes};
 
-pub(crate) struct PanelView<'a, 'b> {
+pub(crate) struct PanelView<'a> {
     pub(crate) editor: &'a mut Editor,
     pub(crate) workspace: &'a mut WorkspaceView,
     pub(crate) lang: Lang,
     pub(crate) aip: &'a mut AiPrefs,
-    /// The frame's action sink: a panel reports intents, the app runs them.
-    pub(crate) actions: &'b mut Vec<logic::Action>,
     /// The gallery's intents this pass reported.
     pub(crate) gallery: Vec<logic::gallery::GalleryAction>,
     /// The settings form's intents this pass reported.
@@ -33,7 +31,7 @@ pub(crate) struct PanelView<'a, 'b> {
     pub(crate) seams: &'a mut TestSeams,
 }
 
-impl PanelView<'_, '_> {
+impl PanelView<'_> {
     /// The card's ACTION buttons — ＋ archive, ▣ apply-to-Original, ✕ delete
     /// — for whichever surface is drawing the card (R24-5).
     ///
@@ -3005,11 +3003,6 @@ impl PanelView<'_, '_> {
         table: &[&dyn crate::controls::ControlWidget],
     ) -> bool {
         crate::panels::develop_forms::render_and_apply(ui, self.lang, &mut self.editor.doc_mut().recipe, table)
-    }
-
-    /// Report a batch of intents.
-    pub(crate) fn act_all(&mut self, actions: impl IntoIterator<Item = logic::Action>) {
-        self.actions.extend(actions);
     }
 
     /// Report one gallery verb; the host applies it after the pass.

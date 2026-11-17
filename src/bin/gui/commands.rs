@@ -32,14 +32,12 @@ impl Commands<'_> {
     /// with, then execute the intents it reported. The bridge exists while the
     /// large panels still draw through the command context; a panel that owns
     /// its own [`PanelView`] calls the helper directly.
-    pub(crate) fn with_panel<R>(&mut self, f: impl FnOnce(&mut PanelView<'_, '_>) -> R) -> R {
-        let mut actions = Vec::new();
+    pub(crate) fn with_panel<R>(&mut self, f: impl FnOnce(&mut PanelView<'_>) -> R) -> R {
         let mut view = PanelView {
             editor: &mut *self.editor,
             workspace: &mut *self.workspace,
             lang: self.lang,
             aip: &mut *self.aip,
-            actions: &mut actions,
             gallery: Vec::new(),
             settings: Vec::new(),
             lens: Vec::new(),
@@ -53,7 +51,6 @@ impl Commands<'_> {
         for action in develop {
             self.apply_develop(action);
         }
-        self.apply_actions(actions);
         out
     }
 }

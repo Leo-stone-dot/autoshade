@@ -147,7 +147,7 @@ impl AutoShadeApp {
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
-                    .show(ui, |ui| self.panel_view(&mut Vec::new()).analysis_output(ui));
+                    .show(ui, |ui| self.panel_view().analysis_output(ui));
             });
         self.workspace.ui_mut().show_analysis_full = open;
     }
@@ -184,7 +184,7 @@ impl AutoShadeApp {
                             .id_salt("ai_analysis_box")
                             .max_height(ANALYSIS_BOX_MAX_H)
                             .auto_shrink([false, true])
-                            .show(ui, |ui| self.panel_view(&mut Vec::new()).analysis_output(ui))
+                            .show(ui, |ui| self.panel_view().analysis_output(ui))
                     })
                     .inner;
                 #[cfg(test)]
@@ -438,7 +438,7 @@ impl AutoShadeApp {
             // them silently vacuous instead of red.
             .open(fold_open_in_tests())
             , |ui| {
-                self.panel_view(&mut Vec::new()).ai_library_status(ui);
+                self.panel_view().ai_library_status(ui);
                 self.ai_library_build(ui);
                 if !reads_a_library {
                     // Outside the disabled scope below: the sentence that
@@ -455,7 +455,7 @@ impl AutoShadeApp {
                     {
                         self.seams.ai_library_read_enabled = Some(ui.is_enabled());
                     }
-                    self.panel_view(&mut Vec::new()).ai_library_use(ui);
+                    self.panel_view().ai_library_use(ui);
                 });
             });
     }

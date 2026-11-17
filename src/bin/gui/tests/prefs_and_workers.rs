@@ -741,7 +741,7 @@
     /// live session (the previous width test only ever drove retouch_panel —
     /// develop_panel had zero frame coverage) and pins two things:
     ///   ① the Brush size slider is present in that frame — deleting the
-    ///      `self.panel_view(&mut Vec::new()).brush_size_slider(ui)` call in the session block fails here;
+    ///      `self.panel_view().brush_size_slider(ui)` call in the session block fails here;
     ///   ② the side panel's width does not grow across frames — the +8 px per
     ///      frame runaway of v0.26.1 happened in this very side panel, and this
     ///      change adds a widget to it.

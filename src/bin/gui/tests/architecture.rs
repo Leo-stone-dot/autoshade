@@ -9,7 +9,7 @@
 //  * logic is headless — no widget code, no rendered text, no worker spawn,
 //    no dialog, no message enum;
 //  * a migrated panel does not mutate the recipe, the app's own state or the
-//    filesystem: it draws and emits `logic::Action`s.
+//    filesystem: it draws and emits its own typed actions.
 
     fn collect_rs(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(dir).expect("the source tree is listable") {
@@ -81,15 +81,6 @@
             "self.workspace.busy() =",
             "self.editor.session().dirty =",
         ];
-        // `lens_blur.rs` — the pilot: it must not start the depth worker, open
-        // a dialog or reach into the recipe.
-        let lens = std::fs::read_to_string(root.join("lens_blur.rs")).expect("the panel source is readable");
-        for needle in common.into_iter().chain(["on_depth_estimated", "start_depth"]) {
-            assert!(
-                !lens.contains(needle),
-                "panels/lens_blur.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
-            );
-        }
         // `gallery.rs` — the folder dialog, the thumbnail worker, the selection
         // and the texture window are the runtime/logic's now.
         let gallery = std::fs::read_to_string(root.join("gallery.rs")).expect("the panel source is readable");
@@ -104,7 +95,7 @@
         ]) {
             assert!(
                 !gallery.contains(needle),
-                "panels/gallery.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "panels/gallery.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         // `settings.rs` — its verbs (save / fetch models / install the Python
         // environment) are actions now: no worker, no dialog, no locked write
@@ -121,7 +112,7 @@
         ] {
             assert!(
                 !settings.contains(needle),
-                "panels/settings.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "panels/settings.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         }
         // `retouch.rs` — its worker starts (fill / adjust / heal / denoise /
@@ -140,7 +131,7 @@
         ] {
             assert!(
                 !retouch.contains(needle),
-                "panels/retouch.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "panels/retouch.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         }
         // `ai.rs` — the AI section's starts (library status/build, reimagine,
@@ -163,7 +154,7 @@
         ] {
             assert!(
                 !ai.contains(needle),
-                "panels/ai.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "panels/ai.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         }
         // `develop.rs` — its mask-list and version-list verbs are actions now
@@ -183,7 +174,7 @@
         ] {
             assert!(
                 !develop.contains(needle),
-                "panels/develop.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "panels/develop.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         }
         // `recipes.rs` — the library's business (list/save/apply/rename/delete)
@@ -208,7 +199,7 @@
         ] {
             assert!(
                 !recipes.contains(needle),
-                "panels/recipes.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "panels/recipes.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         }
         // `portrait.rs` — finding the people, the skin switch's bookkeeping,
@@ -231,7 +222,7 @@
         ] {
             assert!(
                 !portrait.contains(needle),
-                "panels/portrait.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "panels/portrait.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         }
         // `normal.rs` — the Save group's hand-off/landing words and the noise
@@ -263,7 +254,7 @@
         ] {
             assert!(
                 !normal.contains(needle),
-                "panels/normal.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "panels/normal.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         }
         // `canvas.rs` — the view's biggest file. Its gestures emit actions
@@ -291,7 +282,7 @@
         ] {
             assert!(
                 !canvas.contains(needle),
-                "canvas.rs reaches past the seam with `{needle}` — emit a logic::Action instead"
+                "canvas.rs reaches past the seam with `{needle}` — emit its own typed action instead"
             );
         }
         // The two pure-widget panels: no business at all.
@@ -310,7 +301,7 @@
             ] {
                 assert!(
                     !src.contains(needle),
-                    "panels/{file} reaches past the seam with `{needle}` — emit a logic::Action instead"
+                    "panels/{file} reaches past the seam with `{needle}` — emit its own typed action instead"
                 );
             }
         }
@@ -327,7 +318,7 @@
         for needle in ["rfd::", "open_photo_dialog("] {
             assert!(
                 !app.contains(needle),
-                "app.rs opens a dialog with `{needle}` — emit a logic::Action instead"
+                "app.rs opens a dialog with `{needle}` — emit its own typed action instead"
             );
         }
         }

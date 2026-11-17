@@ -56,16 +56,6 @@ pub(crate) mod view;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-/// What the user did. Emitted by the view, applied by the facade.
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) enum Action {
-    /// Start the AI-look protocol for this verb (`logic::look::plan`).
-    Look(look::LookIntent),
-    /// Read this folder as the reference library, then look at the photo that
-    /// was open when it was picked.
-    References(PathBuf),
-}
-
 /// A short display list: the first three entries joined, with an ellipsis when
 /// there were more. Used by landings that name files in a status line.
 pub(crate) fn brief_list(v: &[String]) -> String {

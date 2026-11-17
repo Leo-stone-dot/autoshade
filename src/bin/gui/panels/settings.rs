@@ -4,7 +4,7 @@ use crate::*;
 
 
 
-impl PanelView<'_, '_> {
+impl PanelView<'_> {
     pub(crate) fn settings_ui(&mut self, ui: &mut egui::Ui) {
         let mut do_save = false;
         let mut fetch: Option<ModelRole> = None;
