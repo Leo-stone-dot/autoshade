@@ -262,7 +262,7 @@
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             // 1) Nothing imported: not a word of it on screen.
             let mut clean = AutoShadeApp { lang, ..Default::default() };
-            let seen = tall_frame(&mut clean, |a, ui| a.retouch_panel(ui));
+            let seen = tall_frame(&mut clean, |a, ui| a.commands().retouch_panel(ui));
             assert!(
                 !seen.iter().any(|t| t == tr(lang, K_RETOUCH_IMPORTED_REMOVAL)),
                 "{lang:?}: a photo with no retouch draws no group: {seen:?}"
@@ -272,7 +272,7 @@
             //    pixels were copied, so there is nothing for a model to redo.
             let mut copied = AutoShadeApp { lang, ..Default::default() };
             copied.editor.doc_mut().recipe.retouch = vec![area(SpotOrigin::LightroomHeal)];
-            let seen = tall_frame(&mut copied, |a, ui| a.retouch_panel(ui));
+            let seen = tall_frame(&mut copied, |a, ui| a.commands().retouch_panel(ui));
             assert!(
                 seen.iter().any(|t| t == tr(lang, K_RETOUCH_IMPORTED_REMOVAL)),
                 "{lang:?}: an imported area names itself: {seen:?}"
@@ -288,7 +288,7 @@
                 area(SpotOrigin::LightroomHeal),
                 area(SpotOrigin::LightroomGenerative),
             ];
-            let seen = tall_frame(&mut invented, |a, ui| a.retouch_panel(ui));
+            let seen = tall_frame(&mut invented, |a, ui| a.commands().retouch_panel(ui));
             assert!(
                 seen.iter().any(|t| t == tr(lang, K_RETOUCH_REGENERATE_THOSE_AREAS)),
                 "{lang:?}: a synthesised area gets the re-solve: {seen:?}"

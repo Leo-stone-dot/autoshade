@@ -6,7 +6,7 @@
 use autoshade::advisor::{hint_action, FitAction};
 use crate::*;
 
-impl AutoShadeApp {
+impl Commands<'_> {
 
     /// The status-bar ✕: stop the running retouch/generative task. The UI
     /// unblocks NOW; the worker sees the flag at its next checkpoint and its

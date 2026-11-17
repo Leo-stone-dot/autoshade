@@ -35,7 +35,7 @@
                 ..Default::default()
             };
             out = Some(ctx.run(input, |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| app.portrait_panel(ui));
+                egui::CentralPanel::default().show(ctx, |ui| app.commands().portrait_panel(ui));
             }));
         }
         drawn_texts(&out.unwrap().shapes)
@@ -321,7 +321,7 @@
         }
         let mut app = portrait_app(Lang::En, true);
         app.editor.photo_mut().src_path = Some(src.clone());
-        app.load_version(1);
+        app.commands().load_version(1);
         let ctx = egui::Context::default();
         for _ in 0..2 {
             let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
@@ -351,7 +351,7 @@
         assert_eq!(app.workspace.portrait().keep_skin.get(&(src.clone(), "forked-card".to_string())), Some(&false));
         // A version inside the limits reads with the switch on, and the
         // guardrail holds a later write past them.
-        app.load_version(2);
+        app.commands().load_version(2);
         assert!(app.editor.keep_skin_on(&app.workspace), "inside the limits: on");
         push_skin(&mut app);
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
@@ -405,7 +405,7 @@
         app.editor.doc_mut().recipe.masks.push(skin);
         app.editor.doc_mut().recipe.lens_blur = Some(autoshade::render::LensBlur { depth_map: "depth.png".into(), amount: 70.0, ..Default::default() });
         app.aip.grade_strength = 0.4;
-        app.start_portrait_look();
+        app.commands().start_portrait_look();
         assert!(app.workspace.busy() && app.workspace.tools().analyze_inflight);
         let (req, guidance, library) = app.workspace.normal().last_request.clone().expect("the analysis was asked");
         assert_eq!(guidance.as_deref(), Some(autoshade::advisor::presets::PORTRAIT.direction));
@@ -549,7 +549,7 @@
             // Spots found, none on the face.
             app.workspace.set_busy(true);
             let epoch = app.workspace.tools().gen_epoch;
-            app.on_retouched(&ctx, lang, epoch, Err(autoshade::retouch::NoSpotInsideLimit { found: 2 }.into()));
+            app.commands().on_retouched(&ctx, lang, epoch, Err(autoshade::retouch::NoSpotInsideLimit { found: 2 }.into()));
             assert!(!app.workspace.busy());
             assert_eq!(
                 app.workspace.status(),
@@ -745,7 +745,7 @@
         };
         let look = EditRecipe { masks: vec![skin], ..Default::default() };
         app.editor.set_keep_skin(&mut app.workspace, app.lang, false);
-        app.start_paste_to(look, Some(open.clone()), vec![open.clone(), other.clone()], false);
+        app.commands().start_paste_to(look, Some(open.clone()), vec![open.clone(), other.clone()], false);
         let ctx = egui::Context::default();
         let start = std::time::Instant::now();
         while app.workspace.busy() {

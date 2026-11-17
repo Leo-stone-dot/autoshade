@@ -6,7 +6,7 @@
 
 use crate::*;
 
-impl AutoShadeApp {
+impl Commands<'_> {
 
 
     /// The name a blank field saves under: the open photo's stem.

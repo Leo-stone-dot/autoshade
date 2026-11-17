@@ -291,7 +291,7 @@ rationale: "stale rationale".into(),
                 sel_mask: Some(3),
                 ..Default::default()
             }; view } , ..Default::default() };
-        app.load_version(1);
+        app.commands().load_version(1);
         assert!((app.editor.doc().recipe.exposure_ev - 0.75).abs() < 1e-3, "the version landed");
         assert_eq!(
             app.editor.analysis().rationale, "v1 marker rationale",
@@ -471,7 +471,7 @@ rationale: "stale rationale".into(),
 
             }; editor } , ..Default::default() };
         app.editor.reset_history(&app.workspace);
-        app.apply_to_original(1, &ctx);
+        app.commands().apply_to_original(1, &ctx);
 
         assert_eq!(app.editor.doc().active, 0, "the canvas lands on the card that was written");
         assert_eq!(app.editor.doc().variants.len(), 2, "the source card is KEPT");
@@ -523,7 +523,7 @@ rationale: "stale rationale".into(),
                 ..Default::default()
 
             }; editor } , ..Default::default() };
-        app.apply_to_original(1, &ctx);
+        app.commands().apply_to_original(1, &ctx);
         assert_eq!(app.editor.doc().variants[0].recipe.contrast, 11.0, "the negative was not overwritten");
         assert_eq!(app.editor.doc().active, 1, "and the canvas did not move");
         assert!(
@@ -834,7 +834,7 @@ rationale: "stale rationale".into(),
         // …while an async completion inserts a card ahead of it.
         app.editor.doc_mut().variants.insert(1, mk(VariantKind::Generated, "card-gen"));
         app.editor.doc_mut().active = 2;
-        app.commit_pending_names();
+        app.commands().commit_pending_names();
         assert_eq!(app.editor.doc().variants[1].name, None, "the renumbered neighbour is untouched");
         assert_eq!(
             app.editor.doc().variants[2].name.as_deref(),
@@ -973,7 +973,7 @@ rationale: "stale rationale".into(),
 
 
             }; editor } , ..Default::default() };
-        app.save_version();
+        app.commands().save_version();
         assert!(
             autoshade::store::list_versions(&src).is_empty(),
             "a generated card must not mint an empty snapshot"
@@ -990,7 +990,7 @@ rationale: "stale rationale".into(),
             id: "card-fit".into(),
             ..mk(crate::model::VariantKind::Fitted)
         }];
-        app.save_version();
+        app.commands().save_version();
         assert_eq!(autoshade::store::list_versions(&src), vec![1]);
         let meta = autoshade::store::read_version_meta(&src);
         assert_eq!(meta[0].from_kind.as_deref(), Some("fitted"));

@@ -241,7 +241,7 @@
         // off the network entirely (connection refused before any header).
         app.workspace.ui_mut().settings.image_base_url = "http://127.0.0.1:9/v1".into();
         app.workspace.ui_mut().settings.image_api_key = "typed-test-token".into();
-        app.fetch_models(ModelRole::Image);
+        app.commands().fetch_models(ModelRole::Image);
         let stale_gen = app.workspace.ui().settings.image_models.generation;
         assert!(app.workspace.ui().settings.image_models.fetching, "the flight is up");
         // The user replaces the key mid-flight — the key field's handler
@@ -255,7 +255,7 @@
         );
         assert!(!app.workspace.ui().settings.image_models.fetching, "stale or not, THE flight is over");
         // A fresh fetch's completion still installs normally:
-        app.fetch_models(ModelRole::Image);
+        app.commands().fetch_models(ModelRole::Image);
         let live_gen = app.workspace.ui().settings.image_models.generation;
         app.workspace.on_models(Lang::En, ModelRole::Image, live_gen, Ok(vec!["fresh-model".into()]));
         assert_eq!(app.workspace.ui().settings.image_models.chat, vec!["fresh-model".to_string()]);
@@ -273,7 +273,7 @@
         let mut app = AutoShadeApp::default();
         app.workspace.ui_mut().settings.image_base_url = "http://127.0.0.1:9/v1".into();
         app.workspace.ui_mut().settings.image_api_key = "typed-test-token".into();
-        app.fetch_models(ModelRole::Image);
+        app.commands().fetch_models(ModelRole::Image);
         let live_gen = app.workspace.ui().settings.image_models.generation;
         app.workspace.on_models(
             Lang::En,
@@ -347,7 +347,7 @@
         };
         // First open: no credential — nothing to probe, and the VISIT itself
         // must not spend the session's opportunity.
-        app.autofetch_models_once(&cfg);
+        app.commands().autofetch_models_once(&cfg);
         assert!(
             !app.workspace.ui().settings.image_models.autofetched,
             "an ineligible open must not consume the role's probe"
@@ -355,13 +355,13 @@
         assert!(!app.workspace.ui().settings.image_models.fetching);
         // The key arrives (saved on another surface); the NEXT open probes.
         cfg.openai_api_key = Some("typed-test-token".into());
-        app.autofetch_models_once(&cfg);
+        app.commands().autofetch_models_once(&cfg);
         assert!(app.workspace.ui().settings.image_models.autofetched, "consumed at dispatch");
         assert!(app.workspace.ui().settings.image_models.fetching, "the probe launched");
         // …and only once per session: a reopen never re-probes a metered
         // endpoint (the review verified this half held; it must keep holding).
         app.workspace.ui_mut().settings.image_models.fetching = false;
-        app.autofetch_models_once(&cfg);
+        app.commands().autofetch_models_once(&cfg);
         assert!(!app.workspace.ui().settings.image_models.fetching, "the one probe is spent");
     }
 
@@ -455,7 +455,7 @@
                         .show(ctx, |ui| {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 app.ai_panel(ui);
-                                app.retouch_panel(ui);
+                                app.commands().retouch_panel(ui);
                             });
                         });
                     // the panel's rendered width, the runaway's witness
@@ -512,7 +512,7 @@
                         egui::SidePanel::left("controls").default_width(800.0).show(ctx, |ui| {
                             egui::ScrollArea::vertical().show(ui, |ui| {
                                 app.ai_panel(ui);
-                                app.retouch_panel(ui);
+                                app.commands().retouch_panel(ui);
                             });
                         });
                     widths.push(r.response.rect.width());
@@ -753,7 +753,7 @@
             let mut app = AutoShadeApp { lang, ..Default::default() };
             // A plate is what start_mask_brush sizes its buffers against.
             app.editor.photo_mut().base_preview = Some(std::sync::Arc::new(image::DynamicImage::new_rgb8(64, 96)));
-            app.start_mask_brush(None);
+            app.commands().start_mask_brush(None);
             assert!(app.workspace.masks().mask_brush.is_some(), "{lang:?}: the brush session armed");
             let input = || egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
@@ -815,14 +815,14 @@
                 ..Default::default()
 
             }; editor } , workspace:  { let mut view = WorkspaceView::default(); *view.crop_mut() = CropState { mode: true, ..Default::default() }; *view.tools_mut() = ToolsState { clone_mode: true, ..Default::default() }; view } , ..Default::default() };
-        app.arm_brush(BrushOwner::Fill);
+        app.commands().arm_brush(BrushOwner::Fill);
         assert!(app.workspace.masks().paint_mode && app.workspace.brush_armed(BrushOwner::Fill), "arming must survive the mutual-exclusion sweep");
         assert!(!app.workspace.crop().mode && !app.workspace.tools().clone_mode, "the other tools are disarmed");
-        app.arm_brush(BrushOwner::Stamp);
+        app.commands().arm_brush(BrushOwner::Stamp);
         assert!(app.workspace.tools().clone_mode && !app.workspace.masks().paint_mode, "the Stamp paints through clone_mode");
         assert!(app.workspace.brush_armed(BrushOwner::Stamp) && !app.workspace.brush_armed(BrushOwner::Fill));
         // Phase 2: a live session + the brush put away = a cancel, not an orphan.
-        app.start_mask_brush(None);
+        app.commands().start_mask_brush(None);
         assert!(
             app.workspace.masks().mask_brush.is_some() && app.workspace.masks().mask_brush_gray.is_some() && app.workspace.masks().paint_mode,
             "sanity: the session is live and painting through paint_mode"

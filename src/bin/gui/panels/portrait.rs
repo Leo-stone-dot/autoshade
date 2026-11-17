@@ -111,7 +111,7 @@ impl Default for PortraitState {
 /// lens-corrected (the two are then different frames). `film` / `raw_source`
 /// are the canvas's (`film_short_edge`, `source_is_raw`).
 #[allow(clippy::too_many_arguments)] // the two pictures, the base's lens, the photo, and the canvas's recipe, film edge and source kind
-impl AutoShadeApp {
+impl Commands<'_> {
     /// 🤖 Find people and faces: both sidecars in one worker.
         /// The find landing: the four masks into the recipe — a mask
     /// that already has its role is re-pointed at the new raster and keeps

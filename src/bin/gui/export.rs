@@ -276,7 +276,7 @@ pub(crate) fn paste_payload(src: EditRecipe, paste_geometry: bool) -> PastePaylo
     }
 }
 
-impl AutoShadeApp {
+impl Commands<'_> {
 
 
 

@@ -68,7 +68,7 @@ impl AutoShadeApp {
                 }
             };
         }
-        self.apply_actions(panel_actions);
+        self.commands().apply_actions(panel_actions);
         });
 
         if changed {
@@ -292,7 +292,7 @@ impl AutoShadeApp {
                                         self.seams.strip_name_rect = Some(resp.rect);
                                     }
                                     if resp.lost_focus() {
-                                        self.commit_variant_name_buf();
+                                        self.commands().commit_variant_name_buf();
                                         self.workspace.cards_mut().variant_name_buf = None;
                                     } else if !resp.has_focus() {
                                         resp.request_focus();
@@ -338,7 +338,7 @@ impl AutoShadeApp {
             });
         });
         if let Some(a) = act {
-            self.dispatch_variant_action(a, ui.ctx());
+            self.commands().dispatch_variant_action(a, ui.ctx());
         }
     }
 
@@ -532,7 +532,7 @@ impl AutoShadeApp {
                     .on_hover_text(tr(lang, K_DEVELOP_SNAPSHOT_THIS_CARD_S_DEVELOP_ONLY_AS_A_NUMBERED))
                     .clicked()
                 {
-                    self.save_version();
+                    self.commands().save_version();
                 }
                 // R24-2: a version row is 「v3 「日落偏暖」· 来自 ◭ 反推」 —
                 // the number, the user's own name, and which VARIANT the
@@ -680,7 +680,7 @@ impl AutoShadeApp {
                     self.workspace.cards_mut().version_name_buf = Some((p, n, cur.clone(), cur));
                 }
                 if let Some(n) = load {
-                    self.apply_actions(vec![logic::Action::Develop(
+                    self.commands().apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::LoadVersion(n),
                     )]);
                 }
@@ -696,7 +696,7 @@ impl AutoShadeApp {
                     {
                         self.workspace.cards_mut().version_name_buf = None;
                     }
-                    self.apply_actions(vec![logic::Action::Develop(
+                    self.commands().apply_actions(vec![logic::Action::Develop(
                         logic::develop::DevelopAction::DeleteVersion(n),
                     )]);
                 }
@@ -708,7 +708,7 @@ impl AutoShadeApp {
         // The edit-state list's card action, performed through the SAME owner
         // the strip uses — after the section's closures have released `self`.
         if let Some(a) = act {
-            self.dispatch_variant_action(a, ui.ctx());
+            self.commands().dispatch_variant_action(a, ui.ctx());
         }
         false
     }

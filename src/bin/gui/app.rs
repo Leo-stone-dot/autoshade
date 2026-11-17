@@ -40,6 +40,22 @@ pub(crate) struct AutoShadeApp {
 }
 
 impl AutoShadeApp {
+    /// The verb projection: the two aggregates, the worker channel, the AI
+    /// preferences and the language — borrowed for the length of one command.
+    /// The behaviour modules implement their verbs on it, so the root stays
+    /// wiring.
+    pub(crate) fn commands(&mut self) -> Commands<'_> {
+        Commands {
+            editor: &mut self.editor,
+            workspace: &mut self.workspace,
+            services: &self.services,
+            aip: &mut self.aip,
+            lang: self.lang,
+            #[cfg(test)]
+            seams: &mut self.seams,
+        }
+    }
+
     /// The projection a panel draws through: the edit, the view state, the
     /// language and the test seams — never the app itself.
     pub(crate) fn panel_view<'a>(&'a mut self, actions: &'a mut Vec<logic::Action>) -> PanelView<'a, 'a> {
@@ -58,7 +74,7 @@ impl AutoShadeApp {
     pub(crate) fn draw_panel(&mut self, draw: impl FnOnce(&mut PanelView<'_, '_>)) {
         let mut actions = Vec::new();
         draw(&mut self.panel_view(&mut actions));
-        self.apply_actions(actions);
+        self.commands().apply_actions(actions);
     }
 
     /// One update() phase — body extracted verbatim from the eframe
@@ -127,18 +143,18 @@ impl AutoShadeApp {
             });
             if do_open && !self.workspace.busy() {
                 self.workspace.gal_mut().selected = None;
-                self.apply_actions(vec![logic::Action::Gallery(
+                self.commands().apply_actions(vec![logic::Action::Gallery(
                     logic::gallery::GalleryAction::OpenPhotoFile,
                 )]);
             }
             if do_export && self.editor.photo().src_path.is_some() && !self.workspace.busy() {
-                self.start_export();
+                self.commands().start_export();
             }
             if do_xmp && self.editor.photo().src_path.is_some() && !self.workspace.busy() {
                 // The pending-rename flush lives at save_xmp's head now (it
                 // fires while a TextEdit holds focus either way) — the Save
                 // develop BUTTON takes the same entry point (U10).
-                self.save_xmp();
+                self.commands().save_xmp();
             }
         }
         if !self.workspace.modal_up() && !transient_open && ctx.memory(|m| m.focused()).is_none() {
@@ -336,7 +352,7 @@ impl AutoShadeApp {
                 self.workspace.tools_mut().clone_mode = on;
             }
             if do_brush && self.editor.photo().src_path.is_some() {
-                self.toggle_brush_key();
+                self.commands().toggle_brush_key();
             }
             if do_linear && self.editor.photo().src_path.is_some() {
                 let armed = matches!(self.workspace.masks().placing_mask, Some((MaskKind::Linear, PlaceTarget::NewMask)));
@@ -414,7 +430,7 @@ impl AutoShadeApp {
                     // gallery scrolls to it next frame (clicks don't set this:
                     // a clicked row is visible by definition).
                     self.workspace.gal_mut().gallery_scroll_to = Some(next as usize);
-                    self.open_gallery_index(next as usize);
+                    self.commands().open_gallery_index(next as usize);
                 }
             }
             // Zoom keys act on the open photo's canvas. Fit/1:1 mirror their
@@ -444,7 +460,7 @@ impl AutoShadeApp {
                 // typed into a mask row, a version row or a variant card and
                 // never blurred still lands before anything else in the app
                 // acts.
-                self.commit_pending_names();
+                self.commands().commit_pending_names();
                 self.workspace.genai_mut().copied = Some(self.editor.doc().recipe.clone());
                 self.workspace.genai_mut().copied_from = self.editor.photo().src_path.clone();
                 *self.workspace.status_mut() = tr(
@@ -454,7 +470,7 @@ impl AutoShadeApp {
                 .to_string();
             }
             if do_paste && !self.workspace.busy() && self.workspace.genai().copied.is_some() && !self.workspace.gal().multi_sel.is_empty() {
-                self.start_paste();
+                self.commands().start_paste();
             }
         }
 
@@ -480,7 +496,7 @@ impl AutoShadeApp {
                     tr(self.lang, K_APP_BUSY_WAIT_FOR_THE_CURRENT_TASK_TO_FINISH_BEFORE),
                 );
             } else if p.is_dir() {
-                self.open_folder(p);
+                self.commands().open_folder(p);
                 if n_dropped > 1 {
                     // EVERY branch discloses the leftovers — silently eating
                     // them read as "it handled them all" (the photo branch
@@ -496,7 +512,7 @@ impl AutoShadeApp {
                 }
             } else if is_photo_path(&p) {
                 self.workspace.gal_mut().selected = None;
-                self.open_path(p);
+                self.commands().open_path(p);
                 if n_dropped > 1 {
                     // Silently eating the rest read as "it opened them all".
                     self.workspace.toast(
@@ -580,7 +596,7 @@ impl AutoShadeApp {
                         .clicked()
                     {
                         self.workspace.gal_mut().selected = None; // a one-off file isn't a gallery selection
-                        self.apply_actions(vec![logic::Action::Gallery(
+                        self.commands().apply_actions(vec![logic::Action::Gallery(
                             logic::gallery::GalleryAction::OpenPhotoFile,
                         )]);
                     }
@@ -720,7 +736,7 @@ impl AutoShadeApp {
                             ))
                             .clicked()
                         {
-                            self.start_export();
+                            self.commands().start_export();
                         }
                         // `add_enabled_ui`, not a disabled Button: menu_button
                         // returns an InnerResponse and takes no enabled flag.
@@ -732,7 +748,7 @@ impl AutoShadeApp {
                                     .clicked()
                                 {
                                     ui.close();
-                                    self.export_to_chosen_path();
+                                    self.commands().export_to_chosen_path();
                                 }
                             })
                             .response
@@ -743,7 +759,7 @@ impl AutoShadeApp {
                         .on_hover_text(tr(lang, K_APP_CTRL_S_SAVE_THIS_PHOTO_S_DEVELOP_RECIPE_A_LIGHTR))
                         .clicked()
                     {
-                        self.save_xmp();
+                        self.commands().save_xmp();
                     }
                 });
                 group(ui, &[], 2, |ui| {
@@ -752,7 +768,7 @@ impl AutoShadeApp {
                         // while open wiped everything already typed (incl. keys).
                         // Toggle semantics, matching ⌨ next door.
                         if !self.workspace.ui().show_settings {
-                            self.load_settings_form();
+                            self.commands().load_settings_form();
                         }
                         self.workspace.ui_mut().show_settings = !self.workspace.ui().show_settings;
                     }
@@ -785,7 +801,7 @@ impl AutoShadeApp {
                             ))
                             .clicked()
                     {
-                        self.cancel_generative();
+                        self.commands().cancel_generative();
                     }
                 }
                 // The unsaved marker: canvas differs from the saved develop
@@ -858,8 +874,8 @@ impl AutoShadeApp {
                         // then Normal's four groups (`panels/normal.rs` — the
                         // one-click look, fine-tune, noise, save), then the
                         // shared AI / Develop / Retouch panels.
-                        self.portrait_panel(ui);
-                        self.normal_panel(ui);
+                        self.commands().portrait_panel(ui);
+                        self.commands().normal_panel(ui);
                         // The AI area is FIRST among the shared panels (R22 #4):
                         // one first-level section holding every AI develop verb
                         // — analysis, whole-image generation, reverse-fit —
@@ -868,7 +884,7 @@ impl AutoShadeApp {
                         // the middle of Retouch, and a switch in Settings.
                         self.ai_panel(ui);
                         self.develop_panel(ui);
-                        self.retouch_panel(ui);
+                        self.commands().retouch_panel(ui);
                     } else {
                         // Empty state with the same voice as the canvas hero:
                         // centered, quiet, and it says what to do next — a
@@ -967,12 +983,12 @@ impl AutoShadeApp {
                         let w = 300.0;
                         ui.add_space((ui.available_width() - w).max(0.0) * 0.5);
                         if primary(ui, true, tr(self.lang, K_APP_OPEN_PHOTO_CTRL_O)).clicked() {
-                            self.apply_actions(vec![logic::Action::Gallery(
+                            self.commands().apply_actions(vec![logic::Action::Gallery(
                                 logic::gallery::GalleryAction::OpenPhotoFile,
                             )]);
                         }
                         if action(ui, true, tr(self.lang, K_APP_OPEN_FOLDER)).clicked() {
-                            self.apply_actions(vec![logic::Action::Gallery(
+                            self.commands().apply_actions(vec![logic::Action::Gallery(
                                 logic::gallery::GalleryAction::OpenFolder,
                             )]);
                         }
@@ -1020,11 +1036,11 @@ impl AutoShadeApp {
                             }
                         });
                         ui.separator();
-                        ui.vertical(|ui| self.after_view(ui, half, avail.y, comparing));
+                        ui.vertical(|ui| self.commands().after_view(ui, half, avail.y, comparing));
                     });
                 }
                 ViewMode::AfterOnly => {
-                    ui.vertical(|ui| self.after_view(ui, avail.x, avail.y, comparing));
+                    ui.vertical(|ui| self.commands().after_view(ui, avail.x, avail.y, comparing));
                 }
             }
         });
@@ -1034,7 +1050,7 @@ impl AutoShadeApp {
     /// update loop (round-12 decomposition).
     pub(crate) fn upd_sheets(&mut self, ctx: &egui::Context) {
         self.analysis_full_window(ctx);
-        self.recipe_library_window(ctx);
+        self.commands().recipe_library_window(ctx);
         // Settings window (provider / model / API keys). A local `open` avoids a
         // double &mut self borrow (Window::open vs the closure that reads self).
         if self.workspace.ui().show_settings {
@@ -1222,8 +1238,8 @@ impl AutoShadeApp {
             // unsaved work in the same sense (it writes straight to its own
             // advisory sidecar), but it must not die with the window either,
             // so the last boundary before the quit decision flushes the lot.
-            self.commit_pending_names();
-            self.fork_edited_card();
+            self.commands().commit_pending_names();
+            self.commands().fork_edited_card();
             let unsaved_open = self.editor.quit_guard_open_dirty();
             if self.workspace.busy() {
                 // A running export / retouch / paid AI generation dies with
@@ -1251,7 +1267,7 @@ impl AutoShadeApp {
             }
         }
         if self.workspace.ui().confirm_quit {
-            self.confirm_quit_layer(ctx);
+            self.commands().confirm_quit_layer(ctx);
         }
         // Hover-to-preview is frame-scoped: take last frame's target; the mask
         // list re-sets it below if the cursor is still on a row. The diff is
@@ -1261,7 +1277,7 @@ impl AutoShadeApp {
         // so its Esc / Enter are its own; never under the quit layer, which
         // outranks it.
         if !self.workspace.ui().confirm_quit {
-            self.fit_prompt_layer(ctx);
+            self.commands().fit_prompt_layer(ctx);
         }
 
         self.upd_shortcuts(ctx);
@@ -1283,7 +1299,7 @@ impl AutoShadeApp {
         // an ✎ card when the active card is the pristine ✨ image, BEFORE the
         // turn sync, the Before rebuild, the develop dispatch and the undo
         // commit below see it.
-        self.fork_edited_card();
+        self.commands().fork_edited_card();
         // The plates follow `recipe.quarter_turns` (R27) BEFORE the Before
         // rebuild and the redevelop dispatch below, so a turn — however it
         // arrived: the toolbar, an undo, a variant switch, a version load —
@@ -1308,7 +1324,7 @@ impl AutoShadeApp {
         }
         // A held-still pointer still needs a repaint to receive the result.
         if self.editor.session().dirty && !self.editor.scheduler().inflight {
-            self.start_redevelop();
+            self.commands().start_redevelop();
         }
         if self.editor.scheduler().inflight {
             ctx.request_repaint();
@@ -1319,7 +1335,7 @@ impl AutoShadeApp {
             self.workspace.overlay_mut().overlay_stale = true;
         }
         if std::mem::take(&mut self.workspace.overlay_mut().overlay_stale) {
-            self.refresh_mask_overlay(ctx);
+            self.commands().refresh_mask_overlay(ctx);
         }
 
         self.upd_central(ctx);

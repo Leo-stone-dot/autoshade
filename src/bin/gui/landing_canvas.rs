@@ -4,7 +4,7 @@
 
 use crate::*;
 
-impl AutoShadeApp {
+impl Commands<'_> {
 pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<anyhow::Result<OpenedBase>>) {
                 // `keep` distinguishes a fresh open from a preview-resolution
                 // re-decode (the px combo): consumed whether the open
@@ -840,7 +840,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         self.workspace.view_mut().zoom = 1.0;
                         self.workspace.view_mut().zoom_target = 1.0; // instant — no glide across photos
                         self.workspace.view_mut().pan = egui::vec2(0.5, 0.5);
-                        self.panel_view(&mut Vec::new()).disarm_tools();
+                        self.workspace.disarm_tools(&mut self.editor);
                         // The \-latch is per-photo transient state:
                         // carried across an open, the new photo arrived
                         // with every tool locked out (M21).

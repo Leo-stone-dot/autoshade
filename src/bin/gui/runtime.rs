@@ -9,7 +9,7 @@ use crate::logic::look::{AnalysisJob, LookIntent, LookKind, LookLine, OneClick};
 use crate::logic::{self, Action, Effect};
 use crate::*;
 
-impl AutoShadeApp {
+impl Commands<'_> {
     /// Apply what the view saw the user do. One arm per domain; each arm ends
     /// in `logic::<domain>`, and the effects run at the end, in the order the
     /// logic asked for them.
@@ -191,7 +191,7 @@ impl AutoShadeApp {
                     logic::pick::Picker::Range => self.workspace.tools_mut().range_picking = None,
                     logic::pick::Picker::PointColor => self.workspace.tools_mut().point_color_picking = false,
                 },
-                Effect::DisarmTools => self.panel_view(&mut Vec::new()).disarm_tools(),
+                Effect::DisarmTools => self.workspace.disarm_tools(&mut self.editor),
                 Effect::MarkDirty => self.editor.session_mut().dirty = true,
             }
         }

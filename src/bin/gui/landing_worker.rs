@@ -4,7 +4,7 @@
 
 use crate::*;
 
-impl AutoShadeApp {
+impl Commands<'_> {
 pub(crate) fn on_style_built(&mut self, lang: Lang, outcome: StyleBuildOutcome) {
     self.workspace.ai_mut().style_build_inflight = false;
     self.workspace.ai_mut().style_build_progress = None;

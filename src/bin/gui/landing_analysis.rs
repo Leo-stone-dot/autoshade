@@ -4,7 +4,7 @@
 
 use crate::*;
 
-impl AutoShadeApp {
+impl Commands<'_> {
 /// `Msg::Opened` landing — body extracted verbatim from the
 /// poll_workers pump (round-12 decomposition; indentation kept).
     /// `Msg::Analyzed` landing — body extracted verbatim from the

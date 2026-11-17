@@ -165,7 +165,7 @@
         assert!(!truncated.iter().any(|n| matches!(n, FitNote::MaskRefinement { .. })));
         for lang in [crate::i18n::Lang::En, crate::i18n::Lang::Zh] {
             for note in &truncated {
-                let line = AutoShadeApp::render_fit_note(lang, note);
+                let line = Commands::render_fit_note(lang, note);
                 assert!(line.contains("XMP"));
                 assert!(!line.contains("global part only") && !line.contains("全局部分"));
                 assert!(!line.contains("omitted from classic XMP"));

@@ -4,7 +4,7 @@
 
 use crate::*;
 
-impl AutoShadeApp {
+impl Commands<'_> {
 
 
     /// Rescan the photo's develop dir for version snapshots (cached in

@@ -4,7 +4,7 @@
 
 use crate::*;
 
-impl AutoShadeApp {
+impl Commands<'_> {
 /// Decode a variant's retouched master off-thread — a 61 MP TIFF takes
 /// seconds, so the UI thread never does this inline — and install it at
 /// `preview_edge`, like every other master install (open: `load_active`'s

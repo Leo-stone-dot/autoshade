@@ -84,7 +84,7 @@ pub(crate) fn panel_skin_seed(
     }
 }
 
-impl AutoShadeApp {
+impl Commands<'_> {
 
 pub(crate) fn start_find_people(&mut self) {
         if self.workspace.busy() {

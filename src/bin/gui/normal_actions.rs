@@ -12,7 +12,7 @@ pub(crate) fn folder_name(p: &std::path::Path) -> String {
     p.file_name().map_or_else(|| abs_display(p), |n| n.to_string_lossy().into_owned())
 }
 
-impl AutoShadeApp {
+impl Commands<'_> {
 
     /// The paste half of 「apply to every photo」 landed: render them all into
     /// `dest`, or leave the paste's own error standing.
