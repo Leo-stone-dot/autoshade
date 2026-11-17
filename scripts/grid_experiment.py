@@ -40,7 +40,7 @@ OCCUPANCY_MIN = 8.0
 def configure(sy: int, occupancy_min: float) -> None:
     """Re-shape the grid BEFORE any `GridSystem` is built. Production
     (`src/fit_field.rs`) refines this experiment's 8 vertex rows and scales
-    the occupancy floor with the refinement; `field_check.py` mirrors that
+    the occupancy floor with the refinement; the NumPy cross-check probe mirrors that
     here so the two solvers see one system. The experiment's own runs keep
     the module defaults."""
     global SY, VERTICES, OCCUPANCY_MIN

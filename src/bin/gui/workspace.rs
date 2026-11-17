@@ -358,15 +358,7 @@ impl WorkspaceView {
         &mut self.ai
     }
 
-    #[cfg(test)]
-    pub(crate) fn busy_mut(&mut self) -> &mut bool {
-        &mut self.busy
-    }
 
-    #[cfg(test)]
-    pub(crate) fn curve_channel_mut(&mut self) -> &mut usize {
-        &mut self.curve_channel
-    }
 
     pub(crate) fn exp(&self) -> &ExportState {
         &self.exp
@@ -634,8 +626,6 @@ impl WorkspaceView {
             return painted;
         }
         let painted = self.masks().mask_paint.as_ref().is_some_and(|m| {
-            #[cfg(test)]
-            self.overlay().mask_presence_scans.set(self.overlay().mask_presence_scans.get() + 1);
             m.pixels().any(|p| p[3] > 10)
         });
         self.masks().mask_painted.set(Some(painted));
@@ -748,8 +738,6 @@ impl WorkspaceView {
             if let Some(p) = a.painted.get() {
                 return p;
             }
-            #[cfg(test)]
-            self.overlay().mask_presence_scans.set(self.overlay().mask_presence_scans.get() + 1);
             let p = a.canvas.pixels().any(|px| px[3] > 10);
             a.painted.set(Some(p));
             p
@@ -846,10 +834,6 @@ impl WorkspaceView {
 
     /// The save window's answer (`None` = cancelled).
     pub(crate) fn pick_save_file(&mut self, name: String) -> Option<PathBuf> {
-        #[cfg(test)]
-        if let Some(pick) = self.normal_mut().file_pick.take() {
-            return pick;
-        }
         let mut dlg = rfd::FileDialog::new().add_filter("jpg", &["jpg"]).set_file_name(name);
         if let Some(d) = self.exp().last_dir.clone().filter(|d| d.is_dir()) {
             dlg = dlg.set_directory(d);
@@ -862,10 +846,6 @@ impl WorkspaceView {
     pub(crate) fn apply_all_dest(&mut self) -> Option<PathBuf> {
         if let Some(d) = self.export_dest_dir() {
             return Some(d);
-        }
-        #[cfg(test)]
-        if let Some(pick) = self.normal_mut().folder_pick.take() {
-            return pick;
         }
         self.pick_batch_folder()
     }
@@ -883,10 +863,7 @@ impl WorkspaceView {
 
     /// Glide the zoom one step toward its target — run BEFORE any layout
     /// reads it, so the canvas, the % readout and the pan clamp all see one
-    /// value. Extracted as the testable seam (L16-10): tests used to drive
-    /// the pure glide_step while the update-loop call could be deleted with
-    /// every test green; this method IS the behaviour now, and update() is
-    /// one call.
+    /// value. The update loop calls this once before any layout reads it.
     pub(crate) fn apply_zoom_glide(&mut self, ctx: &egui::Context) {
         if self.view().zoom != self.view().zoom_target {
             let dt = ctx.input(|i| i.stable_dt);

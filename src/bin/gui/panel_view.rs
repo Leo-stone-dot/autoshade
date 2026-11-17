@@ -1,7 +1,7 @@
 //! What a panel may touch: a projection of the aggregates, never the app.
 //!
 //! A panel draws with the edit (the widgets that own a recipe vector — the
-//! curve editor — mutate it), the view state, the language and the test seams.
+//! curve editor — mutate it), the view state and the language.
 //! It cannot reach the workers, the services or another panel's methods: the
 //! type simply does not carry them.
 
@@ -29,8 +29,6 @@ pub(crate) struct PanelView<'a> {
     pub(crate) develop: Vec<logic::develop::DevelopAction>,
     /// The variant strip's intents this pass reported.
     pub(crate) variants: Vec<VariantAction>,
-    #[cfg(test)]
-    pub(crate) seams: &'a mut TestSeams,
 }
 
 impl PanelView<'_> {
@@ -41,29 +39,20 @@ impl PanelView<'_> {
     /// edit-state list grew the same three buttons: a card action must mean
     /// one thing and be implemented once, or the two lists answer 「what does
     /// ✕ do here」 differently the first time either is touched. The strip
-    /// keeps the rename box (see [`VariantSurface`]).
+    /// keeps the rename box.
     ///
     /// Returns the deferred action; the caller performs it through
     /// `dispatch_variant_action` after the layout closure has released `self`.
-    // `surface` decides only which headless seam records the row, so it is
-    // genuinely unused in a release build — the alternative (two near-copies
-    // of this function) is the thing the extraction exists to remove.
-    #[cfg_attr(not(test), allow(unused_variables))]
     pub(crate) fn variant_card_buttons(
         &mut self,
         ui: &mut egui::Ui,
         i: usize,
         active: bool,
         busy: bool,
-        surface: VariantSurface,
     ) -> Option<VariantAction> {
         let lang = self.lang;
         let kind = self.editor.doc().variants[i].kind;
         let mut act: Option<VariantAction> = None;
-        // Which glyphs this row actually laid out — the list surface's test
-        // seam, since it has no rects of its own to assert on.
-        #[cfg(test)]
-        let mut drawn: Vec<&str> = Vec::new();
         // R24-2 (user decision ②, in place of save-as-you-go snapshots): a
         // one-click archive entry point ON the card whose develop it
         // snapshots. Active card only — the button acts on the LIVE canvas,
@@ -75,15 +64,12 @@ impl PanelView<'_> {
         // canvas then still holds the OUTGOING photo's develop, and the
         // snapshot would land it in the incoming photo's store. Same rule the
         // Versions section applies to its own copy.
-        if active {
-            #[cfg(test)]
-            drawn.push("＋");
-            if glyph(ui, !busy, "＋")
+        if active
+            && glyph(ui, !busy, "＋")
                 .on_hover_text(tr(lang, K_DEVELOP_SNAPSHOT_THIS_CARD_S_DEVELOP_ONLY_AS_A_NUMBERED))
                 .clicked()
-            {
-                act = Some(VariantAction::SaveVersion);
-            }
+        {
+            act = Some(VariantAction::SaveVersion);
         }
         // R24-3 (#7) 「apply to Original」, on the ACTIVE card for the same
         // reason ＋ is: it copies the LIVE canvas. Two concepts the hover keeps
@@ -105,15 +91,6 @@ impl PanelView<'_> {
                 tr(lang, K_DEVELOP_A_GENERATED_VARIANT_S_LOOK_LIVES_IN_ITS_PIXELS_T)
             };
             let resp = glyph(ui, can && !busy, "▣").on_hover_text(hover);
-            #[cfg(test)]
-            drawn.push(if can && !busy { "▣" } else { "▣(off)" });
-            #[cfg(test)]
-            if surface == VariantSurface::Strip {
-                // The STRIP owns this seam: a full frame draws both surfaces,
-                // and letting the list overwrite it would silently retarget
-                // every existing assertion at the other widget.
-                self.seams.strip_apply = Some((resp.rect, can && !busy));
-            }
             if resp.clicked() {
                 act = Some(VariantAction::Apply(i));
             }
@@ -136,14 +113,6 @@ impl PanelView<'_> {
                 .clicked()
         {
             act = Some(VariantAction::Delete(i));
-        }
-        #[cfg(test)]
-        if self.editor.doc().variants.len() > 1 && kind != VariantKind::Original {
-            drawn.push(if armed { "✕?" } else { "✕" });
-        }
-        #[cfg(test)]
-        if surface == VariantSurface::List {
-            self.seams.edit_list_actions.push(format!("{i}:{}", drawn.join("")));
         }
         act
     }
@@ -646,11 +615,6 @@ impl PanelView<'_> {
     }
     pub(crate) fn brush_size_slider(&mut self, ui: &mut egui::Ui) {
         let lang = self.lang;
-        // The band the slider occupies, read off the layout cursor before and
-        // after — a wrapper (scope/horizontal) would be one more thing that
-        // can move the geometry the width tests pin. Test seam only.
-        #[cfg(test)]
-        let before = ui.cursor();
         // The radius is live tool state, never a recipe field: no dirty flag,
         // no redevelop — a change only flashes the ring on the canvas.
         let mut radius = self.workspace.masks().brush;
@@ -690,16 +654,6 @@ impl PanelView<'_> {
             1.0,
             tr(lang, K_RETOUCH_HOW_MUCH_ONE_PASS_LAYS_DOWN_100_FULL_STRENGTH_AT),
         );
-        #[cfg(test)]
-        {
-            // x from the Ui's USED region (cursor().max.x can be infinite in an
-            // unbounded layout), y from the cursor the slider just advanced.
-            let used = ui.min_rect();
-            self.seams.brush_slider_rect = Some(egui::Rect::from_min_max(
-                egui::pos2(used.left(), before.top()),
-                egui::pos2(used.right(), ui.cursor().top()),
-            ));
-        }
     }
     /// The selected mask's geometry half: the name/verb row, the radial knobs,
     /// the raster tools, the composed shapes and the range editor — every edit

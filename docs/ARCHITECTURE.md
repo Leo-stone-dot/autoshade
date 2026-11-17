@@ -211,618 +211,9 @@
 > experimental generative edits, an optional pixel-**heal** retouch mode (§4.7)
 > the deterministic look **reverse-fit** (§4.8) and the local server's refusal
 > model (§4.9).
-> Every plain `cargo test` compiles the tests at opt-level 2 (`[profile.test]` in
-> Cargo.toml, since 2026-09-11) with debug assertions and overflow checks kept on;
-> unoptimised the library suite took 4014 s on the 16-thread release machine,
-> optimised 325 s (`scripts/release_battery.sh` already ran `--release`, so the
-> slow trips were the lane, merge and CI debug-asserts ones).
-> The battery is one command, `scripts/release_battery.sh`: a **default** lane
-> (`cargo test`, the corpus variable unset), a **gui** lane (the
-> `autoshade-gui` bin under the `gui` feature) and a **calib** lane (the
-> library a second time with `AUTOSHADE_FIT_CALIBRATION_DIR` at the p36-p39
-> corpus and `--nocapture`, which is the only way a skipped test's own line
-> reaches the transcript at all), each in its own target and data directory
-> and all three in parallel. Both library lanes run the suite as ONE PROCESS
-> PER TOP-LEVEL MODULE (`lib_by_module`): an endpoint-security sensor on the
-> release machine (CrowdStrike Falcon) terminates a single process that runs
-> the whole suite — its own event channel says so, ID 9 "terminated because
-> malicious behavior was detected", at the second of every one of eleven
-> deaths on 2026-09-02 (exit status `0xE0000027`; the suite writes and runs
-> sidecar stubs, spawns copies of itself, kills job objects and hard-links
-> files, a malware-shaped chain to a behavioural model) — while any module
-> alone stays under its threshold (37 of 37 measured). The module list is
-> the harness's own `--list`, every name runs exactly once, and the counts
-> are summed by suite into the one `test result:` line the gate reads; the
-> CLI, contract and doc-test suites run as cargo runs them. It refuses to
-> start at all when the corpus is
-> absent, because a battery whose corpus-gated tests skip is green for the
-> wrong reason; it writes a `=== name ===` transcript that
-> `scripts/check_docs.py --gates` reads the counts and the lane set back out
-> of, and it prints the by-name test-set difference against a saved baseline.
-> After the lanes it runs three script gates — `check_text.py`, the font
-> subset check and, since 2026-10-02, `check_doc_drift.py` (every path, code
-> symbol, link and tier count the living documents name exists in the tree;
-> CI's `docs` job runs it on every push) — and a gate that exits non-zero
-> fails the battery like a lane.
-> `scripts/roundtrip_gate.py` is an optional developer instrument (Photoshop
-> with Camera Raw, driven through `scripts/acr_render.ps1`), not part of the
-> release battery.
-> 1790 library + 28 CLI + 302 GUI + 2+2 contract tests are enumerated in the GUI
-> build; the library result is 1775 pass + 15 `#[ignore]`d forensic probes and
-> the GUI result is 297 pass + four ignored (an explicit scratch-recipe export
-> probe and the offline panel and window screenshots) in the ordinary battery. The one CLI name added for v1.6.2 is the `--negative`
-> refusal pair (a RAW source, a baked negative); the library and GUI lists are
-> v1.6.1's. For v1.6.3, four library names (decode: the 16-bit profile lattice
-> hands an identity transform its pixels back, a file tagged with the engine's
-> own sRGB profile reads back bit for bit; pipeline: a pixel master carries the
-> working space's tag and reads back exactly; denoise: a deep baked denoise
-> master carries the working space's tag) and one CLI name (a baked `match`
-> source is fitted under the calibration its own saved develop carries); the
-> GUI list is v1.6.1's. For v1.6.4, three GUI names (every side-panel text verb
-> is laid in a cell and the three sections align; each tool keeps its own
-> painted area; arming a brush sweeps the other tools and putting it away ends
-> a mask session — this last replacing the R22-3 pin on the retired 「Paint
-> mask」 checkbox, so +3 / −1 by name against v1.6.3). For v1.6.5, one library
-> name (the dark halo digs with the pixel's own luminance — the measured
-> sharpening law's luminance-bound dark cap); the CLI list is v1.6.3's. For
-> v1.6.7, one GUI name (the reverse-fit solves from the picked source card —
-> automatic, the ▣ card, another ◈ card, and a pick that is not a source or
-> is gone falling back); the library and CLI lists are v1.6.6's. For v1.7.0,
-> three library names (a fill layer's composite at its own size and resampled,
-> the develop drawing a layer / skipping an off or unreadable one while an
-> export refuses it, and the layer list's round trip and clamp) and three GUI
-> names (the From menu ending on the verb row's edge, the AI title out-ranking
-> its folds under two group heads with no separators left in the side panels,
-> and a fill landing as a layer on its own card), one GUI name retired (the
-> fill landing as a new ✨ card). For v1.8.0, one CLI name (the manual's CLI
-> synopsis matches every subcommand's clap flags — the doc-drift gate's half
-> that needs the clap tree), six library names (a fill levelled onto its
-> surroundings, pull-push keeping known cells and filling holes from their
-> rim, the found area being the changed block and not the drift, a sky-sized
-> edit read as the edit, a maskless edit sending no mask and layering only
-> what changed, and the ignored tuning bench on real answers) and two GUI names
-> (no side-panel text runs under the scrollbar, and the ignored offline panel
-> screenshots). For v1.17.1, by name against the v1.17.0 battery: library
-> +8 / −0 — the 8 added: 3 in `xmp` (our own sidecar over a Lightroom base
-> reads back as the develop it carries, a later Lightroom edit to a
-> base-carried key still wins, a written record that does not verify is
-> disclosed and dropped), 2 in `fit_field` (a channel clipped in both frames
-> testifies and keeps its colour, the engine renders the analyzer's field bit
-> for bit), 2 in `fit_zoned` (the bands replace the single zone's account too,
-> a zoned fit's confidence is read on the render that ships), 1 in `fit` (the
-> grade wheels obey the strength budget); nothing removed; GUI +0 / −0;
-> CLI 26 → 26. For
-> v1.17.0, by name against the v1.16.0 battery: library
-> +92 / −22 — the 92 added: 44 in `render` (the one develop law and the
-> profile stage as colour data, the base curve as every recipe's start, the
-> point curve as one law, chromatic aberration by its own knots, the linear
-> and radial mask handles under lens geometry, the Color tint), 13 in `fit`
-> (the white balance that takes only the colour change every tonal region
-> shares and the split tone that goes to the grade wheels, the cast-to-white-
-> balance hand-off walk, the two-temperature pair, the mixer's band hue and
-> its withdrawals, the p41 pin under the brightness-common white balance),
-> 7 in `dcp`, 6 in `xmp` (profile strengths named with their profile, the
-> tint keys), 6 in `fit_zoned`, 5 in `lensmeta`, 5 in `lcp`, 4 in `pipeline`
-> (the target paired in the corrected frame), 1 each in `recipe` and
-> `fit_field`; the 22 removed: 15 in `render` (the profile's own tone stage
-> and baked Look halves, the composite chromatic-aberration zoom, and the
-> mask-handle tests the lens-geometry rewrite replaced), 5 in `fit` (two
-> hand-off premises re-derived as the walk tests, the mixer-bound tests
-> re-derived as withdrawals, and the test that the mixer never rotates a
-> band — it now does), and 2 in `pipeline` (pairing in the sensor frame,
-> replaced by pairing in the corrected frame); GUI +5 / −0 (the prompt after
-> 「AI generate」); CLI 26 → 26. For
-> v1.16.0, by name against the v1.15.1 battery: library
-> +5 / −0 — all 5 in `pipeline` (a lens-corrected target is paired in the
-> sensor frame; an uncorrected target keeps its evidence and drops the
-> profile geometry; the ring outside a moved target is absent, not a
-> refuser; a calibration with no geometry leaves the pair as it was; no zone
-> pair weight survives where the target is absent); GUI +0 / −0; CLI 25 → 26
-> (`apply` with a sidecar stamps the lens profile the desktop app stamps). For
-> v1.15.1, by name against the v1.15.0 battery: library
-> +7 / −0 — 3 in `fit` (the mixer stage's do-no-harm loop and the
-> mixer-against-its-absence loop stop at the 16-round bound when nothing
-> descends; a handover white-balance candidate refused by the stage's gates
-> from the public fit entry), 2 in `pipeline` (a store root above the
-> photo's folder does not open the library; the refusal hints name the
-> configured delivery folder) and 2 in `xmp` (a read without a photo never
-> keeps an unanchored raster path; a photo-less merge still preserves an
-> untouched import with a bare raster); GUI +3 / −0 (redo after switching
-> the skin guard on turns it back on; undo and redo of a value edit keep the
-> switch the user set; a new edit after undoing the switch-on drops its
-> redo); CLI unchanged. For
-> v1.15.0, by name against the v1.14.0 battery: library
-> +21 / −0 — 3 in `fit` (the do-no-harm loop descends when the handover
-> would re-raise saturation, stops at its bound when nothing descends, and a
-> handover white balance the stage would shrink is refused above default
-> strength), 3 in `retouch` (the limit mask keeps the spots whose centres it
-> holds, heals the spot inside it and leaves the one outside, and without a
-> limit the heal is byte-identical), 3 in `store` (depth, protect and layer
-> paths refused at load like a mask path, round-tripping relative, frozen by a
-> version snapshot), 3 in `pipeline` (a relative out inside the photo's own
-> folder refused, an analyzed develop over a generated master clearing the
-> projection, the write path naming the global controls the sidecar cannot
-> carry), 2 in `segment` (a RAW source's mask frame is its sensor develop and
-> its cache key names that frame), 2 in `serve` (an already-denoised card not
-> denoised again on export; the web develop path resolving AI masks before it
-> renders), 1 each in `denoise` (both denoise bridges wait for the model
-> slot), `embed` (the face bundle has a copy of ours), `face` (the skin seed
-> taken from the developed frame it is matched on), `segment` again
-> (`segment_file` waits for the model slot) and `xmp` (the payload carries
-> depth, protect and layer paths bare and refuses a share); GUI +13 / −0 (the
-> blemish remover greyed without a face and healing held to the face with the
-> landing counting the spots; apply-to-every-photo replacing unsaved work left
-> on another photo; the AI portrait look, a paste and entering Portraits all
-> holding the skin limits on disk and never changing a value pushed in
-> Landscape; undo to an edit past the limits keeping redo; reading the
-> reference folder locking the work and landing on its own photo; the noise
-> switch keeping the look's undo history; a search that finds no face taking
-> the old face masks away; a Normal save remembering its folder; a Lightroom
-> AI mask and a face intent without a raster re-derived on open and on export;
-> the skin seed sampled from the frame the recipe develops before the Skin
-> mask); CLI unchanged. For
-> v1.14.0, by name against the v1.13.0 battery: library
-> +24 / −0 — 14 in `face` (a sidecar result parses and a malformed one is
-> refused whole, the face and eyes masks fill, feather and union every face
-> and land in the same place at any size, a concave outline keeps its notch,
-> the skin seed and the four portrait masks, the skin guardrail's limits and
-> which masks it holds, face intents outlined once and cached or taken out
-> and named when there is no face, a face intent surviving the recipe file's
-> path anchoring, a missing sidecar named with its override, the run going
-> through the shared model sidecar), 4 in `render` (a blur without protection
-> draws the pixels it drew before, a protect mask keeps its white sharp, the
-> develop reads the protect mask and never blurs past a missing one, the
-> field is absent unless used), 2 in `recipe` (every mask role round-trips;
-> an older reader refuses a portrait role by name), 2 in `advisor` (portrait
-> mask intents resolve locally by role; the portrait look asks for the
-> portrait masks under the guardrail), 1 in `pipeline` (a numbered claim
-> counts up beside the name and never replaces) and 1 in `xmp` (portrait
-> roles round-trip and an unknown role tag reads as custom); GUI +13 / −2
-> (the Portraits panel's four groups, its place at the top of the sidebar,
-> the greyed groups without a face, every control writing its field on its
-> role, the found masks landing and refreshing in place, the guardrail on
-> user and AI writes and a saved edit beyond the limits opening unchanged,
-> the AI portrait look; Normal's second save numbered and never replacing,
-> a save into the photo's own folder refused plainly, the noise switch being
-> the Retouch denoise and round-tripping, the marker following the card on
-> screen, the noise lines saying it takes a moment — the last two replacing
-> the refusal-to-replace and applied-at-save names); CLI unchanged. For
-> v1.13.0, by name against the v1.12.0 battery: library
-> +49 / −3 — 29 in `fit_zoned` (the local-contrast stage's band readings and
-> refusals, the shaped ramp bands and their partitions, the boundary judged on
-> its mean, the distribution-matched tone arm, the footed cell share, the
-> one-code colour step, an alpha dip that is not a boundary; three subzone
-> names retired for the ones that replaced them), 9 in `fit` (the hand-off of
-> a hue fan to the white balance and its tie-break, the chromaticity vouch, a
-> sliver that does not veto, the share a refused white balance ships, the
-> spline refinement), 5 in `advisor` (the unlocked nullable controls, the
-> mask intents, the six presets), 2 in `library` (a second library file by
-> name), 2 in `pipeline` (the adjust envelope, the carried unlocked controls),
-> 1 each in `fit_field` and `render`; GUI +20 / −1 (the mode page, the Normal
-> mode's four groups and their plain words, the AI area's five folds replacing
-> the four); CLI unchanged. For
-> v1.12.0, by name against the v1.11.0 battery: library
-> +1 / −0 (`pipeline`: every pixel master is claimed in the store's masters
-> folder, never the delivery folder) and GUI +2 / −0 (a ▣ card whose master
-> was deleted works from the photo file again; no grid button reaches past
-> the narrowest panel, laid out in the app's real fonts); CLI unchanged. For
-> v1.11.0, by name against the v1.10.0 battery: library
-> +7 / −0 — six in `image_endpoint` for the custom image-edit template (the
-> settings example parses, the painted area reaches a provider with no mask
-> parameter as a red-marked copy only when there is one, placeholders expand
-> once, templates that could misroute the key are refused, replies read by
-> pointer or as the body, the answer resized only at the same aspect) and one
-> in `generative` (one JSON POST with the template filled in, and the
-> subscription bridge still sent OpenAI's call); GUI and CLI unchanged. For
-> v1.10.0, by name against the v1.9.0 battery: library
-> +5 / −0 — four in the OpenAI provider for the image role over Chat
-> Completions (the fallback from a missing `/responses`, the learned family
-> not probed again, an explicit Chat family that drops a refused contract,
-> the extractors reading the Chat shape) and one in `openai_models` for the
-> tiers and the vision flag a listing names; GUI +1 / −0 (the listing's
-> capabilities reaching the pickers); CLI 25 unchanged. For v1.9.0, by name
-> against the v1.8.0 battery: library
-> +26 / −160 — 143 names retired with the modules the reference library
-> replaced (style 106, mask_habit 29, style_cache 5, content_cache 3) and 17
-> with the style index's callers (pipeline 8, describe 4, embed 2, and one
-> each in serve, the judge and the OpenAI provider); the 26 added are the
-> reference library's 11, the lens blur's 7 (render 5, depth 2), pipeline's 4
-> (the either/or guide among them) and one each in serve, describe, the judge
-> and the OpenAI provider. GUI +20 / −7 (the seven renamed or replaced with the
-> reference library, the colour themes and the controls panel's width), CLI
-> +1 / −4 (the four `style-query` names retired with the command, one for
-> `library-search`'s notes). Counts
-> refreshed 2026-09-24 for v1.6.1 (the
-> 2026-09-24 audit's findings closed, issues #6–#14): +81 / −1 by name against
-> the v1.6.0 tag (`00d3d09`), listed by the test harness itself on both trees
-> (the v1.6.0 list saved on its release day) — eighty-one library names: the
-> audit sessions' fifty-five (advisor: a refine echoing a base mask name keeps
-> it byte for byte, in the client and through projection, a refusal part is the
-> model's own failure and not a shape mismatch, a JSON body past the cap is
-> reported as over the cap, a non-UTF-8 status body still reaches the
-> negotiation; config: a non-UTF-8 settings file is handed to the rescue with
-> its bytes intact; correspond: two fits in one process stage under distinct
-> names; dcp: table dimensions that overflow usize are refused as such; decode:
-> decoder and baked-reader construction each have one door; describe: an
-> unusable batch is refused and its scratch removed, the description bound holds
-> at the cap with a gap pending, the water fill fills the cap when the own group
-> is the largest; embed: a vocabulary score that is not a number is refused by
-> name, an unusable answer is refused and its scratch removed at every door;
-> fit: a luma-range label names the bins actually folded, the Atmosphere luma
-> veto withdraws the white-balance clamp fact with the white balance; zoned:
-> every typed free-mask refusal reaches the ledger under its label, a plane of
-> another geometry is skipped instead of indexing past the partition;
-> generative: the flex size never exceeds the ratio bound; pipeline: a
-> directory first met past the depth cap is still scanned from a shallower
-> path, the domain note describes the recipe after the carry-over; rationale: a
-> URL scheme is not a drive letter, exit codes are read from the word exit;
-> recipe: a colour field that lies about its shape neither renders nor survives
-> clamp, clamp bounds the camera profile and the creative look like everything
-> else; render: the LR pack lists only the spelling its readers open, a
-> smallest eigenvalue a hair below zero is rounding and not a refusal, Level on
-> a 3:2 frame keeps right angles right, Vertical with no vertical point is
-> refused and not answered sideways, the tone lookup passes white through and
-> starts where the curve does, a RAW without a colour matrix names the missing
-> matrix, the engine's active flag reads the render's own noise gate; retouch:
-> a spot with no room for a donor is left untouched and not counted; serve: a
-> corrupt central recipe outranked by a legacy copy is disclosed, a non-UTF-8
-> request body is the client's error; stack: the residual field is read from
-> split planes bit for bit; store: a gallery import restores the .bak survivor
-> before publishing legacy bytes, a resume that lost the race copies nothing
-> over the finished adoption, a wait-mode touch queues behind a held adoption
-> lock, deleting a version that does not exist leaves no marker and burns
-> nothing; style: a build without the description pass carries the previous
-> prose forward, a build without vectors keeps the stamp of the looks it merges
-> over, a look build that fails early leaves no vocabulary scratch, a manifest
-> that cannot be written still closes the describe stage, a stale vocabulary
-> strips the RAW half of its scores and tags, a vector from another checkpoint
-> is refused at the digest door too, no hubness is named for a pair with no
-> cosine, only a build that staged frames rewrites the exemplar cache; xmp: a
-> claimed name whose write fails is released and not left half-written, a
-> recipe that inflates past the ceiling is refused as too large and not as
-> corrupt, a shared raster that cannot be embedded is a loss for every mask that
-> names it, a conflicting crs binding discloses no mask or global losses, a
-> rotated left-over-right crop the reader accepts is not disclosed, an
-> unmodelled key is named whatever XML whitespace precedes its equals sign, the
-> crop-overshoot note counts pixels of the straightened frame) and the
-> close-out's twenty-six (advisor: a judge reads "too weak" as a push and not
-> a pull-back, a chat refusal is named as a refusal; decode: a TIFF profile tag
-> of the wrong type is a hard error and not an untagged file; fit: a flat side
-> reads through the energy term alone, a rescore measures against the base the
-> caller names, an HSL move is not a detail-only companion, the joint veto is
-> wired at both terminal sites, a withheld colour channel is exactly unity
-> under every shrink; the colour field: an unsolvable field is
-> disclosed and not silent, the do-no-harm judges a custom region mask too, a
-> cell the pixel evidence cannot read is read on its region pairing; cells:
-> the layout reading raises weight only inside the pairing and only upward;
-> recipe: Transform Scale is clamped to Lightroom's band, Upright matrices past
-> the sixth are dropped; render: the vignette is sampled at the pixel centre,
-> Full squares a turned keystone with no residual convergence, the keystone row
-> converges the turned points and not the unturned ones, an inverted component
-> without its raster covers nothing; store: a gallery import leaves a cleared
-> develop alone, a pristine card without a pixel record hands its identity to
-> the fresh master card; style: a merge across two embedding models drops the
-> other model's vectors, RAW exemplar tags are bounded at the door, the walk
-> steps over a dangling link; xmp: a mask naming one missing raster twice loses
-> it once, an orientation-only sidecar is read in the photograph's frame, the
-> census has no false rotation loss beside a readable RAW) — and eight GUI
-> names (the audit sessions' seven: a clone on a turned photo is refused before
-> it asks for a source point, a turn rebinds the paint canvas to the transposed
-> plate, an unreadable central XMP is reported and not folded into a no-op,
-> every pixel worker refuses a turned photo, every window in the app carries a
-> fixed egui id, the strip restored from the record clamps each recipe, the
-> range reference is one builder with every geometry field stripped; and the
-> close-out's one: a mask refine on a turned photo is refused before it spawns).
-> One library name left since v1.6.0, replaced by the test named beside it: the
-> style build's carry-forward of the previous embedding pass (now the
-> description pass carrying the previous prose forward). At v1.6.0 (2026-09-23)
-> the battery was 1683
-> library + 25 CLI + 215 GUI + 2+2 contract tests, 1668 and 214 of them
-> passing beside the same ignored probes: +39 / −5
-> by name against the v1.5.1 tag
-> (`1a122c0`), listed by the test harness itself on both trees on release day — thirty-nine library
-> names (the four laws of the luminance return: a full clean is bit-exact and
-> never develops the original, grey noise returns at the exact share while
-> pure chroma returns nothing, the return keeps chroma and obeys the luminance
-> law, sRGB and wide exports carry the same linear grain; the thirteen hot-site
-> tests: strong isolated sites on every phase are mapped while border and
-> faint ones are not, a star with bright edge neighbours is left alone, the
-> mapping is unconditional and precedes every reader of the mosaic, a Bayer
-> frame is mapped without being asked while other sensors are left alone, the
-> network median equals the sorted middle pair everywhere, the local spread is
-> the MAD of the neighbourhood that can move, a rough neighbourhood raises the
-> bar and a flat one does not, flat ground is judged by its tile, a part-blown
-> tile is measured on the samples that can move, a site on clipped ground is
-> not judged, a bright structure in dark tiles is judged by its own
-> brightness, a witness at white cannot vouch and a lit diagonal speaks, a
-> witness is heard at its tile's sigma; the five of the base look's pairing:
-> the estimation base is the picture the camera drew, a corner lift the camera
-> never made does not become tone, the lift is made on the sensor frame and cut
-> to the camera's afterwards, a pair that cannot say keeps the picture the
-> sensor saw, the three open paths share one base-look entry; the extra plane reserved
-> before the RAW ceiling; and the cleaner receiving the whole output with the
-> container's floor kept; and, since that refresh, the fifteen of the closeout
-> lane: a curve saved under an earlier calibration era is re-estimated and an
-> empty one is not; the sharpening amount defaults to Lightroom's RAW forty and
-> to nothing on a baked raster, and an absent amount leaves the sidecar to
-> Lightroom while a real zero is stated; the seven of coordinate era 2 — an
-> era-zero recipe on a rotated RAW turns and translates in one pass, the era-two
-> migration translates geometry and rewrites rasters once, a raster shift reads
-> the picture where it came from, raster masks are left for their owner to
-> rewrite, a recipe shift moves every carrier and round-trips, `orient_vector` is
-> the linear part of `orient_point`, and the legacy window shift is the declared
-> origin only where rawler cut from the corner; R39's two — a shrunk correction
-> is held to do no harm, not to the arms, and the refusal of shrunk zones judges
-> each zone against the shipped set without it; R40's two — a scene gradient
-> under a hard raster buys no budget, and neither a collar nor a persistent ramp
-> funds a step at the contour; and R41's — the colour field ships from the
-> default strength and not below) and one GUI name (preference era one resets
-> the raw dials and keeps baked choices). Five library names left since v1.5.1,
-> each replaced by the test named beside it: R40's two (a ramp earning budget
-> only past the collar; a scene gradient earning its own slope budget), R41's
-> (the colour field shipping only past the default strength), era 3's (the
-> pre-era fingerprint separating washed from tuned) and era 2's (raster masks
-> reported, not turned). At v1.5.1 (2026-09-20) the battery was 1649
-> library + 25 CLI + 214 GUI + 2+2 contract tests, 1634 and 213 of them
-> passing beside the same ignored probes: +23 / −1 by
-> name against the v1.5.0 tag (`dfd9fa4`), listed by the test harness itself on
-> both trees — nine library names (four pins that hold every pinned download to
-> a copy of ours, a full-length mirror coordinate and ours-before-upstream; the
-> three whole-image adjust tests: no mask and the whole frame kept, a blank
-> prompt refused before anything is bought, the divergence measured against the
-> image that was sent; the lens profile's as-opened truth table; and Lightroom's
-> own HDR sidecar read back as the mode and headroom it states) and fourteen GUI
-> names (the button-row width ceiling, the Lens / Export / AI header rules, the
-> five preference-era tests, the adjust fold's landing, enablement and region
-> hint, and the paint-presence scan count with the census of its write sites);
-> the one removed name is the test that pinned a saved strength dial lighting
-> the AI dot, replaced by the user's ruling that the dot reads this photo only.
-> Before that, counts were refreshed 2026-09-18 for v1.5.0: +249 / −11 by
-> name against the v1.4.1 tag (`af7f25e`), taken statically between the tag's
-> source and the v1.5.0 tree (1718 → 1728 `#[test]` functions) — seven library pins
-> in `denoise` (the mosaic facts read off a sensor's CFA and levels, the four
-> refusals for a sensor that carries no 2×2 Bayer mosaic, a zero strength
-> spawning nothing, the product replacing the samples in place or being
-> refused with them untouched, the hook running before demosaic, and the RAW
-> sidecar's pins and shared default) and four GUI pins (a denoise landing as a
-> new ◈ card with the source card and the ▣ negative untouched, the negative
-> master preferring the ◈ card, a ◈ card round-tripping through the strip
-> record, and the export-time denoise sitting out on it); the one removed name
-> is the in-place denoise test the ◈ card replaced.
-> Before that, counts were refreshed 2026-09-15 for v1.3.5: +4 / −0 by
-> name against the v1.3.4 tag (`14a2a4b`), taken statically between the tag's
-> source and this tree (1714 → 1718 `#[test]` functions) — three library pins
-> in `generative` (a blank fill prompt is the removal instruction, that
-> instruction reaching the wire with the mask part on a loopback fill, and
-> `retouch_onto` compositing onto the base its caller produced, never the
-> file) and one GUI pin (a fill landing as a new ✨ card with the filled
-> card's recipe, base and origin untouched, the verb's develop-the-picture
-> and new-card choices pinned in its source).
-> Before that, counts were refreshed 2026-09-13 for v1.3.4: +4 / −0 by
-> name against the v1.3.3 tag (`f5046c9`), taken statically between the tag's
-> source and this tree (1710 → 1714 `#[test]` functions) — one library pin
-> (`the_sidecar_blends_luma_by_strength_and_takes_chroma_first` in `denoise`:
-> the sidecar's split blend law and its default) and three GUI pins (the ◭
-> card landing on the negative's master with the ● mirror following the
-> persisted link, `negative_origin` following an in-place denoise on the ▣
-> card with the worker halves pinned on their sources, and the two denoise
-> dials — defaults, prefs keys, both drawn, each verb reading its own).
-> Before that, counts were refreshed 2026-09-13 for v1.3.3: +15 / −1 by
-> name against the v1.3.2 tag (`d0f7dd4`), taken statically between the tag's
-> source and this tree (1696 → 1710 `#[test]` functions) — the commit pin
-> `a_develop_commit_lands_all_three_or_nothing` rewritten as
-> `a_develop_commit_lands_all_four_or_nothing` for the projection member,
-> three library pins (`the_projection_member_stages_what_write_xmp_publishes`
-> in `pipeline`, `the_projection_replays_with_its_generation` and
-> `a_develop_over_ai_pixels_forks_the_record_and_keeps_the_pristine_card` in
-> `store`) and eleven GUI pins: the reported open-path repro
-> (`a_stale_projection_never_cooks_a_pristine_generated_card_on_open`), Ctrl+S
-> publishing the projection in the recipe's generation, and the nine
-> immutable-card pins (the fork on a slider with the frame hook's position
-> pinned in the source, a version load, the Analyze landing forking before it
-> saves, the in-place retouch baking into the edited card, the door split of a
-> pre-1.3.3 record, Ctrl+S on both AI-pixel kinds retiring a stale projection,
-> `fit_target` on an edited card, Save as version refused on the pristine card
-> and taken on the edited one, both apply-to-Original refusals). Before that,
-> counts were refreshed 2026-09-12 for v1.3.2: +1 / −1 by
-> name against the v1.3.1 tag (`91df8f0`), taken statically between the tag's
-> source and this tree — the shared-reading pin
-> `gui_reverse_fit_uses_the_panel_strength` rewritten as
-> `gui_reverse_fit_has_its_own_strength_dial` (the reverse-fit's own dial:
-> one default in three places, the two dials kept apart, drawn in the fold,
-> the prefs round trip, the worker pins); the third Lightroom fixture pair
-> extended an existing test rather than adding one. The calibration lane ran
-> after the release, the corpus having been in the fixtures directory all
-> along: 1480 + 15 library tests with the corpus in reach, two stale pins
-> re-pinned in `6ce45a3`, then green. Before that, counts were refreshed
-> 2026-09-12 for v1.3.1: +10 / −1 by
-> name against the v1.3.0 tag (`5446012`), taken statically between the tag's
-> source and this tree — the nine payload pins in `xmp::payload_tests` (the
-> fresh-document round trip, the replayed Lightroom rewrite, raster placement
-> on a disclosing read only, the refused payload, the merge over a foreign
-> prefix, the raster budget, the zone role from the name, the inversion pair,
-> and the real Lightroom 9.4 rewrites under `AUTOSHADE_LR_PAYLOAD_FIXTURES`)
-> plus one rename, `bitmap_masks_do_not_come_back_from_xmp` →
-> `bitmap_masks_come_back_only_through_the_payload`, re-pinned on both the
-> projection and the whole document. The calibration lane did not run for
-> this release either. Before that, counts were refreshed 2026-09-12 for
-> v1.3.0: +103 / −8 by name against the v1.2.6 tag (`24a467f`), taken
-> statically between the tag's source and that tree; the eight old names are
-> renames (three in R34, four in R35, one in R36), each re-pinned under its new
-> name as the lane notes below record. Lane by
-> lane, newest first: R37–R38 added +8 / −0 against `ccbd919` — the
-> target-referenced seam pins
-> `fit_zoned::tests::a_step_the_target_itself_carries_is_not_charged_as_a_seam`,
-> `fit_zoned::spatial::tests::a_tile_edge_the_target_itself_carries_is_not_charged_as_a_seam`,
-> `fit_zoned::tests::the_unasked_part_of_a_step_is_its_excess_over_what_the_target_carries`,
-> `fit_zoned::tests::a_cell_share_needs_a_quorum_a_mean_its_noise_cannot_hide_and_a_code`,
-> `fit_zoned::tests::a_target_referenced_cell_gap_reads_the_band_shape_not_the_texture`
-> and `fit_zoned::subzones::tests::the_regression_disclosure_names_the_rim_cell_component_and_the_mean`,
-> the preview-frame pins
-> `render::tests::preview_mask_coverage_is_the_frame_the_preview_develops_in` and
-> `fit_zoned::spatial::tests::the_native_trial_gate_reads_the_edge_the_preview_paints`
-> — plus one GUI pin, `tests::every_button_stands_one_row_tall_at_the_default_widths`.
-> R35 added native-composition, geometry-tile and residual-band pins: +34 / −8
-> against `816a457`; all eight old names are re-pinned, with unchanged numeric
-> limits, in the R35 ledger. Before that, counts were refreshed 2026-09-11
-> after the R34 merge (released with v1.3.0): +57 / −3 by
-> name against `5ffa275` — the four R33 lanes' tests, R34's and the deep-thinking
-> box's, listed in the ROADMAP's v1.3.0 ledger; the −3 are renames:
-> `the_local_field_never_reaches_the_engine_or_the_recipe_schema` →
-> `the_engine_renders_the_field_from_the_recipe_and_never_calls_the_analyzer`
-> when the field became a shipped control, and R34's two re-pins
-> `zoned_color_gains_cannot_move_a_zero_evidence_hue_band` →
-> `…_only_where_the_regions_cells_vouch_it` and
-> `a_divergent_zone_is_still_attached_in_atmosphere_mode` →
-> `…_and_its_colour_follows_its_cells`; taken statically between the tag's
-> source and this tree. The calibration lane has not run since v1.2.6. Before
-> that, refreshed 2026-09-08 for v1.2.6: +1 / −0 by name against `616f795` —
-> `denoise::the_sidecar_downloader_asks_for_an_unencoded_body`, which pins the
-> `identity` request the sidecar downloader now makes; the saved name baseline
-> was gone with `target/` in the 2026-09-03 clean-up, so the difference was
-> taken directly between the tag's source and this tree. The calibration lane
-> did not run for this release either, for the same reason as v1.2.5. Before
-> that, refreshed 2026-09-06 for v1.2.5: +4 / −0 by name against `af8fae8` —
-> the two plane-guard tests and the four-door source sweep in `decode::tests`,
-> and the nesting-and-unwind test in `panic_guard::tests`; the calibration lane
-> did not run for this release and is not counted — its p36-p39 corpus is not on
-> the release machine, so `scripts/release_battery.sh` refused to start rather
-> than report corpus-gated tests that skip and pass. Before that, refreshed
-> 2026-09-02 for v1.2.4: +70 / −7 by name against `f3885b2` —
-> the twelve colour-range tests in `fit_zoned::range`, the eight Lightroom-pack
-> measurements in `render::lr_pack`, eight cast/fit tests in `fit::tests`, seven
-> style-index tests, five zoned-fit tests, the orientation law's four
-> `xmp::tests`, the four full-resolution-slot tests and 22 more across thirteen
-> modules; the seven removed are the six `config::` tests of the retired
-> `AUTOSHOP_*` alias door and one `segment::` test replaced by its
-> kept-when-this-machine-cannot-replace-it successor; before that, v1.2.3 was
-> +24 / −0 against `8e631f7` —
-> the five hue-fan gate tests and the nine projection tests in `fit::tests`
-> (one of which replaces `cast_curves_must_not_fan_a_coherent_sky_across_luminance`),
-> the range-rim budget window test, and the seven direction-led Style tests
-> (`StyleVoice`, the judge's brief, the blend-site guard, the web `adherence`
-> field); before that, v1.2.2 was +29 / −1 against `d628c80` — 22 from the
-> style-index batch, the two contextual-budget boundary arms, the size-plan
-> and base-look frame tests, the two band-table tests, and the same-content
-> diagnosis test re-pointed to the Cornwall panel; the GUI
-> battery is +1, the sidecar-folder preference; before that, v1.2.1's release
-> run of disclosure fixes was net +5 —
-> `a_truncated_rationale_says_how_much_it_lost` and
-> the look-weight ratio test of the retired style index (`13cebf9`), the
-> neutral-solution exit's own note and the post-stamp domain disclosure
-> (`693917b`), and `a_build_that_does_not_adopt_leaves_the_old_folder_strictly_alone`,
-> the store adoption's refusal branch, which the macOS opt-out had until then
-> left executed on no platform at all (`410993e`) — so library 1263→1268;
-> before it, step 9 is net +10 — it added 11 named tests
-> (2 `fit` for the per-pixel white-balance statistic and for a readable
-> correspondence field choosing the PAIRING as well as the population, 7
-> `fit_zoned` for the introduced-rim boundary arms and the k=0 render
-> invariant, 2 for the inert-attachment refusal on each of the two boundary
-> gates) and RENAMED one, `a_rim_that_cannot_be_shrunk_is_dropped_with_its_own_note`
-> becoming `a_zero_dialled_mask_that_is_not_a_render_no_op_is_dropped_with_its_own_note`
-> because the differential rim makes the old premise (a scene rim the
-> correction did not make) a case the gate must now KEEP; before it, R30 R2
-> added 8 named tests for the
-> shared-content reference population and adjudication added a ninth, closing
-> the two-sided retention floor and the target mask's provenance, so library
-> 1256→1265; before it, the clearing dedup batch was net +1 — it added
-> the adherence-tier prompt pin and moved the SHA-256 known-answer test into
-> the hash's own module, retiring `eval`'s duplicate vector test and narrowing
-> what stays there to the avalanche property its stale-sidecar guard rests on,
-> so library 1255→1256; before it, the C2 storage-name migration added 3 named
-> tests — 1 `serve` for the export-registry adoption, 2 GUI for the prefs
-> adoption and the per-platform key decision — so library 1254→1255 and
-> GUI 157→159; before it, R30 batch 3 added 9 named tests against
-> `2a415a5` — 5 `advisor` for the colour guardrail pair, the templated
-> neutral hatch, the numeric curve/mask freedoms, the three-band snapshot
-> and the judge's palette item, 1 `advisor::mod` for the verifier checklist,
-> 3 for the retired mask-habit hue dimension — so library 1245→1254;
-> before it, R30 batch 2 added 18 named tests against
-> `a31eb2f` — 15 `style` for the vocabulary-complete distillation (one of
-> them the env-gated `#[ignore]` calibration harness) and 3
-> `advisor::catalogue` for the mutable accessors — and renamed one whose
-> promise the batch narrowed (`retrieval_and_style_targets_do_not_read_
-> mask_habits` → `retrieval_does_not_read_mask_habits`), so library
-> 1228→1245; before it, the macOS port M1-M3 added 18 named tests by
-> name against `df62554` — 12 library (8 `config` for the interpreter, the
-> bundle boundary and the weight cache, 3 `store` for the per-platform store
-> name and the off-Windows device-path refusal, 1 `lib` for the source-cut
-> rule those platform assertions depend on) and 6 GUI (5 `quit` for the ⌘Q
-> state machine, 1 `i18n` for the platform modifier label) — so library
-> 1216→1228 and GUI 151→157 at the merge, with CLI and contract unchanged;
-> before it, R30 batch 1 added 8 named tests against `52fb38c` — 5
-> `fit_zoned` for the strictly-better arm, 3 `fit` for the R2-lite
-> reference-population disclosure — and the supervising merge added its
-> Atmosphere do-no-harm pin, so library 1207→1216 with CLI, GUI and
-> contract unchanged; before it, the AutoShade rename added 14 named tests by
-> name against `e33206b` — 6 for the environment alias door, 5 for the
-> pre-rename develop-store adoption, 3 for the pre-rename on-disk XMP tokens —
-> and renamed one (`xmp::tests::legacy_autoshop_sidecar_…` →
-> `legacy_autoshade_sidecar_…`), so library 1193→1207 with CLI, GUI and
-> contract unchanged; before it, the tile-boundary root fix added its two named
-> gate tests — library 1191→1193; before it, the style-retrieval expansion
-> `style-s2` (+55 by name against the `32b0fe4` merge transcript: 46 library —
-> 26 `style`, 9 `describe`, 4 `pipeline`, 3 `embed`, 3 `advisor`, 1 `recipe` —
-> 4 CLI and 5 GUI; the gui trip now runs the GUI bin only, the `gui` feature
-> adding dependencies alone): library 1091→1137→1191→1193, CLI 16→20→22, GUI 146→151;
-> before it the multi-region batch `a2173c9`
-> (+24 by name against `6323f4c`: the 11 `fit_zoned::semantic` tests, the 7
-> `fit_zoned` routing / arbitration / raster-release tests and the 6 `segment`
-> multi-class manifest tests) onto the linear-falloff merge: library 1067→1091;
-> before it the linear-falloff line `817fa13`
-> (+10 by name against `662b688`: the C¹ ramp harness `56dd690` and the `Eased`
-> flip — `linear_mask_renders_the_eased_ramp`, `shipped_linear_ramp_is_eased_end_to_end`,
-> the radial/bitmap split of the clamped-baseline test) and the step-17 cleanup
-> batch `9097319` (+2 by name = `rationale::tests::sidecar_failure_disclosure_has_no_traceback_or_home_path`
-> and `fixture_dir_tests::test_fixture_dirs_are_process_unique`) merged onto the F1
-> strength-axis batch `302efb1` took the library 1034→1067; F1 alone went
-> 1034→1055, set diff +22/−0 default and +23/−0 GUI by name against `662b688`
-> = the strength-budget, WB-manifold, rescoring-disclosure and Style-wording
-> tests in `src/fit.rs`, `src/style.rs`, `src/main.rs` and the GUI panel pin; the free-mask batch
-> `662b688` before it went 1017→1034, +17/−0 against `d21304a` = the 17 tests in
-> [`src/fit_zoned/freemask/tests.rs`](../src/fit_zoned/freemask/tests.rs); the
-> local-field batch `d21304a` before it went 991→1017, +26/−0 against `10e02bb`,
-> no status change — added,
-> in [`src/fit_field.rs`](../src/fit_field.rs),
-> `field_splat_is_a_partition_of_unity`, `field_adjoint_matches_forward`,
-> `field_infinite_tikhonov_reproduces_the_global_render`,
-> `field_identity_pair_is_all_zero`, `field_solve_is_deterministic`,
-> `field_refuses_without_evidence`,
-> `field_recovers_a_planted_two_band_exposure`,
-> `field_band_dispersion_flags_spatially_structured_bins`,
-> `calibration_field_ceiling_matches_the_numpy_solver`,
-> `the_local_field_never_reaches_the_engine_or_the_recipe_schema` (renamed by
-> R33 §G to `the_engine_renders_the_field_from_the_recipe_and_never_calls_the_analyzer`
-> when the field became a shipped control),
-> `calibration_local_support_is_not_constant` and the two new
-> `#[ignore]`d probes `export_calibration_field_inputs_for_numpy` and
-> `compare_calibration_field_with_numpy`; in
-> [`src/fit_zoned/field.rs`](../src/fit_zoned/field.rs),
-> `field_band_proposal_matches_a_two_band_remap`,
-> `field_band_proposal_skips_a_spatially_structured_bin`,
-> `field_shape_reads_a_bright_quadrant_as_tile_shaped`,
-> `field_shape_ignores_unmeasured_pixels`,
-> `field_shape_reads_a_diagonal_ramp_as_linear`,
-> `field_stop_and_realized_helpers_are_well_conditioned`; in
-> `src/fit_zoned/range.rs`, `field_proposals_enter_before_range_sort_and_cap`,
-> `field_proposal_union_merges_same_sign_and_refuses_opposite_overlap` and
-> `field_proposal_spans_are_mapped_through_the_pixels_that_occupy_them`; in
-> `src/fit_zoned/spatial.rs`, `tile_attachment_cap_is_parameterized`; and in
-> `src/fit_zoned.rs`, `field_disabled_layer_is_byte_identical`,
-> `field_stop_rule_skips_the_tile_producer_and_names_it` and
-> `calibration_local_field_discloses_ceiling_and_realized_share`; nothing
-> removed. THREE suites are ADDITIONAL and env-gated, so a bare `cargo test`
-> does not include them. The F1 release reproof adds +22 default test names
-> and +23 GUI names with no removals or status changes against the B3
-> transcript `target/b3-main/gates-final.txt`.
-> `AUTOSHADE_LR_PROBE_FIXTURES` (16 real Lightroom radial sidecars, byte
-> round-trip), `AUTOSHADE_MB_FIXTURES` (the 7-file M-B forensic set — 42 of its
-> 42 corrections imported, 0 refused) and, since R27, `AUTOSHADE_RAW_ZOO` (the
-> CC0 nine-camera zoo, one RAW per format —
-> `every_make_in_the_raw_zoo_decodes_and_agrees_with_itself` in
-> [`src/decode.rs`](../src/decode.rs), 9/9 at the last release). Every release
-> runs all three and records their own counts, rather than carrying the previous
-> release's forward — see ROADMAP「完成每项后的例行动作」.
+> No behavior test suite is currently checked in. Architecture constraints are
+> enforced by clippy, type visibility and module boundaries. The release battery
+> runs lint, text/font checks and the document gates.
 > v0.23.3 (round 13): the XMP xmlns conflict gate resolves namespace bindings
 > through an element SCOPE STACK and refuses only where a binding would
 > actually corrupt this document's reading (a nested rebound island nobody
@@ -993,9 +384,8 @@
 >   into a `Transport` error, which then travels into rationale text, the
 >   Settings status line, and any log pasted into a bug report. A trailing
 >   newline from a copy/paste was enough. The value is trimmed and then
->   refused if any byte cannot appear in a header; both transport arms
->   (`post_ai_json`, `openai_models::list_models`) redact as the second layer,
->   matching what their status arms already did.
+>   refused if any byte cannot appear in a header; both HTTP transport arms
+>   redact as the second layer, matching what their status arms already did.
 > * **A degraded save is disclosed, and the disclosure must be TRUE.** When an
 >   existing sidecar cannot be merged, the note names the file whose properties
 >   are lost (not the output), says whether that file was modified, and fires
@@ -1387,10 +777,10 @@
 > still names a directory after the UPSTREAM repo and revision, because that is
 > what the files are, so no existing installation re-downloads a byte for this.
 > Three source invariants hold the table to the sidecars: every pinned model tree
-> must have an entry (`embed::tests::every_pinned_model_tree_has_a_copy_of_ours`),
-> so must the face bundle's directory (`embed::tests::the_face_bundle_has_a_copy_of_ours`),
+> must have an entry (embed::tests::every_pinned_model_tree_has_a_copy_of_ours),
+> so must the face bundle's directory (embed::tests::the_face_bundle_has_a_copy_of_ours),
 > and every executed upstream source must too
-> (`denoise::tests::every_executed_upstream_source_has_a_copy_of_ours`), so a
+> (denoise::tests::every_executed_upstream_source_has_a_copy_of_ours), so a
 > re-pin that is not mirrored fails in CI rather than on a user's cold cache.
 > **Mirroring makes this project a redistributor**, which is why each mirror
 > carries the upstream licence: the verbatim text where upstream publishes one
@@ -1872,7 +1262,7 @@ line is whether the NUMBERS are wrong or only the fine detail:
 | No embedded preview (ORF class) | **Degrade** to a neutral develop + say so | rawler overrides no rendition method for 12 of the 24 formats; that is a fact about the format, not a broken file. `embedded_preview` keeps the strict "camera pixels or nothing" contract, because the base-look estimator's method depends on it |
 | Non-Bayer CFA (X-Trans) | **Demosaic in-tree over the array's own geometry** (v0.34.0, `render::demosaic_over_cfa_geometry`) + disclose per render | rawler's `PPGDemosaic` is Bayer-only and its guard (`CFA::is_rgb`) checks the pattern's NAME, not its geometry; through v0.33.0 its chroma pass left R unwritten at 8 of the 36 photosites per tile and B at a different 8 — the measured green-dark cast. Now every channel interpolates only from photosites that measured it: colour/tone/framing correct, fine detail approximate and disclosed |
 | An ordinary RAW develop whose peak would exceed **4 GiB** — 138,547,333 px and up, at the measured 31 B/px (a 150 MP back; a 102 MP GFX is well clear) | **Refuse**, naming the estimate and its per-pixel basis (v0.34.0, `decode::refuse_raw_develop_over_ceiling`, charged in `render::render_to_image_in` before the sensor is decompressed) | The baked door has refused an over-ceiling file since L02 while the RAW door had NO per-file limit at all, so a ~150 MP back on the default `batch --jobs 3` was the worse instance of the same defect with nothing opt-in about it. The ceiling is the SAME 4 GiB, and the message says outright that `--jobs 1` is not the answer — a single file's peak is not a concurrency budget. This IS a behaviour change: such a file used to be attempted, and would page |
-| A RAW whose **sensor plane is over the decoder's OWN allocator ceiling** — after the tile round-up, `width × cpp > 50 000`, `height > 50 000`, or `width × cpp × height > 500 M` | **Refuse**, naming the frame the file declares, the allocation it becomes and the workflow that does work (`decode::guard_raw_plane_extent`, at all four `raw_image` doors; `every_raw_image_door_measures_the_plane_first` is the sweep) | rawler's `alloc_image_plain!` (`pixarray.rs:546-556`) PANICS at that ceiling and checks it BEFORE the `dummy` short-circuit, so the 4 GiB refusal above — charged against a pixel count only the dummy probe can produce — was UNREACHABLE for every frame between the two ceilings, and a third-party panic escaped in its place, reported as "a defect in the third-party decoder" when nothing was defective. `plain_image_from_ifd` (`decoders/mod.rs:598`) charges the ceiling with `decode_width * cpp` as the WIDTH, so a three-sample LinearRaw frame reaches it at a third of the pixel count a Bayer frame would: an upscaler's 19008×12672 DNG in 416×416 tiles asks for 57408 × 12896 and trips both limits at once, while the same run's un-upscaled 9504×6336 pass computes 28704 × 6400 and still opens. Rejects ONLY on proof, like the cyclic-chain guard — an IFD that does not declare itself CFA or LinearRaw is a preview and passes through, so no file that decodes today changes |
+| A RAW whose **sensor plane is over the decoder's OWN allocator ceiling** — after the tile round-up, `width × cpp > 50 000`, `height > 50 000`, or `width × cpp × height > 500 M` | **Refuse**, naming the frame the file declares, the allocation it becomes and the workflow that does work (`decode::guard_raw_plane_extent`, at all four `raw_image` doors; every_raw_image_door_measures_the_plane_first is the sweep) | rawler's `alloc_image_plain!` (`pixarray.rs:546-556`) PANICS at that ceiling and checks it BEFORE the `dummy` short-circuit, so the 4 GiB refusal above — charged against a pixel count only the dummy probe can produce — was UNREACHABLE for every frame between the two ceilings, and a third-party panic escaped in its place, reported as "a defect in the third-party decoder" when nothing was defective. `plain_image_from_ifd` (`decoders/mod.rs:598`) charges the ceiling with `decode_width * cpp` as the WIDTH, so a three-sample LinearRaw frame reaches it at a third of the pixel count a Bayer frame would: an upscaler's 19008×12672 DNG in 416×416 tiles asks for 57408 × 12896 and trips both limits at once, while the same run's un-upscaled 9504×6336 pass computes 28704 × 6400 and still opens. Rejects ONLY on proof, like the cyclic-chain guard — an IFD that does not declare itself CFA or LinearRaw is a preview and passes through, so no file that decodes today changes |
 | Sensor values below the black level (read noise on a dark frame) | **Keep them signed** through the demosaic and the white balance (v1.17.0, `render::develop_cfa_signed`); the first clamp is rawler's calibrate rule after its matrix on the plain sRGB develop, the profile stage's guard before its hue/sat tables on a profiled one | rawler 0.7.2's rescale clips them to 0 before the demosaic (`correct_blacklevel_cfa`), a positive bias on zero-mean noise: on the night pair (noise sd ≈ 40 DN on a 10–50 DN signal) the darkest band read u/v +1.606/−0.288 clamped and +1.486/−0.405 signed. Done from rawler's public pieces in its own step order (a value above the black is bit-identical) rather than by handing rawler a pre-scaled mosaic, which it clones: that cost 3.9 B/px of peak commit, and this form measures 24.3 B/px against 30.4 before on a 60 MP frame |
 | DefaultCrop rectangle off the sensor | **Disclose** and develop un-aligned | Was a silent `None` until R27 — any diagnosis of a misplaced mask started with zero telemetry |
 | Untagged **16-bit** baked input | **Disclose** | It is read as sRGB. Right for 8-bit JPEG (web convention); often wrong for 16-bit, which is what an editor produces — LR's "Edit in…" exports ProPhoto. Warning on every untagged JPEG would be a warning nobody reads |
@@ -2227,7 +1617,7 @@ recipe's three channel curves rendered as if absent), and Lightroom always
 writes the composite, so a recipe
 with channel curves and no composite one now writes the identity
 `0,0 / 255,255`, which reads back as no composite curve
-(`channel_curves_always_travel_with_a_composite_curve`).
+(channel_curves_always_travel_with_a_composite_curve).
 
 **The Effects panel renders since v1.5.0** (`render/finish.rs`), for the same
 revoked policy as the Detail panel below — and for a second reason of its own:
@@ -2467,7 +1857,7 @@ its own aspect, until it lies inside the warped frame.
 
 The stage's PLACE in the frame pass — lens geometry, then Transform, then the
 straighten — is pinned by
-`render::finish::tests::the_frame_stage_runs_the_lens_then_the_transform_then_the_straighten`,
+render::finish::tests::the_frame_stage_runs_the_lens_then_the_transform_then_the_straighten,
 which composes the three orders from the engine's own operators and asserts
 byte equality against the one `frame_and_finish` uses and inequality against
 its two neighbours. None of the three commutes: a keystone applied before a
@@ -2843,7 +2233,7 @@ matrices and tables and nothing else: its `ProfileToneCurve` and
 — white balance, tone, curves, colour, detail, masks — is the one develop law
 of a recipe that names no profile, the photo's camera base curve included. A
 profile with no tables and no `ForwardMatrix` builds no stage
-(`render::profile::tests::a_profile_with_no_tables_is_not_a_stage_whatever_tone_it_states`).
+(render::profile::tests::a_profile_with_no_tables_is_not_a_stage_whatever_tone_it_states).
 
 **The colour matrix comes from the profile (v1.17.0).** A profile that carries a
 `ForwardMatrix` owns the camera → working transform of its render, built by the
@@ -3008,7 +2398,7 @@ lr_pack import, an opened sidecar — gets the same start
 (`pipeline::stamp_import_start`); a camera profile or Look the document names
 stays on the recipe as colour data. A develop saved before v1.17.0 renders its
 stamped curve as it was saved
-(`render::tests::an_old_recipe_with_a_stamped_base_curve_renders_as_it_did`).
+(render::tests::an_old_recipe_with_a_stamped_base_curve_renders_as_it_did).
 
 **A file that says it carries lens geometry is refused** (v1.17.0,
 `render::BakedGeometry`, `render::SourceFrame::of`). The key
@@ -3060,7 +2450,7 @@ finished image — already carries its start, so `strip_baked_start` clears the
 curve, profile, Look and lens profile before it renders. A profile-naming
 develop shows the same picture on every surface: the canvas, a master and the
 fit source against the export, within ΔE76 0.5
-(`render::tests::every_surface_shows_a_profile_naming_develop_as_the_export_renders_it`).
+(render::tests::every_surface_shows_a_profile_naming_develop_as_the_export_renders_it).
 
 The invariant that keeps F7 from changing any existing picture is that a
 recipe with no camera profile builds no stage at all, and a named profile
@@ -3632,26 +3022,18 @@ the honoured turn): the recipe reader and the two photo-aware disclosure doors
 document in the frame it was folded through, so a rotated radial comes back
 rotated and a tilted crop placed instead of a rotation loss being disclosed
 that never happened. Census of the library through both doors
-(`xmp::tests::the_census_has_no_false_rotation_loss_beside_a_readable_raw`,
+(xmp::tests::the_census_has_no_false_rotation_loss_beside_a_readable_raw,
 2026-09-24): 154 of 175 sidecars are orientation-only, 151 of them beside a
 readable RAW; on those the document-only door reports 37 rotation losses and
 8 unplaceable crops, the photo-aware door 0 and 0.
 
-Every me6-2026-09 number in this document comes from one producer and one
-script: `render::lr_pack::export_lr_pack_renders_for_the_mask_measurement`
-(`#[ignore]`; renders all 46 sidecars through the production import + develop
-path) and `scripts/lr_mask_parity.py`, which subtracts each group's no-mask
-reference and divides by a tone coordinate recovered from the pack itself, so
-the comparison is in coverage rather than in exposed pixels. Five further tests
-in `render::lr_pack` pin the verdicts from the fixture without rendering
-anything, and print a skip reason when `AUTOSHADE_LR_PACK` is unset.
+The me6-2026-09 numbers in this document came from a developer probe over the
+46-sidecar pack, which subtracted each group's no-mask reference and divided by
+a tone coordinate recovered from the pack itself. The pack and that probe are
+not part of the default test suite.
 
-Neither the tests nor the script assume where the pack sits on disk. Until
-2026-09-19 `lr_mask_parity.py` fell back to a folder under the running
-user's home directory, a guess that happened to be right on exactly one
-machine; the fixture packs moved out of that home directory that day and
-the fallback went with them. The script now takes `--pack`, or
-`AUTOSHADE_LR_PACK` for the pack itself, or `AUTOSHADE_FIXTURES_ROOT` for
+The fixture pack is not part of the default suite. The old probe took
+`--pack`, or `AUTOSHADE_LR_PACK` for the pack itself, or `AUTOSHADE_FIXTURES_ROOT` for
 the directory the packs share (the pack is its `me6-2026-09`
 subdirectory), and exits saying so when given none of the three.
 
@@ -3921,7 +3303,7 @@ experiment:
   until me6-2026-09 group B, and the reason it looked right is that the fit
   which chose it (`scripts/linear_falloff_probe.py --fit`) scored candidates
   against exported row LUMA, which is the tone curve composed with the mask.
-  `scripts/lr_mask_parity.py` inverts the tone chain first, and the coverage
+  the calibration probe inverted the tone chain first, and the coverage
   turns out to be skewed: the α = ½ contour sits at t = 0.5436 of the handle
   axis on twelve isolated gradients (three positions × two orientations × lens
   ON/OFF), the same at every position and in both lens states. The warped
@@ -3996,7 +3378,7 @@ experiment:
   Better on every rung was the requirement, not a bonus: the old law was already
   CORRECT for `Feather ≤ 5`, so the table degenerates to an exact hard edge as
   feather → 0 rather than to a table row, and the narrow rungs are pinned as
-  absolute numbers in `the_radial_falloff_beats_the_refuted_ramp_on_every_feather`.
+  absolute numbers in the_radial_falloff_beats_the_refuted_ramp_on_every_feather.
 
   **R29 me3 then tightened it twice over.** Three more controlled exports
   measured `Feather` 15 / 35 / 65 — the gaps the eight-column table had to
@@ -4456,7 +3838,7 @@ the correction's flag and leaves the component's at `false`
 sidecar carries the net there, and re-importing our own file lands the bit in
 the OTHER home with the net unchanged — which is why the round trip renders
 byte-identically
-(`fit_zoned::a_zone_survives_the_sidecar_round_trip_byte_for_byte`). Two
+(fit_zoned::a_zone_survives_the_sidecar_round_trip_byte_for_byte). Two
 defects closed with it: the AI arm of `mask_weight` read no inversion at all,
 so every Lightroom sky mask the photographer had inverted rendered over the
 sky they excluded; and the writer wrote the geometry's raw bit, so an Invert
@@ -4539,7 +3921,7 @@ rank-equalised against each image's OWN histogram: removing the shared fine
 texture does not remove a common mode, it leaves exactly the regional luma the
 repaint moved. So the mode line stays on the fine reading, `structural_survival`,
 `spatial_evidence` and `local_support` were NOT switched to coarse, and the
-coarse number is carried as a disclosed second scale. `the_coarse_reading_is_a_second_scale_not_a_more_forgiving_one`
+coarse number is carried as a disclosed second scale. the_coarse_reading_is_a_second_scale_not_a_more_forgiving_one
 pins the refutation so a future reader does not re-derive the hypothesis.
 
 **One admission instrument, `fit_cells`** (R33 §C–§E). A `PairedCells` over the
@@ -4765,7 +4147,7 @@ the verdict's own disclosure (`worst cell regression band
 reduction in the worst rim still cannot hide another cell getting worse
 past those tolerances; only the compact disclosure takes the maximum, and
 the negative cross-rim pin catches that false admission.
-`a_target_referenced_cell_gap_reads_the_band_shape_not_the_texture` pins
+a_target_referenced_cell_gap_reads_the_band_shape_not_the_texture pins
 that a three-code checkerboard twin of the target reads under a code while a
 four-code band reads at least three. Rejected trials restore the recipe and
 notes; the single outcome note is the only change when no split ships. An
@@ -5175,7 +4557,7 @@ uniform reads D = 0, a checkerboard that became flat reads far past
 day, because `fit_zoned::spatial`'s own tests show the tile stage attaching
 to uniform patches through exactly that term, and an abstention would also
 have let a flattened target through the mode gate as "not divergent"
-(`fit::tests::a_flat_side_reads_through_the_energy_term_alone`); an HSL move
+(fit::tests::a_flat_side_reads_through_the_energy_term_alone); an HSL move
 is not a detail-only companion; a zone's after-reading is taken on the SOURCE weights
 it was solved on, and the accepted zone records those same weights as its
 populations while its boundary ruler and its share keep reading the mask's
@@ -5187,7 +4569,7 @@ calibration lane, not the default lane, which was green); the
 luma-only tone ladder probes the fitted tone (factor 1.0) before backing off;
 and the colour field's two do-no-harm checks read the rounded field over every
 mask (above). On the calibration corpus the ladder is the one of the eight that
-moves a pinned number (`calibration_sky_zone_survives_luminance_with_partial_chroma_refusal`,
+moves a pinned number (calibration_sky_zone_survives_luminance_with_partial_chroma_refusal,
 re-pinned): the sky's luma-only band passes the local quality gate at its full
 step and ships −0.174 EV where it shipped three quarters of its fit
 (−0.152 EV); the partition re-arbitrated around that step — the second band
@@ -5268,8 +4650,8 @@ warmth and no block — and sky ΔE / whole-frame mean |diff| go 4.6 / 0.0260
 passed, 0 failed, 3 ignored on the corrected tree). Disclosed by its own
 sentence (`FIELD_LAYOUT_ADMITTED`), printed only when such cells exist;
 every pair without them is byte-identical. Pinned by
-`a_cell_the_pixel_evidence_cannot_read_is_read_on_its_region_pairing` and
-`the_layout_reading_raises_weight_only_inside_the_pairing_and_only_upward`.
+a_cell_the_pixel_evidence_cannot_read_is_read_on_its_region_pairing and
+the_layout_reading_raises_weight_only_inside_the_pairing_and_only_upward.
 
 **The feather widener's smoothness reading follows its guide** (R34 §D8). The
 one-code rule in `mask_refine::widen_smooth_feather` is an absolute statement
@@ -5641,10 +5023,10 @@ the projection's own bar; otherwise the projection runs exactly as before,
 on an untouched recipe. (The synthetic pair that pinned that path by value
 until 2026-10-29 had been refused only at the coarse steps; the finer walk
 reaches a white balance its cells vouch, and
-`the_hand_off_walk_reaches_the_nearer_white_balance_the_cells_vouch` pins
+the_hand_off_walk_reaches_the_nearer_white_balance_the_cells_vouch pins
 that. A luminance split no single white balance takes back enters the walk
 and ships nothing through it,
-`the_hand_off_walk_is_entered_by_a_cast_that_really_fans`.) A shipped
+the_hand_off_walk_is_entered_by_a_cast_that_really_fans.) A shipped
 hand-off says so (`FIT_NOTE_CAST_HANDED_TO_WB`: Kelvin and tint before and
 after, the fan before and after, the cells' shares) and, on the Kelvin
 domain's edge above the default strength, adds the white-balance stage's own
@@ -6074,13 +5456,13 @@ asked rank beside the charged one (`of which the target's own boundary asks
 attachment note too. The no-target forms (`boundary_rim`, `boundary_step`,
 `enforce_boundary_gate`) survive as the test-only rulers the context-budget
 pins above measure. Pinned on both families
-(`a_step_the_target_itself_carries_is_not_charged_as_a_seam`,
-`a_tile_edge_the_target_itself_carries_is_not_charged_as_a_seam`): the
+(a_step_the_target_itself_carries_is_not_charged_as_a_seam,
+a_tile_edge_the_target_itself_carries_is_not_charged_as_a_seam): the
 candidate as its own target is charged exactly 0.0 and kept at k=1; the
 untouched frame and the opposite dose charge bit-for-bit what the context
 rule charged; half the dose sits strictly between; a coin-flip target charges
 exactly the no-target bits; and
-`a_cell_share_needs_a_quorum_a_mean_its_noise_cannot_hide_and_a_code` pins
+a_cell_share_needs_a_quorum_a_mean_its_noise_cannot_hide_and_a_code pins
 the vote itself — a five-code mean honoured from forty pixels and refused
 from ten. On the reference pair this allows the sky zone nothing in the hazy
 middle of its horizon, and correctly so: there the target's band is
@@ -6129,7 +5511,7 @@ moving one channel several, which along a mesa silhouette is exactly the
 artefact the eye picks up first.
 
 That is not only an argument: it is what moved a repository fixture. The
-`sky+land` pair in `every_accepted_fixture_zone_still_passes_the_boundary_gate`
+`sky+land` pair in every_accepted_fixture_zone_still_passes_the_boundary_gate
 asks for wide per-channel gains ([0.60, 0.63, 0.67] source to
 [0.92, 0.72, 0.48] target), and its verdict changed under this batch while
 `sky` — a photograph — did not move by a bit. Both fixtures put a real scene
@@ -6217,7 +5599,7 @@ gate measures the mask that will actually be rendered, and so the widened ramp
 earns slope credit against the budget above — the two halves of the fix
 compose instead of each taking strength away. Measured on the 64x256 haze
 fixture at +0.30 EV (`FEATHER_WIDENING`, printed by
-`widening_the_feather_first_buys_back_the_charge_the_budget_takes`): a 3-px
+widening_the_feather_first_buys_back_the_charge_the_budget_takes): a 3-px
 segmentation feather reads `rim 0.0235`, is charged `0.0720` — 3.06x, which is
 the whole `ceiling / floor` exchange, because a flat neighbourhood earns
 nothing but the floor — and the shared shrink keeps `k = 0.142`. Widen the
@@ -6472,13 +5854,13 @@ for a luminance band, chromaticity distance for a colour one — so a colour
 band's edge is measured across the pixels the photograph gave the same COLOUR,
 not the same brightness, and the luminance readings are byte-identical across
 the split (pinned by
-`the_luminance_boundary_readings_are_unchanged_by_the_selector_split`). The
+the_luminance_boundary_readings_are_unchanged_by_the_selector_split). The
 delivered tone-order test stays a luminance reading only, and `range_footprint`
 returns `None` for a colour mask to say so: chromaticity distance from a band's
 own key is a RADIAL coordinate, which a rigid colour move inverts by
 construction, so asking the order question of it would refuse exactly the
 correction a colour band exists to make
-(`the_order_test_is_not_asked_of_a_radial_coordinate`).
+(the_order_test_is_not_asked_of_a_radial_coordinate).
 
 **Evidence verdicts follow the population a correction moves (B1,
 2026-08-27).** `EvidenceModel::scoped(tp, source_zone, target_zone)`
@@ -6607,7 +5989,7 @@ render with (`fit_field::slice_flat`, `delta`) — keeps the eight-corner sum in
 the f64 it accumulates and applies the delta in f64, the arithmetic
 `render::apply_colour_field` performs on the same corners, so the analyzer's
 render of a grid and the engine's are the same bits
-(`fit_field::tests::the_engine_renders_the_analyzers_field_bit_for_bit`, on two
+(fit_field::tests::the_engine_renders_the_analyzers_field_bit_for_bit, on two
 full solved fields); until v1.17.1 `slice_flat` rounded the parameters to f32
 between the read and the delta, and the two differed by 1 ulp. The field runs LAST in
 `apply_develop`, after `apply_masks`, because it is the residual the masks
@@ -6681,14 +6063,14 @@ the engine's files (`render.rs` and `render/`) and `recipe.rs` for any mention
 of the module. It now also SHIPS,
 as `EditRecipe.colour_field`, from the default Strength up — see **The colour
 field as a control** below; the grep pin survives in the one direction that
-still matters (`the_engine_renders_the_field_from_the_recipe_and_never_calls_the_analyzer`),
+still matters (the_engine_renders_the_field_from_the_recipe_and_never_calls_the_analyzer),
 and schema era 1 is unchanged because the field owns no `crs:` key.
 `LocalField::solve` returns
 `None` when the objective already calls the pair unmeasurable (identifiability
 <= 1e-5), when the fit weight carries no mass, or when the solve is
 non-finite; a `None` field — like the disabled layer `ZonedLayerOpts { field:
 false }` — leaves all three producers byte for byte as they were
-(`field_disabled_layer_is_byte_identical`).
+(field_disabled_layer_is_byte_identical).
 
 The single `run_local_sequencer` function owns the local-stage verdicts. The field is not threaded through
 `attach_zones_with_divergence`; only two typed products cross into a producer
@@ -6832,12 +6214,12 @@ contrast difference is not where the structure is shared),
 sliders (`LocalTexture`, `LocalClarity2012`) on every mask type the fit emits.
 The stage is a layer like the field, the tiles and the free masks
 (`ZonedLayerOpts::detail`, on in `SHIPPED_LAYERS`; off, the recipe is
-byte-identical to the build before it — `layered_disabled_is_byte_identical_to_current_zoned_fit`),
+byte-identical to the build before it — layered_disabled_is_byte_identical_to_current_zoned_fit),
 and it reads sky/land zones only from a partition `attach_zones_with_divergence`
 judged valid (it now returns that verdict): a 0% sky once handed it a "land"
 of the whole frame, and the anchor raster the failed partition had dropped
 came back under the detail mask
-(`empty_semantic_region_set_hands_off_to_the_seeded_legacy_route`).
+(empty_semantic_region_set_hands_off_to_the_seeded_legacy_route).
 
 When a multi-region trial loses — or ties — arbitration, the two-region `FitReport` remains
 intact and receives one typed `REGION_FRAME_REFUSED` note naming the trialled
@@ -6887,9 +6269,9 @@ resolves keeps the old constant 1.0, deliberately: an instrument that can read
 nothing anywhere must not starve a solve that used to run. Both halves are
 pinned on a 190x128 frame that cuts sixteen-pixel columns (core 100, resolved)
 and fifteen-pixel ones (core 90, abstaining) at the same time, by
-`fit_field::tests::the_structural_reading_abstains_below_its_resolvable_core`
-and `fit_field::tests::an_unreadable_cell_makes_no_support_claim_but_an_unreadable_frame_keeps_one`;
-`calibration_local_support_is_not_constant` remains the reading's real-pair
+fit_field::tests::the_structural_reading_abstains_below_its_resolvable_core
+and fit_field::tests::an_unreadable_cell_makes_no_support_claim_but_an_unreadable_frame_keeps_one;
+calibration_local_support_is_not_constant remains the reading's real-pair
 check.
 
 A band proposal is a span `[lo, hi)` of CURRENT-render luma — the field's
@@ -6900,7 +6282,7 @@ shifts them by about two bins). `derive_luminance_bands` therefore maps each
 span onto its own bins through the pixels that occupy it — the weighted
 10th..90th percentile of their original luma
 (`range::evidence_bins_for_span`, pinned by
-`field_proposal_spans_are_mapped_through_the_pixels_that_occupy_them`, where
+field_proposal_spans_are_mapped_through_the_pixels_that_occupy_them, where
 the naive index would have been two bins off). The mapped band enters AFTER
 the evidence filter and BEFORE the sort and the cap, so it is judged and ranked
 by exactly the rules a rank-paired band is: an overlapping opposite-sign
@@ -6947,7 +6329,7 @@ geometry, so the full-frame `scoped_mask_evidence` and the
 `structure_divergence` behind it are computed once per node per fit instead of
 once per node per generation. On the calibration pair the traversal reads 50
 node evidences and computes 17 of them, and the cached reading is the same
-reading a fresh one produces (`the_tile_evidence_cache_recomputes_each_node_once`).
+reading a fresh one produces (the_tile_evidence_cache_recomputes_each_node_once).
 
 Each leaf reuses `attach_one_zone` through `ZoneAttachment { min_share: 0.03,
 frame_regression_tol: 0.0 }`, then passes its own `0.012` cross-boundary-step
@@ -7028,7 +6410,7 @@ deliberately NOT a per-stage gate:
 measured on this repo's own fixtures, the bucket a change fixes loses its
 members to a neighbour, so a per-stage worst-bucket comparison rejects the one
 correct cast in the set and admits both wrecks
-(`fit::tests::the_worst_bucket_cannot_gate_a_stage`). It is never mixed into
+(fit::tests::the_worst_bucket_cannot_gate_a_stage). It is never mixed into
 `look_err`'s weighted sum — R17-R19's constants were each calibrated against a
 real failure pair. `AUTOSHADE_FIT_JOINT=off` removes the whole family for
 baseline comparison. A zoned fit's **confidence** now comes from the zones it
@@ -7125,7 +6507,7 @@ reverse fit starts from this look, and the
 same fits run on both curves over the six calibration-corpus pairs moved both
 ways — one pair's fitted residual 0.105 → 0.055, the other five up by
 0.0007–0.0168 — so the two pinned two-temperature readings were re-measured
-(`fit::tests::the_fan_gate_costs_a_real_two_temperature_pair_nothing`; the
+(fit::tests::the_fan_gate_costs_a_real_two_temperature_pair_nothing; the
 question that test asks kept its answer).
 
 **…and read on block means (calibration era 3, 2026-09-23).** Paired like
@@ -7402,16 +6784,9 @@ inherits it, so the refusal is a first-install cost rather than a recurring one.
 ### 4.12 Windows: one AppId, and an uninstall the user answers
 
 Two promises live in `installer/autoshade.iss` — setup upgrades an existing
-install in place, and the user can choose to uninstall — and both are
-behaviour, not settings, so both are checked by installing.
-`scripts/installer_scenarios.ps1` drives the installer through the six states a
-user can put it in (fresh install, upgrade over a running program, downgrade,
-uninstall keeping the data, reinstall, uninstall deleting it) and asserts what
-each one leaves in the registry, on `PATH`, in the Start Menu and on disk.
-`.github/workflows/installer-upgrade.yml` runs that same script on a clean
-Windows runner against the PREVIOUS published release, so the upgrade is
-measured across the version boundary the release notes claim it works over, and
-not against a second copy of the same build.
+install in place, and the user can choose to uninstall. The rebuilt suite does
+not ship an installer scenario harness; those promises remain the installer's
+own contract rather than a source-text test.
 
 **Upgrading is the same install, moved forward.** `AppId` is a constant GUID
 that already survived the Autoshop rename, and it is what Inno recognises an
@@ -7510,8 +6885,8 @@ comments are the source of these one-liners.
 | `tiny_http` 0.12.0 | the local web server behind `serve` (§4.9) |
 | `ureq` 2 (`json`) | the blocking HTTP client for every AI endpoint, including the SSE streaming arm |
 
-**Native GUI**, behind the `gui` feature so a plain `cargo build` / `cargo test`
-never pulls in winit and the GL stack: `eframe` + `egui` **0.33** (the desktop
+**Native GUI**, behind the `gui` feature so a plain `cargo build` never pulls in
+winit and the GL stack: `eframe` + `egui` **0.33** (the desktop
 app, with `eframe/persistence` remembering window geometry and our own prefs),
 `rfd` 0.15 (native file/folder dialogs), `ab_glyph` 0.2 — the same version
 egui pulls — used to pre-validate a CJK font before handing it to egui, which
@@ -7538,17 +6913,14 @@ shared AI / Develop / Retouch panels.
 **View, logic and runtime are three layers.** A frame is drawn by the view
 (`panels/`, `canvas.rs`, `app.rs`): it reads state and emits `logic::Action`s —
 it does not mutate a recipe, spawn a worker, open a dialog or write the develop
-store. `runtime.rs` is the only crossing: `apply_actions` routes the actions to
-`logic::*`, `run_effects` executes what comes back (a worker, a status line, a
-view flag), and `i18n::text` renders the `logic::UiText` key. The actions are
-closed per domain (`Look`, `Lens`, `Gallery`), so a panel can only ask for its
+store. `runtime.rs` is the only crossing: it dispatches each domain action to its
+workflow module. The actions are closed per domain (`GalleryAction`,
+`SettingsAction`, `LensAction`, `PortraitAction`, `NormalAction`,
+`RecipeAction`, `AiAction`, `DevelopAction`), so a panel can only ask for its
 own verbs. A panel that has moved to the projection draws through `PanelView`
 ([`panel_view.rs`](../src/bin/gui/panel_view.rs)): it receives `&mut Editor`,
-`&mut WorkspaceView`, the language, the test seams and the frame's ACTION SINK
-(`&mut Vec<logic::Action>`) — never `&mut AutoShadeApp`. A panel reports its
-intents with `act_all` and toasts through the chrome's door; `draw_panel` runs
-the sink once the draw returns. The histogram, the tone-curve editor and the
-clipping toggle, the settings window and the gallery are the migrated tenants.
+`&mut WorkspaceView` and the language, never `&mut AutoShadeApp`. The frame
+executes the reported intents after the draw closure returns.
 `logic/` is headless — no widget code,
 no rendered text — so a
 domain is tested by calling it. The develop panel's scalar controls are a
@@ -7745,102 +7117,10 @@ message pump, the worker spawns and the repaint gate (~335 lines). Every dialog 
 (`RecipeAction`, `AiAction`, `SettingsAction`, `NormalAction::SaveJpg`/`ApplyToFolder`/
 `PickReferencesFolder`): the panel emits the verb, the runtime opens the dialog
 and runs the side; no file/folder dialog lives under `panels/` any more.
-[`src/bin/gui/tests/architecture.rs`](../src/bin/gui/tests/architecture.rs) pins that the
-logic files stay headless and a migrated panel stays behind the seam. The split's own census, kept current in
-`wishes/autoshade-view-split/PLAN.md` (the working plan, outside this repository):
-26 files under `logic/` with 71 headless tests; every `panels/` file (the
-business panels and the two pure widgets), `canvas.rs` and the frame `app.rs`
-are in the guard; `workers.rs` is the message pump and worker starts, with the
-landings in `landing_*.rs` and the business mutations in `*_actions.rs`; no view
-file contains `rfd::`, a worker spawn, a develop-store write or a direct
-`start_*` call. The app struct is being split by feature state as
-well: `model::GalleryState` owns the gallery's scan, thumbnail cache, selection
-and test-seam rects, so `AutoShadeApp` keeps one `gal` field instead of
-thirteen and a gallery feature no longer edits the app struct. `model::ExportState` does the same for the Export
-panel's dials, delivery target and save-denoise options (one `exp` field), and
-the app struct is down from 234 to 209 fields. `model::HistoryState` owns the undo/redo
-stacks, the committed step and the ●-baseline mirror (`saved_recipe`,
-`saved_strip`, `pixels_on_disk`), one `hist` field; the app struct is now at
-204 fields. `model::OverlayState` owns the mask-coverage
-overlay and the AI region (texture, rebuild key/throttle, dirty sub-rect, shown
-switch, hovered row, cached range reference, region gesture), one `overlay`
-field; the app struct is at 189 fields. `model::MaskEditState` owns the painting and
-mask-edit state (brush dials, paint buffer and per-owner stash, mask-brush
-session, selected mask/component, placement gesture), one `masks` field; the
-app struct is at 172 fields. `model::ViewState` owns the canvas view (zoom/pan and
-their glide target, the 1:1 scale, the controls-panel rect, the latched Before
-view and the compare/single switch), one `view` field; the app struct is at 166
-fields. `model::CropState` owns the crop overlay (armed,
-preset index and pending re-derive, guide style, drag in flight), one `crop`
-field, and the on-image mask knob drag joins `MaskEditState` (`masks.mask_drag`);
-the app struct is at 161 fields. The window tests' layout/behaviour probes
-(measured rects and gated-button states) live in `model::TestSeams`, a
-`#[cfg(test)]`-only struct behind one `seams` field, so a new test probe never
-enters the production shape; the app struct is at 140 fields and 2092 lines. `model::AiState` owns the AI section's
-non-persisted state (library summary and build flight, the free-text direction,
-the Color Mixer and grade tab indices), one `ai` field; the app struct is at 134
-fields. `model::OpenState` owns the open-path facts
-(navigation stash, master cache and loads, source part and its re-develop
-flight, lens/as-shot, Before baseline, open window flags, discard request), one
-`open` field; the app struct is at 119 fields. `model::AiPrefs` owns the persisted AI preferences
-mirrored on the app (`guide`, the three strengths, the adherence dial and the
-library/deep-think switches), one `aip` field; `Prefs` keeps its serialized
-names and `restore_prefs`/save map between them explicitly. The app struct is
-at 109 fields. `model::CardsState` owns the card strip's dialog
-and one-shot state (snapshot numbers/meta, version and variant name dialogs,
-the current-only filter, the delete confirmation, the keep-recipe flag), one
-`cards` field; the variant list itself stays on the app as the open photo's
-core state. The app struct is at 103 fields. `model::FitState` owns the reverse-fit dials and
-dialog state (zoned/four-region, AI judge, deep think, retry, ask-after-generate,
-reference path/label, prompt), one `fit` field; six of the dials are `Prefs`
-fields and the save/load code maps between them. The app struct is at 95 fields. `model::RecipeLibraryState` owns the named-recipe
-panel (open switch, loaded list and its read/filter/selection, name field,
-inline rename and delete-armed rows, preview texture), one `rlib` field; the app
-struct is at 87 fields. `model::ChromeState` owns the status chrome
-(startup greeting, toast queue, histogram cache, window-title cache, clipping
-warnings and their texture), one `chrome` field; the status line itself stays on
-the app as the per-frame read nearly every action needs. The app struct is at
-81 fields. `model::ShellState` owns the window shell
-(Settings form, installed theme/accent, open windows, panel/defocus switches,
-quit confirmation, first-frame theme sync, Python probe), one `ui` field; the UI
-language stays on the app because every `tr()` call reads it. The app struct is
-at 70 fields. `model::ToolsState` owns the canvas tools and
-flight flags (four eyedroppers, clone brush, stack dials, generation epoch/cancel
-token, analyze-inflight, the Look protocol state), one `tools` field; the app
-struct is at 58 fields. `model::GenerativeState` owns the generative tools and
-the recipe clipboard (fill/heal dials and prompts, reimagine/adjust prompts and
-quality, the in-app clipboard and its origin, paste-geometry, the working-preview
-long edge), one `genai` field. A slice is done: the app struct went from 234 to
-47 fields (`app.rs` 2326 → 1916 lines), and what remains is the open photo's
-core state plus the scheduler and status line. The B pass splits `actions.rs` by domain; the variant
-strip's commands (load/switch/push/delete, fork/normalize, labels, row-action
-dispatch — 21 methods, 689 lines) now live in `variant_actions.rs`. The snapshot commands (`version_path`,
-`remap_mask_indices`, the list refresh, `version_is_from`, the name batch,
-save/load/delete — 8 methods, 476 lines) live in `version_actions.rs`. The open path (`open_path` with its decode/
-re-develop hand-off and guards, the gallery row and the folder — 340 lines) lives
-in `open_actions.rs`. The edit history and the pixel re-develops it drives
-(the undo/redo stacks and commits, `apply_step`, the pixel refresh/rebind and the
-quarter-turn rotate/sync) live in `history_actions.rs`. The Settings form and the model/Python rows
-(load/save prefs, the catalogue fetch, the Python install/probe) live in
-`settings_actions.rs`. The AI starts and the modal dialogs (analyze spawn,
-`start_fit`, the reference-library build/info starts, the legacy import, the
-cancel token, the fit-prompt and quit-confirm layers) live in
-`ai_start_actions.rs`. B is done: `actions.rs` went from 4664 to 995 lines and now
-holds only the app's construction/prefs restore, the open-baseline and dirty
-helpers, the save/export group and the status helpers. The C pass decouples the tests from file layout: the
-positive invariant scans read the whole GUI tree through a `gui_source()` helper
-(excluding the tests) instead of one named file, so splitting a module no longer
-turns them red; count-exact and absence assertions keep their narrow scope
-because widening them would make them false-positive (the export dial, the
-panel separators). Count/absence pins that need a
-single module are function-scoped instead: `gui_function(name)` extracts one
-function's text from the tree, so a function may move files while its absence
-or count pin still holds. Only four `include_str!` sites remain: three external
-files (`serve.rs`, `pipeline.rs`, `python/denoise.py`) and the side-panel
-separator census, whose cross-module absence cannot be function-scoped without
-losing coverage. Two lib-side pins that read a GUI
-file (`pipeline::tests` reverse-fit source, `render::tests` open-path entry) now
-walk the GUI tree the same way, so they survived the B split.
+The GUI test module is compiled only under `#[cfg(test)]`; production carries
+no test-seam fields, source scanners or UI-framework-specific test helpers.
+Tests exercise workflow outcomes and state changes, not file layout or helper
+names. Architecture rules stay in `clippy.toml` and the module visibility.
 
 **Normal's four groups.** Normal is not a second workspace: its four groups —
 one-click look, fine-tune, noise, save — are drawn in the same sidebar above
@@ -7970,15 +7250,9 @@ portable state machine compiled and tested on every platform
 Darwin-only. Build-time: `winresource` 0.1 embeds the Windows app icon
 ([`build.rs`](../build.rs)), best-effort — no resource compiler still builds.
 
-**Dev-only.** `tiff` 0.11 — the same version `image` already locks — and, on
-Windows, `windows-sys` 0.59 a second time with `Win32_System_ProcessStatus`
-(`GetProcessMemoryInfo`): the `#[ignore]`d `jobs::probe_per_photo_peak_commit`
-harness that re-derives `PER_PHOTO_PEAK_COMMIT_MB`; resolver 3 keeps
-dev-dependency features out of the shipped binaries. `image`'s
-own TIFF *encoder* cannot round-trip an `IccProfile` tag (probed: the written
-tag reads back `None`), so the ICC regression tests write their fixture through
-the `tiff` crate directly, the way Lightroom-style writers produce real profiled
-TIFFs.
+**TIFF support.** `tiff` 0.11 is used by the engine and by synthetic ICC
+fixtures. The old Windows `windows-sys` dev-dependency and its ignored memory
+probe were removed with the rest of the test-only harness.
 
 **The Python sidecar stack** is deliberately NOT in `Cargo.toml`: six scripts
 under `python/`, shelled out to with `-E`, each doing one job and each failing
@@ -8009,7 +7283,7 @@ OpenAI-compatible **Responses** API for the vision advisor and the visual judge
 (strict `json_schema`, `store: false`), the **Images** API (`/v1/images/edits`,
 `gpt-image-*`) for the experimental generative edits — or, for a provider whose
 edit call is shaped differently (Venice's `/image/multi-edit`), a JSON template
-the user writes in Settings (`image_endpoint.rs`: path on the same base URL,
+the user writes in Settings (the configured template: path on the same base URL,
 body with placeholders, reply as the image or a JSON pointer) — and the **`claude` CLI**
 for the analyst/verifier role — reusing Claude Code OAuth, so that role needs no
 API key at all (§3, §4.3).

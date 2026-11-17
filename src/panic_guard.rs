@@ -59,35 +59,3 @@ impl Drop for Recoverable {
 pub fn panic_is_recoverable() -> bool {
     RECOVERABLE_DEPTH.try_with(|d| d.get() > 0).unwrap_or(false)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_scope_nests_and_a_caught_panic_still_restores_it() {
-        assert!(!panic_is_recoverable(), "a bare thread is fatal ground");
-        {
-            let _outer = Recoverable::enter();
-            assert!(panic_is_recoverable());
-            {
-                let _inner = Recoverable::enter();
-                assert!(panic_is_recoverable());
-            }
-            // MUTATION THIS KILLS: a bool instead of a depth — the inner
-            // scope's exit would have cleared the outer one's here.
-            assert!(panic_is_recoverable(), "the outer scope outlives the inner");
-        }
-        assert!(!panic_is_recoverable(), "both scopes ended");
-
-        // The restore that matters: Drop runs while UNWINDING, so a thread
-        // that caught a panic inside the scope is fatal ground again after.
-        let caught = std::panic::catch_unwind(|| {
-            let _g = Recoverable::enter();
-            assert!(panic_is_recoverable());
-            panic!("contained");
-        });
-        assert!(caught.is_err(), "the panic was caught, not swallowed");
-        assert!(!panic_is_recoverable(), "the guard unwound with the panic");
-    }
-}

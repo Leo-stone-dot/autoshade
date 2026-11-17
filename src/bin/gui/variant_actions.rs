@@ -398,13 +398,6 @@ pub(crate) fn variant_label(&self, idx: usize) -> String {
 
 
 
-/// The card [`Self::negative_origin`] reads — its rule, spelled once so
-/// the reverse-fit fold can NAME the automatic choice (2026-09-30).
-/// Test-only view of [`crate::logic::cards::negative_index`].
-#[cfg(test)]
-pub(crate) fn negative_index(&self) -> Option<usize> {
-    crate::logic::cards::negative_index(&self.editor.doc().variants, self.editor.doc().active)
-}
 
 /// The negative's pixels on disk: its master when it carries one, else
 /// the loaded file — the input a whole-frame reimagine develops from.
@@ -414,16 +407,6 @@ pub(crate) fn negative_path(&self) -> Option<PathBuf> {
 
 
 
-/// [`Self::fit_source_index`]'s master on disk (`None` = the loaded
-/// file's own frame): what the solve's source frame, the ◭ card's origin
-/// and the persisted pixel link all read.
-/// Test-only view of [`crate::logic::cards::negative_origin`] for the card
-/// assertions: the app's own code asks for the pixels through
-/// [`Self::negative_path`] / [`Self::fit_negative`].
-#[cfg(test)]
-pub(crate) fn negative_origin(&self) -> Option<PathBuf> {
-    crate::logic::cards::negative_origin(&self.editor.doc().variants, self.editor.doc().active)
-}
 
 pub(crate) fn fit_negative(&self) -> Option<PathBuf> {
     crate::logic::cards::fit_negative(&self.editor.doc().variants, self.editor.doc().active, self.workspace.fit().fit_from.as_deref())

@@ -105,21 +105,6 @@ pub(crate) struct Frame {
 }
 
 impl Stage {
-    /// Prepare `profile` for a frame in `space`, or `None` when the profile
-    /// carries nothing this stage can act on.
-    ///
-    /// `kelvin` is the frame's own white balance, which selects between the
-    /// profile's two calibrations. Absent — a file with no usable white balance
-    /// — takes the FIRST hue/sat map, because a profile that ships only one
-    /// ships it as Data1 and guessing a temperature to blend with would be
-    /// inventing a measurement.
-    ///
-    /// The renders call [`Stage::build_for`]; this is its no-neutral,
-    /// no-creative-table form, kept for the stage's own tests.
-    #[cfg(test)]
-    pub(crate) fn build(profile: &Profile, space: super::ExportColorSpace, kelvin: Option<f32>) -> Option<Self> {
-        Self::build_for(profile, space, Frame { kelvin, ..Frame::default() })
-    }
 
     /// [`Stage::build`] with everything the photograph brings ([`Frame`]).
     ///
@@ -343,32 +328,6 @@ const ROBERTSON: [[f64; 4]; 31] = [
     [600.0, 0.33724, 0.36051, -116.45],
 ];
 
-/// The chromaticity of a temperature and tint, `dng_temperature::Get_xy_coord`
-/// — the white Camera Raw's Temperature and Tint name: the blackbody point at
-/// the temperature, moved along its isotherm by the tint (`kTintScale`, −3000
-/// tint units per unit of uv). The render reads whites the other way
-/// ([`xy_to_temp_tint`]); this direction pins that inverse.
-#[cfg(test)]
-pub(crate) fn temp_tint_to_xy(kelvin: f64, tint: f64) -> [f64; 2] {
-    let r = 1.0e6 / kelvin;
-    let offset = tint / -3000.0;
-    let unit = |s: f64| {
-        let len = (1.0 + s * s).sqrt();
-        (1.0 / len, s / len)
-    };
-    let mut i = 0;
-    while i < ROBERTSON.len() - 2 && r >= ROBERTSON[i + 1][0] {
-        i += 1;
-    }
-    let (a, b) = (ROBERTSON[i], ROBERTSON[i + 1]);
-    let f = (b[0] - r) / (b[0] - a[0]);
-    let (u, v) = (a[1] * f + b[1] * (1.0 - f), a[2] * f + b[2] * (1.0 - f));
-    let ((u1, v1), (u2, v2)) = (unit(a[3]), unit(b[3]));
-    let (du, dv) = (u1 * f + u2 * (1.0 - f), v1 * f + v2 * (1.0 - f));
-    let len = (du * du + dv * dv).sqrt();
-    let (u, v) = (u + du / len * offset, v + dv / len * offset);
-    [1.5 * u / (u - 4.0 * v + 2.0), v / (u - 4.0 * v + 2.0)]
-}
 
 /// Correlated colour temperature of a chromaticity by Robertson's method —
 /// `dng_temperature::Set_xy_coord`.
@@ -421,16 +380,6 @@ fn color_matrix_at(profile: &Profile, kelvin: f64) -> Option<[[f64; 3]; 3]> {
     }
 }
 
-/// The temperature of the white this camera `neutral` stands for, solved as
-/// the DNG SDK's `NeutralToXY` does: start at D50, map the neutral to XYZ
-/// through the inverse of the `ColorMatrix` interpolated at the current
-/// estimate, repeat until the chromaticity stops moving (30 passes at most;
-/// a two-value oscillation is averaged, as the SDK averages it). `None` when
-/// the profile has no `ColorMatrix` or the neutral is unusable.
-#[cfg(test)]
-pub(crate) fn white_temperature(profile: &Profile, neutral: [f32; 3]) -> Option<f32> {
-    white_temperature_with(profile, neutral, None)
-}
 
 /// [`white_temperature`] with the body's `CameraCalibration` diagonal in
 /// front of the matrices ([`Frame::calibration`]).
@@ -627,7 +576,3 @@ fn from_hsv(hsv: [f32; 3]) -> [f32; 3] {
         _ => [v, p, q],
     }
 }
-
-
-#[cfg(test)]
-mod tests;

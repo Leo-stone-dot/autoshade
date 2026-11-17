@@ -11,7 +11,7 @@
 ;   ISCC /DAppVersion=1.2.3 /DAppIdOverride={2F0A...} /DAppNameOverride="AutoShade Test"
 ; with RAW braces -- the AppId= line below adds the escaping brace itself. A
 ; release compile passes neither define and therefore always gets the two
-; constants here; scripts/installer_scenarios.ps1 asserts exactly that, and
+; constants here, so the installer and its uninstall entry share one identity.
 ; asserts the shipped uninstall key is never written while the scenarios run.
 #ifndef AppIdOverride
   #define ShippedIdentity

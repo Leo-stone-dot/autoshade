@@ -73,20 +73,7 @@ pub(crate) struct PortraitState {
     /// A depth estimate was started from the Background group: its landing
     /// aims the focus at the face and keeps the person sharp.
     pub(crate) blur_from_panel: bool,
-    /// Test seam: what the last heal was started with (painted mask?, the
-    /// limit raster) — `start_heal`, shared by the Retouch panel's heal and
-    /// this panel's 🤖 Remove blemishes.
-    #[cfg(test)]
-    pub(crate) heal_asked: Option<(bool, Option<PathBuf>)>,
-    /// Test seam: stands in for `retouch::heal` inside the heal worker.
-    #[cfg(test)]
-    pub(crate) heal_runner: Option<HealRunner>,
 }
-
-/// What the heal worker runs: `retouch::heal`, or a test's stand-in for it
-/// — (the source, the limit raster, the output).
-pub(crate) type HealRunner =
-    fn(&std::path::Path, Option<&std::path::Path>, &std::path::Path) -> anyhow::Result<autoshade::retouch::HealReport>;
 
 impl Default for PortraitState {
     fn default() -> Self {
@@ -95,10 +82,6 @@ impl Default for PortraitState {
             found: None,
             keep_skin: Default::default(),
             blur_from_panel: false,
-            #[cfg(test)]
-            heal_asked: None,
-            #[cfg(test)]
-            heal_runner: None,
         }
     }
 }

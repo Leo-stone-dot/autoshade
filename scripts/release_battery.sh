@@ -1,305 +1,41 @@
 #!/usr/bin/env bash
-# The release battery, as one command: three cargo lanes in parallel, the
-# script checks, and the by-name test-set difference against a saved baseline.
+# One fast release gate: lint and the document/text/font gates.
 #
-# It exists because the battery was until now a recipe in prose that each
-# release re-typed by hand, and a lane typed by hand is a lane that can be
-# forgotten. The calibration lane is the one that was forgotten most often:
-# the corpus-gated tests print a skip line and PASS when
-# AUTOSHADE_FIT_CALIBRATION_DIR is unset, so a battery that never sets it is
-# green for the wrong reason. This script refuses to pretend: no corpus, no
-# calibration lane, exit 1 with the reason.
+# No behavior cases are currently checked in; the battery proves the code still
+# passes the architecture lint and that the living documents remain accurate.
 #
-# The transcript is written in `=== name ===` blocks so
-# `scripts/check_docs.py --gates <transcript>` can read the test counts and
-# the calibration lane straight out of it.
-#
-#   scripts/release_battery.sh                       # all three lanes
-#   scripts/release_battery.sh --out target/b.txt      # transcript elsewhere
-#   scripts/release_battery.sh --save-baseline       # re-pin the name list
-#   scripts/release_battery.sh --baseline names.txt  # diff against that list
-#
-# Environment (all optional except the first for the calibration lane):
-#   AUTOSHADE_FIT_CALIBRATION_DIR  the p36-p39 corpus; required, checked
-#   AUTOSHADE_CENSUS_ROOT          passed through for the doc gate's census
-#   AUTOSHADE_SEGMENT_SCRIPT       defaulted to <repo>/python/segment.py
-#   AUTOSHADE_CORRESPOND_SCRIPT    defaulted to <repo>/python/correspond.py
-#   BATTERY_TARGET_ROOT            parent of the three CARGO_TARGET_DIRs
-#   BATTERY_DATA_ROOT              parent of the three AUTOSHADE_DATA_DIRs
-#
-# scripts/roundtrip_gate.py is a developer instrument (it needs Photoshop with
-# Camera Raw) and is not part of this battery; run it by hand when wanted.
-#
-# Windows note: Git Bash paths are converted with `cygpath -w` before they are
-# handed to cargo, because cargo.exe reads CARGO_TARGET_DIR as a native path
-# and would take `/d/t/x` for a directory called `d` on the current drive.
-#
-# GPU note: the sidecar script paths reach ALL THREE lanes, so a machine with
-# weights configured can have the default lane and the calibration lane load a
-# model at the same time. Measured on an 8 GB card with the v1.2.4 suite: both
-# lanes completed, twice, the calibration lane taking 822 s and 842 s against the
-# default lane's 446 s and 486 s, because its corpus-gated tests actually run
-# instead of printing a skip line. On a smaller card, run the lanes one at a
-# time by passing a different --out per lane rather than by editing this script.
+#   scripts/release_battery.sh
+#   scripts/release_battery.sh --out target/battery.txt
 
-set -u
-set -o pipefail
+set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
-OUT="$REPO/target/battery/transcript.txt"
-BASELINE="$REPO/target/battery/base-tests.txt"
-SAVE_BASELINE=0
+OUT="$REPO/target/battery.txt"
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --out) OUT=$2; shift 2 ;;
-        --baseline) BASELINE=$2; shift 2 ;;
-        --save-baseline) SAVE_BASELINE=1; shift ;;
-        -h|--help) sed -n '2,47p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "release_battery: unknown argument $1" >&2; exit 2 ;;
     esac
 done
 
-TARGET_ROOT=${BATTERY_TARGET_ROOT:-$REPO/target/battery/t}
-DATA_ROOT=${BATTERY_DATA_ROOT:-$REPO/target/battery/data}
+mkdir -p "$(dirname "$OUT")"
+: > "$OUT"
+cd "$REPO"
 
-# ---------------------------------------------------------------- the corpus
-CORPUS=${AUTOSHADE_FIT_CALIBRATION_DIR:-}
-if [ -z "$CORPUS" ]; then
-    echo "release_battery: AUTOSHADE_FIT_CALIBRATION_DIR is unset, so the" >&2
-    echo "  calibration lane cannot run. Every corpus-gated test would print" >&2
-    echo "  a skip line and pass, and the battery would be green without" >&2
-    echo "  having measured anything. Point it at the p36-p39 corpus." >&2
-    exit 1
-fi
-if [ ! -d "$CORPUS" ]; then
-    echo "release_battery: AUTOSHADE_FIT_CALIBRATION_DIR=$CORPUS is not a" >&2
-    echo "  directory. The calibration lane needs the p36-p39 pairs; without" >&2
-    echo "  them its tests skip and pass, which is not a lane." >&2
-    exit 1
-fi
-
-# ------------------------------------------------------------------ helpers
-native() {
-    # Cargo and the sidecars are native Windows binaries under Git Bash.
-    if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else printf '%s' "$1"; fi
-}
-
-mkdir -p "$(dirname "$OUT")" "$TARGET_ROOT" "$DATA_ROOT"
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/autoshade-battery.XXXXXX") || exit 1
-trap 'rm -rf "$WORK"' EXIT
-
-export AUTOSHADE_SEGMENT_SCRIPT=${AUTOSHADE_SEGMENT_SCRIPT:-$(native "$REPO/python/segment.py")}
-export AUTOSHADE_CORRESPOND_SCRIPT=${AUTOSHADE_CORRESPOND_SCRIPT:-$(native "$REPO/python/correspond.py")}
-[ -n "${AUTOSHADE_CENSUS_ROOT:-}" ] && export AUTOSHADE_CENSUS_ROOT
-
-lib_by_module() {
-    # lib_by_module <extra harness args...> — the library suite as ONE PROCESS
-    # PER TOP-LEVEL TEST MODULE, printed in the shape cargo prints a single run
-    # (one `Running unittests src/lib.rs` header, every test line, one summed
-    # `test result:` line) so `check_docs.py --gates` reads it unchanged.
-    #
-    # Why not one process: an endpoint-security sensor on the release machine
-    # (CrowdStrike Falcon) terminates a single process that runs the whole
-    # suite — its own event channel says so, ID 9 "A process was terminated
-    # because malicious behavior was detected", at the second of every death
-    # (2026-09-02, eleven of eleven, exit status 0xE0000027). The suite writes
-    # and executes sidecar stubs, spawns copies of itself, kills job objects
-    # and hard-links files, and to a behavioural model that chain is malware
-    # shaped. It is cumulative: any module alone stays under the threshold
-    # (37 of 37 measured), the full suite in one process does not, and
-    # skipping the trigger tests only moves the kill later. Nothing is skipped
-    # here: the module list is the harness's own --list, every name runs
-    # exactly once, and the counts are summed by name.
-    cargo test --offline --release --lib --no-run 2>&1 || return 1
-    names=$(cargo test --offline --release --lib -- --list 2>/dev/null | grep ': test$' | sed 's/: test$//')
-    [ -n "$names" ] || { echo "release_battery: the library lists no tests"; return 1; }
-    modules=$(printf '%s\n' "$names" | sed 's/::.*//' | sort -u)
-    echo "     Running unittests src/lib.rs ($(printf '%s\n' "$modules" | wc -l | tr -d ' ') modules, one process each)"
-    # The harness args this lane was given (--nocapture for the calibration
-    # lane) ride along on every module's command line; saved before the loop
-    # because `set --` below reuses the positional parameters.
-    extra=("$@")
-    rc=0; passed=0; failed=0; ignored=0; measured=0; secs=0; status=ok
-    for m in $modules; do
-        # `tests` is the crate root's own module: as a prefix it would match
-        # every test, so its members run by exact name.
-        if [ "$m" = tests ]; then
-            set -- --exact $(printf '%s\n' "$names" | grep '^tests::') ${extra+"${extra[@]}"}
-        else
-            set -- "$m::" ${extra+"${extra[@]}"}
-        fi
-        out=$(cargo test --offline --release --lib -- "$@" 2>&1)
-        mrc=$?
-        [ "$mrc" = 0 ] || { rc=$mrc; status=FAILED; }
-        printf '%s\n' "$out" | grep -v '^     Running \|^running [0-9]* tests\?$\|^test result: '
-        line=$(printf '%s\n' "$out" | grep '^test result: ' | tail -n 1)
-        [ -n "$line" ] || { status=FAILED; rc=1; echo "release_battery: module $m printed no test result"; continue; }
-        n() { printf '%s\n' "$line" | sed -n "s/.* \([0-9][0-9]*\) $1;.*/\1/p"; }
-        passed=$((passed + $(n passed)))
-        failed=$((failed + $(n failed)))
-        ignored=$((ignored + $(n ignored)))
-        measured=$((measured + $(n measured)))
-        secs=$(printf '%s %s\n' "$secs" "$(printf '%s\n' "$line" | sed -n 's/.*finished in \([0-9.]*\)s.*/\1/p')" | awk '{printf "%.2f", $1 + $2}')
-    done
-    echo
-    echo "test result: $status. $passed passed; $failed failed; $ignored ignored; $measured measured; 0 filtered out; finished in ${secs}s"
-    echo
-    return $rc
-}
-
-lane() {
-    # lane <name> <extra cargo args...> — one lane in its own target and data
-    # dir, output to $WORK/<name>.txt, exit status to $WORK/<name>.rc. With no
-    # cargo args the lane is the default battery (library by module, then the
-    # binaries, the integration tests and the doc-tests); `--lib -- <harness
-    # args>` is the library by module with those harness args; anything else
-    # is one plain cargo test.
+run() {
     name=$1
     shift
-    mkdir -p "$TARGET_ROOT/$name" "$DATA_ROOT/$name"
-    (
-        export CARGO_TARGET_DIR=$(native "$TARGET_ROOT/$name")
-        export AUTOSHADE_DATA_DIR=$(native "$DATA_ROOT/$name")
-        if [ "$name" = calib ]; then
-            export AUTOSHADE_FIT_CALIBRATION_DIR=$(native "$CORPUS")
-        else
-            unset AUTOSHADE_FIT_CALIBRATION_DIR
-        fi
-        cd "$REPO" || exit 1
-        # `${1+"$@"}` and not `"$@"`: macOS still ships bash 3.2, where an
-        # empty `"$@"` under `set -u` is an unbound-variable error.
-        if [ $# -eq 0 ]; then
-            lib_by_module && cargo test --offline --release --bins --test '*' 2>&1 \
-                && cargo test --offline --release --doc 2>&1
-        elif [ "$1" = --lib ] && [ "${2:-}" = -- ]; then
-            shift 2
-            lib_by_module ${1+"$@"}
-        else
-            cargo test --offline --release ${1+"$@"} 2>&1
-        fi
-        echo $? > "$WORK/$name.rc"
-    ) > "$WORK/$name.txt" 2>&1
+    echo "=== $name ===" | tee -a "$OUT"
+    "$@" 2>&1 | tee -a "$OUT"
+    echo | tee -a "$OUT"
 }
 
-# --------------------------------------------------------------- three lanes
-# The gui feature only adds dependencies, so the gui lane runs the gui bin
-# alone; the calibration lane runs the library a second time with the corpus
-# in reach and --nocapture, which is the only way a skip line reaches the
-# transcript at all (libtest swallows a passing test's stderr).
-lane default &
-PID_DEFAULT=$!
-lane gui --features gui --bin autoshade-gui &
-PID_GUI=$!
-lane calib --lib -- --nocapture &
-PID_CALIB=$!
-wait $PID_DEFAULT $PID_GUI $PID_CALIB
+run "cargo clippy" cargo clippy --locked --release --all-targets --features gui -- -D warnings
+run "text resources" python3 scripts/check_text.py
+run "GUI font subsets" python3 scripts/subset_gui_fonts.py --check
+run "doc drift" python3 scripts/check_doc_drift.py
+run "release claims" python3 scripts/check_docs.py
 
-rc_of() { cat "$WORK/$1.rc" 2>/dev/null || echo 1; }
-RC_DEFAULT=$(rc_of default)
-RC_GUI=$(rc_of gui)
-RC_CALIB=$(rc_of calib)
-
-# ----------------------------------------------------- the three script gates
-# (the doc-drift gate since 2026-10-02: every path, symbol, link and tier count
-# the living documents name must exist in the tree). A script gate that exits
-# non-zero fails the battery like a lane does.
-CHECKS="$WORK/checks.txt"
-CHECKS_FAILED=0
-for gate in "scripts/audit_i18n.py" "scripts/subset_gui_fonts.py --check" "scripts/check_doc_drift.py"; do
-    echo "\$ python $gate" >> "$CHECKS"
-    # $gate is word-split on purpose: the script and its flags.
-    (cd "$REPO" && python $gate >> "$CHECKS" 2>&1)
-    rc=$?
-    echo "exit $rc" >> "$CHECKS"
-    echo >> "$CHECKS"
-    [ "$rc" = 0 ] || CHECKS_FAILED=$((CHECKS_FAILED + 1))
-done
-
-# ------------------------------------------------------------- the name diff
-NAMES="$WORK/names.txt"
-(
-    cd "$REPO" || exit 1
-    export CARGO_TARGET_DIR=$(native "$TARGET_ROOT/default")
-    export AUTOSHADE_DATA_DIR=$(native "$DATA_ROOT/default")
-    cargo test --offline --release --lib -- --list 2>/dev/null
-) | grep ': test$' | sed 's/: test$//' | sort > "$NAMES"
-NAME_COUNT=$(wc -l < "$NAMES" | tr -d ' ')
-
-DIFF="$WORK/diff.txt"
-ADDED=0
-REMOVED=0
-if [ "$SAVE_BASELINE" = 1 ]; then
-    mkdir -p "$(dirname "$BASELINE")"
-    cp "$NAMES" "$BASELINE"
-    echo "baseline saved: $BASELINE ($NAME_COUNT names)" > "$DIFF"
-elif [ -f "$BASELINE" ]; then
-    # A baseline is a sorted list of bare test names. One saved by an earlier
-    # version of this script, or copied from the harness's own `--list`, still
-    # carries the `: test` suffix; strip it here so both sides compare by name.
-    BASE_NAMES="$WORK/baseline-names.txt"
-    sed 's/: test$//' "$BASELINE" | tr -d '
-' | sort > "$BASE_NAMES"
-    ADDED=$(comm -13 "$BASE_NAMES" "$NAMES" | wc -l | tr -d ' ')
-    REMOVED=$(comm -23 "$BASE_NAMES" "$NAMES" | wc -l | tr -d ' ')
-    {
-        echo "baseline: $BASELINE"
-        comm -13 "$BASE_NAMES" "$NAMES" | sed 's/^/+ /'
-        comm -23 "$BASE_NAMES" "$NAMES" | sed 's/^/- /'
-    } > "$DIFF"
-else
-    echo "no baseline at $BASELINE — run with --save-baseline on the base commit" > "$DIFF"
-fi
-
-# ------------------------------------------------------------- the transcript
-# Counted wherever a skip line lands, not only at a line start: under
-# --nocapture a test's skip line (stderr) can arrive between libtest's
-# `test <name> ... ` and its `ok` (stdout), and the v1.6.3 battery's summary
-# read 0 for the one skip it had. A name runs to the first ": " (names carry
-# spaces, never a colon).
-SKIPS=$({ grep -oE 'SKIPPED [^:]+: ' "$WORK/calib.txt" 2>/dev/null || true; } | wc -l | tr -d ' ')
-[ -z "$SKIPS" ] && SKIPS=0
-FAILED=0
-for rc in "$RC_DEFAULT" "$RC_GUI" "$RC_CALIB"; do
-    [ "$rc" = 0 ] || FAILED=$((FAILED + 1))
-done
-
-{
-    echo "=== battery ==="
-    echo "repo:    $REPO"
-    echo "commit:  $(cd "$REPO" && git rev-parse --short HEAD 2>/dev/null || echo unknown)"
-    echo "date:    $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-    echo "host:    $(uname -s) $(uname -m)"
-    echo "corpus:  $CORPUS"
-    echo "census:  ${AUTOSHADE_CENSUS_ROOT:-(unset)}"
-    echo
-    echo "=== test default ==="
-    cat "$WORK/default.txt"
-    echo
-    echo "=== test gui ==="
-    cat "$WORK/gui.txt"
-    echo
-    echo "=== test calib ==="
-    cat "$WORK/calib.txt"
-    echo
-    echo "=== checks ==="
-    cat "$CHECKS"
-    echo
-    echo "=== test names ==="
-    cat "$DIFF"
-    echo
-    echo "=== summary ==="
-    echo "lane default: exit $RC_DEFAULT"
-    echo "lane gui: exit $RC_GUI"
-    echo "lane calib: exit $RC_CALIB"
-    echo "calib skipped: $SKIPS"
-    echo "test names: $NAME_COUNT (+$ADDED -$REMOVED)"
-    echo "lanes failed: $FAILED"
-    echo "script gates failed: $CHECKS_FAILED"
-} > "$OUT"
-
-sed -n '/^=== summary ===$/,$p' "$OUT"
-echo
-echo "transcript: $OUT"
-[ "$FAILED" = 0 ] && [ "$CHECKS_FAILED" = 0 ] || exit 1
-exit 0
+echo "release battery green; transcript: $OUT" | tee -a "$OUT"

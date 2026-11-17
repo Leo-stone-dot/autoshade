@@ -562,19 +562,6 @@ fn inferred_geometry(n: usize) -> (u32, u32) {
     }
 }
 
-/// The evidence model of a pair whose target is present everywhere — the
-/// fixtures' form. Production pairs come through [`evidence_model_paired`]
-/// with the presence their target carries, so no fit can build an
-/// all-present model of a target that is not.
-#[cfg(test)]
-pub fn evidence_model_for(
-    sp: &[[f32; 3]],
-    tp: &[[f32; 3]],
-    width: u32,
-    height: u32,
-) -> EvidenceModel {
-    evidence_model_paired(sp, tp, None, width, height)
-}
 
 /// THE evidence model of one aligned pair. `presence` is the target's
 /// ([`super::presence_of`]); an absent pixel is taken out of the frame
@@ -653,11 +640,6 @@ pub fn evidence_model_paired(
     }
 }
 
-#[cfg(test)]
-pub(crate) fn evidence_model(sp: &[[f32; 3]], tp: &[[f32; 3]]) -> EvidenceModel {
-    let (width, height) = inferred_geometry(sp.len().min(tp.len()));
-    evidence_model_for(sp, tp, width, height)
-}
 
 pub(super) fn movement_identifiability(after: &[[f32; 3]], evidence: &EvidenceModel) -> f32 {
     let mut unsupported = 0.0f32;
@@ -1147,7 +1129,7 @@ fn wb_demand(a: f32, m: f32, law: render::WbLaw) -> (f32, f32, [f32; 3]) {
         return ((k / 50.0).round() * 50.0, round1(tint), [1.0; 3]);
     }
     let want_log = [m + 0.5 * a, 0.0, m - 0.5 * a];
-    // The normalised demand the callers and tests read: the same chromaticity
+    // The normalised demand the callers read: the same chromaticity
     // as gains with unit geometric mean.
     let common = (want_log[0] + want_log[1] + want_log[2]) / 3.0;
     let wanted = want_log.map(|v| (v - common).exp());
@@ -1178,12 +1160,4 @@ pub(super) fn weighted_mean_chroma(px: &[[f32; 3]], weights: &[f32]) -> Option<f
 }
 
 impl Divergence {
-    /// A hand-built matched reading, for fixtures that need one.
-    /// PRODUCTION NEVER MANUFACTURES ONE: `structure_divergence` either
-    /// measures a divergence or abstains, and a manufactured 0.0 on a
-    /// production path is the defect v1.2.4 removed.
-    #[cfg(test)]
-    pub(super) fn matched() -> Self {
-        Self { correlation: 1.0, energy_error: 0.0, d: 0.0 }
-    }
 }

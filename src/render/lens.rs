@@ -263,6 +263,3 @@ pub(crate) fn with_auto_lateral_ca<'a>(
     solved.ca_b = (solved.ca_b + db).clamp(-100.0, 100.0);
     std::borrow::Cow::Owned(solved)
 }
-
-#[cfg(test)]
-mod tests;

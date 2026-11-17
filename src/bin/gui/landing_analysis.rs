@@ -37,7 +37,7 @@ impl Commands<'_> {
                 // A cancelled or superseded Analyze: never install or save it.
             }
             logic::analysis_workflow::AnalysisCommand::Failed(e) => {
-                self.workspace.fail(tr(lang, "analyze failed"), e);
+                self.workspace.fail(tr(lang, K_LANDING_ANALYZE_FAILED), e);
             }
             logic::analysis_workflow::AnalysisCommand::Install(install) => {
                 let logic::analysis_workflow::AnalysisInstall {

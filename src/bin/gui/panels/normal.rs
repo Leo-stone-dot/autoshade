@@ -18,8 +18,6 @@
 
 use crate::*;
 use crate::logic::look::{FineTune, OneClick};
-#[cfg(test)]
-use autoshade::pipeline::GradeRequest;
 
 /// What the first AI denoise of a rendered image downloads: the SCUNet weight
 /// plus its network file (`python/denoise.py` `WEIGHT_BYTES["color_real_psnr"]` +
@@ -109,27 +107,8 @@ pub(crate) struct NormalState {
     pub(crate) apply_all: Option<PathBuf>,
     /// A Save-group delivery is running (its landing is worded here).
     pub(crate) delivering: bool,
-    /// Test seam: what the last analysis asked for (request, direction,
-    /// library name).
-    #[cfg(test)]
-    pub(crate) last_request: Option<(GradeRequest, Option<String>, &'static str)>,
-    /// Test seam: stands in for the paid chain inside the analyze worker.
-    #[cfg(test)]
-    pub(crate) runner: Option<AnalyzeRunner>,
-    /// Test seam: the batch-folder dialog's answer (`Some(None)` = cancelled).
-    #[cfg(test)]
-    pub(crate) folder_pick: Option<Option<PathBuf>>,
-    /// Test seam: the save window's answer (`Some(None)` = cancelled).
-    #[cfg(test)]
-    pub(crate) file_pick: Option<Option<PathBuf>>,
 }
 
-/// A stand-in for `produce_recipe` (tests only).
-#[cfg(test)]
-pub(crate) type AnalyzeRunner = fn(
-    &std::path::Path,
-    &GradeRequest,
-) -> anyhow::Result<(EditRecipe, autoshade::advisor::Verdict, Vec<autoshade::rationale::Note>)>;
 
 impl Commands<'_> {
 

@@ -34,9 +34,6 @@ pub(crate) struct AutoShadeApp {
     /// The persisted AI preferences; see [`AiPrefs`].
     pub(crate) aip: AiPrefs,
     pub(crate) lang: Lang,             // UI language: English skeleton / Chinese overlay (i18n.rs)
-    /// Layout/behaviour probes for the window tests; see [`TestSeams`].
-    #[cfg(test)]
-    pub(crate) seams: TestSeams,
 }
 
 impl AutoShadeApp {
@@ -51,13 +48,11 @@ impl AutoShadeApp {
             services: &self.services,
             aip: &mut self.aip,
             lang: self.lang,
-            #[cfg(test)]
-            seams: &mut self.seams,
         }
     }
 
-    /// The projection a panel draws through: the edit, the view state, the
-    /// language and the test seams — never the app itself.
+    /// The projection a panel draws through: the edit, the view state and the
+    /// language — never the app itself.
     pub(crate) fn panel_view(&mut self) -> PanelView<'_> {
         PanelView {
             editor: &mut self.editor,
@@ -69,8 +64,6 @@ impl AutoShadeApp {
             lens: Vec::new(),
             develop: Vec::new(),
             variants: Vec::new(),
-            #[cfg(test)]
-            seams: &mut self.seams,
         }
     }
 
@@ -96,7 +89,7 @@ impl AutoShadeApp {
 
     /// One update() phase — body extracted verbatim from the eframe
     /// update loop (round-12 decomposition).
-    // pub(crate): the zoom-keys test drives a real headless frame through it.
+    // pub(crate): the headless frame runner calls it directly.
     pub(crate) fn upd_shortcuts(&mut self, ctx: &egui::Context) {
         // Tab's egui focus traversal fired last frame despite the consume (see
         // `defocus_next`): drop that focus now so the panel toggle doesn't
@@ -1187,15 +1180,13 @@ impl Default for AutoShadeApp {
             // default (the same rule `fit_ai_judge` follows).
             // OFF, same rule and a bigger bill (up to 17 calls per analyze).
             lang: Lang::En,
-            #[cfg(test)]
-            seams: TestSeams::default(),
         }
     }
 }
 
 impl AutoShadeApp {
     /// One frame of the app: the whole of `update` but the prefs flush, so a
-    /// headless test can drive it with a bare `egui::Context`.
+    /// headless caller can drive it with a bare `egui::Context`.
     pub(crate) fn run_frame(&mut self, ctx: &egui::Context) {
         // First frame: re-issue the OS-titlebar theme. install_theme sends it
         // from the creation closure, but viewport commands sent before the

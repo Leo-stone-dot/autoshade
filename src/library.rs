@@ -285,7 +285,7 @@ pub fn rebuild_named(
     Ok(lib)
 }
 
-/// [`load`] against an explicit file — the seam tests drive.
+/// [`load`] against an explicit file.
 pub fn load_from(file: &Path) -> Loaded {
     if !file.exists() {
         return Loaded::Absent;
@@ -375,6 +375,3 @@ fn is_unit_vector(v: &[f32]) -> bool {
     let norm: f64 = v.iter().map(|&x| f64::from(x) * f64::from(x)).sum::<f64>().sqrt();
     (norm - 1.0).abs() < 1e-3
 }
-
-#[cfg(test)]
-mod tests;

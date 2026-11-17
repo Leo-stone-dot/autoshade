@@ -295,4 +295,3 @@ pub(crate) fn detail(luma: &[f32], w: usize, h: usize) -> Vec<f32> {
     }
     out
 }
-

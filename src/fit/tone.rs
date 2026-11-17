@@ -457,16 +457,6 @@ pub(crate) fn knot_support_for(
 /// (the roundtrip test pins recovery of a real ±25-point recipe).
 pub(super) const TONE_PRIOR: f64 = 0.01;
 
-/// Scan exposure (nonlinear in the model) and, for each candidate, solve the 5
-/// linear sliders (contrast/highlights/shadows/whites/blacks, in the basis
-/// order of [`render::tone_slider_basis`]) by RIDGE least squares over the 8
-/// knots; keep the (ev, sliders) minimising the PENALISED clamped-solution
-/// score `SSE + TONE_PRIOR·Σs²` — the same prior in the solve and in the
-/// model selection, so the exposure scan cannot smuggle the degeneracy back.
-#[cfg(test)]
-pub(crate) fn fit_tone_sliders(tone_map: &impl Fn(f32) -> f32) -> (f32, [f32; 5]) {
-    fit_tone_sliders_supported(tone_map, &[1.0; 8], &[])
-}
 
 /// [`fit_tone_sliders`] with per-knot DATA support composed into the knot
 /// weights. Engine authority says how far a slider can move a knot; support
@@ -709,20 +699,6 @@ fn solve5(mut a: [[f64; 5]; 5], mut b: [f64; 5]) -> [f64; 5] {
     x
 }
 
-/// Whatever tonal shape the sliders could not express, as `tone_curve` control
-/// points. The engine composes `tone_curve` AFTER the knot spline `S`, so the
-/// exact residual curve is `M ∘ S⁻¹` — i.e. points `(S(x), M(x))`. Monotone by
-/// construction (both `S` and `M` are monotone); skipped when the residual is
-/// within tolerance everywhere.
-#[cfg(test)]
-fn residual_tone_curve_with_samples(
-    recipe: &EditRecipe,
-    tone_map: &impl Fn(f32) -> f32,
-    extra_xs: &[f32],
-    supported: &impl Fn(f32) -> bool,
-) -> Vec<CurvePoint> {
-    residual_tone_curve_with_budget(recipe, tone_map, extra_xs, supported, (0.0, RESIDUAL_SLOPE_CAP))
-}
 
 pub(super) fn residual_tone_curve_with_budget(
     recipe: &EditRecipe,
@@ -783,9 +759,4 @@ pub(super) fn residual_tone_curve_with_budget(
     } else {
         project_curve_slopes(&pts, slope.0, slope.1)
     }
-}
-
-#[cfg(test)]
-pub(super) fn residual_tone_curve(recipe: &EditRecipe, tone_map: &impl Fn(f32) -> f32) -> Vec<CurvePoint> {
-    residual_tone_curve_with_samples(recipe, tone_map, &[], &|_| true)
 }

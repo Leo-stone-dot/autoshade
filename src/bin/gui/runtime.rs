@@ -82,9 +82,7 @@ impl Commands<'_> {
                     }
                 }
                 logic::ai::AiAction::RefreshLibraryStatus => {
-                    // Not in tests: a headless frame would spawn a worker
-                    // reading the developer's own store.
-                    if !cfg!(test) && self.workspace.ai().style_info.is_none() && !self.workspace.ai().style_info_loading {
+                    if self.workspace.ai().style_info.is_none() && !self.workspace.ai().style_info_loading {
                         self.start_style_info();
                     }
                 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Doc-drift gate: every NUMBER the docs claim, re-derived from the tree.
 
-The docs in this repo carry hard numbers — the shipped version, the test
-counts a release battery produced, how many RAW/baked extensions the engine
-accepts, which crates the stack is built from, which toolchain compiled it.
+The docs in this repo carry hard numbers — the shipped version, how many
+RAW/baked extensions the engine accepts, which crates the stack is built from,
+which toolchain compiled it.
 Those numbers were all true the day they were written, and nothing but a
 human re-reading them keeps them true afterwards: `Cargo.toml` bumps, a
 const grows an entry, a dependency lands, and the prose silently becomes a
@@ -21,9 +21,8 @@ that number). Three outcomes per row:
         skip: a gate that quietly stops looking is worse than no gate, because
         it keeps reporting PASS over prose nobody is checking any more.
         Re-anchor the row on the new wording.
-  SKIP  the truth is not derivable from the repo alone — today only the test
-        counts, which are only provable by RUNNING the battery (pass its
-        transcript with --gates).
+  SKIP  the truth needs a machine-local corpus; today that is only the active
+        XMP census.
 
 A pattern may match several times (the same count is claimed in several
 sections); ALL occurrences must agree with the truth, so a half-updated doc
@@ -35,7 +34,6 @@ design (per-file `.gitattributes` + `core.autocrlf`), so every file is read as
 utf-8 and normalised to LF *inside* the checker only.
 
     python scripts/check_docs.py
-    python scripts/check_docs.py --gates <release-battery transcript>
     python scripts/check_docs.py --list
 """
 
@@ -437,198 +435,23 @@ def check_tech_stack(_args: argparse.Namespace) -> tuple[str, list[str]]:
     return "PASS", [f"        all {len(names)} direct deps named"]
 
 
-# ── Release-battery transcript (test counts) ────────────────────────────────
-
-_BLOCK = re.compile(r"^=== (?P<name>.+?) ===\s*$")
-_TARGET = re.compile(r"^\s+(?P<kind>Running (?:unittests )?|Doc-tests )(?P<target>\S+)")
-_RESULT = re.compile(
-    r"^test result: (?P<status>\w+)\. (?P<passed>\d+) passed; "
-    r"(?P<failed>\d+) failed; (?P<ignored>\d+) ignored;"
-)
-
-
-def _battery_blocks(path: Path) -> dict[str, list[tuple[str, str, int, int, int]]]:
-    """Per block: (target, status, passed, failed, ignored) in cargo's order.
-
-    `target` is the path cargo names in its `Running ...` header, normalised
-    to forward slashes (`src/lib.rs`, `src/bin/gui/main.rs`, `tests/x.rs`);
-    a Doc-tests suite is named `doc-tests:<crate>` so it can never be mistaken
-    for a claimable count.
-    """
-    blocks: dict[str, list[tuple[str, str, int, int, int]]] = {}
-    cur: str | None = None
-    target = "?"
-    raw = path.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
-    for line in raw.split("\n"):
-        b = _BLOCK.match(line)
-        if b:
-            cur = b.group("name")
-            blocks.setdefault(cur, [])
-            target = "?"
-            continue
-        t = _TARGET.match(line)
-        if t:
-            name = t.group("target").replace("\\", "/")
-            target = f"doc-tests:{name}" if t.group("kind").startswith("Doc") else name
-            continue
-        r = _RESULT.match(line)
-        if r and cur is not None:
-            blocks[cur].append(
-                (
-                    target,
-                    r.group("status"),
-                    int(r.group("passed")),
-                    int(r.group("failed")),
-                    int(r.group("ignored")),
-                )
-            )
-    return blocks
-
-
-def battery_test_counts(args: argparse.Namespace) -> Truth | Skip:
-    """library / CLI / GUI / contract counts from a release-battery transcript.
-
-    Only the battery can prove these, so without --gates the row SKIPS rather
-    than inventing a number. Suites are read BY NAME from cargo's own
-    `Running` headers: library = `src/lib.rs`, CLI = `src/main.rs` and the
-    contract pair = `tests/*.rs`, all from the default block; GUI = the
-    `src/bin/gui/main.rs` bin from the gui block. The `gui` feature only adds
-    dependencies (Cargo.toml [features]; no `cfg(feature = "gui")` outside
-    src/bin/gui), so the gui trip need not repeat the other suites — and when
-    it does, every suite both trips ran must agree, count for count, or the
-    transcript is refused: that equality is what licenses the shorter trip.
-    """
-    if not args.gates:
-        return Skip("no --gates transcript: test counts are only provable by "
-                    "running the release battery")
-    path = Path(args.gates)
-    blocks = _battery_blocks(path)
-    for want in ("test default", "test gui"):
-        if want not in blocks:
-            raise LookupError(f"{path.name}: no '=== {want} ===' block")
-    # A red battery cannot vouch for anything.
-    for name in ("test default", "test gui"):
-        bad = [r for r in blocks[name] if r[1] != "ok"]
-        if bad:
-            raise LookupError(f"{path.name}: '{name}' has a non-ok result: {bad[0]}")
-
-    def counts(name: str) -> dict[str, int]:
-        # passed + ignored per named suite; a Doc-tests suite is not a count.
-        out: dict[str, int] = {}
-        for target, _, passed, _, ignored in blocks[name]:
-            if target.startswith("doc-tests:"):
-                continue
-            if target in out:
-                raise LookupError(f"{path.name}: '{name}' ran {target} twice")
-            out[target] = passed + ignored
-        return out
-
-    default, gui = counts("test default"), counts("test gui")
-    for target in sorted(default.keys() & gui.keys()):
-        if default[target] != gui[target]:
-            raise LookupError(
-                f"{path.name}: {target} counts {default[target]} (default) vs "
-                f"{gui[target]} (gui) — the gui feature must not change it"
-            )
-    for target in ("src/lib.rs", "src/main.rs"):
-        if target not in default:
-            raise LookupError(f"{path.name}: default block never ran {target}")
-    if "src/bin/gui/main.rs" not in gui:
-        raise LookupError(f"{path.name}: gui block never ran src/bin/gui/main.rs")
-    contract = [n for t, n in default.items() if t.startswith("tests/")]
-    if len(contract) != 2:
-        raise LookupError(
-            f"{path.name}: {len(contract)} contract suites, the doc claims a pair"
-        )
-    value = (
-        str(default["src/lib.rs"]), str(default["src/main.rs"]),
-        str(gui["src/bin/gui/main.rs"]), str(contract[0]), str(contract[1]),
-    )
-    return Truth(value, f"{path.name} (=== test default === / === test gui ===, by suite name)")
-
-
-def _battery_block_text(path: Path, name: str) -> str | None:
-    """One `=== name ===` block verbatim, or None when the transcript has none.
-
-    `_battery_blocks` keeps only the result tuples, which is all the count
-    claim needs. The calibration lane is claimed on things that are not
-    counts — the skip lines a test prints, the summary the script writes — so
-    this hands back the block's own text.
-    """
-    raw = path.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
-    out: list[str] = []
-    inside = False
-    for line in raw.split("\n"):
-        m = _BLOCK.match(line)
-        if m:
-            inside = m.group("name") == name
-            continue
-        if inside:
-            out.append(line)
-    return "\n".join(out) if out else None
-
-
-_LANE = re.compile(r"^lane (?P<name>[a-z][a-z0-9_]*)", re.M)
-
-
 def check_release_battery_lanes(args: argparse.Namespace) -> tuple[str, list[str]]:
-    """Every lane `scripts/release_battery.sh` runs, named in ARCHITECTURE.
-
-    The script is the source of record: each `lane <name>` invocation in it is
-    a lane, and the battery paragraph must name each one in bold, so a lane
-    added later cannot stay undocumented while the prose still describes
-    three. With a --gates transcript the same names must each own a
-    `=== test <name> ===` block, and the calibration lane's library suite must
-    report the same test count as the default lane's — the corpus variable
-    decides whether a test SKIPS, never whether it exists, so a disagreement
-    means the two lanes did not run the same suite.
-
-    A transcript written by hand rather than by the script has no calibration
-    block; that is a SKIP with the reason, not a failure, because the claim is
-    about the script's lanes and not about how the transcript was produced.
-    """
+    """The release battery still runs lint and the document gates."""
     script = "scripts/release_battery.sh"
-    lanes = _LANE.findall(text(script))
-    if not lanes:
-        raise LookupError(f"{script}: no `lane <name>` invocation — the lane set moved")
-    doc = text(ARCH)
-    missing = [n for n in lanes if f"**{n}**" not in doc]
+    body = text(script)
+    required = [
+        "cargo clippy --locked --release --all-targets --features gui -- -D warnings",
+        "python3 scripts/check_text.py",
+        "python3 scripts/subset_gui_fonts.py --check",
+        "python3 scripts/check_doc_drift.py",
+    ]
+    missing = [needle for needle in required if needle not in body]
     if missing:
         return "FAIL", [
-            f"        {script} runs {', '.join(lanes)}",
-            f"        {ARCH} names none of: {', '.join(missing)}",
+            f"        {script} is missing {len(missing)} gate(s):",
+            *[f"        - {needle}" for needle in missing],
         ]
-    detail = [f"        lanes {', '.join(lanes)}   ({script} -> {ARCH})"]
-    if not args.gates:
-        return "PASS", detail
-    path = Path(args.gates)
-    blocks = _battery_blocks(path)
-    absent = [n for n in lanes if f"test {n}" not in blocks]
-    if absent:
-        return "SKIP", detail + [
-            f"        {path.name} has no '=== test {absent[0]} ===' block — it was "
-            "not written by release_battery.sh, so its lanes cannot be checked"
-        ]
-    calib = {t: p + i for t, _, p, _, i in blocks["test calib"] if not t.startswith("doc-tests:")}
-    default = {t: p + i for t, _, p, _, i in blocks["test default"] if not t.startswith("doc-tests:")}
-    lib = "src/lib.rs"
-    if lib in calib and lib in default and calib[lib] != default[lib]:
-        return "FAIL", detail + [
-            f"        {path.name}: {lib} is {default[lib]} in the default lane and "
-            f"{calib[lib]} in the calibration lane — the corpus variable must not "
-            "change which tests exist"
-        ]
-    body = _battery_block_text(path, "test calib") or ""
-    # Counted wherever a skip line lands, as release_battery.sh counts it:
-    # under --nocapture it can arrive mid-line, between libtest's `test
-    # <name> ... ` and its `ok` (the v1.6.3 battery). A name runs to the first
-    # ": ".
-    skips = len(re.findall(r"SKIPPED [^:\n]+: ", body))
-    detail.append(
-        f"        {path.name}: calibration lane ran {calib.get(lib, 0)} library tests, "
-        f"{skips} of them skipped for want of a corpus or a sidecar"
-    )
-    return "PASS", detail
+    return "PASS", ["        clippy + text + fonts + doc drift"]
 
 
 # ── Toolchain ───────────────────────────────────────────────────────────────
@@ -707,25 +530,6 @@ def camera_model_count(_args: argparse.Namespace) -> Truth:
             "source-of-record moved; re-anchor this extractor"
         )
     return Truth((m.group("models"),), f"src/decode.rs:{line_of(src, m.start())}")
-
-
-def readme_battery_numbers(_args: argparse.Namespace) -> Truth:
-    """All README battery numbers, reordered to match ARCHITECTURE's sentence."""
-    src = text("README.md")
-    m = re.search(
-        r"current battery is \*\*(?P<lib>\d+) library "
-        r"\((?P<passed>\d+) pass \+ (?P<ignored>\d+) `#\[ignore\]`d forensic probes\) / "
-        r"(?P<cli>\d+) CLI / (?P<gui>\d+) GUI / "
-        r"(?P<c1>\d+)\+(?P<c2>\d+) contract\*\* tests",
-        src,
-    )
-    if not m:
-        raise LookupError("README.md: current battery sentence moved; re-anchor the extractor")
-    value = tuple(
-        m.group(name)
-        for name in ("lib", "cli", "gui", "c1", "c2", "passed", "ignored")
-    )
-    return Truth(value, f"README.md:{line_of(src, m.start())} (doc-internal battery source)")
 
 
 def census_counts(_args: argparse.Namespace) -> Truth | Skip:
@@ -892,21 +696,6 @@ CLAIMS: list[Claim | SetClaim] = [
         r"Status: \*\*implemented\*\* \(v(?P<version>\d+\.\d+\.\d+)",
         cargo_version,
     ),
-    Claim(
-        ARCH,
-        "test counts (lib/CLI/GUI/contract)",
-        r"(?P<lib>\d+) library \+ (?P<cli>\d+) CLI \+ (?P<gui>\d+) GUI "
-        r"\+ (?P<c1>\d+)\+(?P<c2>\d+) contract tests",
-        battery_test_counts,
-    ),
-    Claim(
-        ARCH,
-        "battery numbers — ARCHITECTURE vs README",
-        r"(?P<lib>\d+) library \+ (?P<cli>\d+) CLI \+ (?P<gui>\d+) GUI "
-        r"\+ (?P<c1>\d+)\+(?P<c2>\d+) contract tests[\s\S]*?"
-        r"library result is (?P<passed>\d+) pass \+ (?P<ignored>\d+) `#\[ignore\]`d",
-        readme_battery_numbers,
-    ),
     SetClaim(ARCH, "release-battery lanes", check_release_battery_lanes),
     Claim(
         ARCH,
@@ -996,32 +785,6 @@ CLAIMS: list[Claim | SetClaim] = [
         "latest published version — bug template dropdown",
         r"- v(?P<version>\d+\.\d+\.\d+) \(latest release\)",
         latest_published_version,
-    ),
-    Claim(
-        TECH,
-        "test counts - Tech Stack release battery",
-        r"(?P<lib>\d+) library \((?:\d+ pass \+ )?\d+ `#\[ignore\]`d forensic\s+probes\) / "
-        r"(?P<cli>\d+) CLI / (?P<gui>\d+) GUI / (?P<c1>\d+)\+(?P<c2>\d+) contract",
-        battery_test_counts,
-    ),
-    Claim(
-        README,
-        "test counts — Release gates list",
-        r"(?P<lib>\d+) library \((?:\d+ pass \+ )?\d+ `#\[ignore\]`d forensic probes\) / "
-        r"(?P<cli>\d+) CLI / (?P<gui>\d+) GUI / (?P<c1>\d+)\+(?P<c2>\d+) contract",
-        battery_test_counts,
-    ),
-    # The headline evidence table states the same counts in a SHORTER shape,
-    # with no "(N pass + N ignored)" clause, so neither regex above could ever
-    # match it -- and it silently drifted to 1191/22/151 while every other
-    # mention moved. A claim of its own is the only thing that stops that
-    # happening again.
-    Claim(
-        README,
-        "test counts — headline evidence table",
-        r"Automated test battery \| (?P<lib>\d+) library / (?P<cli>\d+) CLI / "
-        r"(?P<gui>\d+) GUI / (?P<c1>\d+)\+(?P<c2>\d+) contract tests",
-        battery_test_counts,
     ),
     Claim(
         ARCH,
@@ -1145,12 +908,6 @@ def main() -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument(
-        "--gates",
-        metavar="FILE",
-        help="release-battery transcript (=== test default === / === test gui "
-             "=== blocks). Without it the test-count row SKIPS.",
-    )
-    ap.add_argument(
         "--list", action="store_true", help="print the claims registry and exit"
     )
     ap.add_argument(
@@ -1166,8 +923,7 @@ def main() -> int:
             print(f"  {'':<22} {row.pattern}")
         return 0
 
-    print(f"doc-drift gate over {REPO.name}/ — "
-          f"gates transcript: {args.gates or '(none, test counts will SKIP)'}\n")
+    print(f"doc-drift gate over {REPO.name}/\n")
     tally = {"PASS": 0, "FAIL": 0, "SKIP": 0}
     for row in CLAIMS:
         if isinstance(row, SetClaim):

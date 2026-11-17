@@ -6,14 +6,9 @@
 /// COVERAGE rather than its exported luma — see [`LINEAR_FALLOFF_WARP`].
 pub(super) const LINEAR_FALLOFF: LinearFalloff = LinearFalloff::Measured;
 
-#[allow(dead_code)] // Clamped and Eased remain pinned by the historical tests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum LinearFalloff {
-    /// The historical piecewise-linear ramp.
-    Clamped,
-    /// C1 Hermite smoothstep, with zero slope at both handles.
-    Eased,
-    /// [`LinearFalloff::Eased`] on a measured abscissa —
+    /// A smoothstep on a measured abscissa —
     /// `smoothstep(t^`[`LINEAR_FALLOFF_WARP`]`)`, the shipped law.
     Measured,
 }
@@ -34,14 +29,14 @@ pub(super) enum LinearFalloff {
 /// the two plateaus — which is `T(coverage)`, the tone curve composed with the
 /// mask, not the mask. A monotone tone curve cannot turn a straight ramp into
 /// an S with zero slope at both ends, so `Eased` beating `Clamped` survives
-/// that confusion; the SHAPE does not. `scripts/lr_mask_parity.py` inverts the
+/// that confusion; the SHAPE does not. The calibration probe inverts the
 /// tone curve first — it recovers Lightroom's own value-in-stops from the
 /// pack's feather-0 masks and the wall's 4:1 brightness range — and the
 /// coverage that comes out is not symmetric.
 ///
 /// # The number
 ///
-/// `scripts/lr_mask_parity.py` fits an exponent PER GRADIENT (`fit_warp_q`).
+/// The calibration probe fits an exponent PER GRADIENT (`fit_warp_q`).
 /// The twelve span 1.1210…1.1300, mean 1.1254, sd 0.0041, and the spread is
 /// the orientation split again: 1.1215 on the vertical six, 1.1293 on the
 /// horizontal six. The shipped `1.124` sits inside that range, 0.0014 (a third
@@ -74,8 +69,6 @@ const LINEAR_FALLOFF_WARP: f32 = 1.124;
 pub(super) fn linear_coverage(t: f32, profile: LinearFalloff) -> f32 {
     let t = t.clamp(0.0, 1.0);
     match profile {
-        LinearFalloff::Clamped => t,
-        LinearFalloff::Eased => t * t * (3.0 - 2.0 * t),
         LinearFalloff::Measured => {
             // `powf` at the two ends is exact — `0^q = 0`, `1^q = 1` — so the
             // handles stay where the sidecar put them and the plateaus stay

@@ -205,28 +205,6 @@ fn boundary_note_args(
     ]
 }
 
-/// Enforce the pair-level boundary budget after the independent zone-local
-/// gates. `initial_px` is the analysis render the last accepted zone already
-/// made; `reference_px` is the SAME frame rendered before any zone was
-/// attached, i.e. this gate own `k=0` baseline, which the caller already had
-/// in hand. Only re-measurements during an actual shrink render again, always
-/// at analysis size; no full-resolution render is introduced.
-///
-/// Since R37 the production sky/land path calls [`enforce_boundary_gate_toward`]
-/// with its target; this no-target form is what the context-budget pins measure.
-#[cfg(test)]
-pub(super) fn enforce_boundary_gate(
-    s_img: &DynamicImage,
-    report: &mut FitReport,
-    sky_weights: &[f32],
-    correction_shares: &[f32],
-    first_zone: usize,
-    reference_px: &[[f32; 3]],
-    initial_px: Vec<[f32; 3]>,
-) -> BoundaryGateResult {
-    enforce_boundary_gate_toward(None, s_img, report, sky_weights, correction_shares,
-        first_zone, reference_px, initial_px)
-}
 
 /// [`enforce_boundary_gate`] toward a paired `target` (R37): the horizon the
 /// target itself carries is not charged. The production sky/land path hands

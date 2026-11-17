@@ -47,11 +47,6 @@ pub(super) struct ZoneCoverage {
     pub(super) target: Vec<f32>,
 }
 
-#[cfg(test)]
-thread_local! {
-    pub(super) static SEGMENT_BOTH_OVERRIDE: std::cell::RefCell<Option<(GrayImage, GrayImage)>> =
-        const { std::cell::RefCell::new(None) };
-}
 
 /// Structural mode evidence is measured before the global solve. The source
 /// segmentation weights are deliberately applied to both images; the target
@@ -107,10 +102,6 @@ pub(super) fn segment_both(
     seg: &SegmentOpts,
     mask_path: &crate::store::OwnedRaster,
 ) -> Result<(GrayImage, GrayImage)> {
-    #[cfg(test)]
-    if let Some(masks) = SEGMENT_BOTH_OVERRIDE.with(|value| value.borrow_mut().take()) {
-        return Ok(masks);
-    }
 
     let sibling = |suffix: &str| -> std::path::PathBuf {
         let mut s = mask_path.path().as_os_str().to_owned();
@@ -176,41 +167,6 @@ pub(super) fn sky_land_geometry(
     MaskGeometry::select_sky(ref_x, ref_y, false, zone_raster)
 }
 
-/// The post-segmentation half (separable so tests drive it with hand-built
-/// masks, no python): correct the SKY zone, then the LAND zone — the same
-/// raster reused with `inverted = true`, so one segmentation buys the whole
-/// frame (the first real-pair render showed why land is not optional: the
-/// distant haze-terrain outside the sky mask kept its global-fit blue and
-/// clashed against the repainted gold sky as a hard halo). Each zone is
-/// gated independently; the raster file is removed only when NO zone kept
-/// it. Requires a VALID sky partition first: an empty/degenerate sky mask
-/// makes "land" mean "everything", which would just be a weaker-gated
-/// re-run of the global fit.
-#[cfg(test)]
-pub(super) fn attach_zones(
-    src: &DynamicImage,
-    target: &DynamicImage,
-    report: &mut FitReport,
-    src_mask: &GrayImage,
-    tgt_mask: &GrayImage,
-    mask_path: &crate::store::OwnedRaster,
-) {
-    let divergence = measure_zone_divergence(
-        src,
-        target,
-        &crate::recipe::EditRecipe::default(),
-        src_mask,
-    );
-    attach_zones_with_divergence(
-        src,
-        target,
-        report,
-        src_mask,
-        tgt_mask,
-        mask_path,
-        divergence,
-    );
-}
 
 /// Returns whether the sky/land PARTITION held — false on the two exits
 /// that judge the split itself invalid (`ZONED_NO_PARTITION`,

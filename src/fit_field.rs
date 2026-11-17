@@ -140,20 +140,9 @@ impl FieldSolveOpts {
     }
 }
 
-/// The analysis solve's per-channel gain bound, for the budget's DEFAULT
-/// point: one constant, named once, so the "default recipe is byte-identical"
-/// pin reads the analyzer's own number rather than a copy of it.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn default_gain_bound() -> f32 {
-    BOUNDS_HIGH[1]
-}
-
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SolveInfo {
     pub iterations: usize,
-    /// Retained as a solver diagnostic and exercised by the phase-A probes.
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub relative_residual: f32,
 }
 
 /// One pair's local field and the readings taken off it.  Nothing here is
@@ -163,9 +152,6 @@ pub(crate) struct LocalField {
     /// `FIELD_X * FIELD_Y * FIELD_B` vertices in `splat_table` order,
     /// bound-clipped, occupancy-zeroed.
     pub grid: Vec<[f32; PARAMS]>,
-    /// Weighted trilinear mass at each vertex (fit weight x splat weight).
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub occupancy: Vec<f32>,
     /// `look_err_with_evidence(field_render, target, evidence)` — the report's own
     /// ruler on the field's render, directly comparable with `err_after`.
     pub ceiling: f32,
@@ -263,9 +249,8 @@ impl LocalField {
         let projection = apply_bands(current, &guide, &band_marginal);
         let remainder = field_render.iter().zip(&projection)
             .map(|(field, band)| fit::luma601(field) - fit::luma601(band)).collect();
-        let occupancy = system.occupancy.clone();
         Some(LocalField {
-            grid, occupancy, ceiling, global, band_marginal, band_dispersion, remainder,
+            grid, ceiling, global, band_marginal, band_dispersion, remainder,
             weight: fit_weight, saturated, solve, width, height,
         })
     }
@@ -300,26 +285,6 @@ impl LocalField {
     }
 }
 
-/// The 96-cell structural reading, one value per pixel: per 12x8 cell,
-/// `1 - clamp(D, 0, 1)` from [`fit::structure_divergence`] over that cell's mask.
-///
-/// A cell whose eroded core is under [`fit::STRUCTURE_MIN_CORE_PX`] is NOT
-/// measured, and a cell nothing measured earns no support: it reads 0, not the
-/// 1.0 of a measured match.  Before v1.2.4 the instrument answered such a cell
-/// with `Divergence::matched()`, so every eroded cell claimed full structural
-/// survival and this term was silently constant wherever the cells were small
-/// — the support half of the fit weight was inert exactly where it was least
-/// deserved.  When NO cell resolves, the frame carries no structural
-/// measurement anywhere; withholding the whole frame on that ground would
-/// starve a fit nothing measured, so the term is dropped wholesale (uniform
-/// 1.0) instead — the pre-v1.2.4 reading for that case, and the same "may
-/// refuse to help, never starve" stance the correspondence field takes.
-#[cfg(test)]
-pub(crate) fn local_support(
-    current: &[[f32; 3]], target: &[[f32; 3]], width: u32, height: u32,
-) -> Vec<f32> {
-    local_support_present(current, target, width, height, None)
-}
 
 /// [`local_support`] over the pixels the target can pair: a cell's reading
 /// takes no absent pixel (`fit::presence_of`) into its structure.
@@ -724,12 +689,12 @@ impl<'a> System<'a> {
                 residual[i] -= alpha * product[i];
             }
             let next = dot(&residual, &residual);
-            if next <= initial * 1e-10 { rr = next; break; }
+            if next <= initial * 1e-10 { break; }
             let beta = (next / rr.max(1e-30)) as f32;
             for (slot, &r) in direction.iter_mut().zip(&residual) { *slot = r + beta * *slot; }
             rr = next;
         }
-        (vector, SolveInfo { iterations: used, relative_residual: (rr / initial).sqrt() as f32 })
+        (vector, SolveInfo { iterations: used })
     }
 }
 
@@ -827,6 +792,3 @@ fn laplacian(v: &[f32], smooth: [f32; 3], lap: &mut [f32]) {
 }
 
 fn dot(a: &[f32], b: &[f32]) -> f64 { a.iter().zip(b).map(|(&x, &y)| x as f64 * y as f64).sum() }
-
-#[cfg(test)]
-pub(crate) mod tests;

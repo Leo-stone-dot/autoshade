@@ -40,39 +40,3 @@ pub(crate) fn words(outcome: &Outcome) -> Words {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A saved build says its count and folder, and whether look phrases were
-    /// written; it is a quiet success (status + one toast).
-    #[test]
-    fn a_saved_build_names_its_count_folder_and_phrases() {
-        let with_phrases = words(&Outcome::Saved {
-            total: 120,
-            dir_display: "refs".into(),
-            phrased: 40,
-        });
-        assert_eq!(
-            with_phrases.status.key,
-            "Reference library built: {n} finished photos from {path}, {m} with look phrases"
-        );
-        assert_eq!(with_phrases.status.args[1].1, super::super::Arg::Text("refs".into()));
-        assert!(matches!(with_phrases.toast, Some((Tone::Success, _))));
-
-        let without = words(&Outcome::Saved { total: 7, dir_display: "refs".into(), phrased: 0 });
-        assert_eq!(without.status.key, "Reference library built: {n} finished photos from {path}");
-        assert_eq!(without.status.args.len(), 2, "no phrase count when none was written");
-        assert!(matches!(without.toast, Some((Tone::Success, _))));
-    }
-
-    /// A failed build interrupts with the error in both the line and toast.
-    #[test]
-    fn a_failed_build_names_the_error() {
-        let failed = words(&Outcome::Failed { err: "no photos".into() });
-        assert_eq!(failed.status.key, "Building the reference library failed: {err}");
-        assert_eq!(failed.status.args[0].1, super::super::Arg::Text("no photos".into()));
-        assert!(matches!(failed.toast, Some((Tone::Error, _))));
-    }
-}

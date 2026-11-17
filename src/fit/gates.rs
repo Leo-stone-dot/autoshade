@@ -3,40 +3,6 @@
 /// Quantile clip for CDF inversion — the extreme tails of a generative render
 /// are noise (a few blown/crushed pixels would otherwise own the end knots).
 pub(crate) const P_CLIP: f32 = 0.002;
-/// Ceiling on the gated tone evidence's MISPREDICTION of its own identified
-/// population (see [`neutral_gate_misprediction`]) before the assumption is
-/// declared dead and the solve falls back to full-pixel CDFs. Membership
-/// counts and one-sided CDF-shift proxies were both tried and both mis-rank
-/// the live pairs (each fires HARDER on the haze pair than on the pair that
-/// actually shipped a murky fit), so the gate is judged by the harm itself:
-/// how far its map misses the pixels it claims to identify, in luma units.
-/// Anchors, all measured. Fall-back side: P20 × reimagine reads 0.021
-/// (the pale sky, luma q50 ≈ 197/255, re-hued vivid blue out of the class;
-/// share ratio 1.29× sailed under the 1.75× gate; the shipped map missed
-/// the shared class by −22/255 right in the murk band); the archived
-/// P21 pairs read 0.074 (× reimagine, the golden sky — share 2.65×,
-/// both gates fire), 0.034 (× reimagine-4 — share 1.51×, UNDER the share
-/// gate: this detector is the only defence) and 0.024 (× reimagine-2,
-/// share 1.92×); the haze fixture reads 0.126 (its blue cast tints the
-/// clean side's dark greys out of the class — under the R17 dense residual
-/// knots the gated solve faithfully implements that broken map and
-/// collapses to a do-no-harm reset, while the fallback lands
-/// 0.0892 → 0.0229). Keep side: P21 × reimagine-3 — a REAL benign
-/// pair — reads 0.0050 (share 1.12×), the identity / canyon fixtures read
-/// ≈ 0 (matched members) and the synthetic uniform-inflation fixture reads
-/// < 0.0075. The 0.015 ceiling thus has real pairs on BOTH flanks: 3.0×
-/// clear below (0.0050), 1.4× above (0.021). The archive numbers above are
-/// the embedded-preview domain (`decode` output vs reimagine target — the
-/// camera-look source the CLI `match` feeds this gate); the GUI's
-/// composed-calibration domain was measured separately for all five real
-/// pairs (R19, the repro test prints it per pair) and each verdict lands
-/// on the same side of the ceiling in both domains — composed readings:
-/// P20 × re2 0.024, P21 × re 0.043, × re2 0.033, × re4 0.036
-/// (fall-back side), × re3 0.0131 (keep side, a 1.15× margin against the
-/// preview domain's 3.0×). The haze fixture is a recipe-render pair with
-/// no RAW, so a composed domain does not exist for it.
-#[cfg(test)]
-pub(super) const NEUTRAL_MISPREDICTION_MAX: f32 = 0.015;
 /// Evidence floor for the SHARED class inside
 /// [`neutral_gate_misprediction`] — the same absolute floor the per-side
 /// `enough` bar uses (512 px), plus the same 5%-of-frame scaling, applied
@@ -149,57 +115,6 @@ pub(super) const ROT_DEG: f32 = 75.0;
 /// zone's coverage for a zone (same region-vs-speckle logic as
 /// [`VETO_CREATED_SHARE`]; the live wrecks measure 12.5%).
 pub(super) const ROT_SHARE: f32 = 0.05;
-/// A rotation only counts as a re-hue when it is VISIBLE on at least one
-/// end: before-chroma ≥ this (a tinted pixel moved) or after-chroma ≥
-/// [`ROT_VISIBLE_AFTER`] (a faint pixel painted vivid — the H17 class). A
-/// cast INVERSION passing through neutral flips the hue of a sub-visible
-/// tint into another sub-visible tint — measured on the haze pair after the
-/// R17 tone-evidence fallback strengthened its correction: 4.5% of the
-/// frame, before-chroma < 0.05 to the last pixel, after-chroma ≤ 0.082 —
-/// an invisible "rotation" on both ends that ate the veto's whole margin
-/// while wrecking nothing. The real wrecks stay above the exemption on the
-/// end that matters: H17 paints 0.34 after-chroma from a 0.035 tint; the
-/// canyon rotations start from ≥ 0.05 before-chroma.
-#[cfg(test)]
-pub(super) const ROT_VISIBLE_BEFORE: f32 = 0.05;
-/// See [`ROT_VISIBLE_BEFORE`]: the after-side visibility floor — just above
-/// the measured pass-through band (≤ 0.082), 3.8× under H17's 0.34, and
-/// deliberately NOT higher: every step up widens the exempt band. Rotations
-/// inside `cc ∈ [0.03, 0.05) × wc ∈ [0.04, 0.09)` — a faint tint re-hued
-/// into another faint tint, invisible on BOTH ends — are exempt by design,
-/// and the band's exact borders are pinned by the
-/// `the_pass_through_exemption_borders_are_patrolled` fixture.
-///
-/// How much the exemption actually forgives is measured rather than
-/// supposed. Across every calibration pair, on the cast candidate the
-/// rotation census reads (2026-09-02), counted the unweighted way
-/// [`rehued_share`] counts: the share of analysed pixels that falls inside
-/// the band at all, and the share that falls inside it AND turns
-/// [`ROT_DEG`] or more —
-///
-/// | pair    | in band | in band and turned |
-/// |---------|---------|--------------------|
-/// | neutral | 17.53% | 3.41% |
-/// | p36     | 1.32% | 0.26% |
-/// | p37     | 3.36% | 3.14% |
-/// | p38     | 4.87% | 0.33% |
-/// | p39     | 1.22% | 0.39% |
-/// | p40     | 10.73% | 0.01% |
-/// | p41     | 0.61% | 0.22% |
-///
-/// The band is not empty and never was: `neutral` hides
-/// 3.41% of the frame turning past 75°, which is
-/// 0.68× [`ROT_SHARE`] — real forgiveness, at the
-/// scale the census would otherwise convict on. That is the trade this pair
-/// of floors makes, stated in numbers: those pixels are invisible on both
-/// ends, so forgiving them costs a viewer nothing, and the alternative
-/// measured in R17 was a veto that ate its whole margin on a haze correction
-/// that wrecked nothing. If a pair ever wrecks a region at these chroma
-/// levels these floors are where to look — and no pair in this corpus does,
-/// because a wreck needs a visible end and the band has none by
-/// construction.
-#[cfg(test)]
-pub(super) const ROT_VISIBLE_AFTER: f32 = 0.09;
 /// The BEFORE side of the rotation census needs only a MEASURABLE hue, not a
 /// visible tint: requiring [`VETO_TINT_CHROMA`] on both sides let the curves
 /// rotate a region whose chroma sat just UNDER that gate (a barely-blue sky

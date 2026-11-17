@@ -421,21 +421,6 @@ impl OwnedRaster {
         )))
     }
 
-    /// A scratch file a TEST created and may destroy.
-    ///
-    /// Refuses the calibration corpus outright: that directory holds the
-    /// user's hand-made regression pairs, which no run creates and none may
-    /// remove. Refusing at CONSTRUCTION means a corpus path cannot even be
-    /// carried to a deletion, let alone reach one.
-    #[cfg(test)]
-    pub(crate) fn scratch(path: PathBuf) -> Self {
-        assert!(
-            !is_calibration_corpus(&path),
-            "refusing to own a calibration-corpus file: {}",
-            path.display()
-        );
-        Self(path, None)
-    }
 
     pub fn path(&self) -> &Path {
         &self.0

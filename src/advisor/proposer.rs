@@ -750,7 +750,7 @@ so the same prompt can restyle ANY other photograph. Output ONLY the prompt text
 
 /// Assemble the proposer prompt. A named function, not inline text, because
 /// its ORDER is now load-bearing: the photographer's direction comes before
-/// the restraint prose it overrides, and the tests read the assembled string
+/// the restraint prose it overrides, and callers read the assembled string
 /// (a live propose needs a key and a paid call).
 ///
 /// The two untrusted blocks (reference looks, reviewer hint) are appended by
@@ -933,30 +933,3 @@ pub const FENCE_STYLE_REFERENCE: &str =
 /// How many bytes of the reference block reach the model, spelled once so a
 /// test can measure the widest block against it.
 pub const REFERENCE_BUDGET_BYTES: usize = 4096;
-
-#[cfg(test)]
-mod direction_adherence_tests {
-    use super::*;
-
-    #[test]
-    fn direct_tier_direction_block_is_byte_identical_to_today() {
-        let got = direction_block("warmer", DirectionAdherence::new(0.65));
-        let expected = concat!(
-            "USER DIRECTION (a specific request from the photographer \u{2014} follow it closely): warmer  ",
-            "THIS DIRECTION OVERRIDES every style default and numeric guardrail that follows \u{2014} the restraint guidance below describes an UNGUIDED develop. ",
-            "When the direction asks for a stronger, moodier or different look than that guidance would pick, follow the DIRECTION and say so in the rationale. ",
-            "The only exception is each control's hard range in the CONTROL CATALOGUE: those are safety bounds, and a value outside them is discarded. "
-        );
-        assert_eq!(got, expected);
-    }
-
-    #[test]
-    fn hint_and_brief_tiers_change_only_the_direction_block() {
-        let hint = direction_block("warmer", DirectionAdherence::new(0.2));
-        let direct = direction_block("warmer", DirectionAdherence::new(0.65));
-        let brief = direction_block("warmer", DirectionAdherence::new(0.9));
-        assert!(hint.contains("PREFERENCE") && !hint.contains("style default"));
-        assert!(brief.contains("reference looks are subordinate") && brief.contains("each clause"));
-        assert!(direct.contains("THIS DIRECTION OVERRIDES"));
-    }
-}

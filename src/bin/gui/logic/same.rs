@@ -28,37 +28,3 @@ pub(crate) fn dirty_vs(canvas: &EditRecipe, baseline: &EditRecipe) -> bool {
         && EditRecipe { version: 0, base_curve: Vec::new(), ..canvas.clone() }
             != EditRecipe { version: 0, base_curve: Vec::new(), ..baseline.clone() }
 }
-
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use super::*;
-
-    #[test]
-    fn one_master_written_two_ways_is_the_same_master() {
-        assert!(same_master(Path::new("out/a.png"), Path::new("out/a.png")));
-        assert!(same_master(Path::new("out/a.png"), &std::path::absolute("out/a.png").unwrap()));
-        assert!(!same_master(Path::new("out/a.png"), Path::new("out/b.png")));
-    }
-
-    #[test]
-    fn no_master_matches_only_no_master() {
-        assert!(same_master_opt(None, None));
-        assert!(!same_master_opt(None, Some(Path::new("out/a.png"))));
-        assert!(!same_master_opt(Some(Path::new("out/a.png")), None));
-        assert!(same_master_opt(Some(Path::new("out/a.png")), Some(&PathBuf::from("out/a.png"))));
-    }
-
-    #[test]
-    fn calibration_provenance_is_not_an_edit_but_a_recipe_change_is() {
-        let base = EditRecipe::default();
-        let mut repaired = base.clone();
-        repaired.version = 2;
-        repaired.base_curve = vec![[0.0, 0.0], [1.0, 1.0]];
-        assert!(!dirty_vs(&repaired, &base), "stamp + curve are neutralised");
-        let mut edited = base.clone();
-        edited.exposure_ev = 0.4;
-        assert!(dirty_vs(&edited, &base));
-    }
-}

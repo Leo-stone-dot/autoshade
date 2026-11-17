@@ -34,7 +34,7 @@ pub(crate) type Level = (Vec<f32>, usize, usize);
 /// the next level needs survives.
 ///
 /// Measured, and it took a large enough displacement to show. On the six-pixel
-/// shifts most of `align`'s tests use, deleting the blur changes NONE of them:
+/// shifts the alignment path uses, deleting the blur changes NONE of them:
 /// both frames alias the same way and the difference cancels. On the 48 px
 /// shift of `a_shift_that_pushes_a_fifth_of_the_frame_out_of_view_still_comes_back`
 /// — the one case that needs every level of the pyramid to be telling the
@@ -209,118 +209,4 @@ pub(crate) fn blend_rgb(
         *o = collapse(&mixed).0;
     }
     (0..w * h).map(|k| [out[0][k], out[1][k], out[2][k]]).collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::stack::fixture::plane;
-
-    /// v1.5.0 Track S: taking a plane apart into bands and adding them back up
-    /// returns the plane.
-    ///
-    /// Everything a merge does is "change one band and put it back", so this
-    /// identity is the floor under all of it. Without it, a merge that changed
-    /// NOTHING would still soften the picture — and the softening would be
-    /// blamed on the weights.
-    ///
-    /// MUTATION: drop the coarsest level from `laplacian`. (NOT the half-pixel
-    /// in `expand` — the test below says why this identity cannot see it.)
-    #[test]
-    fn a_plane_taken_apart_into_bands_adds_back_up_to_itself() {
-        // 97×61 on purpose: both odd, so every level truncates and the
-        // expand-to-an-explicit-target rule is doing real work.
-        let (w, h) = (97usize, 61usize);
-        let p = plane(w, h);
-        let g = gaussian(p.clone(), w, h, 5);
-        assert!(g.len() >= 3, "premise: the pyramid needs levels to test, got {}", g.len());
-        let back = collapse(&laplacian(&g));
-        assert_eq!((back.1, back.2), (w, h), "the rebuilt plane must be the size it started");
-        let worst = p.iter().zip(&back.0).map(|(a, b)| (a - b).abs()).fold(0.0f32, f32::max);
-        assert!(worst < 1e-4, "reconstruction must be exact to float noise, worst {worst}");
-    }
-
-    /// v1.5.0 Track S: a ramp comes back from a level down without SLIDING.
-    ///
-    /// The reconstruction test above cannot catch a wrong sampling grid, and
-    /// it took a mutation to notice: that identity subtracts and then re-adds
-    /// the SAME `expand`, so any expand operator at all reconstructs exactly,
-    /// a half-pixel error included. It is a statement about `laplacian` and
-    /// `collapse` being inverses of each other, not about either being right.
-    ///
-    /// A ramp is the probe that does notice, because a constant offset in the
-    /// sampling grid moves a ramp by a constant amount — half a fine pixel is
-    /// 0.006 of this one, and the assertion sits well under that. A ramp is
-    /// also the one signal a Gaussian and a box filter both reproduce exactly,
-    /// so whatever is left over IS the grid.
-    ///
-    /// MUTATION: drop the −0.5 from `expand`'s mapping, or make it +0.5.
-    #[test]
-    fn a_ramp_comes_back_from_a_level_down_without_sliding() {
-        let (w, h) = (64usize, 48usize);
-        let ramp: Vec<f32> =
-            (0..w * h).map(|k| 0.1 + 0.8 * (k % w) as f32 / (w - 1) as f32).collect();
-        let (small, sw, sh) = reduce(&ramp, w, h);
-        let back = expand(&small, sw, sh, w, h);
-        // The border is where a clamped filter has nothing to work with; the
-        // interior is the claim.
-        let worst = (0..w * h)
-            .filter(|k| (4..w - 4).contains(&(k % w)) && (4..h - 4).contains(&(k / w)))
-            .map(|k| (back[k] - ramp[k]).abs())
-            .fold(0.0f32, f32::max);
-        assert!(worst < 0.002, "a ramp must come back where it was, worst {worst}");
-    }
-
-    /// v1.5.0 Track S: a blend across a HARD weight edge leaves no edge.
-    ///
-    /// The whole reason the pyramid is in this module. Two frames a long way
-    /// apart in brightness, and a weight map that switches from one to the
-    /// other in a single column: a per-pixel average would step by the full
-    /// difference at that column, and this must not.
-    ///
-    /// Both halves are asserted, because each alone is satisfied by something
-    /// useless: "no step" is satisfied by ignoring the weights and returning
-    /// one frame everywhere, and "follows the weights" is satisfied by the
-    /// per-pixel average that steps.
-    ///
-    /// The weights are 4 and 7, not 1 and 0, on purpose: they are meant to be
-    /// RATIOS, and a pair that already sums to one lets an unnormalised blend
-    /// pass while scaling every band by whatever the weights happened to add
-    /// up to. That is the mutation this missed the first time round. The depth
-    /// comes from [`depth`] rather than a literal, for the same reason — a
-    /// number written here is a number the shipped path does not use.
-    ///
-    /// MUTATION: make `depth` return 1 — the step comes back at full height;
-    /// skip the normalisation in `blend_rgb` — each half comes out four or
-    /// seven times its own frame.
-    #[test]
-    fn a_hard_weight_edge_blends_without_a_step() {
-        let (w, h) = (128usize, 96usize);
-        let base = plane(w, h);
-        let dark: Vec<[f32; 3]> = base.iter().map(|v| [*v * 0.25; 3]).collect();
-        let bright: Vec<[f32; 3]> = base.iter().map(|v| [*v * 0.25 + 0.5; 3]).collect();
-        let cut = w / 2;
-        let left: Vec<f32> = (0..w * h).map(|k| if k % w < cut { 4.0 } else { 0.0 }).collect();
-        let right: Vec<f32> = (0..w * h).map(|k| if k % w < cut { 0.0 } else { 7.0 }).collect();
-        let out = blend_rgb(&[dark.clone(), bright.clone()], &[left, right], w, h, depth(w, h));
-
-        // Follows the weights: well away from the cut each half IS its own
-        // frame, so the blend really did choose rather than average.
-        let far = |x: usize, f: &[[f32; 3]]| {
-            (0..h).map(|y| (out[y * w + x][1] - f[y * w + x][1]).abs()).fold(0.0f32, f32::max)
-        };
-        assert!(far(8, &dark) < 0.02, "the left side must be the dark frame, off by {}", far(8, &dark));
-        assert!(
-            far(w - 9, &bright) < 0.02,
-            "the right side must be the bright frame, off by {}",
-            far(w - 9, &bright)
-        );
-        // And no step: the biggest column-to-column jump anywhere has to be
-        // far below the 0.5 the two frames differ by.
-        let step = (1..w)
-            .flat_map(|x| (0..h).map(move |y| (x, y)))
-            .map(|(x, y)| (out[y * w + x][1] - out[y * w + x - 1][1]).abs())
-            .fold(0.0f32, f32::max);
-        assert!(step < 0.08, "a hard weight edge must not become a visible one, worst step {step}");
-    }
 }

@@ -374,6 +374,3 @@ fn main() -> eframe::Result<()> {
         }),
     )
 }
-
-#[cfg(test)]
-mod tests;

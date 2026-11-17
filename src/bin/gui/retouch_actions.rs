@@ -261,14 +261,6 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
         } else {
             tr(lang, K_ACTIONS_AI_HEALING_10_30S).into()
         };
-        #[cfg(test)]
-        {
-            self.workspace.portrait_mut().heal_asked = Some((use_mask, limit.clone()));
-        }
-        #[cfg(test)]
-        let runner = self.workspace.portrait().heal_runner;
-        #[cfg(not(test))]
-        let runner: Option<crate::panels::portrait::HealRunner> = None;
         let in_face = limit.is_some();
         let full_res = self.workspace.genai().heal_fullres;
         let edge = self.editor.canvas_edge(self.workspace); // bake at the CANVAS's res (canvas_edge)
@@ -291,12 +283,9 @@ pub(crate) fn start_heal(&mut self, use_mask: bool, limit: Option<PathBuf>) {
                         }
                         None => None,
                     };
-                    // Test seam (`PortraitState::heal_runner`): a headless
-                    // test stands in for the billed detect + heal.
-                    let rep = match runner {
-                        Some(run) => run(&path, limit.as_deref(), &out),
-                        None => autoshade::retouch::heal(&path, &part, mask_tmp.as_deref(), !use_mask, full_res, limit.as_deref(), &out),
-                    };
+                    let rep = autoshade::retouch::heal(
+                        &path, &part, mask_tmp.as_deref(), !use_mask, full_res, limit.as_deref(), &out,
+                    );
                     if let Some(t) = &mask_tmp {
                         let _ = std::fs::remove_file(t);
                     }
@@ -357,10 +346,6 @@ pub(crate) fn start_ai_denoise(&mut self) {
         // This fold's OWN dial (the Export fold's 「on export」 has its own):
         // captured at the click, like every other input the worker reads.
         let strength = self.editor.selected_denoise_strength(self.workspace, false);
-        #[cfg(test)]
-        {
-            self.seams.denoise_strength_asked = Some((false, strength));
-        }
         let edge = self.editor.canvas_edge(self.workspace); // show at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)

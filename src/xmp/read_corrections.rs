@@ -695,25 +695,6 @@ fn base_element(seg: &str, p: usize) -> &str {
     }
 }
 
-/// One `crs:What="Correction"` segment → a [`LocalAdjustment`]. Slider scales
-/// invert the writer's: exposure ×4 (a power-of-two rescale, exact in binary
-/// FP), every other slider ×100 snapped to 4 decimals so `"0.3" → 30.0` lands
-/// back on the UI grid instead of 30.000002.
-///
-/// `own` is the correction's OWN scope — every SLIDER below is read from it,
-/// never from the whole segment (R28 Batch-5 5d, F4 symptom A). The segment
-/// itself is still what the GEOMETRY reads walk, because the components live
-/// inside it and each of those reads is separately bounded to the component it
-/// belongs to.
-#[cfg(test)]
-pub(super) fn parse_one_correction(
-    seg: &str,
-    own: Scope<'_>,
-    frame: Option<FrameAspect>,
-) -> Option<LocalAdjustment> {
-    let mut brush_reader = MaskBrushReader::new(None, None);
-    parse_one_correction_with_reader(seg, own, intent_namespace_declared(seg), frame, &mut brush_reader)
-}
 
 fn parse_parametric_geometry(
     seg: &str,

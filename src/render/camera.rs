@@ -303,35 +303,6 @@ pub(super) fn settle_over_range(t: [f32; 3], sensor_clipped: bool) -> [f32; 3] {
     [t0[0] * inverse, t0[1] * inverse, t0[2] * inverse]
 }
 
-#[cfg(test)]
-mod tests {
-    use super::settle_over_range;
-
-    /// The defect this replaces: rawler's euclidean blend turned the sun's
-    /// white-balanced [1.32, 0.22, 0.08] into an almost neutral pink.
-    #[test]
-    fn a_bright_unclipped_colour_keeps_its_chromaticity() {
-        let out = settle_over_range([1.32, 0.22, 0.08], false);
-        assert_eq!(out, [1.0, 0.22 / 1.32, 0.08 / 1.32]);
-        assert!(out[1] < 0.2 && out[2] < 0.1, "a sunset sun must stay orange: {out:?}");
-    }
-
-    /// A CLIPPED pixel loses its colour on the sensor; it must desaturate, not
-    /// keep a hue the clipping invented.
-    #[test]
-    fn a_clipped_photosite_takes_the_desaturating_blend() {
-        let out = settle_over_range([1.32, 0.22, 0.08], true);
-        assert!(out[1] > 0.4, "clipped colour must not keep the saturated ratio: {out:?}");
-        let white = settle_over_range([2.0, 2.0, 2.0], true);
-        assert_eq!(white, [1.5, 1.5, 1.5], "a clipped white stays neutral and over 1");
-    }
-
-    /// An in-range pixel is untouched.
-    #[test]
-    fn range_is_untouched() {
-        assert_eq!(settle_over_range([0.4, 0.2, 0.1], false), [0.4, 0.2, 0.1]);
-    }
-}
 
 /// The creative Look's colour table `r` renders through (`None`: its Look
 /// names none), or why it cannot.

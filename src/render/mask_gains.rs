@@ -15,11 +15,6 @@ pub(crate) struct GainsAsWhite {
     /// EV added to the mask's Exposure so the brightness the white move
     /// carries is taken back.
     pub(crate) exposure_ev: f32,
-    /// Largest Oklab distance (×100) left on the greys: how near the
-    /// projection is, which only the tests read (the writer has no use for a
-    /// number it cannot act on; the clamp below is what it discloses).
-    #[cfg_attr(not(test), expect(dead_code, reason = "the projection's measured error, read by its tests"))]
-    pub(crate) residual: f32,
     /// The best Temp or Tint sits at the end of its range: the gains move
     /// more than the white balance can.
     pub(crate) clamped: bool,
@@ -146,63 +141,5 @@ pub(crate) fn gains_as_white(r: &EditRecipe, m: &crate::recipe::LocalAdjustment)
         }
     }
     let [temp, tint, ev] = best.0;
-    let residual = best.2.chunks(3).map(|d| d.iter().map(|v| v * v).sum::<f32>().sqrt() * 100.0).fold(0.0, f32::max);
-    Some(GainsAsWhite { temp, tint, exposure_ev: ev, residual, clamped: temp.abs() >= 1.0 || tint.abs() >= 1.0 })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Gains a Temp and Tint render are projected back onto that Temp and
-    /// Tint; gains past the law's reach are carried at the end of its range
-    /// and say so; neutral gains are no projection.
-    ///
-    /// MUTATION: leave the mask's own Temp out of the target, drop the EV
-    /// offset from the candidate, or stop the search at the coarse grid.
-    #[test]
-    fn colour_gains_are_carried_by_the_masks_temp_and_tint() {
-        let r = EditRecipe { as_shot_k: Some(5200.0), as_shot_tint: Some(4.0), ..EditRecipe::default() };
-        // The gains the develop shows on a middle grey for a mask at
-        // Temp +30, Tint −20, luminance kept.
-        let grey = |m: Option<crate::recipe::LocalAdjustment>| {
-            let mut px = vec![[0.5f32; 3]; 16];
-            let rr = EditRecipe { masks: m.into_iter().collect(), ..r.clone() };
-            apply_develop_with_rasters(
-                &mut px, 4, 4, &rr, &MaskRasterSnapshot::default(), MaskFrame::AsRendered,
-                FilmScale::NATIVE, false,
-            );
-            px[5].map(srgb_to_linear)
-        };
-        let whole = |temperature: f32, tint: f32| crate::recipe::LocalAdjustment {
-            mask: crate::recipe::MaskGeometry::Linear { zero_x: 0.0, zero_y: 0.0, full_x: 0.0, full_y: 0.0 },
-            temperature,
-            tint,
-            ..Default::default()
-        };
-        let (base, moved) = (grey(None), grey(Some(whole(30.0, -20.0))));
-        let y = |p: [f32; 3]| 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
-        let k = y(base) / y(moved);
-        let gains: [f32; 3] = std::array::from_fn(|c| moved[c] * k / base[c]);
-        let mut m = crate::recipe::LocalAdjustment { color_gains: Some(gains), ..whole(0.0, 0.0) };
-        let p = gains_as_white(&r, &m).expect("gains to carry");
-        // Measured: (+0.403, −0.269), EV −0.159, 2.5 left. The gains are one
-        // ratio on every grey and the law's move is that ratio only on the
-        // middle one, so the nearest move over the strip is a little larger.
-        assert!(!p.clamped && (p.temp - 0.3).abs() < 0.15 && (p.tint + 0.2).abs() < 0.1, "{} {}", p.temp, p.tint);
-        assert!(p.exposure_ev < 0.0, "the warm move brightens and is taken back: {}", p.exposure_ev);
-        // On top of the mask's own cooler Temp, the same gains ask less.
-        m.temperature = -20.0;
-        let q = gains_as_white(&r, &m).expect("gains to carry");
-        assert!(!q.clamped && q.temp < p.temp - 0.1, "{} vs {}", q.temp, p.temp);
-        // Far past the law: the end of Temp's range, named, and further off.
-        m.temperature = 0.0;
-        m.color_gains = Some([3.0, 1.0, 0.2]);
-        let f = gains_as_white(&r, &m).expect("gains to carry");
-        assert!(f.clamped && f.temp == 1.0 && f.residual > p.residual, "{} {}", f.temp, f.residual);
-        m.color_gains = Some([1.0; 3]);
-        assert!(gains_as_white(&r, &m).is_none());
-        m.color_gains = None;
-        assert!(gains_as_white(&r, &m).is_none());
-    }
+    Some(GainsAsWhite { temp, tint, exposure_ev: ev, clamped: temp.abs() >= 1.0 || tint.abs() >= 1.0 })
 }

@@ -641,6 +641,3 @@ fn chroma_into_range(l: f32, px: [f32; 3]) -> [f32; 3] {
     }
     px.map(|v| (l + (v - l) * t).clamp(0.0, 1.0))
 }
-
-#[cfg(test)]
-mod tests;

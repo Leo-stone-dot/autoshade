@@ -978,34 +978,6 @@ fn boundary_line_rims(
     }
 }
 
-/// Boundary-continuity reading beside [`local_quality`]. Unlike that
-/// mask-weighted in-zone average, this samples ONLY the transition band and
-/// compares it with the same band on the UNCORRECTED render, transported
-/// through the settled sky's own multiplier ([`boundary_line_rims`]).
-///
-/// `frozen` is the k=1 candidate held constant through the shrink bisection —
-/// the frame the correction's own slope is read from, exactly as
-/// [`boundary_step`] reads it.
-///
-/// The result is a MAGNITUDE at the 90th percentile, ranked exactly as
-/// [`boundary_step`] already ranks its own samples and for the reason stated
-/// there. Robust to an isolated silhouette highlight, while retaining the
-/// systematic bow that repeats along an edge.
-///
-/// Since R37 the production gates read [`boundary_rim_toward`] and the
-/// sub-zone trial rulers [`rim_cell_gaps`]; this no-target form is what the
-/// context-budget pins measure.
-#[cfg(test)]
-pub(super) fn boundary_rim(
-    reference: &[[f32; 3]],
-    rendered: &[[f32; 3]],
-    frozen: &[[f32; 3]],
-    weights: &[f32],
-    width: u32,
-    height: u32,
-) -> BoundaryReading {
-    boundary_rim_toward(None, reference, rendered, frozen, weights, width, height, None)
-}
 
 /// [`boundary_rim`] read toward a paired `target` at the same geometry (R37):
 /// what the target itself does at each transition is pooled per evidence
@@ -1089,23 +1061,6 @@ fn colour_dead_band(v: f32) -> f32 {
     v.signum() * (v.abs() - BOUNDARY_STEP_FLOOR).max(0.0)
 }
 
-/// Test window onto [`reading_of`]: one crossing with no target, its colour
-/// step `colour` on channel 0 against `colour_budget`, read at the soft
-/// family's ceiling — the colour charge it is ranked at.
-#[cfg(test)]
-pub(super) fn colour_charge_of_one_crossing(colour: f32, colour_budget: f32) -> f32 {
-    let sample = CrossingSample {
-        luma: 0.0,
-        luma_frozen: 0.0,
-        luma_budget: ZONE_BOUNDARY_RIM_MAX,
-        colour,
-        channel: 0,
-        colour_budget,
-        colour_frozen: [colour; 3],
-        cell: 0,
-    };
-    reading_of(&[sample], &cells_grid(), ZONE_BOUNDARY_RIM_MAX).colour_charged
-}
 
 /// Add one scan line's cross-boundary steps to `out`.
 ///
@@ -1275,30 +1230,6 @@ fn boundary_line_steps(
     }
 }
 
-/// Cross-boundary step reading — [`boundary_rim`]'s counterpart for masks
-/// with no transition band to read into.
-///
-/// `geometry` is the mask's OWN alpha at analysis size, i.e. what the
-/// renderer applies, and never the estimator weights: those are that alpha
-/// times the zone's per-bin evidence verdicts, so their 50% contour is
-/// punched full of interior holes that are not boundaries at all.
-///
-/// The result is a MAGNITUDE, ranked exactly as `range::range_transition_rim`
-/// already ranks its own signed samples ([`magnitude_rank`]).
-///
-/// Since R37 the production gates read [`boundary_step_toward`]; this no-target
-/// form is what the context-budget pins measure.
-#[cfg(test)]
-pub(super) fn boundary_step(
-    reference: &[[f32; 3]],
-    rendered: &[[f32; 3]],
-    frozen: &[[f32; 3]],
-    geometry: &[f32],
-    width: u32,
-    height: u32,
-) -> BoundaryReading {
-    boundary_step_toward(None, reference, rendered, frozen, geometry, width, height, None)
-}
 
 /// [`boundary_step`] read toward a paired `target` (R37) — see
 /// [`boundary_rim_toward`]; the same allowance, pooled on the same cells.

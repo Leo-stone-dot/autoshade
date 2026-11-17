@@ -74,9 +74,13 @@ IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 def tracked(root: Path) -> list[str]:
-    out = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, encoding="utf-8",
+    # Include untracked, non-ignored files so a new test or doc path is checked
+    # before the first commit; drop tracked paths deleted in the working tree so
+    # a local gate sees the same tree the commit will contain.
+    out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+                         cwd=root, capture_output=True, text=True, encoding="utf-8",
                          check=True).stdout
-    return [p for p in out.split("\n") if p]
+    return [p for p in out.split("\n") if p and (root / p).exists()]
 
 
 def read(root: Path, rel: str) -> str:

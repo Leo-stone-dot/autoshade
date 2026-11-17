@@ -47,15 +47,6 @@ pub fn legacy_recipe(src: &Path) -> PathBuf {
     }
 }
 
-#[cfg(test)]
-pub(super) fn legacy_recipe_in(root: &Path, legacy_root: &Path, src: &Path) -> PathBuf {
-    let name = format!("{}.recipe.json", crate::pipeline::stem(src));
-    if legacy_suppressed_in(root, src) {
-        suppressed_legacy_path_in(root, src, &name)
-    } else {
-        legacy_root.join(name)
-    }
-}
 
 pub fn legacy_xmp(src: &Path) -> PathBuf {
     let name = format!("{}.xmp", crate::pipeline::stem(src));

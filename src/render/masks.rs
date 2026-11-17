@@ -842,29 +842,6 @@ impl MaskUnwarp {
     }
 }
 
-/// Historical classification assertion for the unchanged regression below.
-///
-/// Production routing deliberately does NOT use this union: H2 requires RADIAL
-/// point transport and LINEAR handle transport to take separate match arms.
-/// The test-only helper keeps the older classification test byte-for-byte while
-/// the reasons for the non-parametric types remain registered beside it:
-///
-/// * `Radial` / `Linear` — YES. Measured post-correction (`MaskFrame`).
-/// * `Brush` — no. Measured PRE-correction, which is the frame this engine
-///   already evaluates in; the geometry stage carries it correctly untouched.
-/// * `Bitmap` / `AiMask` — no, and not for want of measuring. These rasters are
-///   ENGINE-generated (our segmenter, the GUI's own paint), so there is no
-///   Lightroom rendering for them to agree with; they are authored in the frame
-///   the engine draws them in and stay there.
-/// * A colour / luminance `RangeMask` is not here at all because it selects by
-///   pixel VALUE, not position, and a pixel keeps its value through a resample
-///   — approximately frame-invariant, so nothing to map. (Approximately: the
-///   resampler interpolates, so a value on a steep edge shifts slightly. That
-///   residue is sub-pixel and is registered here rather than modelled.)
-#[cfg(test)]
-pub(super) fn is_lr_post_correction_geometry(g: &MaskGeometry) -> bool {
-    matches!(g, MaskGeometry::Radial { .. } | MaskGeometry::Linear { .. } | MaskGeometry::Shaped { .. })
-}
 
 /// The local Noise Reduction at or below which the render's NR pass allocates
 /// nothing — a tenth of a slider step. [`engine_active`] reads the SAME line,

@@ -654,4 +654,3 @@ pub(super) fn engine_channel_curves(px: [f32; 3], luts: &[Vec<f32>; 3], active: 
     }
     px
 }
-

@@ -28,34 +28,6 @@ pub(super) struct BandStat {
     pub(super) y: f64,
 }
 
-/// Accumulate chroma-gated band statistics with the SAME partition of unity the
-/// renderer uses ([`render::bracket_bands`]), so the fit and the engine agree on
-/// what "the blue band" is. Returns the per-band stats and the chromatic total.
-#[cfg(test)]
-pub(super) fn band_stats(px: &[[f32; 3]]) -> ([BandStat; 8], f64) {
-    let mut bands = [BandStat::default(); 8];
-    let mut total = 0.0f64;
-    for p in px {
-        let chroma = p[0].max(p[1]).max(p[2]) - p[0].min(p[1]).min(p[2]);
-        if chroma < 0.06 {
-            continue; // matches the renderer's chroma gate: near-grey carries no hue evidence
-        }
-        let (h, _, _) = render::rgb_to_hsl(p[0], p[1], p[2]);
-        let (b0, b1, w1) = render::bracket_bands(h * 360.0, &render::HSL_CENTERS);
-        let ang = (h * std::f32::consts::TAU) as f64;
-        let luma = luma601(p) as f64;
-        for (bi, w) in [(b0, 1.0 - w1 as f64), (b1, w1 as f64)] {
-            let b = &mut bands[bi];
-            b.w += w;
-            b.sin += w * ang.sin();
-            b.cos += w * ang.cos();
-            b.c += w * chroma as f64;
-            b.y += w * luma;
-        }
-        total += 1.0;
-    }
-    (bands, total)
-}
 
 pub(super) fn band_stats_weighted(px: &[[f32; 3]], weights: &[f32]) -> ([BandStat; 8], f64) {
     let mut bands = [BandStat::default(); 8];
@@ -87,15 +59,6 @@ pub(super) fn band_stats_weighted(px: &[[f32; 3]], weights: &[f32]) -> ([BandSta
     (bands, total)
 }
 
-/// Residual per-channel CDF map (current render → target) as a channel curve —
-/// the colour-cast catch-all (white balance shift, split toning the wheels/HSL
-/// didn't express). Skipped when the channel already matches within tolerance.
-#[cfg(test)]
-pub(super) fn residual_channel_curve(cur: &[[f32; 3]], tgt: &[[f32; 3]], ch: usize) -> Vec<CurvePoint> {
-    let all_a = vec![1.0; cur.len()];
-    let all_b = vec![1.0; tgt.len()];
-    residual_channel_curve_weighted(cur, tgt, ch, &all_a, &all_b)
-}
 
 pub(super) fn residual_channel_curve_weighted(
     cur: &[[f32; 3]],

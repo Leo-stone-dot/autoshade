@@ -305,7 +305,7 @@ look unchanged, the 1:1 window's grain 3.1 → 0.6 codes.
   clean side of half of every batch and a loss that seeks the mean in the
   units light adds in; the weights that ship keep 54 % at 4σ, 84 % at 6σ,
   92 % at 10σ, chosen among that run's snapshots by pass marks written down
-  before the run (`scripts/accept_v2.py`).
+  before the run.
 - **The star-field test is a release gate.** Whenever the denoiser changes,
   the author's ISO 2500 star field is denoised and measured reading by
   reading against limits fixed in advance

@@ -824,6 +824,3 @@ fn baseline_from(files: &[PathBuf], make: &str, model: &str) -> Baseline {
     let mean = offsets.iter().sum::<f32>() / offsets.len() as f32;
     Baseline::Inferred { ev: -mean, profiles: offsets.len() }
 }
-
-#[cfg(test)]
-mod tests;

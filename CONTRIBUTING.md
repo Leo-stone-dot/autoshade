@@ -9,20 +9,17 @@ review.
 
 ```
 cargo build --release
-cargo test  --release --lib                                  # library battery
-cargo test  --release                                        # + CLI integration and contract tests
-cargo test  --release --features gui --bin autoshade-gui     # desktop front end (a test binary; it never opens a window)
-cargo clippy --release --all-targets                         # must be warning-free
+cargo clippy --release --all-targets --features gui -- -D warnings
 python scripts/check_docs.py                                 # pinned release claims re-derived from the tree
 python scripts/check_text.py                                 # text resources: locales aligned, generated in step, no literal key positions
+python3 -m pip install fonttools                             # dependency of the font-subset gate
 python scripts/subset_gui_fonts.py --check                   # the GUI font subsets still cover every glyph the UI can show
 python scripts/check_doc_drift.py                            # every path, code symbol, link and tier count the docs name exists in the tree
 ```
 
 The Python sidecars (`python/*.py`) need the packages in `python/requirements-*.txt`;
 the model weights download on first use into `python/weights/` and are never
-committed. Tests that need the private calibration corpus skip with a printed
-reason when `AUTOSHADE_FIT_CALIBRATION_DIR` is unset.
+committed. No behavior test suite is currently checked in.
 
 ## What a change has to carry
 

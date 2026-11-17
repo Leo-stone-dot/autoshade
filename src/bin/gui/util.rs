@@ -268,23 +268,6 @@ pub(crate) fn ai_xref(lang: Lang, tip: &str) -> String {
     format!("{tip}\n\n{}", tr(lang, K_GUI_MORE_AI_FEATURES_ARE_IN_THE_AI_AREA_AT_THE_TOP_O))
 }
 
-/// Fold-state override for every collapsible whose body a headless test has to
-/// read: `None` in a real run — the user's own fold state — and `Some(true)`
-/// under `cfg(test)`, because a headless frame never clicks a header and an
-/// unopened fold makes an assertion silently vacuous instead of red. The width
-/// tests also call egui's own `set_everything_is_visible`; this covers the
-/// panels a test drives without it.
-///
-/// It started as the override for the two folds hiding a WIDTH-PINNED row (the
-/// Reimagine prompt+button row and the Generative Fill prompt). R30 split the
-/// AI panel into four folds of its own, and each one carries rows a test
-/// asserts on — the Direction prompt's #14a ceiling, the library ladder's
-/// gates, the reverse-fit row whose fourth widget once widened the panel — so
-/// all four take the same treatment.
-pub(crate) fn fold_open_in_tests() -> Option<bool> {
-    cfg!(test).then_some(true)
-}
-
 /// A prompt text field with a readable width ceiling (#14a).
 ///
 /// Prompts are sentences, so their fields want to be wide — but only up to a
@@ -1195,7 +1178,7 @@ pub(crate) fn reveal_folder(dir: &std::path::Path) -> std::io::Result<()> {
 /// Note what is NOT done: no `/select,` and no `/root,`. Both would CHANGE the
 /// gesture (select the folder inside its parent / re-root the window), and the
 /// button's promise is "show me this folder".
-#[cfg(any(windows, test))]
+#[cfg(windows)]
 pub(crate) fn explorer_quoted_arg(dir: &std::path::Path) -> Option<String> {
     let s = dir.to_str()?;
     (!s.contains('"')).then(|| format!("\"{s}\""))

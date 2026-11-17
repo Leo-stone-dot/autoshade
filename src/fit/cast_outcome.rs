@@ -201,17 +201,6 @@ pub(super) struct CastOutcome {
     pub(super) projected: Option<CastProjection>,
 }
 
-#[cfg(test)]
-pub(super) fn cast_gate_outcome(
-    cur: &[[f32; 3]],
-    with_px: &[[f32; 3]],
-    tp: &[[f32; 3]],
-    evidence: &EvidenceModel,
-    vouch: Option<PixelVouch<'_>>,
-    cells: Option<CellArm<'_>>,
-) -> CastOutcome {
-    cast_gate_outcome_with_ratio(cur, with_px, tp, evidence, vouch, cells, CAST_ACCEPT_RATIO)
-}
 
 /// The panel Strength a report was solved at, recovered from its own notes.
 /// `pub(crate)` because the zoned passes run AFTER the global solve and are

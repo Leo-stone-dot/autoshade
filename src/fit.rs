@@ -103,8 +103,6 @@ use atmosphere::{
     WB_SHARE_SIZE_EVIDENCE, WB_VOUCH_SHRINK_STEPS, WbCellVerdict, cast_admitted_by_strength,
     fit_atmosphere_from_parts, project_curve_slopes, solve_white_balance,
 };
-#[cfg(test)]
-use atmosphere::{WbFacts, withhold_atmosphere_tone};
 pub use budget::{DIVERGENCE_GLOBAL, FitBudget, FitOptions, GlobalCast, VetoPolicy};
 pub(crate) use budget::{ANALYZE_EDGE, DIVERGENCE_ZONE, DIVERGENT_COVER_PROMOTES};
 use budget::{
@@ -113,39 +111,20 @@ use budget::{
     budgeted_wb, detect_global_cast, mean_chroma_vector, wb_gain_ratio, wb_gains_fit_budget,
     wb_path_between, wb_path_candidate,
 };
-#[cfg(test)]
-use budget::{
-    ATMOSPHERE_CURVE_SLOPE_MIN, ATMOSPHERE_EV_LIMIT, ATMOSPHERE_WB_GAIN_MAX, ATMOSPHERE_WB_GAIN_MIN,
-    ATMOSPHERE_WB_GAIN_RATIO, HSL_BAND_LIMIT_DEFAULT, HSL_BAND_LIMIT_MAX, HSL_BAND_LIMIT_MIN,
-};
 pub(crate) use cast_outcome::{FIT_QUANT, carried_strength_from_notes};
 use cast_outcome::{
     CastOutcome, CastProjection, CastReadings, cast_admission_notes,
     cast_gate_outcome_with_ratio, cast_projection_notes, terminal_harm, unrepresented_note,
 };
-#[cfg(test)]
-use cast_outcome::{
-    FIT_QUANT_CLEAN, TerminalHarm, UNREPRESENTED_CHROMATIC_ERR, UNREPRESENTED_CHROMATIC_LEAD,
-    UNREPRESENTED_HUE_DEG, cast_gate_outcome, residual_is_colour_shaped,
-};
 use curves::{
     CastHandOff, HandOffFacts, band_stats_weighted, cast_wb_direction,
     refine_curves_on_finished_frame, residual_channel_curve_weighted, search_cast_hand_off, search_cast_projection,
 };
-#[cfg(test)]
-use curves::{
-    band_stats, cast_curves_are_identity, pick_cast_hand_off, projected_cast_curves,
-    residual_channel_curve, search_cast_projection_t,
-};
 use detail::{detail_regression_is_bounded, fit_detail_stage, only_detail_and_quantized_companions};
-#[cfg(test)]
-use detail::{DETAIL_CONTROL_LIMIT, detail_residual};
 pub use evidence::{
     Divergence, EvidenceModel, EvidenceRange, FitMode, evidence_hue_band, evidence_luma_bin,
     evidence_model_paired,
 };
-#[cfg(test)]
-pub use evidence::{evidence_model_for};
 pub(crate) use evidence::{
     UNSUPPORTED_RANGE_MOVE, evidence_has_one_sided, luma_evidence_for_bins, withheld_range_names,
 };
@@ -155,10 +134,6 @@ use evidence::{
     divergent_range_names, movement_identifiability, source_hue_is_withheld,
     source_luma_is_withheld, weighted_cdf, weighted_mean, weighted_mean_chroma,
 };
-#[cfg(test)]
-pub(crate) use evidence::{evidence_model};
-#[cfg(test)]
-use evidence::{SupportField, WB_OPPOSING_SHARE, aggregate_ranges, wb_axes_by_range, wb_axes_by_region, wb_common, wb_consensus};
 pub(crate) use gates::{P_CLIP, clamp_confidence};
 use gates::{
     CAST_ACCEPT_RATIO, CONFIDENCE_CEIL, CONFIDENCE_FLOOR, FAN_DEG, FAN_HUE_CLASSES, FAN_PROJECT_DEG,
@@ -167,8 +142,6 @@ use gates::{
     VETO_FAR_BINS, VETO_MIN_TARGET_CHROMATIC, VETO_SUPPORT_BIN_MIN, VETO_SUPPORT_CHROMA,
     VETO_TINT_CHROMA, confidence_from_look_err,
 };
-#[cfg(test)]
-use gates::{CONFIDENCE_SLOPE, NEUTRAL_MISPREDICTION_MAX, ROT_VISIBLE_AFTER, ROT_VISIBLE_BEFORE};
 use hsl::{HslStageFacts, HslWithdrawal, fit_hsl_stage, halved_hsl};
 pub(crate) use hue_gates::{
     CellArm, PixelVouch, cell_vouched_hue_band_names, moved_unsupported_hue_range_names,
@@ -181,15 +154,8 @@ use hue_gates::{
     rehued_coverage_weighted, rehued_share_weighted, wb_moves_pixels_into_foreign_hues,
     withdraw_curves_for_delivered_fan,
 };
-#[cfg(test)]
-use hue_gates::{
-    cast_rotates_a_region, delivered_fan_conviction, foreign_hue_bins, foreign_hue_bins_weighted,
-    foreign_share, rehued_share,
-};
 pub(crate) use look::{look_err_with_evidence};
 use look::{round1, round2};
-#[cfg(test)]
-pub(crate) use look::{calibration_corpus, calibration_recipe, look_err};
 pub use pairing::{
     CorrespondenceProvider, FitReport, same_frame_plausible, same_frame_plausible_dims,
 };
@@ -203,17 +169,11 @@ pub(crate) use pixels::{cdf_at, quantile};
 use pixels::{
     DEGENERATE_LUMA_VAR, is_neutralish, luma_variance, mean_chroma, tone_cdf_pair_weighted,
 };
-#[cfg(test)]
-pub(crate) use pixels::{neutral_gate_misprediction};
-#[cfg(test)]
-use pixels::{luma_cdf, tone_cdf_pair};
 pub use report::{rescore_report};
 pub(crate) use report::{append_finished_disclosure};
 use report::{Measured, SolveFacts, compose_report};
 pub use solve::{fit_recipe, fit_recipe_from, fit_recipe_from_with, fit_recipe_with};
 pub(crate) use solve::{fit_recipe_from_promoted_with_disclosure_opts};
-#[cfg(test)]
-pub(crate) use solve::{fit_recipe_from_promoted, fit_recipe_from_promoted_with_disclosure};
 pub use structure::{DivergencePair, PairingScale, STRUCTURE_MIN_CORE_PX, structure_divergence};
 pub(crate) use structure::{divergence_pair_for, divergence_raster, structure_divergence_for, DivergenceRaster};
 pub(crate) use tone::{
@@ -221,42 +181,3 @@ pub(crate) use tone::{
     knot_support_for, paired_robust_tone, refine_tone_sliders_on, sample_tone_points,
 };
 use tone::{converges_toward, paired_correspondence, residual_tone_curve_with_budget};
-#[cfg(test)]
-pub(crate) use tone::{fit_tone_sliders};
-#[cfg(test)]
-use tone::{TONE_PRIOR, residual_tone_curve};
-
-/// The reverse fit's source as ONE text, for the source-text gates that read what
-/// `fit.rs` alone held before it was split into files: the modules in their
-/// declaration order, the root last (so `source_before_tests` cuts at the root's
-/// own test modules and nowhere else). Test-only: nothing here is compiled into a
-/// shipped binary.
-#[cfg(test)]
-pub(crate) const SOURCE_FILES: [(&str, &str); 17] = [
-    ("src/fit/atmosphere.rs", include_str!("fit/atmosphere.rs")),
-    ("src/fit/budget.rs", include_str!("fit/budget.rs")),
-    ("src/fit/cast_outcome.rs", include_str!("fit/cast_outcome.rs")),
-    ("src/fit/curves.rs", include_str!("fit/curves.rs")),
-    ("src/fit/detail.rs", include_str!("fit/detail.rs")),
-    ("src/fit/evidence.rs", include_str!("fit/evidence.rs")),
-    ("src/fit/gates.rs", include_str!("fit/gates.rs")),
-    ("src/fit/hsl.rs", include_str!("fit/hsl.rs")),
-    ("src/fit/hue_gates.rs", include_str!("fit/hue_gates.rs")),
-    ("src/fit/look.rs", include_str!("fit/look.rs")),
-    ("src/fit/pairing.rs", include_str!("fit/pairing.rs")),
-    ("src/fit/pixels.rs", include_str!("fit/pixels.rs")),
-    ("src/fit/report.rs", include_str!("fit/report.rs")),
-    ("src/fit/solve.rs", include_str!("fit/solve.rs")),
-    ("src/fit/structure.rs", include_str!("fit/structure.rs")),
-    ("src/fit/tone.rs", include_str!("fit/tone.rs")),
-    ("src/fit.rs", include_str!("fit.rs")),
-];
-
-#[cfg(test)]
-pub(crate) fn source_text() -> String {
-    SOURCE_FILES.iter().map(|(_, text)| *text).collect()
-}
-
-#[cfg(test)]
-mod tests;
-

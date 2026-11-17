@@ -992,8 +992,6 @@ pub(crate) fn fit_recipe_from_promoted_with_disclosure_opts(
             if rescue.rescues()
                 && let Some((share, fan_before)) = out.earns_projection()
             {
-                #[cfg(test)]
-                route::note(|r| r.hand_off_entered += 1);
                 let fitted = [
                     recipe.red_curve.clone(),
                     recipe.green_curve.clone(),
@@ -1040,8 +1038,6 @@ pub(crate) fn fit_recipe_from_promoted_with_disclosure_opts(
                             budget,
                             options.strength,
                         ) {
-                            #[cfg(test)]
-                            route::note(|r| r.wb_step_refusals += 1);
                             return None;
                         }
                         let mut probe = probe_base.clone();
@@ -1113,10 +1109,6 @@ pub(crate) fn fit_recipe_from_promoted_with_disclosure_opts(
                     })
                 });
                 let won = if let Some(h) = handed {
-                    #[cfg(test)]
-                    if rescue == DO_NO_HARM_RESCUE {
-                        route::note(|r| r.descent_hand_offs += 1);
-                    }
                     (recipe.temperature_k, recipe.tint) = (Some(h.wb.0), h.wb.1);
                     recipe.saturation = h.saturation;
                     let [red, green, blue] = h.curves;
@@ -1372,8 +1364,6 @@ pub(crate) fn fit_recipe_from_promoted_with_disclosure_opts(
         err_after > err_before + 1e-4 || (end_moves_hue && budget.vetoes == VetoPolicy::Withhold)
     };
     let descent = step_down_until_harmless(&mut recipe, objects(err_after, end_moves_hue), |recipe| {
-        #[cfg(test)]
-        route::note(|r| r.descent_rounds += 1);
         cast = fit_cast_stage(recipe, DO_NO_HARM_RESCUE);
         end_px = pixels_of(&render::develop_preview(&s_img, recipe));
         err_after = look_err_with_evidence(&end_px, &tp, &evidence);
@@ -1657,42 +1647,6 @@ pub(crate) fn fit_recipe_from_promoted_with_disclosure_opts(
     report
 }
 
-/// Which branches of the solve a run reached that no sentence of the report
-/// names, recorded per thread so a test can drive the public entry and tell
-/// a pair that reached a branch from one that only looks as if it had.
-#[cfg(test)]
-pub(super) mod route {
-    use std::cell::Cell;
-
-    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-    pub(in crate::fit) struct Route {
-        /// Rounds the 4b do-no-harm loop ran.
-        pub(in crate::fit) descent_rounds: u32,
-        /// 4b re-fits whose cast→WB hand-off shipped.
-        pub(in crate::fit) descent_hand_offs: u32,
-        /// Calls of any rescuing kind that entered the hand-off.
-        pub(in crate::fit) hand_off_entered: u32,
-        /// Hand-off candidates the white-balance stage's gates refused.
-        pub(in crate::fit) wb_step_refusals: u32,
-    }
-
-    thread_local! {
-        static ROUTE: Cell<Route> = Cell::new(Route::default());
-    }
-
-    pub(super) fn note(f: impl FnOnce(&mut Route)) {
-        ROUTE.with(|cell| {
-            let mut route = cell.get();
-            f(&mut route);
-            cell.set(route);
-        });
-    }
-
-    /// What this thread recorded since the last `take`, and a fresh record.
-    pub(in crate::fit) fn take() -> Route {
-        ROUTE.with(|cell| cell.replace(Route::default()))
-    }
-}
 
 /// Who may rescue a fan-convicted cast, and how. `Off` judges the cast as
 /// the gates measured it; the two rescuing callers both try the cast→WB

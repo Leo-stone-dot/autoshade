@@ -131,13 +131,6 @@ impl Family {
     }
 }
 
-/// [`Family::vanishing_point`] on normal equations stated directly, with the
-/// sample floor met — for the tests that probe its eigenvalue guards without
-/// a picture.
-#[cfg(test)]
-pub(super) fn vanishing_point_of(m: [f64; 6]) -> Option<[f32; 3]> {
-    Family { m, n: Tune::MIN_SAMPLES, ..Family::default() }.vanishing_point()
-}
 
 /// Eigen-decomposition of a 3×3 symmetric matrix given as its upper triangle
 /// (00 01 02 11 12 22), by cyclic Jacobi rotations. `vecs[i]` is the unit vector

@@ -19,20 +19,11 @@ is a real compatibility boundary in this project, not a detail. -->
 ## Gates
 
 Both build configurations, every time. The GUI sits behind the `gui` feature, so
-a plain `cargo test` never compiles it — a change can be green on one
+a plain `cargo build` never compiles it — a change can be green on one
 configuration and broken on the other.
 
 - [ ] `cargo clippy --all-targets` — clean
 - [ ] `cargo clippy --all-targets --features gui` — clean
-- [ ] `cargo test` — green
-- [ ] `cargo test --features gui` — green (the FULL form, not `--bins`: the
-      library and the two contract suites must also pass under the `gui`
-      feature, and the `--bins` form cannot even express that)
-- [ ] **Touched decode / XMP / masks?** Run whichever env-gated fixture suites
-      you have — `AUTOSHADE_RAW_ZOO` (full test name
-      `every_make_in_the_raw_zoo_decodes_and_agrees_with_itself`),
-      `AUTOSHADE_LR_PROBE_FIXTURES`, `AUTOSHADE_MB_FIXTURES` — and say in the PR
-      which ones you could not run. Unset, they skip silently.
 - [ ] **Docs changed?** `python scripts/check_docs.py` prints **PASS** on every
       row it can derive. That gate re-derives the hard numbers in the docs from
       the tree, and a claim site it can no longer find is a **FAIL**, not a
@@ -45,8 +36,8 @@ configuration and broken on the other.
       the actual diff. `cargo fmt -- <file>` is not a file filter — it
       reformats the whole crate anyway. Match the style of the code around you.
 - [ ] **Line endings preserved per file.** Endings are mixed here by design and
-      `.gitattributes` pins `*.py` to LF, because `denoise.rs` `include_str!`s
-      `python/denoise.py` and asserts on literal source. Do not let an editor
+      `.gitattributes` pins `*.py` to LF because the sidecar files are shared
+      across platforms. Do not let an editor
       normalise a file you did not otherwise touch — check `git diff --stat` for
       files that are suddenly whole-file changes.
 

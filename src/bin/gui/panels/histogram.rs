@@ -20,10 +20,6 @@ impl PanelView<'_> {
             egui::vec2(ui.available_width().min(FIELD_W_MAX), h),
             egui::Sense::hover(),
         );
-        #[cfg(test)]
-        {
-            self.seams.histogram_rect = Some(rect);
-        }
         let p = ui.painter_at(rect);
         p.rect_filled(rect, RADIUS_SM, egui::Color32::from_gray(16));
         let n = hist.len().max(1);
@@ -203,13 +199,6 @@ impl PanelView<'_> {
         let side = ui.available_width().clamp(160.0, 240.0);
         let (rect, resp) =
             ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::click_and_drag());
-        #[cfg(test)]
-        {
-            // Test seam (the same convention as develop_count /
-            // overlay_build_count): the headless driven test aims its
-            // synthetic click with the square's screen rect.
-            self.seams.curve_rect = Some(rect);
-        }
         let p = ui.painter_at(rect);
         let accent = CURVE_CHANNELS[self.workspace.curve_channel()].1;
         p.rect_filled(rect, RADIUS_SM, egui::Color32::from_gray(16));

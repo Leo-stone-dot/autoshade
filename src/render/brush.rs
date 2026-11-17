@@ -61,28 +61,6 @@ pub(super) fn brush_kernel_exponents(h: f32) -> (f32, f32) {
     (ln_m.exp() as f32, ln_n.exp() as f32)
 }
 
-/// One dab's alpha profile: `k(ρ; h)`, the falloff at normalised radius `ρ`.
-///
-/// **Support ends EXACTLY at ρ = 1**, re-confirmed at nine hardnesses: α is
-/// ≤ 5×10⁻⁴ in magnitude at every ρ ≥ 1.002 on every rung, so `crs:Radius` is
-/// the outer support and not a half-width (B6 §4.1). Returning a hard 0 there
-/// is therefore the measurement, not a convenience — and it is what keeps a
-/// dab's cost proportional to its own area instead of the frame's.
-///
-/// `k(0) = 1` is likewise measured, not normalised in by hand: the
-/// un-normalised peak reads 1.00288 ± 0.00229 across the nine rungs with no
-/// trend in `h`, which is also an independent confirmation of `D(1) = 1`.
-///
-/// TESTS ONLY, and deliberately: the rasteriser hoists `brush_kernel_exponents`
-/// out of its inner loop, so composing them per call is a convenience no pixel
-/// path wants. The falloff ITSELF is [`brush_kernel_at`], which both this and
-/// the rasteriser go through — so a mutation to the closed form still reaches
-/// production, and the nine-rung pin still bites it.
-#[cfg(test)]
-pub(super) fn brush_kernel(rho: f32, h: f32) -> f32 {
-    let (m, n) = brush_kernel_exponents(h);
-    brush_kernel_at(rho * rho, m * 0.5, n)
-}
 
 /// [`brush_kernel`] with ρ² in hand and the exponents already resolved — the
 /// form the rasteriser's inner loop wants, and the ONE place the falloff is

@@ -300,10 +300,6 @@ impl Commands<'_> {
         // The Export fold's OWN dial (the Detail fold's 「AI Denoise now」 has
         // its own), captured at the click like every other export input.
         let denoise_strength = self.editor.selected_denoise_strength(self.workspace, true);
-        #[cfg(test)]
-        {
-            self.seams.denoise_strength_asked = Some((true, denoise_strength));
-        }
         let export = self.workspace.export_opts();
         self.start_render_with(out, export, denoise.then_some(denoise_strength), self.workspace.exp().save_denoise, OutName::Guarded)
     }

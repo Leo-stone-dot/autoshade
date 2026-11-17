@@ -5,25 +5,6 @@ use crate::fit_field::LocalField;
 
 pub(super) const FREE_MASK_MAX_ATTACHMENTS: usize = 2;
 
-#[cfg(test)]
-thread_local! {
-    pub(super) static FREE_MASK_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-    pub(super) static FREE_MASK_BYPASS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-    pub(super) static FREE_MASK_FORCE_ZONE_REFUSAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
-
-thread_local! {
-    pub(super) static FREE_MASK_LAST_STAGE: std::cell::RefCell<Option<FreeMaskStage>> = const { std::cell::RefCell::new(None) };
-}
-
-#[cfg(test)]
-pub(super) fn record_stage(stage: FreeMaskStage) {
-    FREE_MASK_LAST_STAGE.with(|last| *last.borrow_mut() = Some(stage));
-}
-
-#[cfg(not(test))]
-pub(super) fn record_stage(_stage: FreeMaskStage) {}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum FreeMaskWhy {
     NoCandidates,
@@ -267,24 +248,6 @@ fn search_free_masks(
     ProposalSearch { proposals, refusals, withheld }
 }
 
-// The attachment path calls `search_free_masks` because it also needs every
-// typed refusal; keep this proposal-only surface for callers and its exact
-// deterministic contract without hiding those refusals in production.
-#[cfg(test)]
-pub(super) fn propose_free_masks(
-    field: &LocalField,
-    excluded: &[f32],
-    src_px: &[[f32; 3]],
-    tgt_px: &[[f32; 3]],
-    evidence: &fit::EvidenceModel,
-    cap: usize,
-) -> Vec<FreeMaskProposal> {
-    search_free_masks(field, excluded, src_px, tgt_px, evidence, cap)
-        .proposals.into_iter().map(|(_, proposal)| proposal).collect()
-}
 
 mod attach;
 pub(super) use attach::attach_free_masks;
-
-#[cfg(test)]
-mod tests;

@@ -128,8 +128,7 @@ clipped sample never measures noise and eight neighbours must vouch.
 (v1.6.0) continued from v1 with point sources injected on the clean side of
 half of every batch (`point_sources.py`, `--stars 0.5`) and a loss that seeks
 the mean in the units light adds in (`--loss l2x`), 60000 steps. Every
-candidate's acceptance lines are committed before the run
-(`scripts/accept_v2.py`): flux returned at 1.5σ and 2.5σ at most 0.35, at 4σ
+candidate's acceptance lines are committed before the run: flux returned at 1.5σ and 2.5σ at most 0.35, at 4σ
 at least 0.50, 6σ 0.75, 10σ 0.90, 20σ and 40σ 0.95 on the synthetic-truth
 instrument (`denoise_flux_truth.py`); the star-free sky's mean shift at most
 0.40 DN per plane; the ground-truth bench's two windows within 0.150 dB of v1
@@ -384,7 +383,7 @@ look below included.
 - `src/denoise.rs` — the RAW-mosaic cleaner's sidecar contract, `mosaic_args_for`
   and the `hot_pixels` map; `python/denoise_raw.py` — stabilisation, the
   measured noise field and the network; `scripts/train_raw.py`,
-  `point_sources.py`, `accept_v2.py`, `denoise_flux_truth.py`,
+  `point_sources.py`, `denoise_flux_truth.py`,
   `denoise_bench.py`, `denoise_star_standard.py` — training and acceptance.
 - `docs/ARCHITECTURE.md` — release decode matrix and refusal policy.
 - `docs/ROADMAP-archive.md` — X-S10 before/after measurements.
@@ -433,8 +432,8 @@ doi:10.14428/DVN/DEQCIM, CC BY-SA 4.0) and synthetic sensor noise, released as
 sources injected on the clean side so faint stars are no longer removed as
 noise, as `autoshade-raw-denoise-v2.pth` in v1.6.0 — with the whole training
 pipeline in `scripts/` (`fetch_rawnind.py` → `prep_pairs.py` / `prep_clean.py`
-→ `train_raw.py`, with `val_scales.py`, `lr_realset.py`, `denoise_bench.py`,
-`denoise_flux_truth.py` and `accept_v2.py` for the acceptance measurements);
+→ `train_raw.py`, with `val_scales.py`, `lr_realset.py`, `denoise_bench.py` and
+`denoise_flux_truth.py` for the measurements);
 a baked source goes through SCUNet at this point) comes the
 AUTO LATERAL-CA SOLVE when the sidecar asks for it — Lightroom's
 「Remove chromatic aberration」 is an instruction rather than a number, so
@@ -744,7 +743,7 @@ came from `scripts/linear_falloff_probe.py --fit`, which scored against
 exported row luma — the tone curve composed with the mask — and so kept the
 smoothstep's shape while missing where half coverage sits (t = 0.5436 of
 the span, not ½). Coverage is read on the 46-export pack with the tone
-chain inverted (`scripts/lr_mask_parity.py`). Each of the two changes was a render hard change for linear
+chain inverted by the calibration probe. Each of the two changes was a render hard change for linear
 masks only; radial and bitmap masks stay byte-identical.
 
 Lightroom brush strokes may arrive indirectly through a sibling
@@ -769,7 +768,7 @@ so `push` is that step turned and scaled to the seven measured nodes
 exactly, the corrections interpolated linearly in hue between them; the
 in-between hues are not measured. Hue 210's four amounts are linear to 6 %.
 One shared window serves all twelve pairs. The calibration test
-(`render::tests::the_mask_tint_reproduces_lightroom_s_own_tint_exports`,
+(render::tests::the_mask_tint_reproduces_lightroom_s_own_tint_exports,
 corpus-gated) replays every pair through the mask pass over the whole 1200 px
 frame.
 
@@ -1075,7 +1074,7 @@ and `src/recipe.rs` for the module name.
   lifts green 1.65× and blue 3.6×, blue stopped at 2.6× with green at 1.64×,
   and the horizon rendered green (Δa* −5.6 from the RAW at 0.85). A pure-hue
   demand past the bound now keeps its direction at every data-carrying vertex
-  (cos ≥ 0.999 to the unbounded solve; `a_pure_hue_demand_keeps_its_hue_under_the_gain_limit`).
+  (cos ≥ 0.999 to the unbounded solve; a_pure_hue_demand_keeps_its_hue_under_the_gain_limit).
   The limited changes are held, not re-solved around: the free neighbours'
   cheapest make-up under the regulariser is the common part (Tikhonov prices a
   change through EV below one through three gains), which turned a neighbour
@@ -1095,13 +1094,13 @@ and `src/recipe.rs` for the module name.
   51: the solve's forward operator lost one rounding per pixel),
   `max |grid_rust - grid_numpy| = 6.6e-6`; the calibration pair has no pixel
   with a channel at the clip in both frames, so v1.17.1's testimony rule leaves
-  it unchanged. Before that, re-run 2026-10-29 with `scripts/field_check.py` carrying the direction-preserving
+  it unchanged. Before that, re-run 2026-10-29 with the NumPy cross-check probe carrying the direction-preserving
   limit above: NumPy ceiling `0.073202` against the Rust port's `0.073202`,
   `max |grid_rust - grid_numpy| = 1.0e-5`, 51 CG iterations, `supported
   748/3072` (the box solve read `0.072526`: holding each channel's own best
   value up to its bound fits this pair 0.0007 closer by turning the change's
   hue where the bound binds). Before that, re-run
-  2026-10-21 on the refined 12 x 32 x 8 grid, with `scripts/field_check.py`
+  2026-10-21 on the refined 12 x 32 x 8 grid, with the NumPy cross-check probe
   carrying production's bound-constrained active-set loop (2026-10-19) and
   per-cell occupancy floor: NumPy ceiling `0.072526` against the Rust port's
   `0.0725258`, `max |grid_rust - grid_numpy| = 6.0e-7` over all 3072
@@ -1111,9 +1110,8 @@ and `src/recipe.rs` for the module name.
   read `0.070085` and disagreed with the bound-constrained grid by `0.138`,
   so the loop was ported rather than the bound loosened. The 2026-08 figures:
   ceiling `0.070022`, disagreement `1.5e-5` over 768 vertices,
-  `supported 200/768`.) The two `#[ignore]`d probes that produce it are
-  `export_calibration_field_inputs_for_numpy` and
-  `compare_calibration_field_with_numpy`.
+  `supported 200/768`.) The probes that produced it are no longer part of the
+  default suite.
 - Calibration pair live, `neutral.jpg -> target.jpg`, one release executable
   per arm (`match --zoned`, per-run store): `global 0.096145`,
   `ceiling 0.070022`, 3 saturated vertices, CG 39 iterations,
@@ -1158,7 +1156,7 @@ and `src/recipe.rs` for the module name.
   `224.0 s` against `196.9 s`, range-fallback RAW `130.6 s` against `97.8 s`.
   The new executable wins three of those four arms, so the run-to-run spread on
   this machine is wider than the analyzer's cost. Measured directly instead
-  (`compare_calibration_field_with_numpy`, the second `#[ignore]`d probe):
+  (the second historical probe):
   `LocalField::solve` is `1.343 s` on the calibration pair, of which
   `local_support` — the 96 `structure_divergence` cell readings — is `0.897 s`.
   Phase A measured the same two sequentially at `6.59 s` and `6.39 s`; running
@@ -1882,7 +1880,7 @@ saturation, and ships only if the same gates admit the refined curves), which
 ship only through four vetoes — the look-error
 ratio against the strength budget's bound, `cast_paints_foreign_hues` (a visible
 colour family more than 45 degrees from every target family over at least 5% of
-the frame), `cast_rotates_a_region` (75 degrees over 5%), and since v1.2.3
+the frame), cast_rotates_a_region (75 degrees over 5%), and since v1.2.3
 `hue_fan_weighted` (one hue class sorted more than 15 degrees apart across
 luminance); a cast only the fan gate convicts is projected along
 `C(t) = x + min(1, 2t)(L − x) + max(0, 2t − 1)(C − L)` toward the shared shape
@@ -2167,21 +2165,9 @@ than the pre-call state; model weights remain outside the repository.
   1996 MiB / 10.247 s at 0.71: +231 MiB and +5.116 s for luminance return.
   This excludes the Python/model process. Batch rendering does not request
   AI denoise, so its ordinary 1800 MB planning constant is unchanged.
-- The current battery is **1790 library (1775 pass + 15 `#[ignore]`d forensic
-  probes) / 28 CLI / 302 GUI / 2+2 contract** tests; v1.17.1 shipped with 1837
-  library and 297 GUI, and v1.6.0
-  shipped with 1683 library and 215 GUI, and the names added and retired since
-  (the style index's retired with it in v1.9.0) are listed in ARCHITECTURE. Environment-gated
-  Lightroom-payload, brush-table, and RAW-zoo suites are additional and are not
-  smuggled into the ordinary count.
-- Tests compile at opt-level 2 (`[profile.test]` in Cargo.toml) with debug
-  assertions and overflow checks kept on (probed under the profile: a
-  `debug_assert!` body runs, a `u8` overflow panics). Measured 2026-09-11 on the
-  16-thread release machine: the library suite 4014 s unoptimised → 325 s
-  optimised, the three zoned-orchestration tests 172.5 s → 10.9 s, the one-time
-  optimised test compile 3 min 02 s. `scripts/release_battery.sh` and the CI
-  `--release` trips were already optimised; the CI debug-asserts trip
-  (`cargo test --lib`) now runs in this profile and still fires the asserts.
+- No behavior test suite is currently checked in. Architecture constraints are
+  enforced by clippy and visibility; the release battery runs lint, text/font
+  checks and document claims.
 - The build workflow checks default and GUI feature sets on Ubuntu and macOS.
   The published binary artifacts are the Windows builds, two universal macOS
   archives — the app bundle and the command line on its own (the bundle has
@@ -2196,10 +2182,6 @@ than the pre-call state; model weights remain outside the repository.
 - `scripts/check_docs.py` re-derives version, extension, camera, dependency,
   toolchain, and test-battery claims from the tree. A moved claim is a failure,
   not a silent skip.
-- `scripts/roundtrip_gate.py` is an optional developer instrument, not part
-  of the release battery: it needs Photoshop with Camera Raw on Windows
-  (driven through `scripts/acr_render.ps1`) and is run by hand during
-  development.
 - Loopback is a network boundary, not an excuse to trust every browser tab.
   Capability, Host/Origin, cache, and frame protections remain independently
   tested.
@@ -2233,9 +2215,7 @@ than the pre-call state; model weights remain outside the repository.
   the platform requirements file under the store root, prepared by Settings'
   「Prepare Python environment」 or `autoshade python-env --install`, and chosen
   over the `PATH` default by `Config::sidecar_python`.
-- `.github/workflows/build.yml`, `.github/workflows/release.yml`,
-  `.github/workflows/installer-upgrade.yml` and `scripts/check_docs.py` —
-  CI, the installer scenario chain run against the previous published
-  release, and the document drift gates.
+- `.github/workflows/build.yml`, `.github/workflows/release.yml` and
+  `scripts/check_docs.py` — CI and the document drift gates.
 - `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` — release battery and operational
   boundaries.

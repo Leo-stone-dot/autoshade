@@ -45,8 +45,8 @@ impl AutoShadeApp {
         // about this machine, measured once before the first frame. It spawns
         // the interpreter only when the managed environment is not the answer,
         // so a prepared install costs one file check. After the prefs restore
-        // (which decides the language) and outside it, so headless tests that
-        // restore prefs run no interpreter.
+        // (which decides the language) and outside it, so a headless restore
+        // runs no interpreter.
         if let Some(note) = app.commands().refresh_python_check() {
             app.workspace.chrome_mut().startup_note = Some(note);
         }
@@ -70,8 +70,7 @@ impl AutoShadeApp {
         app
     }
 
-    /// Restore the persisted settings through the same path at startup and
-    /// in headless tests; no access to the user's actual prefs is needed.
+    /// Restore persisted settings through the same path at startup.
     pub(crate) fn restore_prefs(&mut self, prefs: Prefs) {
         let app = self;
         app.aip.guide = prefs.guide;

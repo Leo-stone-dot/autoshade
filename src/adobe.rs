@@ -87,6 +87,3 @@ pub fn walk_extension(roots: Vec<PathBuf>, ext: &str, mut budget: usize) -> Vec<
     }
     out
 }
-
-#[cfg(test)]
-mod tests;

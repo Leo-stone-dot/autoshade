@@ -45,15 +45,6 @@ pub(in crate::fit_zoned) fn attach_free_masks(
     raster_home: &crate::store::OwnedRaster, field: &LocalField, excluded: &[f32],
     refine: bool, cap: usize,
 ) -> FreeMaskStage {
-    #[cfg(test)]
-    {
-        FREE_MASK_CALLS.with(|calls| calls.set(calls.get() + 1));
-        if FREE_MASK_BYPASS.with(|bypass| bypass.replace(false)) {
-            let stage = FreeMaskStage { ran: false, components: 0, disclosed: 0 };
-            super::record_stage(stage);
-            return stage;
-        }
-    }
     let (s_img, t_img) = fit::analysis_pair(src, target);
     let target_px = fit::pixels_of(&t_img);
     let corr = report.correspondence.take();
@@ -91,7 +82,6 @@ pub(in crate::fit_zoned) fn attach_free_masks(
         );
         report.correspondence = corr;
         let stage = FreeMaskStage { ran: true, components, disclosed };
-        super::record_stage(stage);
         return stage;
     }
     for (number, proposal) in &search.proposals {
@@ -141,15 +131,6 @@ pub(in crate::fit_zoned) fn attach_free_masks(
         // later attachment refusal; only tentative attachment notes roll back.
         let rationale_before_attach = report.recipe.rationale.len();
         let notes_before_attach = report.notes.len();
-        #[cfg(test)]
-        if FREE_MASK_FORCE_ZONE_REFUSAL.with(|force| force.replace(false)) {
-            owned.remove();
-            report.recipe.rationale.truncate(rationale_before_attach);
-            report.notes.truncate(notes_before_attach);
-            push_refusal(report, &[FreeMaskRefusal { n: number, why: FreeMaskWhy::ZoneRefused }]);
-            disclosed += 1;
-            continue;
-        }
         if owned.save_mask(&mask).is_err() {
             owned.remove();
             report.recipe.rationale.truncate(rationale_before_attach);
@@ -285,7 +266,5 @@ pub(in crate::fit_zoned) fn attach_free_masks(
     if attached_count > 0 {
         fit::append_finished_disclosure(report, &final_px, &target_px);
     }
-    let stage = FreeMaskStage { ran: true, components, disclosed };
-    super::record_stage(stage);
-    stage
+    FreeMaskStage { ran: true, components, disclosed }
 }

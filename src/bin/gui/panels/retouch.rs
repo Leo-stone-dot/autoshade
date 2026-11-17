@@ -476,8 +476,7 @@ impl Commands<'_> {
             .id_salt("sec_fill")
             .default_open(false)
             // Test-only force-open: this fold hides a width-pinned prompt row
-            // (see util::fold_open_in_tests).
-            .open(fold_open_in_tests())
+            .open(None)
             , |ui| {
                 // #14a: was `desired_width(f32::INFINITY)`.
                 let _field = prompt_field(
@@ -485,10 +484,6 @@ impl Commands<'_> {
                     &mut self.workspace.genai_mut().fill_prompt,
                     tr(lang, K_RETOUCH_WHAT_TO_CHANGE_E_G_REMOVE_THE_WIRES_ON_THE_LEFT),
                 );
-                #[cfg(test)]
-                {
-                    self.seams.prompt_rects.push(_field.rect);
-                }
                 self.brush_row(ui, BrushOwner::Fill);
                 // R38: wrapped — quality and the full-res switch share a row
                 // that wraps when short; the verb fills the row under them

@@ -24,7 +24,7 @@ name = "autoshade"
 path = "src/main.rs"
 
 # Native desktop GUI (egui/eframe). Behind the `gui` feature so a plain
-# `cargo build` / `cargo test` does NOT pull in eframe + winit + the GL stack;
+# `cargo build` does NOT pull in eframe + winit + the GL stack;
 # build it with `cargo run --features gui --bin autoshade-gui`.
 [[bin]]
 name = "autoshade-gui"
@@ -35,25 +35,6 @@ required-features = ["gui"]
 # `eframe/persistence` remembers window geometry + our own prefs (last folder,
 # view mode, export options) across launches — table stakes for a real app.
 gui = ["dep:eframe", "dep:egui", "dep:rfd", "dep:ab_glyph", "eframe/persistence"]
-
-# The slow raster/engine tier: `fit`, `fit_zoned` and `segment` tests render
-# real 2048-px frames or run the segmentation models (~7 min together). They are
-# the integration tier, not the unit battery, so the default `cargo test --lib`
-# ignores them; run `cargo test --lib --features slow-tests` for the full pass.
-slow-tests = []
-
-
-# Tests compile optimised. The library battery is image arithmetic on real
-# 2048-px frames, and unoptimised it spent 4014 s (2026-09-11, 16 threads; the
-# three zoned-orchestration tests alone 172.5 s); at opt-level 2 the same
-# battery runs in 325 s and those three in 10.9 s, for a one-time 3 min
-# optimised compile. `debug-assertions` and `overflow-checks` are inherited
-# from `dev` and stay ON (probed: a debug_assert! body runs and a u8 overflow
-# panics under this profile), so the debug_assert!s the CI debug-asserts job
-# exists for still fire in every local `cargo test`. `cargo test --release`
-# (the CI trips in the shipping profile) does not use this profile.
-[profile.test]
-opt-level = 2
 
 [profile.dev]
 debug = "line-tables-only"
@@ -160,19 +141,6 @@ libc = "0.2"
 # Embeds the Windows app icon into the executables (see build.rs).
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
-
-# TEST-ONLY (`[dev-dependencies]`, so a release build never compiles it):
-# `GetProcessMemoryInfo` + `PROCESS_MEMORY_COUNTERS`, the process's own
-# PeakPagefileUsage. That reading is the METHOD behind
-# `jobs::PER_PHOTO_PEAK_COMMIT_MB`; R27 Batch-7 measured it from a scratch
-# probe that was never committed, which is why R28 could not re-derive the
-# number without rebuilding the harness. `jobs::probe_per_photo_peak_commit`
-# is that harness, in tree, `#[ignore]`d. Resolver 3 keeps dev-dependency
-# features out of the normal build, so the shipped binaries gain nothing.
-[target.'cfg(windows)'.dev-dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_ProcessStatus"] }
-
-[dev-dependencies]
 
 # MSVC 14.44 fails to emit C debug info for ring's pregenerated C sources
 # (cc-rs: cl.exe exited 2 with -Z7 → curve25519.c). Disable debug info for

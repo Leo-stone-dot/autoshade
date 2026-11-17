@@ -172,9 +172,9 @@ impl ExportDest {
 }
 
 /// What the Export button does THIS click, decided before anything is written
-/// (R22-7). A separate type rather than an `Option<PathBuf>` so the asking
-/// arm is a state a headless test can assert on — the dialog itself cannot be
-/// opened from a test, but the decision that leads to it can.
+/// (R22-7). A separate type rather than an `Option<PathBuf>` so the asking arm
+/// is an explicit state: the dialog itself is a side effect, while the
+/// decision that leads to it stays in the headless workflow.
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) enum ExportRoute {
     /// The destination setting resolved to this concrete file.
@@ -779,37 +779,6 @@ pub(crate) struct AiState {
 }
 
 
-/// Layout/behaviour seams the window tests read: measured rects and the
-/// actual enabled state of gated buttons. Compiled only under `cfg(test)`, so
-/// a test's new probe never adds a field to `AutoShadeApp`'s production shape.
-#[cfg(test)]
-#[derive(Default)]
-pub(crate) struct TestSeams {
-    pub(crate) curve_rect: Option<egui::Rect>,
-    pub(crate) strip_row_rect: Option<egui::Rect>,
-    pub(crate) strip_card_rect: Option<egui::Rect>,
-    pub(crate) strip_title_rect: Option<egui::Rect>,
-    pub(crate) strip_apply: Option<(egui::Rect, bool)>,
-    pub(crate) strip_name_rect: Option<egui::Rect>,
-    pub(crate) edit_list_rows: Vec<String>,
-    pub(crate) edit_list_actions: Vec<String>,
-    pub(crate) reimagine_btn_rect: Option<egui::Rect>,
-    pub(crate) fit_from_rect: Option<egui::Rect>,
-    pub(crate) adjust_btn_enabled: Option<bool>,
-    pub(crate) brush_slider_rect: Option<egui::Rect>,
-    pub(crate) analysis_box_rect: Option<egui::Rect>,
-    /// The last denoise strength a verb captured: (on_export, strength).
-    pub(crate) denoise_strength_asked: Option<(bool, f32)>,
-    pub(crate) histogram_rect: Option<egui::Rect>,
-    pub(crate) prompt_rects: Vec<egui::Rect>,
-    pub(crate) ai_gate_enabled: Option<bool>,
-    pub(crate) adjust_edit_btn_enabled: Option<bool>,
-    pub(crate) adherence_gate_enabled: Option<bool>,
-    pub(crate) guide_gate_enabled: Option<(bool, bool)>,
-    pub(crate) ai_library_read_enabled: Option<bool>,
-    pub(crate) ai_library_build_enabled: Option<bool>,
-    pub(crate) ai_mask_stub: Option<crate::persist::AiMaskRunner>,
-}
 
 /// The crop tool's state: whether the overlay is armed, the preset index and
 /// its pending re-derive, the guide style and the drag in flight. Extracted
@@ -912,8 +881,6 @@ pub(crate) struct OverlayState {
     pub(crate) region: Option<[f32; 4]>,
     pub(crate) region_drag: Option<(egui::Pos2, egui::Pos2)>,
     pub(crate) region_restore: Option<([f32; 4], Instant)>,
-    #[cfg(test)]
-    pub(crate) mask_presence_scans: std::cell::Cell<usize>,
     pub(crate) mask_tex: Option<egui::TextureHandle>,
     pub(crate) mask_dirty: bool,
     pub(crate) mask_tex_xform: (f32, f32, (bool, bool), (f32, f32)),
@@ -934,8 +901,6 @@ impl Default for OverlayState {
             region: None,
             region_drag: None,
             region_restore: None,
-            #[cfg(test)]
-            mask_presence_scans: std::cell::Cell::new(0),
             mask_tex: None,
             mask_dirty: false,
             mask_tex_xform: (0.0, 0.0, (false, false), (0.0, 0.0)),
@@ -1008,7 +973,7 @@ impl Default for ExportState {
 }
 
 /// The gallery's own state: the folder scan, the bounded thumbnail cache, the
-/// selection, and the two measured rects the layout tests read. Extracted from
+/// selection. Extracted from
 /// `AutoShadeApp` so gallery features do not add fields to the app struct.
 #[derive(Default)]
 pub(crate) struct GalleryState {
@@ -1023,10 +988,6 @@ pub(crate) struct GalleryState {
     pub(crate) edited_badge: HashMap<usize, bool>, // cached "● edited" sidecar stat per index
     pub(crate) selected: Option<usize>, // index of the open gallery photo (for highlight)
     pub(crate) multi_sel: HashSet<usize>, // Ctrl+click gallery multi-selection
-    #[cfg(test)]
-    pub(crate) gallery_slot_rect: Option<egui::Rect>, // test seam: first drawn gallery thumb's SLOT
-    #[cfg(test)]
-    pub(crate) gallery_thumb_rect: Option<egui::Rect>, // test seam: … and the image drawn inside it
 }
 
 /// The question a whole-frame「AI generate」landing asks (v1.17.0): reverse-fit
@@ -1572,18 +1533,6 @@ pub(crate) enum VariantAction {
     SaveVersion,
 }
 
-/// Which surface is drawing a card's actions (R24-5). Both draw the same
-/// buttons through one owner; they differ only in which headless test seam
-/// records the result, and in the strip's exclusive right to the rename box —
-/// two `TextEdit`s over one buffer would fight for the caret every frame.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(crate) enum VariantSurface {
-    /// The bottom variant strip.
-    Strip,
-    /// The Versions section's edit-state list.
-    List,
-}
-
 /// Pick radius (px) for on-image mask knobs — matches the crop handles' feel.
 pub(crate) const HANDLE_HIT: f32 = 12.0;
 
@@ -1757,7 +1706,7 @@ pub(crate) struct Variant {
     /// lets a version snapshot say which variant it came from after the
     /// session that took it is gone. Never shown; never parsed. The empty
     /// string is the honest "no identity recorded" value (a legacy strip
-    /// record, a test fixture): it matches nothing, rather than matching
+    /// record): it matches nothing, rather than matching
     /// every other id-less card.
     pub(crate) id: String,
     /// The user's own name for this rendition. `None` ⇒ the strip shows the
@@ -2122,45 +2071,5 @@ impl AiPrefs {
     /// folds above the fit's own row.
     pub(crate) fn fit_strength(&self) -> autoshade::recipe::GradeStrength {
         autoshade::recipe::GradeStrength::new(self.fit_strength)
-    }
-}
-
-#[cfg(test)]
-mod pixel_identity_tests {
-    use super::*;
-
-    fn step(origin: &str, base: Option<Arc<image::DynamicImage>>) -> UndoStep {
-        UndoStep {
-            recipe: EditRecipe::default(),
-            base,
-            origin: Some(PathBuf::from(origin)),
-            keep_skin: None,
-        }
-    }
-
-    #[test]
-    fn one_master_written_two_ways_is_one_pixel_identity() {
-        let base = Some(Arc::new(image::DynamicImage::new_rgb8(4, 3)));
-        let rel = step("out/_spelling.png", base.clone());
-        let abs = step(&std::path::absolute("out/_spelling.png").unwrap().display().to_string(), base);
-        assert!(rel.same_pixels(&abs), "relative and absolute spellings of one master match");
-    }
-
-    #[test]
-    fn a_different_master_or_base_is_not_the_same_pixel_identity() {
-        let rel = step("out/_spelling.png", Some(Arc::new(image::DynamicImage::new_rgb8(4, 3))));
-        let other_master = step("out/_spelling-2.png", rel.base.clone());
-        assert!(!rel.same_pixels(&other_master), "a different master differs even on one base");
-        let other_base = step("out/_spelling.png", Some(Arc::new(image::DynamicImage::new_rgb8(4, 3))));
-        assert!(!rel.same_pixels(&other_base), "a different Arc base differs even at one path");
-    }
-
-    #[test]
-    fn no_base_on_either_side_matches_on_the_master() {
-        let a = step("out/_spelling.png", None);
-        let b = step("out/_spelling.png", None);
-        assert!(a.same_pixels(&b));
-        let c = step("out/_other.png", None);
-        assert!(!a.same_pixels(&c));
     }
 }

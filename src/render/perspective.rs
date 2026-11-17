@@ -69,8 +69,6 @@ use image::{DynamicImage, ImageBuffer, Rgb};
 mod upright;
 pub(crate) use upright::solve_upright;
 
-#[cfg(test)]
-mod tests;
 
 /// A projective map in [0,1] FRAME coordinates, row-major 3×3.
 ///

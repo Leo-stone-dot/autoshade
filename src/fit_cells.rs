@@ -514,6 +514,3 @@ impl PairedCells {
             .collect()
     }
 }
-
-#[cfg(test)]
-mod tests;

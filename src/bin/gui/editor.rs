@@ -503,27 +503,6 @@ impl Editor {
 }
 
 impl Editor {
-    /// Persist the open photo's strip beside recipe.json/pixels.json and
-    /// advance the mirror. Trivial strip ⇒ clear (no noise file). An error
-    /// leaves the mirror untouched, so the unsaved protection stays armed.
-    /// Test-only since the single-generation commit (L03): production saves
-    /// stage the strip INTO [`autoshade::store::commit_develop`] and advance
-    /// the mirror on the commit's success — this remains the strip-half
-    /// primitive the guard tests drive in isolation.
-    #[cfg(test)]
-    pub(crate) fn persist_strip(&mut self, path: &std::path::Path) -> std::io::Result<()> {
-        match self.current_strip_record() {
-            Some(rec) => {
-                autoshade::store::write_variants(path, &rec)?;
-                self.session_mut().hist.saved_strip = Some(rec);
-            }
-            None => {
-                autoshade::store::clear_variants(path)?;
-                self.session_mut().hist.saved_strip = None;
-            }
-        }
-        Ok(())
-    }
 
     /// The After image with its interaction layers — crop tool, mask placement,
     /// paint canvas, box-select — or the SOURCE flashed in the same rect while

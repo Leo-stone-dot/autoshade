@@ -966,10 +966,6 @@ pub(crate) fn fill_ai_rasters(dst: &mut EditRecipe, from: &EditRecipe) -> usize 
 impl Commands<'_> {
     /// The runner the workers call (a test's stand-in when one is set).
     pub(crate) fn ai_mask_runner(&self) -> AiMaskRunner {
-        #[cfg(test)]
-        if let Some(stub) = self.seams.ai_mask_stub {
-            return stub;
-        }
         resolve_ai_masks_locally
     }
 

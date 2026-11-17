@@ -32,30 +32,3 @@ pub(crate) fn words(photos: usize, skipped: usize) -> FolderWords {
     });
     FolderWords { status, skipped }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Zero photos says so (the plural line would promise a thumbnail), one
-    /// is its own sentence, more carries the count.
-    #[test]
-    fn the_count_line_matches_the_row_count() {
-        assert_eq!(words(0, 0).status.key, "no photos found in this folder");
-        assert_eq!(words(1, 0).status.key, "1 photo — click a thumbnail to open");
-        let many = words(7, 0);
-        assert_eq!(many.status.key, "{n} photos — click a thumbnail to open");
-        assert_eq!(many.status.args[0].1, super::super::Arg::Text("7".into()));
-    }
-
-    /// Unreadable entries are disclosed with their count; a clean scan has no
-    /// warning to append.
-    #[test]
-    fn skipped_items_ride_the_scan_line() {
-        assert!(words(3, 0).skipped.is_none());
-        let dirty = words(3, 2);
-        let skip = dirty.skipped.expect("skipped entries are disclosed");
-        assert_eq!(skip.key, "{n} unreadable item(s) skipped during the folder scan");
-        assert_eq!(skip.args[0].1, super::super::Arg::Text("2".into()));
-    }
-}

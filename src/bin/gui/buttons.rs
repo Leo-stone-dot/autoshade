@@ -62,25 +62,7 @@ pub(crate) fn columns(ui: &egui::Ui, n: usize) -> egui::Vec2 {
     egui::vec2(((width - gaps) / n as f32).floor().max(0.0), row_h(ui))
 }
 
-/// Every button this vocabulary drew on this thread — read by the
-/// one-row-tall pin after a frame.
-#[cfg(test)]
-#[derive(Clone, Debug)]
-pub(crate) struct Drawn {
-    pub(crate) kind: &'static str,
-    pub(crate) label: String,
-    pub(crate) rect: egui::Rect,
-    /// Whether the label fit its cell on one line — measured, not assumed.
-    pub(crate) fits: bool,
-    /// Whether the button was laid in a grid cell (the side-panel rule) or at
-    /// its own width (the toolbar's).
-    pub(crate) cell: bool,
-}
 
-#[cfg(test)]
-thread_local! {
-    pub(crate) static DRAWN: std::cell::RefCell<Vec<Drawn>> = const { std::cell::RefCell::new(Vec::new()) };
-}
 
 /// The one place a button reaches the screen: sized into `cell` when the
 /// row is a grid, at its own width otherwise; disabled through egui's own
@@ -105,18 +87,6 @@ fn place(
     // layout cannot centre inside a 26 px square — it overflows it. A text
     // label keeps the padding on both sides.
     let square = kind.starts_with("glyph");
-    #[cfg(test)]
-    let label = text.text().to_owned();
-    #[cfg(test)]
-    let fits = cell.is_none_or(|cell| {
-        let width = ui.fonts_mut(|f| {
-            f.layout_no_wrap(label.clone(), egui::TextStyle::Button.resolve(ui.style()), egui::Color32::WHITE)
-                .size()
-                .x
-        });
-        let padding = if square { 0.0 } else { 2.0 * ui.spacing().button_padding.x };
-        width + padding <= cell.x
-    });
     // The look (2026-10-14, after shadcn/ui's variants): a text verb is a
     // tonal fill with no outline — the outline made every row a grid of
     // boxes; an icon-only verb at rest is a GHOST, no fill and no edge, and
@@ -151,10 +121,6 @@ fn place(
         let fill = if response.is_pointer_button_down_on() { w.active.weak_bg_fill } else { w.hovered.weak_bg_fill };
         ui.painter().set(plate, egui::Shape::rect_filled(response.rect, w.hovered.corner_radius, fill));
     }
-    #[cfg(test)]
-    let kind = if kind == "glyph_toggle_on" { "glyph_toggle" } else { kind };
-    #[cfg(test)]
-    DRAWN.with_borrow_mut(|d| d.push(Drawn { kind, label, rect: response.rect, fits, cell: cell.is_some() }));
     response
 }
 

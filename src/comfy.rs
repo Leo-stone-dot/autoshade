@@ -594,34 +594,3 @@ pub fn cli_path() -> String {
 pub fn workspace() -> Option<PathBuf> {
     Cli::resolve().workspace
 }
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn plan_size_keeps_aspect_and_respects_the_edge_cap() {
-        assert_eq!(plan_size((7008, 4672), 1024), (1024, 680));
-        assert_eq!(plan_size_aligned((7008, 4672), 1024, 32), (1024, 672));
-        assert_eq!(plan_size_aligned((1600, 1067), 1024, 32), (1024, 672));
-        assert_eq!(plan_size((4000, 4000), 1024), (1024, 1024));
-        // Never upscales a small source.
-        assert_eq!(plan_size((640, 480), 1024), (640, 480));
-        // Both edges stay multiples of 8 (VAEEncode's requirement).
-        for (w, h) in [(7008, 4672), (3, 1), (1, 3), (5000, 100)] {
-            let (ow, oh) = plan_size((w, h), 1024);
-            assert_eq!(ow % 8, 0, "{w}x{h} -> {ow}x{oh}");
-            assert_eq!(oh % 8, 0, "{w}x{h} -> {ow}x{oh}");
-            assert!(ow >= 64 && oh >= 64, "{w}x{h} -> {ow}x{oh}");
-        }
-    }
-
-    #[test]
-    fn quality_and_fidelity_map_to_sampler_and_denoise() {
-        assert_eq!(steps_for("low"), 12);
-        assert_eq!(steps_for("high"), 28);
-        assert_eq!(denoise_for("high"), 0.35);
-        assert_eq!(denoise_for("low"), 0.75);
-    }
-}

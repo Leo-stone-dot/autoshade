@@ -141,7 +141,7 @@ Six techniques you will not find in another RAW developer. Each is written up in
 
 | What | Measured |
 |---|---|
-| Automated test battery | 1790 library / 28 CLI / 302 GUI / 2+2 contract tests |
+| Behavior tests | none checked in; clippy and document gates remain |
 | RAW coverage | 24 extensions · 725 camera bodies · nine-camera zoo 9/9 |
 | Reverse-fit, stone viaduct | look error 0.161 → 0.023 at confidence 0.63 |
 | Reverse-fit, desert canyon | look error 0.129 → 0.048 · sky ΔE 3.8 |
@@ -269,12 +269,12 @@ preview:** 12 of the 24 formats store none. They are `orf`, `srw`, `nrw`, `mef`,
 **Rust** (rustc/cargo 1.94, edition 2024) · rawler · image · qcms · rayon · egui/eframe · tiny_http — **Python** sidecars on PyTorch.
 
 RAW decode, 24 formats, 725 bodies · deterministic f32 develop engine · hand-rolled XMP layer (no XML crate) for byte-exact Lightroom merges.
-The current battery is **1790 library (1775 pass + 15 `#[ignore]`d forensic probes) / 28 CLI / 302 GUI / 2+2 contract** tests.
+The behavior suite is intentionally empty. Architecture lint, text/font checks and document claims remain the current gates.
 Per-subsystem notes: [In depth → Implementation](docs/DEEP_DIVE.md#implementation) · equations and provenance: [TECH_STACK.md](docs/TECH_STACK.md).
 
 ## Status and limitations
 
-- **Release gates at v1.17.1** cover the CLI, desktop GUI, sidecar contracts, format fixtures and the deterministic renderer.
+- **Release gates at v1.17.1** cover architecture lint, text/font checks, document claims and the deterministic renderer.
 - **Not in scope:** Adobe's rendering (AutoShade is its own develop engine; a sidecar carries the same settings to Lightroom, which renders them its own way), an exact X-Trans demosaic, a notarised macOS build, a Linux desktop app.
 - **Honest markers:** AI masks are local re-creations, not Adobe's pixels; the macOS app is CI-verified but has no reported interactive users yet.
 - Release ledger and rulings: [ROADMAP.md](docs/ROADMAP.md).

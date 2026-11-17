@@ -102,10 +102,6 @@ impl Commands<'_> {
         // import away from a silent geometry swap in either direction.
         const STRIP_THUMB_H: f32 = 52.0;
         let card_h = STRIP_THUMB_H + ui.spacing().item_spacing.y + ui.spacing().interact_size.y;
-        #[cfg(test)]
-        {
-            self.seams.strip_row_rect = Some(ui.max_rect());
-        }
         ui.add_space(((ui.available_height() - card_h) / 2.0).max(0.0));
         // LAYOUT INVARIANT (probed, R14+R15): egui places the scroll area
         // centered by its 26 px DECLARED seed against the row's height at
@@ -130,11 +126,6 @@ impl Commands<'_> {
             strip_left + SPACE_SM,
             row_top + (card_h - title_galley.size().y) / 2.0,
         );
-        #[cfg(test)]
-        {
-            self.seams.strip_title_rect =
-                Some(egui::Rect::from_min_size(title_pos, title_galley.size()));
-        }
         ui.painter().galley(title_pos, title_galley, ui.visuals().strong_text_color());
         // The divider, at full card height — the stock separator filled the
         // 26 px seed, a stub over the card's top third.
@@ -276,16 +267,6 @@ impl Commands<'_> {
                                                 .hint_text(tr(lang, K_DEVELOP_NAME)),
                                         )
                                     };
-                                    // The +1 boundary: this box's own
-                                    // lost-focus commit (Enter counts as
-                                    // losing focus in egui), and the frame it
-                                    // appears in has to claim the caret — the
-                                    // click that opened it landed on the
-                                    // label that used to be here.
-                                    #[cfg(test)]
-                                    {
-                                        self.seams.strip_name_rect = Some(resp.rect);
-                                    }
                                     if resp.lost_focus() {
                                         self.commit_variant_name_buf();
                                         self.workspace.cards_mut().variant_name_buf = None;
@@ -302,10 +283,6 @@ impl Commands<'_> {
                                     let resp = ui
                                         .add(egui::Label::new(shown).sense(egui::Sense::click()))
                                         .on_hover_text(tr(lang, K_DEVELOP_NAME_THIS_VARIANT));
-                                    #[cfg(test)]
-                                    {
-                                        self.seams.strip_name_rect = Some(resp.rect);
-                                    }
                                     if resp.clicked() {
                                         act = Some(VariantAction::Rename(card_id.clone()));
                                     }
@@ -318,15 +295,10 @@ impl Commands<'_> {
                                     i,
                                     active,
                                     busy,
-                                    VariantSurface::Strip,
                                 )) {
                                     act = Some(a);
                                 }
                             });
-                            #[cfg(test)]
-                            if i == 0 {
-                                self.seams.strip_card_rect = Some(ui.min_rect());
-                            }
                         });
                         ui.add_space(SPACE_MD);
                     }
@@ -412,7 +384,6 @@ impl PanelView<'_> {
                 // a row switches to that card, exactly as clicking its
                 // thumbnail does. Renaming stays on the strip on purpose: two
                 // `TextEdit`s over one buffer fight for the caret every frame
-                // (see `VariantSurface`).
                 //
                 // The buttons take a SECOND line rather than joining the
                 // label row. A 320 px panel already holds a kind label, a
@@ -422,11 +393,6 @@ impl PanelView<'_> {
                 // has width-stability tests for.
                 let n_var = self.editor.doc().variants.len();
                 let busy = self.workspace.busy();
-                #[cfg(test)]
-                {
-                    self.seams.edit_list_rows.clear();
-                    self.seams.edit_list_actions.clear();
-                }
                 if n_var > 0 {
                     let accent = self.workspace.ui().theme.colors().accent_text;
                     ui.label(
@@ -448,8 +414,6 @@ impl PanelView<'_> {
                             let v = &self.editor.doc().variants[i];
                             (v.kind, v.name.clone(), v.origin.is_some())
                         };
-                        #[cfg(test)]
-                        self.seams.edit_list_rows.push(format!("variant:{}", kind.store_str()));
                         let hit = ui
                             .horizontal(|ui| {
                                 let label = egui::RichText::new(tr(lang, kind.label())).small();
@@ -518,7 +482,6 @@ impl PanelView<'_> {
                                     i,
                                     i == active_i,
                                     busy,
-                                    VariantSurface::List,
                                 ) {
                                     act = Some(a);
                                 }
@@ -563,8 +526,6 @@ impl PanelView<'_> {
                         hidden += 1;
                         continue;
                     }
-                    #[cfg(test)]
-                    self.seams.edit_list_rows.push(format!("version:{n}"));
                     let named = meta.as_ref().and_then(|m| m.name.clone());
                     let editing = self.workspace.cards().version_name_buf
                         .as_ref()

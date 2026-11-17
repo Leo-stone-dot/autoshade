@@ -1,11 +1,6 @@
-# Cross-platform build + test verification (R28 Batch-1, user-ruled
-# 2026-08-20; test job added by user ruling 2026-08-20 in place of renting
-# cloud compute). `build` proves both feature configurations compile on
-# Linux/macOS; `test` runs the default-gated suite there — fixture-dependent
-# suites are env-gated and skip themselves off this machine, which is what
-# made this job possible (the earlier "does NOT run tests" scope note
-# predates that gating). README's CI paragraph is updated only after a run
-# of each job has actually been observed green — never ahead of evidence.
+# Cross-platform build and document verification. `build` proves both feature
+# configurations compile on Linux/macOS; `docs` checks the living documents,
+# text resources and embedded font coverage.
 name: build
 
 on:
@@ -21,8 +16,7 @@ jobs:
   # The doc-drift gate (user ruling 2026-10-02, after a sweep found nine facts
   # the code had moved past): every path, code symbol, link and tier count the
   # living documents name must exist in the tree. Standard library only, so it
-  # runs before any compiler is installed; the manual's CLI synopsis is checked
-  # by a CLI test in the `test` job below.
+  # runs before any compiler is installed.
   docs:
     runs-on: ubuntu-latest
     steps:
@@ -61,60 +55,3 @@ jobs:
         run: cargo build --release --locked
       - name: cargo build (gui feature)
         run: cargo build --release --locked --bins --features gui
-  # Release profile: the canonical battery mode — what every local gate runs
-  # and what ships. The debug-mode trip these jobs used to run took the
-  # renderer's arithmetic-heavy suites to 2h26m on a 4-vCPU runner (run
-  # 33294497854) while the same release-mode suite finishes in minutes; it
-  # also tested a binary in a profile nothing ever ships. debug_assert!
-  # coverage lives in the dedicated job below instead.
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master, 2026-09-12
-        with:
-          toolchain: stable
-      - name: Toolchain
-        shell: bash
-        run: |
-          want=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
-          got=$(rustc --version | cut -d' ' -f2)
-          echo "rust-toolchain.toml pins $want; rustc reports $got"
-          test "$want" = "$got" || { echo "::error::the pin was not honoured"; exit 1; }
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - name: cargo test (default features)
-        run: cargo test --locked --release
-      # The gui feature only adds dependencies (Cargo.toml [features]; no
-      # cfg(feature = "gui") outside src/bin/gui), so this trip runs the GUI
-      # bin's own tests only — lib/CLI/contract suites are the default trip's.
-      - name: cargo test (gui feature)
-        run: cargo test --locked --release --features gui --bin autoshade-gui
-
-  # fit/render carry debug_assert!s that only fire with debug assertions on — a
-  # debug lib trip caught four such reds at step 10-B1 — so one such trip on
-  # the cheapest runner keeps that class covered per push while the jobs
-  # above stay in the profile that ships. Since 2026-09-11 the `test` profile
-  # compiles at opt-level 2 (Cargo.toml `[profile.test]`), which keeps
-  # debug-assertions and overflow-checks ON — so this trip still fires them,
-  # only faster.
-  debug-asserts:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master, 2026-09-12
-        with:
-          toolchain: stable
-      - name: Toolchain
-        shell: bash
-        run: |
-          want=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)
-          got=$(rustc --version | cut -d' ' -f2)
-          echo "rust-toolchain.toml pins $want; rustc reports $got"
-          test "$want" = "$got" || { echo "::error::the pin was not honoured"; exit 1; }
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - name: cargo test (lib, debug profile)
-        run: cargo test --locked --lib

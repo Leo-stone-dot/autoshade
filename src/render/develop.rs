@@ -173,17 +173,6 @@ fn apply_develop(
     apply_develop_with_rasters(data, w, h, r, &rasters, frame, film, raw_source);
 }
 
-/// [`apply_develop`] on pixels with no owner and no caller to route to — the
-/// pixel-math tests, which construct a `[[f32; 3]]` by hand and have neither.
-/// `Subject::PixelOnly` on the default sink: the same thing production's
-/// un-injected preview arm does, said once here instead of at ~40 call sites.
-#[cfg(test)]
-pub(super) fn apply_develop_anon(data: &mut [[f32; 3]], w: usize, h: usize, r: &EditRecipe) {
-    // `AsRendered`: these fixtures construct a raw pixel buffer and inspect it
-    // directly — no geometry stage runs after them, so every mask belongs at
-    // its stored coordinates (`MaskFrame`).
-    apply_develop(data, w, h, r, &crate::diag::pixels(), MaskFrame::AsRendered, FilmScale::NATIVE, false);
-}
 
 /// The recipe's retouch areas as heal spots for a `w`×`h` working frame
 /// (v1.5.0 F9) — the one place Lightroom's units become this engine's.

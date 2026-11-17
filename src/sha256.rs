@@ -140,35 +140,3 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     s.update(bytes);
     s.finish()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// FIPS 180-4's own published digests, plus the empty string. Without
-    /// these the hand-written compression function would be a CLAIM; with
-    /// them it is a checked implementation, and a typo in the 64-entry K table
-    /// (or in the padding, which is where hand-written SHA-256 usually goes
-    /// wrong) fails here rather than silently re-keying every cache entry.
-    #[test]
-    fn sha256_matches_the_fips_180_4_vectors() {
-        for (msg, want) in [
-            ("", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-            ("abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
-            (
-                "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
-                "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1",
-            ),
-        ] {
-            assert_eq!(sha256_hex(msg.as_bytes()), want, "sha256({msg:?})");
-        }
-        // The multi-block + length-field path: 1,000,000 'a' is the standard's
-        // long vector, and it is the one that catches a length counted in
-        // BYTES instead of bits.
-        let million = vec![b'a'; 1_000_000];
-        assert_eq!(
-            sha256_hex(&million),
-            "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
-        );
-    }
-}

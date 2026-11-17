@@ -483,18 +483,6 @@ pub(crate) fn undrawable_scripts(
     out
 }
 
-/// Read one system font under a byte budget — stat BEFORE read, so a
-/// mis-pointed path cannot balloon the heap; past-budget is disclosed and
-/// skipped, never truncated (a truncated font is a parse error at best).
-#[cfg(test)]
-pub(crate) fn read_font_capped(p: &str, cap: u64) -> Option<Vec<u8>> {
-    let len = std::fs::metadata(p).ok()?.len();
-    if len > cap {
-        eprintln!("⚠ system font {p} is {len} bytes — past the {cap}-byte budget, skipped");
-        return None;
-    }
-    std::fs::read(p).ok()
-}
 
 /// Build the GUI font chain: egui defaults → embedded symbol subsets → system
 /// CJK → per-script system faces (L12#3). The embedded subsets are

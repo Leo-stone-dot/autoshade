@@ -84,7 +84,7 @@ impl Editor {
         // busy, sets both, and clears both in one handler), and undo/redo are
         // this fn's only callers — so no live caller reaches here mid-flight
         // any more. The gate stays because ungating the keyboard would
-        // resurrect every scenario above, and the test drives it directly.
+        // resurrect every scenario above.
         if (!workspace.open().open_in_flight || (workspace.open().open_same_path && workspace.cards().keep_recipe))
             && self.doc().variants.get(self.doc().active).is_none_or(|v| v.kind.is_source_based())
             && let Some(p) = self.photo().src_path.clone()

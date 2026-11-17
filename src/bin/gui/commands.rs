@@ -11,9 +11,6 @@
 //! [`PanelView`], which does the same for a panel draw. A verb cannot reach the
 //! frame, another window or the eframe hooks; the root cannot grow a method per
 //! verb. Field names match the root's on purpose: the verbs moved here verbatim.
-//!
-//! Test seams ride along under `cfg(test)` because a few spawners have a test
-//! stand-in ([`TestSeams`]) the window tests install through the root.
 
 use crate::*;
 
@@ -23,8 +20,6 @@ pub(crate) struct Commands<'a> {
     pub(crate) services: &'a Services,
     pub(crate) aip: &'a mut AiPrefs,
     pub(crate) lang: Lang,
-    #[cfg(test)]
-    pub(crate) seams: &'a mut TestSeams,
 }
 
 impl Commands<'_> {
@@ -43,8 +38,6 @@ impl Commands<'_> {
             lens: Vec::new(),
             develop: Vec::new(),
             variants: Vec::new(),
-            #[cfg(test)]
-            seams: &mut *self.seams,
         };
         let out = f(&mut view);
         let develop = std::mem::take(&mut view.develop);

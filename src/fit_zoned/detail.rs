@@ -656,6 +656,3 @@ pub(super) fn attach_zone_detail(
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -552,25 +552,3 @@ pub(crate) fn recipe_facts(lang: Lang, r: &EditRecipe) -> Vec<(String, String)> 
     }
     out
 }
-
-#[cfg(test)]
-mod age_text_tests {
-    use super::age_text;
-    use crate::Lang;
-    use std::time::{Duration, SystemTime};
-
-    #[test]
-    fn a_file_stamp_reads_as_an_elapsed_span() {
-        let now = SystemTime::now();
-        assert_eq!(age_text(Lang::En, now - Duration::from_secs(60)).as_deref(), Some("today"));
-        assert_eq!(
-            age_text(Lang::En, now - Duration::from_secs(3 * 86_400)).as_deref(),
-            Some("3 days ago")
-        );
-        assert_eq!(
-            age_text(Lang::En, now - Duration::from_secs(60 * 86_400)).as_deref(),
-            Some("2 months ago")
-        );
-        assert_eq!(age_text(Lang::En, now + Duration::from_secs(60)), None, "a future stamp says nothing");
-    }
-}

@@ -71,7 +71,7 @@ fine-tuned for the sidecar's own transform, so nothing is learned that
 inference cannot reproduce. Started from those weights with `--stars 0.5
 --loss l2x` for 60000 steps it produced `autoshade-raw-denoise-v2.pth`
 (v1.6.0): the step-50000 checkpoint, the one of the four that passed
-`accept_v2.py`'s pre-committed lines which also kept every star-frame-standard
+the pre-committed acceptance lines which also kept every star-frame-standard
 line v1 passes (`docs/RELEASE_NOTES_v1.6.0.md`). As it stands it starts from
 whatever `denoise_raw.load_model` loads (the shipped weights) and produces
 their successor. The real
@@ -86,7 +86,8 @@ Reproduce, in order:
     python scripts/prep_pairs.py    --root RAWNIND --out DATA/pairs
     python scripts/prep_clean.py    --library MY_RAWS --out DATA/clean_user
     python scripts/train_raw.py     --data DATA --out RUN      # v1: --stars 0 --loss l1z
-    python scripts/accept_v2.py     --run RUN                  # v2's pre-committed lines, on RUN/last.pt
+    # The pre-committed acceptance lines are applied to RUN/last.pt by the
+    # training/acceptance instrument used for that run.
     python scripts/val_scales.py    --weights RUN/best_state.pth --data DATA
     python scripts/lr_realset.py    --library MY_LIGHTROOM_DNGS --out CMP
     python scripts/denoise_bench.py --clean LOW_ISO.ARW --noisy HIGH_ISO.ARW \
@@ -95,7 +96,7 @@ Reproduce, in order:
 The last three are the acceptance measurements `SIGMA_SCALE`'s table in
 `python/denoise_raw.py` reports. `best_state.pth` is written on held-out PSNR
 alone; a v2 run, which trades PSNR for star flux, may never write it (the
-v1.6.0 run did not), which is why `accept_v2.py` reads `last.pt` and leaves
+v1.6.0 run did not), which is why the acceptance instrument reads `last.pt` and leaves
 the state dict it judged in `RUN/accept/` for the other measurements.
 """
 import argparse
@@ -216,7 +217,7 @@ def make_batch(x_noisy, x_clean, a, b):
 # `test_the_clamp_never_touches_a_target` holds it to.
 Z_FLOOR = 1.0
 # v4: the core weight is 1 up to a star's light standing this many sigma over the noise of the clean level
-# (below it a returned star is returned noise, accept_v2.py's 1.5- and 2.5-sigma lines) and whole from the
+# (below it a returned star is returned noise, the pre-committed 1.5- and 2.5-sigma lines) and whole from the
 # second value up (the 4-sigma line asks for half the flux, the 6-sigma one three quarters).
 CORE_WEIGHT_SIGMAS = (2.0, 5.0)
 

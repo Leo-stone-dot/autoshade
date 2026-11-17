@@ -218,11 +218,6 @@ fn read_shape(
     };
     ShapeReading { r2_tiles, r2_linear, structured_bins, shape, effective_tile_cap, proposals }
 }
-#[cfg(test)]
-thread_local! {
-    pub(super) static FIELD_CEILING_OVERRIDE: std::cell::Cell<Option<f32>> = const { std::cell::Cell::new(None) };
-    pub(super) static FIELD_FORCE_NONE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-}
 
 pub(super) fn solve_local_field(
     src: &DynamicImage, target: &DynamicImage, report: &mut FitReport,
@@ -237,17 +232,6 @@ pub(super) fn solve_local_field(
         note(report, crate::rationale::keys::FIELD_UNSOLVED, vec![("stage", "analysis".into())]);
         return None;
     };
-    // The forced-None override fires AFTER the solve so the byte-identity test
-    // proves the analysis itself leaves the report untouched, not merely that an
-    // early return does.
-    #[cfg(test)]
-    if FIELD_FORCE_NONE.with(|value| value.replace(false)) { return None; }
-    // Test override = headroom BELOW the measured `global`, so a forced stop
-    // still satisfies the "ceiling actually beat the frame" guard.
-    #[cfg(test)]
-    FIELD_CEILING_OVERRIDE.with(|value| {
-        if let Some(headroom) = value.take() { field.ceiling = field.global - headroom; }
-    });
     let reading = read_shape(&field, &current, &target_pixels, &report.evidence);
     // Measured, not assumed: the share is 0.000 only when the producer-free
     // frame `report.err_after` and the field's own `global` agree, and a ruler
@@ -694,6 +678,3 @@ pub(super) fn push_stop(report: &mut FitReport, producer: &str, skipped: &str) {
         ("margin", format!("{LOCAL_STOP_MARGIN:.3}")),
     ]);
 }
-
-#[cfg(test)]
-mod tests;

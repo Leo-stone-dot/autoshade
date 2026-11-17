@@ -133,11 +133,6 @@ impl PanelView<'_> {
         let mut to_request: Vec<usize> = Vec::new();
         let mut visible: std::ops::Range<usize> = 0..0;
 
-        // Geometry of the first drawn thumbnail this frame (slot, image) —
-        // recorded through a local because the row closure below borrows
-        // `self`'s fields piecemeal and cannot touch `self` itself.
-        #[cfg(test)]
-        let mut thumb_geom: Option<(egui::Rect, egui::Rect)> = None;
         scroll
             .show_rows(ui, GALLERY_ROW_H, count, |ui, range| {
                 visible = range.clone();
@@ -202,12 +197,6 @@ impl PanelView<'_> {
                                             egui::pos2(1.0, 1.0),
                                         ),
                                     ));
-                                    #[cfg(test)]
-                                    {
-                                        if thumb_geom.is_none() {
-                                            thumb_geom = Some((slot, rect));
-                                        }
-                                    }
                                 } else {
                                     let (rect, _) = ui.allocate_exact_size(
                                         egui::vec2(THUMB_W, THUMB_H),
@@ -258,13 +247,6 @@ impl PanelView<'_> {
                 }
             });
 
-        #[cfg(test)]
-        {
-            if let Some((slot, draw)) = thumb_geom {
-                self.workspace.gal_mut().gallery_slot_rect = Some(slot);
-                self.workspace.gal_mut().gallery_thumb_rect = Some(draw);
-            }
-        }
         if !to_request.is_empty() {
             let asked: Vec<logic::gallery::GalleryAction> = to_request
                 .into_iter()

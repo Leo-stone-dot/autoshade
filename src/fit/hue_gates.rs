@@ -142,47 +142,7 @@ pub(super) fn foreign_created_share_weighted(
     Some(weighted_foreign(with_px) - weighted_foreign(cur))
 }
 
-/// Frame share of RE-HUED pixels: a MEASURABLE hue before (chroma ≥
-/// [`ROT_HUE_MEASURABLE_CHROMA`]), a visible tint after (chroma ≥
-/// [`VETO_TINT_CHROMA`]), landing ≥ [`ROT_DEG`] of circular hue away — and
-/// VISIBLE on at least one end (see [`ROT_VISIBLE_BEFORE`]): a sub-visible
-/// tint flipped into another sub-visible tint is cast-inversion
-/// pass-through, not a re-hue. Pixel-aligned: `cur`/`with_px` render the
-/// SAME source, so per-pixel hue movement is exact. De-tinting (end chroma
-/// under the gate) is exempt — removing colour is what a corrective cast
-/// does. Exposed separately from the boolean gate so the pin test measures
-/// the same census the gate uses.
-#[cfg(test)]
-pub(super) fn rehued_share(cur: &[[f32; 3]], with_px: &[[f32; 3]]) -> f32 {
-    let mut cnt = 0usize;
-    for (c, w) in cur.iter().zip(with_px) {
-        let cc = c[0].max(c[1]).max(c[2]) - c[0].min(c[1]).min(c[2]);
-        let wc = w[0].max(w[1]).max(w[2]) - w[0].min(w[1]).min(w[2]);
-        if cc < ROT_HUE_MEASURABLE_CHROMA || wc < VETO_TINT_CHROMA {
-            continue;
-        }
-        if cc < ROT_VISIBLE_BEFORE && wc < ROT_VISIBLE_AFTER {
-            continue; // invisible on both ends: pass-through, not a re-hue
-        }
-        let h0 = render::rgb_to_hsl(c[0], c[1], c[2]).0 * 360.0;
-        let h1 = render::rgb_to_hsl(w[0], w[1], w[2]).0 * 360.0;
-        let mut d = (h1 - h0).abs() % 360.0;
-        if d > 180.0 {
-            d = 360.0 - d;
-        }
-        if d >= ROT_DEG {
-            cnt += 1;
-        }
-    }
-    cnt as f32 / cur.len().max(1) as f32
-}
 
-/// Did the curves re-hue a REGION ([`ROT_SHARE`] of the frame)? See
-/// [`rehued_share`] and the rotation-budget const block.
-#[cfg(test)]
-pub(super) fn cast_rotates_a_region(cur: &[[f32; 3]], with_px: &[[f32; 3]]) -> bool {
-    rehued_share(cur, with_px) >= ROT_SHARE
-}
 
 pub(super) fn cast_rotates_a_region_weighted(
     cur: &[[f32; 3]],
@@ -259,7 +219,7 @@ pub(super) fn rehued_share_weighted(
 
 /// The worst hue CLASS the curves FANNED APART across luminance, as (that
 /// class's share of the weighted population, added spread in degrees).
-/// Exposed separately from the gate so the pin tests read the same census
+/// Exposed separately from the gate so diagnostics read the same census
 /// the gate uses.
 ///
 /// The census population is EXACTLY [`rehued_share_weighted`]'s — a

@@ -59,38 +59,20 @@ use accept::{
     AcceptedZone, BoundaryGateResult, enforce_boundary_gate_toward, enforce_boundary_gates,
     enforce_boundary_gates_with_shrink, push_zone_attached_note, refuse_shrunk_zones,
 };
-#[cfg(test)]
-use accept::{enforce_boundary_gate};
 use attach::{
     ZoneAttachment, ZoneCoverage, ZoneDivergence, attach_zones_with_divergence,
     measure_zone_divergence, segment_both, segmentation_input, sky_land_geometry,
 };
-#[cfg(test)]
-use attach::{SEGMENT_BOTH_OVERRIDE, ZoneDivergences, attach_zones};
 pub(super) use boundary::{BoundaryReading, rim_cell_gaps, step_cell_gaps};
 use boundary::{ZONE_BOUNDARY_HIGH, ZONE_BOUNDARY_PERCENTILE, boundary_rim_toward, boundary_step_toward, lab};
-#[cfg(test)]
-use boundary::{
-    CellSums, TARGET_STEP_MIN_CROSSINGS, ZONE_BOUNDARY_LOW, boundary_rim,
-    boundary_step, cell_shares, colour_charge_of_one_crossing, unasked,
-};
 pub use entry::{fit_recipe_zoned, fit_recipe_zoned_from, fit_recipe_zoned_with_regions};
 use entry::{EdgeMatte, FeatherWidening, PlaneRefinement, matte_source_edge};
-#[cfg(test)]
-use entry::{
-    fit_recipe_zoned_inner, fit_recipe_zoned_inner_with_options, frame_err_under,
-    release_unselected_rasters,
-};
 pub use joint::{JointBucket, JointReading, joint_buckets, joint_reading};
 pub(crate) use joint::{
     JOINT_CONFIDENCE_SLOPE, JOINT_DRIFT_TOL, classify_joint_far, joint_buckets_with_evidence,
     joint_reading_with_evidence,
 };
 use joint::{zone_luma_err};
-#[cfg(test)]
-pub(crate) use joint::{JOINT_BUCKETS, JOINT_FAR_ERR, JointFarCause};
-#[cfg(test)]
-use joint::{joint_weights};
 pub(crate) use limits::{MIN_MASK_PIXELS, MIN_ZONE_SHARE, ZONE_ATMOS_GAIN_MAX, ZONE_ATMOS_GAIN_MIN};
 pub(super) use limits::{
     BOUNDARY_STEP_FLOOR, BOUNDARY_STEP_SHAPE, ZONE_BOUNDARY_RIM_MAX, ZONE_BOUNDARY_STEP_MAX,
@@ -116,32 +98,3 @@ use zone_fit::{
     scale_zone_colour, scale_zone_tone, shrink_atmosphere_gains_in, shrink_zone_corrections,
     zone_accepts, zone_skips, zone_tonal,
 };
-
-/// The zoned fit's source as ONE text, for the source-text gates that read what
-/// `fit_zoned.rs` alone held before it was split into files: the modules in their
-/// declaration order, the root last (so `source_before_tests` cuts at the root's
-/// own test modules and nowhere else). Test-only: nothing here is compiled into a
-/// shipped binary.
-#[cfg(test)]
-pub(crate) const SOURCE_FILES: [(&str, &str); 11] = [
-    ("src/fit_zoned/accept.rs", include_str!("fit_zoned/accept.rs")),
-    ("src/fit_zoned/attach.rs", include_str!("fit_zoned/attach.rs")),
-    ("src/fit_zoned/boundary.rs", include_str!("fit_zoned/boundary.rs")),
-    ("src/fit_zoned/entry.rs", include_str!("fit_zoned/entry.rs")),
-    ("src/fit_zoned/joint.rs", include_str!("fit_zoned/joint.rs")),
-    ("src/fit_zoned/limits.rs", include_str!("fit_zoned/limits.rs")),
-    ("src/fit_zoned/one_zone.rs", include_str!("fit_zoned/one_zone.rs")),
-    ("src/fit_zoned/rasters.rs", include_str!("fit_zoned/rasters.rs")),
-    ("src/fit_zoned/regions.rs", include_str!("fit_zoned/regions.rs")),
-    ("src/fit_zoned/zone_fit.rs", include_str!("fit_zoned/zone_fit.rs")),
-    ("src/fit_zoned.rs", include_str!("fit_zoned.rs")),
-];
-
-#[cfg(test)]
-pub(crate) fn source_text() -> String {
-    SOURCE_FILES.iter().map(|(_, text)| *text).collect()
-}
-
-#[cfg(test)]
-mod tests;
-

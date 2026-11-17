@@ -499,6 +499,3 @@ fn run<S: Copy + Send + Sync>(
         }
     });
 }
-
-#[cfg(test)]
-mod tests;

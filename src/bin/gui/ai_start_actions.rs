@@ -755,12 +755,6 @@ impl Commands<'_> {
         req: autoshade::pipeline::GradeRequest,
         library: &'static str,
     ) -> u64 {
-        #[cfg(test)]
-        {
-            self.workspace.normal_mut().last_request = Some((req, guidance.clone(), library));
-        }
-        #[cfg(test)]
-        let runner = self.workspace.normal().runner;
         // Every other network starter arms this; Analyze — the one a stalled
         // endpoint holds the longest — did not, so a hung stream left no ✕
         // and only killing the process recovered. Abandon semantics (like the
@@ -771,11 +765,6 @@ impl Commands<'_> {
         self.workspace.tools_mut().analyze_inflight = true;
         self.services.spawn_worker(
             move || {
-                // Test seam: a headless test stands in for the paid chain.
-                #[cfg(test)]
-                if let Some(run) = runner {
-                    return Msg::Analyzed(epoch, Box::new(run(&path, &req)));
-                }
                 let _mem = crate::budget::heavy_permit(crate::budget::estimate_mb(Some(&path))); // full-frame commit budget (budget.rs)
                 // Config is reloaded in-thread (cheap) so we don't need it to be Clone.
                 let cfg = autoshade::config::Config::load();

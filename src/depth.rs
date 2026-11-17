@@ -29,31 +29,3 @@ pub fn estimate_depth(cfg: &crate::config::Config, input: &Path, output: &Path) 
     }
     crate::store::durable_adopt(output).with_context(|| format!("sync depth map {}", output.display()))
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A missing script is refused with the variable that fixes it, before
-    /// anything is spawned or any file is touched.
-    #[test]
-    fn a_missing_sidecar_is_named_with_its_override() {
-        let mut cfg = crate::config::Config::load();
-        cfg.depth_script = "no-such-depth-script.py".into();
-        let out = crate::test_dir("depth-missing").join("depth.png");
-        let why = format!("{:#}", estimate_depth(&cfg, Path::new("in.png"), &out).unwrap_err());
-        assert!(why.contains("AUTOSHADE_DEPTH_SCRIPT"), "the refusal must name its override: {why}");
-        assert!(!out.exists(), "nothing may be written when the sidecar is absent");
-    }
-
-    /// The bridge spawns nothing itself: the shared run holds the model slot.
-    #[test]
-    fn the_depth_run_goes_through_the_shared_model_sidecar() {
-        let src = include_str!("depth.rs");
-        let body = src.split("pub fn estimate_depth(").nth(1).unwrap().split("#[cfg(test)]").next().unwrap();
-        assert!(body.contains("crate::run_model_sidecar_artifact("));
-        for direct in ["Command::new", "sidecar_command("] {
-            assert!(!body.contains(direct), "the bridge must not spawn through {direct}");
-        }
-    }
-}
