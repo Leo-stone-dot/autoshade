@@ -32,7 +32,8 @@ impl Commands<'_> {
         // mid-open outcome is one preview build whose frame `finish_redevelop`
         // then discards by its base+recipe identity check. Greying the tone
         // readout during every open would be the bigger regression.
-        self.with_panel(|p| p.histogram_ui(ui));
+        let ctx = ui.ctx().clone();
+        self.with_panel(&ctx, |p| p.histogram_ui(ui));
         ui.add_space(SPACE_SM);
 
         // Mid-open (decode in flight) these controls would edit the STASHED
@@ -60,12 +61,8 @@ impl Commands<'_> {
         // widgets. This loop is the only place the panel enumerates them.
         for section in SECTIONS {
             let active = section_active(&self.editor.doc().recipe, section);
-            changed |= match section.draw {
-                crate::sections::SectionDraw::App(draw) => draw(self, ui, active),
-                crate::sections::SectionDraw::Panel(draw) => {
-                    self.with_panel(|p| draw(p, ui, active))
-                }
-            };
+            let ctx = ui.ctx().clone();
+            changed |= self.with_panel(&ctx, |p| (section.draw)(p, ui, active));
         }
         });
 
@@ -315,7 +312,8 @@ impl Commands<'_> {
                                 } else if let Some(n) = &named {
                                     ui.label(egui::RichText::new(format!("「{n}」")).small().weak());
                                 }
-                                if let Some(a) = self.with_panel(|p| p.variant_card_buttons(
+                                let ctx = ui.ctx().clone();
+                                if let Some(a) = self.with_panel(&ctx, |p| p.variant_card_buttons(
                                     ui,
                                     i,
                                     active,
@@ -364,6 +362,9 @@ impl Commands<'_> {
 
 
 
+}
+
+impl PanelView<'_> {
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).
     pub(crate) fn dev_versions(&mut self, ui: &mut egui::Ui, _active: bool) -> bool {
@@ -512,13 +513,13 @@ impl Commands<'_> {
                         if has_actions {
                             ui.horizontal(|ui| {
                                 ui.add_space(SPACE_LG);
-                                if let Some(a) = self.with_panel(|p| p.variant_card_buttons(
+                                if let Some(a) = self.variant_card_buttons(
                                     ui,
                                     i,
                                     i == active_i,
                                     busy,
                                     VariantSurface::List,
-                                )) {
+                                ) {
                                     act = Some(a);
                                 }
                             });
@@ -530,7 +531,7 @@ impl Commands<'_> {
                     .on_hover_text(tr(lang, K_DEVELOP_SNAPSHOT_THIS_CARD_S_DEVELOP_ONLY_AS_A_NUMBERED))
                     .clicked()
                 {
-                    self.save_version();
+                    self.act_develop(logic::develop::DevelopAction::SaveVersion);
                 }
                 // R24-2: a version row is 「v3 「日落偏暖」· 来自 ◭ 反推」 —
                 // the number, the user's own name, and which VARIANT the
@@ -591,7 +592,7 @@ impl Commands<'_> {
                             // stayed a TextEdit forever would keep asking
                             // for focus below and never give it back.
                             if resp.lost_focus() {
-                                self.editor.commit_version_name_buf(&mut self.workspace, self.lang);
+                                self.act_develop(logic::develop::DevelopAction::CommitVersionName);
                                 self.workspace.cards_mut().version_name_buf = None;
                             } else if !resp.has_focus() {
                                 // The frame the box first appears in: the
@@ -670,7 +671,7 @@ impl Commands<'_> {
                     // Switching rows commits the previous one to ITS OWN
                     // (photo, number) first — the mask panel's cross-commit
                     // rule, made structural by keying on the number.
-                    self.editor.commit_version_name_buf(&mut self.workspace, self.lang);
+                    self.act_develop(logic::develop::DevelopAction::CommitVersionName);
                     let cur = self.workspace.cards().version_meta
                         .get(&n)
                         .and_then(|m| m.name.clone())
@@ -678,7 +679,7 @@ impl Commands<'_> {
                     self.workspace.cards_mut().version_name_buf = Some((p, n, cur.clone(), cur));
                 }
                 if let Some(n) = load {
-                    self.apply_develop(logic::develop::DevelopAction::LoadVersion(n));
+                    self.act_develop(logic::develop::DevelopAction::LoadVersion(n));
                 }
                 if let Some(n) = delete
                     && let Some(src) = self.editor.photo().src_path.clone()
@@ -692,7 +693,7 @@ impl Commands<'_> {
                     {
                         self.workspace.cards_mut().version_name_buf = None;
                     }
-                    self.apply_develop(logic::develop::DevelopAction::DeleteVersion(n));
+                    self.act_develop(logic::develop::DevelopAction::DeleteVersion(n));
                 }
                 if n_ver == 0 {
                     explainer(ui, lang, tr(lang, K_DEVELOP_LIKE_LR_VIRTUAL_COPIES_STORE_MULTIPLE_PARAMETER));
@@ -702,7 +703,7 @@ impl Commands<'_> {
         // The edit-state list's card action, performed through the SAME owner
         // the strip uses — after the section's closures have released `self`.
         if let Some(a) = act {
-            self.dispatch_variant_action(a, ui.ctx());
+            self.act_variant(a);
         }
         false
     }

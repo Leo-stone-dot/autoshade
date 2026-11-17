@@ -27,6 +27,10 @@ impl Commands<'_> {
                 logic::develop::DevelopAction::MoveMaskDown(i) => self.editor.move_mask(self.workspace, i, false),
                 logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
                 logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
+            logic::develop::DevelopAction::SaveVersion => self.save_version(),
+            logic::develop::DevelopAction::CommitVersionName => {
+                self.editor.commit_version_name_buf(&mut self.workspace, self.lang)
+            }
                 logic::develop::DevelopAction::DeleteVersion(n) => {
                     if let Some(src) = self.editor.photo().src_path.clone() {
                         self.delete_version_clicked(self.lang, src, n);

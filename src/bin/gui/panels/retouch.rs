@@ -348,7 +348,8 @@ impl Commands<'_> {
             }
         });
         if armed {
-            self.with_panel(|p| p.brush_size_slider(ui));
+            let ctx = ui.ctx().clone();
+            self.with_panel(&ctx, |p| p.brush_size_slider(ui));
         }
     }
 
@@ -608,7 +609,8 @@ impl Commands<'_> {
                     }
                 });
                 if armed {
-                    self.with_panel(|p| p.brush_size_slider(ui));
+                    let ctx = ui.ctx().clone();
+            self.with_panel(&ctx, |p| p.brush_size_slider(ui));
                 }
                 if primary_row(ui, !self.workspace.busy() && self.workspace.tools().clone_mode, tr(lang, K_RETOUCH_CLONE_AREA))
                     .on_hover_text(tr(lang, K_RETOUCH_COPY_THE_SAMPLED_SOURCE_OVER_THE_BRUSHED_AREA_VE))

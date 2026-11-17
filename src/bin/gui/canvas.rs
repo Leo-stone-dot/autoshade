@@ -285,7 +285,7 @@ impl Commands<'_> {
                     .clicked()
                 {
                     let ctx = ui.ctx().clone();
-                    self.with_panel(|p| p.toggle_clipping(&ctx)); // instant — no redevelop
+                    self.with_panel(&ctx, |p| p.toggle_clipping(&ctx)); // instant — no redevelop
                 }
                 ui.label(egui::RichText::new(format!("{:.0}%", scale * 100.0)).weak().small());
                 // --- preview resolution (gap batch E): 1:1 that actually

@@ -68,6 +68,7 @@ impl AutoShadeApp {
             settings: Vec::new(),
             lens: Vec::new(),
             develop: Vec::new(),
+            variants: Vec::new(),
             #[cfg(test)]
             seams: &mut self.seams,
         }

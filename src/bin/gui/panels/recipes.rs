@@ -261,7 +261,8 @@ impl Commands<'_> {
         ui.horizontal_top(|ui| {
             const PREVIEW_W: f32 = 200.0;
             const PREVIEW_H: f32 = 140.0;
-            let tex = if entry.is_ok() { self.with_panel(|p| p.recipe_preview_tex(ui.ctx(), name)) } else { None };
+            let ctx = ui.ctx().clone();
+            let tex = if entry.is_ok() { self.with_panel(&ctx, |p| p.recipe_preview_tex(&ctx, name)) } else { None };
             ui.vertical(|ui| {
                 let (rect, _) =
                     ui.allocate_exact_size(egui::vec2(PREVIEW_W, PREVIEW_H), egui::Sense::hover());

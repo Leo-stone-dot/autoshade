@@ -27,6 +27,8 @@ pub(crate) struct PanelView<'a> {
     pub(crate) lens: Vec<logic::lens_blur::LensAction>,
     /// The Develop sections' intents this pass reported.
     pub(crate) develop: Vec<logic::develop::DevelopAction>,
+    /// The variant strip's intents this pass reported.
+    pub(crate) variants: Vec<VariantAction>,
     #[cfg(test)]
     pub(crate) seams: &'a mut TestSeams,
 }
@@ -3023,6 +3025,11 @@ impl PanelView<'_> {
     /// Report one Develop verb; the host applies it after the pass.
     pub(crate) fn act_develop(&mut self, action: logic::develop::DevelopAction) {
         self.develop.push(action);
+    }
+
+    /// Report one variant-strip verb; the host dispatches it after the pass.
+    pub(crate) fn act_variant(&mut self, action: VariantAction) {
+        self.variants.push(action);
     }
 
     /// Toggle the clipping overlay (the J overlay and the histogram's corner
