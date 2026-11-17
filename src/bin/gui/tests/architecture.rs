@@ -3,11 +3,11 @@
 //
 // The widget half is a clippy restriction lint now: `clippy.toml` lists the
 // egui/eframe types, the crate root allows `disallowed_types`, and `mod logic`
-// denies it — so `egui::Context` inside `logic/` is a compile error, not a
-// grep hit. What remains here is the part clippy's type and method lints
+// denies it — so `egui::Context` (and `rfd::FileDialog`) inside `logic/` is a
+// compile error, not a grep hit. What remains here is the part clippy's type and method lints
 // cannot express: crate-local runtime names (`Msg`, `ToastKind`,
-// `AutoShadeApp`), free functions (`rfd::*`, `tr`/`trf`, `spawn_worker`) and
-// thread spawning.
+// `AutoShadeApp`), free functions (`tr`/`trf`, `spawn_worker`) and thread
+// spawning. A crate boundary would make all of them unreachable.
 
     fn collect_rs(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(dir).expect("the source tree is listable") {
@@ -42,7 +42,7 @@
             // would otherwise read as real call sites are built at compile time:
             // a quoted call spelling reads as a call to the i18n audit.
             let calls = [concat!("tr", "("), concat!("trf", "("), concat!("spawn_worker", "(")];
-            let plain = ["AutoShadeApp", "rfd::", "Msg::", "ToastKind", "std::thread"];
+            let plain = ["AutoShadeApp", "Msg::", "ToastKind", "std::thread"];
             for needle in calls.iter().chain(plain.iter()) {
                 assert!(
                     !src.contains(needle),

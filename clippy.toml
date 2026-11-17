@@ -9,6 +9,7 @@ disallowed-types = [
     { path = "egui::Response", reason = "logic/ is headless: no widget layer" },
     { path = "egui::TextureHandle", reason = "logic/ is headless: no textures" },
     { path = "eframe::Frame", reason = "logic/ is headless: no frame hooks" },
+    { path = "rfd::FileDialog", reason = "logic/ is headless: no dialogs" },
 ]
 
 # Child processes and the process environment have one door each: the spawn
