@@ -1,10 +1,13 @@
 // One part of the GUI's tests (src/bin/gui/tests.rs includes it): the
-// headless-logic canary.
+// headless-logic canary for what a lint cannot see.
 //
-// The panel seam is enforced by the projection types (`PanelView` and
-// `Commands`), so there is no source scan for it here. The one rule a type
-// cannot express is the module graph: `logic/` may not reach for the view or
-// the runtime, and this scan is the only place that says so.
+// The widget half is a clippy restriction lint now: `clippy.toml` lists the
+// egui/eframe types, the crate root allows `disallowed_types`, and `mod logic`
+// denies it — so `egui::Context` inside `logic/` is a compile error, not a
+// grep hit. What remains here is the part clippy's type and method lints
+// cannot express: crate-local runtime names (`Msg`, `ToastKind`,
+// `AutoShadeApp`), free functions (`rfd::*`, `tr`/`trf`, `spawn_worker`) and
+// thread spawning.
 
     fn collect_rs(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
         for entry in std::fs::read_dir(dir).expect("the source tree is listable") {
@@ -21,7 +24,7 @@
     /// for the view or the runtime is what turned one policy change into
     /// hundreds of edits.
     ///
-    /// MUTATION: call `egui::Context` (or a worker, or `tr`) from a file under
+    /// MUTATION: call a worker, open a dialog or render text from a file under
     /// `logic/` and this names the file and the needle.
     #[test]
     fn the_logic_layer_is_headless() {
@@ -39,7 +42,7 @@
             // would otherwise read as real call sites are built at compile time:
             // a quoted call spelling reads as a call to the i18n audit.
             let calls = [concat!("tr", "("), concat!("trf", "("), concat!("spawn_worker", "(")];
-            let plain = ["egui::", "AutoShadeApp", "rfd::", "Msg::", "ToastKind", "std::thread"];
+            let plain = ["AutoShadeApp", "rfd::", "Msg::", "ToastKind", "std::thread"];
             for needle in calls.iter().chain(plain.iter()) {
                 assert!(
                     !src.contains(needle),

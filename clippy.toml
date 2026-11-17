@@ -1,0 +1,12 @@
+# The headless-logic rule, enforced where the compiler can see it.
+#
+# `disallowed-types` is crate-wide by nature: once configured, the lint is
+# armed everywhere. The crate root allows it, and `mod logic` denies it, so
+# only the logic layer is checked.
+disallowed-types = [
+    { path = "egui::Context", reason = "logic/ is headless: no widget layer" },
+    { path = "egui::Ui", reason = "logic/ is headless: no widget layer" },
+    { path = "egui::Response", reason = "logic/ is headless: no widget layer" },
+    { path = "egui::TextureHandle", reason = "logic/ is headless: no textures" },
+    { path = "eframe::Frame", reason = "logic/ is headless: no frame hooks" },
+]
