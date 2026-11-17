@@ -278,7 +278,7 @@ impl AutoShadeApp {
                 // Read from disk: "Keep skin natural" is decided afresh for
                 // this card (`panels/portrait.rs`) — opening never changes a
                 // value.
-                self.decide_keep_skin_for_card();
+                self.editor.decide_keep_skin_for_card(&mut self.workspace);
                 self.editor.resync_recipe_display(&mut self.workspace);
                 self.editor.session_mut().dirty = true;
                 // A snapshot loaded onto the pristine ✨ card is an edit like

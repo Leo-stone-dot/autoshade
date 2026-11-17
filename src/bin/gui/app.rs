@@ -1277,7 +1277,7 @@ impl AutoShadeApp {
         // frame wrote into the recipe — a slider, a paste, an AI landing —
         // meets the skin limits here, before the fork, the develop and the
         // undo commit below read it.
-        self.guard_portrait_skin();
+        self.editor.guard_portrait_skin(&mut self.workspace);
         // The immutability rule (2026-09-13): whatever this frame wrote into
         // the live recipe — a slider, a shortcut, a landing — continues on
         // an ✎ card when the active card is the pristine ✨ image, BEFORE the

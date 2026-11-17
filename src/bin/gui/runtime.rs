@@ -53,11 +53,11 @@ impl AutoShadeApp {
                     logic::portrait::PortraitAction::FindPeople => self.start_find_people(),
                     logic::portrait::PortraitAction::RemoveBlemishes => self.start_remove_blemishes(),
                     logic::portrait::PortraitAction::KeepPersonSharp(on) => {
-                        if self.set_keep_person_sharp(on) {
+                        if self.editor.set_keep_person_sharp(on) {
                             self.editor.session_mut().dirty = true;
                         }
                     }
-                    logic::portrait::PortraitAction::SetKeepSkin(on) => self.set_keep_skin(on),
+                    logic::portrait::PortraitAction::SetKeepSkin(on) => self.editor.set_keep_skin(&mut self.workspace, self.lang, on),
                 },
                 Action::Develop(action) => match action {
                     logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),

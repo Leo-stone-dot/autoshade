@@ -57,7 +57,7 @@ impl AutoShadeApp {
                 Msg::OneClickBuilt(res) => self.on_one_click_built(lang, res),
                 Msg::PythonEnvLine(line) => self.workspace.ui_mut().python_env_line = Some(line),
                 Msg::PythonEnvReady(res) => self.on_python_env_ready(lang, res),
-                Msg::PortraitFound(found) => self.on_portrait_found(lang, *found),
+                Msg::PortraitFound(found) => self.editor.on_portrait_found(&mut self.workspace, lang, *found),
                 Msg::Exported(Ok(outcome)) => {
                     // Normal's Save group words its own landing (`normal.rs`).
                     let plain = self.workspace.normal_delivery_words(lang, &outcome);
@@ -179,7 +179,7 @@ impl AutoShadeApp {
                 Msg::Segmented(res) => self.on_segmented(lang, res),
                 Msg::DepthEstimated(res) => {
                     self.on_depth_estimated(res);
-                    self.after_portrait_depth();
+                    self.editor.after_portrait_depth(&mut self.workspace);
                 }
                 Msg::MaskRefined(res) => self.on_mask_refined(lang, res),
                 Msg::Folder(boxed) => {

@@ -831,7 +831,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // natural" is decided against the edit just read
                         // (`panels/portrait.rs`) — opening never changes
                         // a value.
-                        self.decide_keep_skin_for_photo();
+                        self.editor.decide_keep_skin_for_photo(&mut self.workspace);
                         self.workspace.chrome_mut().last_rgb = None; // retained frame was the old photo's
                         self.editor.reset_history(&self.workspace); // a new photo starts a fresh undo history
                         self.workspace.overlay_mut().region = None; // and a fresh local-edit selection

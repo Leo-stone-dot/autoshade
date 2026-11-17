@@ -187,12 +187,12 @@
         let mut app = portrait_app(Lang::En, true);
         // Keep the person sharp: the blur protects the background mask's own
         // raster — the subject matte — and off is no protection.
-        assert!(app.set_keep_person_sharp(true));
+        assert!(app.editor.set_keep_person_sharp(true));
         assert_eq!(app.editor.doc().recipe.lens_blur.as_ref().unwrap().protect.as_deref(), Some("mask-subject.png"));
-        assert!(app.set_keep_person_sharp(false));
+        assert!(app.editor.set_keep_person_sharp(false));
         assert_eq!(app.editor.doc().recipe.lens_blur.as_ref().unwrap().protect, None);
         let mut alone = portrait_app(Lang::En, false);
-        assert!(!alone.set_keep_person_sharp(true), "nothing to protect with before the person is found");
+        assert!(!alone.editor.set_keep_person_sharp(true), "nothing to protect with before the person is found");
         assert_eq!(alone.editor.doc().recipe.lens_blur.as_ref().unwrap().protect, None);
     }
 
@@ -217,7 +217,7 @@
             })),
         };
         app.workspace.set_busy(true);
-        app.on_portrait_found(Lang::En, find("a", 2));
+        app.editor.on_portrait_found(&mut app.workspace, Lang::En, find("a", 2));
         assert!(!app.workspace.busy());
         let roles: Vec<autoshade::recipe::MaskRole> = app.editor.doc().recipe.masks[before..].iter().map(|m| m.role).collect();
         assert_eq!(roles, [autoshade::recipe::MaskRole::Face, autoshade::recipe::MaskRole::Eyes, autoshade::recipe::MaskRole::Skin, autoshade::recipe::MaskRole::Background]);
@@ -228,7 +228,7 @@
         assert_eq!(app.workspace.portrait().found, Some((photo.clone(), 2)));
         // The user softens; a second search keeps that and moves the raster.
         autoshade::face::set_soften(&mut app.editor.doc_mut().recipe.masks[before + 2], 30.0);
-        app.on_portrait_found(Lang::En, find("b", 1));
+        app.editor.on_portrait_found(&mut app.workspace, Lang::En, find("b", 1));
         assert_eq!(app.editor.doc().recipe.masks.len(), before + 4, "refreshed, not stacked");
         let skin = &app.editor.doc().recipe.masks[before + 2];
         assert_eq!(skin.texture, -30.0, "its sliders stay");
@@ -236,13 +236,13 @@
         assert_eq!(app.workspace.status(), "Found 1 face");
         // No face: the line says so and the person still lands.
         let mut none = portrait_app(Lang::En, false);
-        none.on_portrait_found(Lang::En, PortraitFind { faces: Ok(None), ..find("c", 0) });
+        none.editor.on_portrait_found(&mut none.workspace, Lang::En, PortraitFind { faces: Ok(None), ..find("c", 0) });
         assert_eq!(none.workspace.status(), "No face found in this photo");
         assert_eq!(none.editor.doc().recipe.masks.iter().filter(|m| m.role != autoshade::recipe::MaskRole::Custom).count(), 1, "the background alone");
         assert_eq!(none.editor.portrait_face_gate(&none.workspace, Lang::En), Some("No face found in this photo"));
         // Both halves failed: nothing lands, the line says why.
         let mut failed = portrait_app(Lang::En, false);
-        failed.on_portrait_found(
+        failed.editor.on_portrait_found(&mut failed.workspace,
             Lang::En,
             PortraitFind { photo: photo.clone(), subject: Err("no torch".into()), faces: Err("no mediapipe".into()) },
         );
@@ -251,7 +251,7 @@
         // Another photo is open now: the landing is dropped.
         let mut moved = portrait_app(Lang::En, false);
         moved.editor.photo_mut().src_path = Some(std::env::temp_dir().join(format!("autoshade-library-{}/_another.ARW", std::process::id())));
-        moved.on_portrait_found(Lang::En, find("d", 1));
+        moved.editor.on_portrait_found(&mut moved.workspace, Lang::En, find("d", 1));
         assert_eq!(moved.editor.doc().recipe.masks.len(), before);
     }
 
@@ -276,9 +276,9 @@
         // OFF (the user's flip): the same write stands.
         let mut free = portrait_app(Lang::En, true);
         assert!(free.editor.keep_skin_on(&free.workspace));
-        free.set_keep_skin(false);
+        free.editor.set_keep_skin(&mut free.workspace, free.lang, false);
         push_skin(&mut free);
-        free.guard_portrait_skin();
+        free.editor.guard_portrait_skin(&mut free.workspace);
         let skin = autoshade::face::skin_target(&mut free.editor.doc_mut().recipe).unwrap();
         assert_eq!((skin.saturation, skin.sharpness, skin.texture), (60.0, 40.0, -90.0), "off clamps nothing");
     }
@@ -339,15 +339,15 @@
         app.editor.doc_mut().active = card;
         // Turning it on is the explicit act: three values come back, said so.
         app.editor.session_mut().dirty = false;
-        app.set_keep_skin(true);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, true);
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0));
         assert!(app.editor.session().dirty, "an edit like any other");
         assert_eq!(app.workspace.status(), "Skin kept natural: 3 values brought back within the limits");
         assert!(app.editor.keep_skin_on(&app.workspace));
         // A fork keeps the switch of the card it came from.
-        app.set_keep_skin(false);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, false);
         let from = app.editor.doc().variants[app.editor.doc().active].id.clone();
-        app.inherit_keep_skin(&from, "forked-card");
+        app.editor.inherit_keep_skin(&mut app.workspace, &from, "forked-card");
         assert_eq!(app.workspace.portrait().keep_skin.get(&(src.clone(), "forked-card".to_string())), Some(&false));
         // A version inside the limits reads with the switch on, and the
         // guardrail holds a later write past them.
@@ -358,9 +358,9 @@
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0));
         // The photo's own open decides every card of its strip the same way.
         app.workspace.portrait_mut().keep_skin.clear();
-        app.set_keep_skin(false);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, false);
         push_skin(&mut app);
-        app.decide_keep_skin_for_photo();
+        app.editor.decide_keep_skin_for_photo(&mut app.workspace);
         assert!(!app.editor.keep_skin_on(&app.workspace), "the open card past the limits: off");
         app.editor.doc_mut().active = 0;
         assert!(app.editor.keep_skin_on(&app.workspace), "a card inside them: on");
@@ -434,7 +434,7 @@
         let f = &disk.masks[0];
         assert_eq!((f.saturation, f.hue, f.temperature, f.clarity), (15.0, hue, -20.0, -40.0), "held before the write");
         assert_eq!(app.editor.session().hist.saved_recipe, app.editor.doc().recipe, "the saved look is the one on screen");
-        app.guard_portrait_skin();
+        app.editor.guard_portrait_skin(&mut app.workspace);
         let face = &app.editor.doc().recipe.masks[0];
         assert_eq!(
             (face.saturation, face.hue, face.temperature, face.clarity),
@@ -573,7 +573,7 @@
         let photo = app.editor.photo().src_path.clone().unwrap();
         autoshade::face::set_soften(autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap(), 30.0);
         assert!(autoshade::face::face_raster(&app.editor.doc().recipe).is_some());
-        app.on_portrait_found(
+        app.editor.on_portrait_found(&mut app.workspace,
             Lang::En,
             PortraitFind {
                 photo: photo.clone(),
@@ -603,10 +603,10 @@
         app.editor.doc_mut().active = 0;
         let ctx = egui::Context::default();
         app.editor.reset_history(&app.workspace);
-        app.set_keep_skin(false);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, false);
         push_skin(&mut app);
         app.editor.commit_now(&app.workspace);
-        app.set_keep_skin(true);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, true);
         app.editor.commit_now(&app.workspace);
         let read = |app: &mut AutoShadeApp| {
             let s = autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap();
@@ -632,10 +632,10 @@
         app.editor.doc_mut().active = 0;
         let ctx = egui::Context::default();
         app.editor.reset_history(&app.workspace);
-        app.set_keep_skin(false);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, false);
         push_skin(&mut app);
         app.editor.commit_now(&app.workspace);
-        app.set_keep_skin(true);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, true);
         app.editor.commit_now(&app.workspace);
         let read = |app: &mut AutoShadeApp| {
             let s = autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap();
@@ -677,7 +677,7 @@
         app.editor.undo(&mut app.workspace, app.lang, &ctx);
         app.editor.redo(&mut app.workspace, app.lang, &ctx);
         assert!(app.editor.keep_skin_on(&app.workspace), "a value edit made while held comes back held");
-        app.set_keep_skin(false);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, false);
         app.editor.commit_now(&app.workspace);
         assert_eq!(app.editor.session().hist.undo_stack.len(), 1, "the flip records no step");
         edit(&mut app, 10.0);
@@ -699,10 +699,10 @@
         app.editor.doc_mut().active = 0;
         let ctx = egui::Context::default();
         app.editor.reset_history(&app.workspace);
-        app.set_keep_skin(false);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, false);
         push_skin(&mut app);
         app.editor.commit_now(&app.workspace);
-        app.set_keep_skin(true);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, true);
         app.editor.commit_now(&app.workspace);
         app.editor.undo(&mut app.workspace, app.lang, &ctx);
         autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap().saturation = 70.0;
@@ -744,7 +744,7 @@
             ..Default::default()
         };
         let look = EditRecipe { masks: vec![skin], ..Default::default() };
-        app.set_keep_skin(false);
+        app.editor.set_keep_skin(&mut app.workspace, app.lang, false);
         app.start_paste_to(look, Some(open.clone()), vec![open.clone(), other.clone()], false);
         let ctx = egui::Context::default();
         let start = std::time::Instant::now();

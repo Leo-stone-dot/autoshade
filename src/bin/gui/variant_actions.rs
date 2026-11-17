@@ -327,7 +327,7 @@ pub(crate) fn fork_from_generated(&mut self) -> bool {
     let (from, to) = (self.editor.doc().variants[self.editor.doc().active].id.clone(), forked.id.clone());
     self.editor.insert_variant_after_active(forked);
     // The ✎ card is an edit of this one: it keeps its skin switch.
-    self.inherit_keep_skin(&from, &to);
+    self.editor.inherit_keep_skin(&mut self.workspace, &from, &to);
     // A ✕ armed on an index past the insertion now names the wrong card.
     self.workspace.cards_mut().variant_delete_confirm = None;
     let lang = self.lang;
