@@ -277,8 +277,7 @@ mod tests {
         assert!(!section_active(&recipe, tone), "a stock recipe lights nothing");
         recipe.exposure_ev = 0.5;
         assert!(section_active(&recipe, tone), "a tone edit lights the section");
-        let mut wb = EditRecipe::default();
-        wb.temperature_k = Some(6000.0);
+        let wb = EditRecipe { temperature_k: Some(6000.0), ..Default::default() };
         assert!(section_active(&wb, tone), "a WB edit lights it too");
     }
 }

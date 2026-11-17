@@ -719,11 +719,6 @@
 
 
                 active: 0,
-
-
-                ..Default::default()
-
-
             }; editor } , ..Default::default() }
     }
 

@@ -150,7 +150,7 @@
                 texts.iter().any(|x| x.ends_with('%') && x[..x.len() - 1].parse::<f32>().is_ok()),
                 "{lang:?}: the zoom readout"
             );
-            assert_eq!(app.workspace.masks().paint_mode, true, "{lang:?}: the armed brush stays armed");
+            assert!(app.workspace.masks().paint_mode, "{lang:?}: the armed brush stays armed");
             assert!(has_text(&app.workspace.status()), "{lang:?}: the status bar is in the frame's texts");
             assert!(has_text(tr(lang, K_GUI_ORIGINAL__2)), "{lang:?}: the variant strip");
             if let Some(dir) = &shots {

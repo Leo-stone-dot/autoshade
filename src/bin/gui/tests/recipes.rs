@@ -277,8 +277,7 @@ fn the_selected_recipe_shows_the_settings_it_changes() {
         recipe_library::entry_path(&alpha),
         recipe_library::entry_path(&beta),
     ]);
-    let mut mask = autoshade::recipe::LocalAdjustment::default();
-    mask.exposure_ev = 0.3;
+    let mask = autoshade::recipe::LocalAdjustment { exposure_ev: 0.3, ..Default::default() };
     recipe_library::create(
         &alpha,
         &EditRecipe { exposure_ev: 0.5, contrast: 12.0, masks: vec![mask], ..Default::default() },

@@ -798,7 +798,6 @@
     /// with a fixed id, kept its own. Pinned in the source: a headless test
     /// cannot drive eframe's window memory. Each builder chain is located by
     /// its constructor, never by its title text. MUTATION: delete the
-
     /// R27, every door: each pixel worker that lands a BAKED master takes
     /// the turned-photo gate before any output claim or worker thread — the
     /// masked ones because their mask is in the turned frame, and the

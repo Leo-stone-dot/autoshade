@@ -466,9 +466,6 @@ rationale: "stale rationale".into(),
                 active: 1,
 
                 recipe: EditRecipe { contrast: 44.0, exposure_ev: 0.5, ..Default::default() },
-
-                ..Default::default()
-
             }; editor } , ..Default::default() };
         app.editor.reset_history(&app.workspace);
         app.commands().apply_to_original(1, &ctx);

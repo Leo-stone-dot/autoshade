@@ -6509,12 +6509,11 @@ mod tests {
                             continue;
                         }
                         walk(&path, out);
-                    } else if path.extension().is_some_and(|e| e == "rs") {
-                        if let Ok(text) = std::fs::read_to_string(&path) {
+                    } else if path.extension().is_some_and(|e| e == "rs")
+                        && let Ok(text) = std::fs::read_to_string(&path) {
                             out.push_str(&text);
                             out.push('\n');
                         }
-                    }
                 }
             }
             let mut out = String::new();

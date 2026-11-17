@@ -192,7 +192,7 @@ mod tests {
         while recipe.masks.len() < 64 {
             recipe.masks.push(Default::default());
         }
-        apply(&mut recipe, Command::InsertMask { after: 0, mask: Box::new(Default::default()) });
+        apply(&mut recipe, Command::InsertMask { after: 0, mask: Box::default() });
         assert_eq!(recipe.masks.len(), 64);
     }
 
