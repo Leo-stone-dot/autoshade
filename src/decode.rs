@@ -593,6 +593,7 @@ pub fn load_image_for_develop(path: &Path) -> Result<DynamicImage> {
 /// The 65,536-px dimension bounds and the 4 GiB allocation bound below are the
 /// ones that gate's doc argues for; they live here so neither consumer can
 /// drift off them.
+#[allow(clippy::disallowed_methods)] // the one baked-image construction door
 fn baked_reader(
     path: &Path,
 ) -> Result<image::ImageReader<std::io::BufReader<std::fs::File>>> {

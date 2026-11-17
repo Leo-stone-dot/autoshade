@@ -1822,6 +1822,7 @@ fn unwarp_mask(bytes: &[u8], view: Option<&EditRecipe>, raw: &Path) -> Option<Ve
 /// DIFFER from the develop output (a small-preview camera's 1616×1080
 /// ≈ 1.496 vs the sensor's 3:2), and the maps must consume exactly the
 /// frame the user pointed at. Baked sources: a header-only dimension read.
+#[allow(clippy::disallowed_methods)] // header-only dimension probe
 fn source_dims(raw: &Path) -> Option<(f32, f32)> {
     if decode::is_raw(raw) {
         // Any part's base has the frame's dims; the photo's own is the one

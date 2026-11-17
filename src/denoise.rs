@@ -312,6 +312,7 @@ impl DenoiseOpts {
 /// out-of-range values do not survive an AI-denoise round trip — a denoised
 /// export of such a photo clips those colours toward sRGB (recorded with the
 /// single-working-space item).
+#[allow(clippy::disallowed_methods)] // reads the sidecar's staged product
 pub fn denoise_buffer(opts: &DenoiseOpts, data: &mut [[f32; 3]], w: usize, h: usize) -> Result<()> {
     if data.len() != w * h {
         bail!("denoise_buffer: buffer {} != {}x{}", data.len(), w, h);
@@ -397,6 +398,7 @@ pub fn denoise_file(opts: &DenoiseOpts, input: &Path, output: &Path) -> Result<(
 /// promised name). The numbers are still the input-space numbers, so the
 /// input's profile is their correct description. `ext` comes from the
 /// PROMISED name — the staging sibling's suffix is machinery.
+#[allow(clippy::disallowed_methods)] // reads the input's ICC profile
 fn carry_icc_onto_staged(
     input: &Path,
     staged: &Path,
@@ -655,6 +657,7 @@ pub(crate) fn mosaic_args_for(raw: &rawler::RawImage) -> std::result::Result<Mos
 /// spawns nothing. A sensor without a 2×2 Bayer mosaic returns
 /// [`MosaicDenoise::NotApplicable`] with the reason, and the caller falls back
 /// to [`denoise_buffer`] on the developed frame.
+#[allow(clippy::disallowed_methods)] // reads the RAW cleaner's staged product
 pub fn denoise_mosaic(opts: &DenoiseOpts, raw: &mut rawler::RawImage) -> Result<MosaicDenoise> {
     use rawler::rawimage::RawImageData;
     if opts.strength <= 0.0 {
@@ -768,6 +771,7 @@ fn run_sidecar(opts: &DenoiseOpts, input: &Path, output: &Path) -> Result<()> {
     run_sidecar_carrying(opts, input, output, false, sidecar_timeout())
 }
 
+#[allow(clippy::disallowed_methods)] // reads the sidecar's staged product
 fn run_sidecar_carrying(
     opts: &DenoiseOpts,
     input: &Path,
@@ -1165,6 +1169,7 @@ mod tests {
     /// copies input-space numbers, and untagged wide-gamut numbers read as
     /// sRGB everywhere downstream.
     #[test]
+    #[allow(clippy::disallowed_methods)] // the test reads the product back
     fn the_denoise_product_carries_the_inputs_icc_profile() {
         use image::ImageEncoder as _;
         let dir =
@@ -1210,6 +1215,7 @@ mod tests {
     /// depth (the deep half fails), or through `write_working_space` always
     /// (the 8-bit half fails).
     #[test]
+    #[allow(clippy::disallowed_methods)] // the test reads the master back
     fn a_deep_baked_denoise_master_carries_the_working_space_tag() {
         let tag_of = |p: &std::path::Path| {
             let mut dec = image::ImageReader::open(p).unwrap().into_decoder().unwrap();

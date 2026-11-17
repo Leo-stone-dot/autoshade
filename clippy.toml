@@ -21,6 +21,7 @@ disallowed-methods = [
     { path = "std::env::remove_var", reason = "the config load must not write the process environment" },
     { path = "std::thread::spawn", reason = "logic/ is headless: no threads" },
     { path = "rawler::get_decoder", reason = "decoder construction has one door" },
+    { path = "image::ImageReader::open", reason = "baked image construction has one door" },
     { path = "dotenvy::dotenv_override", reason = "the config load must not write the process environment" },
     { path = "autoshade_gui::i18n::tr", reason = "logic/ is headless: return UiText, never a rendered sentence" },
     { path = "autoshade_gui::i18n::trf", reason = "logic/ is headless: return UiText, never a rendered sentence" },

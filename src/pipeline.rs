@@ -8212,6 +8212,7 @@ mod tests {
     /// real three-frame stack, 2026-09-26).
     /// MUTATION: write with `img.save_with_format(&staged, fmt)` again.
     #[test]
+    #[allow(clippy::disallowed_methods)] // the test reads the master back
     fn a_pixel_master_carries_the_working_space_tag_and_reads_back_exactly() {
         let dir = crate::test_dir("save-master-tag");
         let img = image::DynamicImage::ImageRgb16(image::ImageBuffer::from_fn(64, 48, |x, y| {
