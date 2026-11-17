@@ -74,8 +74,6 @@ pub(crate) enum Action {
     Region(region::RegionAction),
     /// The develop panel's list verbs.
     Develop(develop::DevelopAction),
-    /// The AI panel's folder verbs.
-    Ai(ai::AiAction),
 }
 
 /// A short display list: the first three entries joined, with an ellipsis when
