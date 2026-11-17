@@ -2254,6 +2254,7 @@ mod tests {
     /// MUTATION: give `live_env` an `AUTOSHOP_*` fallback and the child's
     /// `live_env` assertion fails.
     #[test]
+    #[allow(clippy::disallowed_methods)] // the test owns the process environment
     fn a_pre_rename_spelling_no_longer_answers_anywhere() {
         const CHILD: &str = "AUTOSHADE_PRE_RENAME_RETIRED_TEST_CHILD";
         if env::var_os(CHILD).is_some() {
@@ -2517,17 +2518,12 @@ mod tests {
     /// the .env is consumed through dotenv_iter only.
     #[test]
     fn no_setenv_survives_on_the_config_load_path() {
+        // `env::set_var` / `env::remove_var` are a clippy restriction lint
+        // (clippy.toml); `dotenvy::dotenv_override` is a free function the
+        // lint cannot see, so this one needle stays.
         let src = include_str!("config.rs");
-        // Assembled so this test's own literals don't match themselves.
-        for (prefix, name) in
-            [("env::", "set_var"), ("env::", "remove_var"), ("dotenvy::", "dotenv_override")]
-        {
-            let call = format!("{prefix}{name}(");
-            assert!(
-                !src.contains(&call),
-                "config.rs regained a process-environment write ({name})"
-            );
-        }
+        let call = format!("{}{}(", "dotenvy::", "dotenv_override");
+        assert!(!src.contains(&call), "config.rs regained a process-environment write (dotenv_override)");
         assert!(src.contains("dotenv_iter"), "the owned-map parse is gone");
     }
 
@@ -2611,6 +2607,7 @@ mod tests {
     /// simulation of the writers' exact shape (`if inc.x.is_some()`), because
     /// both live writers are behind a web route and an egui panel.
     #[test]
+    #[allow(clippy::disallowed_methods)] // the test owns the process environment
     fn saving_settings_cannot_launder_an_ambient_endpoint_into_the_trusted_file() {
         let ambient = LocalSettings {
             image_base_url: Some("https://attacker.example/v1".into()),
@@ -2648,6 +2645,7 @@ mod tests {
     }
 
         #[test]
+        #[allow(clippy::disallowed_methods)] // the test owns the process environment
         fn a_dotenv_cannot_rewrite_process_search_data_or_billing_authority() {
             const CHILD: &str = "AUTOSHADE_DOTENV_AUTHORITY_TEST_CHILD";
             if env::var_os(CHILD).is_some() {
@@ -2743,6 +2741,7 @@ mod tests {
         /// var) and `env_or_dotenv` serves the map to out-of-config
         /// consumers.
         #[test]
+        #[allow(clippy::disallowed_methods)] // the test owns the process environment
         fn dotenv_parsing_never_mutates_the_process_environment() {
             const CHILD: &str = "AUTOSHADE_DOTENV_OWNEDMAP_TEST_CHILD";
             if env::var_os(CHILD).is_some() {

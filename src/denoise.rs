@@ -1809,44 +1809,6 @@ mod tests {
         assert!(!SIDECAR_SRC.contains("loading the weight pickle unsandboxed"));
     }
 
-    /// L11#7b: every sidecar spawn is wrapped in a kill-group — the timeout
-    /// must reap the whole tree (torch workers survived the direct-child
-    /// kill), and a NEW spawn site must join the rule.
-    ///
-    /// The rule is about the SPAWN, not about a spelling. v1.2.4 moved the
-    /// ceremony into `crate::sidecar_command` / `crate::run_sidecar_child`, so
-    /// the two python bridges stopped spelling it themselves — and this test,
-    /// which asked each file for the literal names, failed on the change that
-    /// made the rule harder to break. Each spawning file must now do ONE of
-    /// two things: go through the shared executor, or arm and assign itself
-    /// (`advisor/claude.rs`, whose child is a `claude` CLI rather than a
-    /// python sidecar and which reads its stdout as a stream). The executor is
-    /// checked for still doing both by `lib::sidecar_executor_tests`.
-    ///
-    /// MUTATION: replace `crate::sidecar_command(` in `denoise.rs` with
-    /// `std::process::Command::new(` and this names the file.
-    #[test]
-    fn every_sidecar_spawn_is_wrapped_in_a_kill_group() {
-        // Assembled needles: denoise.rs scans its own text, so literal
-        // needles here would match themselves (the advisor/mod.rs rule).
-        let arm = format!("arm{}kill_group", '_');
-        let assign = format!("assign{}kill_group", '_');
-        let door = format!("crate::sidecar{}command(", '_');
-        let run = format!("crate::run{0}sidecar{0}child(", '_');
-        for (name, src) in [
-            ("denoise.rs", include_str!("denoise.rs")),
-            ("segment.rs", include_str!("segment.rs")),
-        ] {
-            let src = crate::source_before_tests(src);
-            let through_the_door = src.contains(&door) && src.contains(&run);
-            let by_hand = src.contains(&arm) && src.contains(&assign);
-            assert!(
-                through_the_door || by_hand,
-                "{name} spawns a child without a kill-group: it neither goes through the \
-                 shared sidecar executor nor arms and assigns one itself"
-            );
-        }
-    }
 
     // ── The RAW-mosaic bridge (2026-09-15) ──────────────────────────────────
     // `denoise_mosaic` hands the frame's sensor mosaic to python/denoise_raw.py

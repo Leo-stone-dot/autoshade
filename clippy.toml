@@ -10,3 +10,12 @@ disallowed-types = [
     { path = "egui::TextureHandle", reason = "logic/ is headless: no textures" },
     { path = "eframe::Frame", reason = "logic/ is headless: no frame hooks" },
 ]
+
+# Child processes and the process environment have one door each: the spawn
+# helpers in `lib.rs` / `harness.rs` / `gui/util.rs` add the kill group, the
+# console flag and the env allowlist. A direct call anywhere else skips them.
+disallowed-methods = [
+    { path = "std::process::Command::new", reason = "child processes go through the shared spawn doors" },
+    { path = "std::env::set_var", reason = "the config load must not write the process environment" },
+    { path = "std::env::remove_var", reason = "the config load must not write the process environment" },
+]
