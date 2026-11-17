@@ -194,7 +194,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             self.editor.photo_mut().base_turns = 0;
                             if active_source {
                                 let start = self.editor.doc().recipe.start_only();
-                                self.editor.set_before(&mut self.workspace, ctx, &base, &start);
+                                self.editor.set_before(self.workspace, ctx, &base, &start);
                                 self.workspace.rebind_paint_canvas(self.lang, mw, mh);
                                 // The range-mask reference develop was computed
                                 // from the OLD base — recipe-only keying would
@@ -248,7 +248,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                                 // (needs the camera curve); a Generated
                                 // canvas recipe carries an empty curve.
                                 let start = self.editor.doc().recipe.start_only();
-                                self.editor.set_before(&mut self.workspace, ctx, bimg, &start);
+                                self.editor.set_before(self.workspace, ctx, bimg, &start);
                                 self.workspace.rebind_paint_canvas(self.lang, bw, bh);
                                 self.workspace.overlay_mut().overlay_ref = None;
                                 self.workspace.overlay_mut().overlay_stale = true;
@@ -665,7 +665,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // as originally tuned.
                         if let Some(b) = self.editor.photo().base_preview.clone() {
                             let start = self.editor.doc().recipe.start_only();
-                            self.editor.set_before(&mut self.workspace, ctx, &b, &start);
+                            self.editor.set_before(self.workspace, ctx, &b, &start);
                         }
                         // A fresh, fully-transparent paint mask sized to the
                         // preview — and a brush session armed on the PREVIOUS
@@ -731,7 +731,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                             // pixels are a NEUTRAL develop (an empty curve
                             // there compared 0.6–1.4 EV dark).
                             let start = self.editor.doc().recipe.start_only();
-                            self.editor.set_before(&mut self.workspace, ctx, &bimg, &start);
+                            self.editor.set_before(self.workspace, ctx, &bimg, &start);
                             self.editor.photo_mut().base_preview = Some(bimg);
                             self.workspace.rebind_paint_canvas(self.lang, bw, bh);
                         }
@@ -831,16 +831,16 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // natural" is decided against the edit just read
                         // (`panels/portrait.rs`) — opening never changes
                         // a value.
-                        self.editor.decide_keep_skin_for_photo(&mut self.workspace);
+                        self.editor.decide_keep_skin_for_photo(self.workspace);
                         self.workspace.chrome_mut().last_rgb = None; // retained frame was the old photo's
-                        self.editor.reset_history(&self.workspace); // a new photo starts a fresh undo history
+                        self.editor.reset_history(self.workspace); // a new photo starts a fresh undo history
                         self.workspace.overlay_mut().region = None; // and a fresh local-edit selection
                         self.workspace.overlay_mut().region_drag = None;
                         // View + tool state is per-photo.
                         self.workspace.view_mut().zoom = 1.0;
                         self.workspace.view_mut().zoom_target = 1.0; // instant — no glide across photos
                         self.workspace.view_mut().pan = egui::vec2(0.5, 0.5);
-                        self.workspace.disarm_tools(&mut self.editor);
+                        self.workspace.disarm_tools(self.editor);
                         // The \-latch is per-photo transient state:
                         // carried across an open, the new photo arrived
                         // with every tool locked out (M21).
@@ -890,7 +890,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // edge, while this open decoded the source at the
                         // current preference — which may have moved while
                         // the user was on another photo.
-                        if let Some(px) = self.editor.baked_canvas_edge(&self.workspace) {
+                        if let Some(px) = self.editor.baked_canvas_edge(self.workspace) {
                             let extra = trf(
                                 lang,
                                 K_CANVAS_RESTORED_PIXELS_STAY_AT_PX_THEIR_OWN_BAKE,
@@ -935,7 +935,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // is the reason there is nothing to guard. The
                         // photo's unsaved work is NOT lost — open_path
                         // stashed it before the flight.
-                        self.editor.reset_history(&self.workspace);
+                        self.editor.reset_history(self.workspace);
                     } else if let Some(p) = self.editor.photo().src_path.clone() {
                         // A preview-res re-decode failed: the photo (and
                         // its live canvas) is untouched — consume the
@@ -1001,7 +1001,7 @@ pub(crate) fn on_base_redeveloped(
     if self.editor.active_variant().is_none_or(|v| v.base.is_none()) {
         self.editor.photo_mut().base_preview = Some(img.clone());
         let start = self.editor.doc().recipe.start_only();
-        self.editor.set_before(&mut self.workspace, ctx, &img, &start);
+        self.editor.set_before(self.workspace, ctx, &img, &start);
         let (mw, mh) = img.dimensions();
         self.workspace.rebind_paint_canvas(self.lang, mw, mh);
         self.workspace.overlay_mut().overlay_ref = None;

@@ -55,7 +55,7 @@ impl Commands<'_> {
     /// under it (a card change resets the history — `load_active`). The
     /// look on screen is committed first, so it is the head.
     pub(crate) fn take_look_history(&mut self) -> (Vec<UndoStep>, Vec<UndoStep>) {
-        self.editor.commit_now(&self.workspace);
+        self.editor.commit_now(self.workspace);
         (self.editor.session().hist.undo_stack.clone(), self.editor.session().hist.redo_stack.clone())
     }
 
@@ -63,7 +63,7 @@ impl Commands<'_> {
     /// takes this card's pixels (the switch changes the grain, never the
     /// look), and the look on screen is the head.
     pub(crate) fn carry_look_history(&mut self, (undo, redo): (Vec<UndoStep>, Vec<UndoStep>)) {
-        let here = self.editor.current_step(&self.workspace);
+        let here = self.editor.current_step(self.workspace);
         let onto = |s: UndoStep| UndoStep { recipe: s.recipe, base: here.base.clone(), origin: here.origin.clone(), keep_skin: s.keep_skin };
         self.editor.session_mut().hist.undo_stack = undo.into_iter().map(onto).collect();
         self.editor.session_mut().hist.redo_stack = redo.into_iter().map(onto).collect();
@@ -78,7 +78,7 @@ impl Commands<'_> {
     /// make it).
     pub(crate) fn set_normal_denoise(&mut self, on: bool) {
         let Some(photo) = self.editor.photo().src_path.clone() else { return };
-        if self.workspace.busy() || on == self.editor.normal_denoise_on(&self.workspace) {
+        if self.workspace.busy() || on == self.editor.normal_denoise_on(self.workspace) {
             return;
         }
         let Some(active) = self.editor.active_variant().map(|v| v.id.clone()) else { return };

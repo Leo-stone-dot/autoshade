@@ -92,11 +92,10 @@ pub(crate) fn apply(recipe: &mut EditRecipe, command: Command) {
             }
         }
         Command::Mask(MaskCommand::RemoveComponent { index, component }) => {
-            if let Some(m) = recipe.masks.get_mut(index) {
-                if component < m.components.len() {
+            if let Some(m) = recipe.masks.get_mut(index)
+                && component < m.components.len() {
                     m.components.remove(component);
                 }
-            }
         }
         Command::InsertMask { after, mask } => {
             // The recipe's own cap (64) is a domain invariant, so it is

@@ -15,6 +15,7 @@ use autoshade::recipe::MaskRole;
 use crate::actions::PersistedCard;
 use crate::actions::ActiveBaseline;
 
+#[derive(Default)]
 pub(crate) struct Editor {
 
     /// The open photo and its decoded plates (see [`PhotoPixels`]).
@@ -139,18 +140,6 @@ impl Editor {
     }
 }
 
-impl Default for Editor {
-    fn default() -> Self {
-        Self {
-            photo: PhotoPixels::default(),
-            plates: Default::default(),
-            scheduler: Default::default(),
-            doc: Default::default(),
-            analysis: Default::default(),
-            session: Default::default(),
-        }
-    }
-}
 
 impl Editor {
     pub(crate) fn persisted_card_for(&self, live_position: usize) -> Option<PersistedCard<'_>> {

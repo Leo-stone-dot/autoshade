@@ -1031,7 +1031,6 @@ pub(crate) fn fit_explainer(lang: Lang) -> &'static str {
 /// them too would print the working twice.
 pub(crate) fn thinking_notes(lang: Lang, ui: &mut egui::Ui, working: &[&autoshade::rationale::Note]) {
     use autoshade::rationale::keys;
-    let lang = lang;
     ui.add_space(SPACE_SM);
     ui.label(egui::RichText::new(tr(lang, K_AI_DEEP_THINKING_ITS_WORKING)).small().strong());
     for n in working {

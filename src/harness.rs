@@ -124,7 +124,7 @@ fn node_exe() -> String {
 /// cmd window that appeared when an AI button was pressed. So the console flag
 /// is applied exactly when [`crate::has_console`] is false.
 fn node_command(node: &str) -> ProcessCommand {
-    let mut cmd = ProcessCommand::new(node);
+    let cmd = ProcessCommand::new(node);
     // Only the windowed GUI lacks a console; the flag is Windows-only.
     #[cfg(windows)]
     if !crate::has_console() {

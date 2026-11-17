@@ -523,7 +523,6 @@ mod age_text_tests {
 }
 
 pub(crate) fn recipe_facts(lang: Lang, r: &EditRecipe) -> Vec<(String, String)> {
-    let lang = lang;
     let d = EditRecipe::default();
     let mut out: Vec<(String, String)> = Vec::new();
     if (r.exposure_ev - d.exposure_ev).abs() > 1e-4 {

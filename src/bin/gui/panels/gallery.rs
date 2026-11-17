@@ -268,7 +268,7 @@ impl PanelView<'_> {
         if !to_request.is_empty() {
             let asked: Vec<logic::gallery::GalleryAction> = to_request
                 .into_iter()
-                .map(|i| logic::gallery::GalleryAction::ThumbNeeded(i))
+                .map(logic::gallery::GalleryAction::ThumbNeeded)
                 .collect();
             self.gallery.extend(asked);
         }

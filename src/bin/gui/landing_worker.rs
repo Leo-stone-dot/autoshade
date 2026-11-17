@@ -132,7 +132,7 @@ pub(crate) fn on_folder(&mut self, lang: Lang, res: anyhow::Result<(PathBuf, Vec
                     // no installed face covers renders as boxes — say
                     // so ONCE per script per session, at folder open
                     // (the one cheap point; never per frame).
-                    crate::actions::disclose_undrawable_names(&mut self.editor, &mut self.workspace, self.lang);
+                    crate::actions::disclose_undrawable_names(self.editor, self.workspace, self.lang);
                 }
                 Err(e) => {
                     self.workspace.fail(tr(lang, K_LANDING_SCAN_FAILED), e);
@@ -140,6 +140,7 @@ pub(crate) fn on_folder(&mut self, lang: Lang, res: anyhow::Result<(PathBuf, Vec
             }
 }
 
+#[allow(clippy::too_many_arguments)] // the landing's facts: frame, language, master identity, its stamp and pixels
 pub(crate) fn on_master_loaded(&mut self, ctx: &egui::Context, lang: Lang, photo: PathBuf, origin: PathBuf, edge: u32, stamp: FileStamp, img: anyhow::Result<image::DynamicImage>) {
                 // The in-flight marker clears on EVERY outcome — photo
                 // mismatch included — or one failed decode would block
@@ -326,7 +327,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
             // The InPlace master is a NEUTRAL develop — Before shows it under
             // the recipe's own camera curve, exactly like the source compare.
             let start = self.editor.doc().recipe.start_only();
-            self.editor.set_before(&mut self.workspace, ctx, &image, &start);
+            self.editor.set_before(self.workspace, ctx, &image, &start);
             // New baked base ⇒ the cached masks-cleared reference develop no
             // longer matches it.
             self.workspace.overlay_mut().overlay_ref = None;
@@ -338,7 +339,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
             self.editor.session_mut().dirty = true;
             // The pixel swap must enter history THIS frame.
             self.editor.commit_now(self.workspace);
-            self.editor.forget_open_base(&mut self.workspace);
+            self.editor.forget_open_base(self.workspace);
             self.workspace.done(msg);
             if let RetouchNote::Reimagined { divergence, .. } = &note {
                 self.offer_fit_prompt(ctx, *divergence);

@@ -108,8 +108,8 @@ pub(crate) fn install_master(
     if hit_active {
         // The canvas was showing the disclosed source stand-in — swap in
         // the real pixels now that they exist.
-        self.editor.refresh_active_pixels(&mut self.workspace, self.lang, ctx);
-        self.editor.set_canvas_status(&mut self.workspace, self.lang, "restored the canvas pixels");
+        self.editor.refresh_active_pixels(self.workspace, self.lang, ctx);
+        self.editor.set_canvas_status(self.workspace, self.lang, "restored the canvas pixels");
     }
 }
 

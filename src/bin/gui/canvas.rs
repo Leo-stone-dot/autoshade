@@ -184,7 +184,7 @@ impl Commands<'_> {
             return;
         };
 
-        let uv = self.editor.view_uv(&mut self.workspace);
+        let uv = self.editor.view_uv(self.workspace);
         // Display size fits the VISIBLE window's aspect (in image pixels).
         let vis_px = egui::vec2(uv.width() * tex_size.x, uv.height() * tex_size.y);
         // Past fit the 4× upscale cap is DROPPED (L13-2): the cap tamed tiny
@@ -422,7 +422,7 @@ impl Commands<'_> {
             && ui.input(|i| i.key_down(egui::Key::Space));
         let ctrl = ui.input(|i| i.modifiers.command);
         let over_knob = self.workspace.masks().mask_drag.is_some()
-            || self.editor.sel_target_geometry(&self.workspace).is_some_and(|g| {
+            || self.editor.sel_target_geometry(self.workspace).is_some_and(|g| {
                 let (dims, deg, dist) = self.editor.geom_ctx();
                 // Probe BOTH positions: egui reports drag_started only
                 // after ~6 px of travel, so a fast flick's CURRENT pointer
@@ -489,7 +489,7 @@ impl Commands<'_> {
             }
         } else if self.workspace.tools().clone_mode {
             self.handle_clone(ui, &resp, xf);
-            self.editor.ensure_mask_tex(&mut self.workspace, ui.ctx());
+            self.editor.ensure_mask_tex(self.workspace, ui.ctx());
             if let Some(t) = &self.workspace.overlay().mask_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
@@ -499,7 +499,7 @@ impl Commands<'_> {
             }
         } else if self.workspace.masks().paint_mode {
             self.handle_paint(&resp, xf);
-            self.editor.ensure_mask_tex(&mut self.workspace, ui.ctx());
+            self.editor.ensure_mask_tex(self.workspace, ui.ctx());
             if let Some(t) = &self.workspace.overlay().mask_tex {
                 ui.painter_at(rect).image(t.id(), rect, uv, egui::Color32::WHITE);
             }
@@ -743,7 +743,7 @@ impl Commands<'_> {
         if self.workspace.overlay().region_drag.is_some() {
             return false;
         }
-        let Some(target_geom) = self.editor.sel_target_geometry(&self.workspace).cloned() else {
+        let Some(target_geom) = self.editor.sel_target_geometry(self.workspace).cloned() else {
             self.workspace.masks_mut().mask_drag = None;
             return false;
         };

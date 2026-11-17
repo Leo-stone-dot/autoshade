@@ -1296,12 +1296,12 @@
         // Each denoise verb reads ITS fold's dial and no literal strength.
         let now = &src[src.find("pub(crate) fn start_ai_denoise(").expect("start_ai_denoise moved")..];
         let now = &now[..now.find("pub(crate) fn start_clone(").expect("start_clone moved")];
-        assert!(now.contains("let strength = self.editor.selected_denoise_strength(&self.workspace, false);"));
+        assert!(now.contains("let strength = self.editor.selected_denoise_strength(self.workspace, false);"));
         assert!(now.contains("DenoiseOpts::from_config(&cfg, None, strength)"));
         assert!(!now.contains("save_denoise_strength"), "「AI Denoise now」 must not read the Export dial");
         let export = &src[src.find("pub(crate) fn start_render_to(").expect("start_render_to moved")..];
         let export = &export[..export.find("\n    pub(crate) fn ").unwrap()];
-        assert!(export.contains("let denoise_strength = self.editor.selected_denoise_strength(&self.workspace, true);"));
+        assert!(export.contains("let denoise_strength = self.editor.selected_denoise_strength(self.workspace, true);"));
         assert!(!export.contains("self.workspace.exp().denoise_strength"), "the export must not read the Detail dial");
         for (name, text) in [("start_ai_denoise", now), ("start_render_to", export)] {
             assert!(

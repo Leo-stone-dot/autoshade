@@ -215,7 +215,7 @@ impl Commands<'_> {
                 Effect::RememberOneClick { photo, fine } => {
                     self.workspace.normal_mut().result = Some((photo, fine));
                 }
-                Effect::StartLook(intent) => self.start_look(intent),
+                Effect::StartLook(intent) => self.start_look(*intent),
                 Effect::ReferenceBuild { photo, dir } => self.start_reference_build(photo, dir),
                 Effect::ArmFocusPick(on) => self.workspace.tools_mut().lens_focus_picking = on,
                 Effect::SetRegion(region) => self.workspace.overlay_mut().region = region,

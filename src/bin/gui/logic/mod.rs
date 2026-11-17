@@ -129,7 +129,7 @@ pub(crate) enum Effect {
     RememberOneClick { photo: PathBuf, fine: look::FineTune },
     /// Hand a started verb over to the look protocol (the reference-folder
     /// build's landing starts the look it built for).
-    StartLook(look::LookIntent),
+    StartLook(Box<look::LookIntent>),
     /// Read this folder into Normal's reference library, for this photo.
     ReferenceBuild { photo: PathBuf, dir: PathBuf },
     /// Run the depth sidecar over this photo's original-frame base.

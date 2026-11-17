@@ -91,7 +91,7 @@ impl Commands<'_> {
     /// brush flag goes up — the Stamp's `clone_mode`, the others' `paint_mode`.
     pub(crate) fn arm_brush(&mut self, owner: BrushOwner) {
         self.workspace.select_brush_owner(owner);
-        self.workspace.disarm_tools(&mut self.editor);
+        self.workspace.disarm_tools(self.editor);
         if owner == BrushOwner::Stamp {
             self.workspace.tools_mut().clone_mode = true;
         } else {
@@ -104,7 +104,7 @@ impl Commands<'_> {
     /// during a mask-brush session it is that session's Esc, as before.
     pub(crate) fn toggle_brush_key(&mut self) {
         if self.workspace.masks().mask_brush.is_some() {
-            self.workspace.disarm_tools(&mut self.editor);
+            self.workspace.disarm_tools(self.editor);
         } else if self.workspace.brush_armed(self.workspace.masks().paint_owner) {
             self.workspace.disarm_brush();
         } else {
@@ -120,7 +120,7 @@ impl Commands<'_> {
     /// the red display wash) and the greyscale weight buffer, at canvas
     /// resolution, so the session bakes exactly what it shows.
     pub(crate) fn start_mask_brush(&mut self, target: Option<usize>) {
-        self.workspace.disarm_tools(&mut self.editor);
+        self.workspace.disarm_tools(self.editor);
         let Some(base) = self.editor.photo().base_preview.as_ref() else { return };
         let (mw, mh) = base.dimensions();
         // The session takes the canvas; the owner's area waits in the store.

@@ -197,8 +197,8 @@ impl Commands<'_> {
     fn portrait_skin(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
         portrait_group(ui, tr(lang, K_PORTRAIT_SKIN));
-        let gate = self.editor.portrait_face_gate(&self.workspace, lang);
-        let guarded = self.editor.keep_skin_on(&self.workspace);
+        let gate = self.editor.portrait_face_gate(self.workspace, lang);
+        let guarded = self.editor.keep_skin_on(self.workspace);
         let mut changed = false;
         ui.add_enabled_ui(gate.is_none(), |ui| {
             let mut probe = LocalAdjustment::default();
@@ -245,7 +245,7 @@ impl Commands<'_> {
     fn portrait_eyes(&mut self, ui: &mut egui::Ui) -> bool {
         let lang = self.lang;
         portrait_group(ui, tr(lang, K_PORTRAIT_EYES));
-        let gate = self.editor.portrait_face_gate(&self.workspace, lang).or_else(|| {
+        let gate = self.editor.portrait_face_gate(self.workspace, lang).or_else(|| {
             (!self.editor.doc().recipe.masks.iter().any(|m| m.role == MaskRole::Eyes)).then(|| tr(lang, K_PORTRAIT_FIND_THE_PEOPLE_AND_FACES_FIRST_THE_FIRST_GROUP))
         });
         let mut changed = false;

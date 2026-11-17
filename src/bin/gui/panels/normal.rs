@@ -279,7 +279,7 @@ impl Commands<'_> {
             self.workspace.normal_mut().denoise_pair = None;
         }
         let helper = denoise_helper_available();
-        let mut on = self.editor.normal_denoise_on(&self.workspace);
+        let mut on = self.editor.normal_denoise_on(self.workspace);
         let toggled = ui
             .add_enabled(helper && !self.workspace.busy(), egui::Checkbox::new(&mut on, tr(lang, K_NORMAL_AI_DENOISE)))
             .on_hover_text(tr(lang, K_NORMAL_CLEANS_THE_GRAIN_OUT_OF_THE_PHOTO_AND_THE_PREVIE))
@@ -292,7 +292,7 @@ impl Commands<'_> {
         if toggled {
             self.apply_normal(logic::normal::NormalAction::SetDenoise(on),);
         }
-        for line in self.editor.noise_lines(&self.workspace, lang, helper) {
+        for line in self.editor.noise_lines(self.workspace, lang, helper) {
             ui.label(egui::RichText::new(line).weak().small());
         }
     }
