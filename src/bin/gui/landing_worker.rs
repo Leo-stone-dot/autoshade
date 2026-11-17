@@ -275,7 +275,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // pristine ✨ card the first edit continues on
                             // an ✎ card, as every edit there does.
                             self.commit_pending_names();
-                            self.commit_now();
+                            self.editor.commit_now(&self.workspace);
                             self.fork_from_generated();
                             // Absolute, so the saved recipe finds it from
                             // any working directory.
@@ -285,7 +285,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                                 ..Default::default()
                             });
                             self.editor.session_mut().dirty = true;
-                            self.commit_now();
+                            self.editor.commit_now(&self.workspace);
                             drop(img);
                         }
                         RetouchKind::NewDenoised | RetouchKind::NewStacked => {
@@ -352,7 +352,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // the Analyze landing: commit (and flush every
                             // typed name) BEFORE the state swap.
                             self.commit_pending_names();
-                            self.commit_now();
+                            self.editor.commit_now(&self.workspace);
                             // The immutability rule for PIXELS: a retouch
                             // on the pristine ✨ card bakes into a new ✎
                             // card on the same raster, and the ✨ card
@@ -386,7 +386,7 @@ pub(crate) fn on_retouched(&mut self, ctx: &egui::Context, lang: Lang, epoch: u6
                             // The pixel swap must enter history THIS frame
                             // — a same-frame Ctrl+Z otherwise undoes an
                             // older recipe step over the new pixels.
-                            self.commit_now();
+                            self.editor.commit_now(&self.workspace);
                             // The decoded-base cache now describes pixels
                             // this photo no longer shows.
                             self.editor.forget_open_base(&mut self.workspace);

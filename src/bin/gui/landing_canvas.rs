@@ -833,7 +833,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // a value.
                         self.decide_keep_skin_for_photo();
                         self.workspace.chrome_mut().last_rgb = None; // retained frame was the old photo's
-                        self.reset_history(); // a new photo starts a fresh undo history
+                        self.editor.reset_history(&self.workspace); // a new photo starts a fresh undo history
                         self.workspace.overlay_mut().region = None; // and a fresh local-edit selection
                         self.workspace.overlay_mut().region_drag = None;
                         // View + tool state is per-photo.
@@ -935,7 +935,7 @@ pub(crate) fn on_opened(&mut self, ctx: &egui::Context, lang: Lang, boxed: Box<a
                         // is the reason there is nothing to guard. The
                         // photo's unsaved work is NOT lost — open_path
                         // stashed it before the flight.
-                        self.reset_history();
+                        self.editor.reset_history(&self.workspace);
                     } else if let Some(p) = self.editor.photo().src_path.clone() {
                         // A preview-res re-decode failed: the photo (and
                         // its live canvas) is untouched — consume the

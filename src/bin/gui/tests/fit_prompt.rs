@@ -42,7 +42,7 @@
 
 
             }; editor } , lang, ..Default::default() };
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         app
     }
 

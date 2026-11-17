@@ -1742,23 +1742,7 @@ impl PanelView<'_, '_> {
     /// crop_drag used to hijack the next drag. clone_src (the sampled source
     /// pin) deliberately survives — samples stay for resuming, like paint.
     pub(crate) fn disarm_tools(&mut self) {
-        self.editor.set_crop_mode(self.workspace, false);
-        self.workspace.masks_mut().paint_mode = false;
-        self.workspace.tools_mut().clone_mode = false;
-        self.workspace.tools_mut().wb_picking = false;
-        self.workspace.tools_mut().range_picking = None;
-        self.workspace.tools_mut().point_color_picking = false;
-        self.workspace.tools_mut().lens_focus_picking = false;
-        self.workspace.masks_mut().placing_mask = None;
-        self.workspace.masks_mut().place_start = None;
-        self.workspace.crop_mut().drag = None;
-        self.workspace.masks_mut().mask_drag = None;
-        self.workspace.masks_mut().paint_last = None;
-        self.workspace.end_mask_brush();
-        // A preset change armed for the crop tool must die with it — the
-        // flag survived Esc / Done / a hold-B detour and rewrote the box as
-        // a surprise on the next crop entry (CX5-4).
-        self.workspace.crop_mut().aspect_pending = false;
+        self.workspace.disarm_tools(self.editor);
     }
     /// One develop-panel section — body extracted verbatim from
     /// develop_panel (round-12 decomposition; spacing included).

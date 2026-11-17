@@ -32,7 +32,7 @@ impl AutoShadeApp {
                 Action::Lens(action) => {
                     let start = match action {
                         logic::lens_blur::LensAction::EstimateDepth => {
-                            self.editor.photo().src_path.clone().zip(self.original_frame_base()).map(|(photo, base)| (photo, base))
+                            self.editor.photo().src_path.clone().zip(self.editor.original_frame_base()).map(|(photo, base)| (photo, base))
                         }
                         _ => None,
                     };

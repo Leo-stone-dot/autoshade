@@ -1,64 +1,11 @@
 //! The edit history and the pixel re-develops it drives: the undo/redo stacks
 //! and their commits, the step application, pixel refresh/rebind and the
-//! quarter-turn rotate/sync. Same `AutoShadeApp` impl as `actions.rs`, split by
-//! domain.
+//! quarter-turn rotate/sync. The stack itself (and the skin switch each step
+//! carries) is the `Editor`'s; what stays here applies a step to the frame.
 
 use crate::*;
 
 impl AutoShadeApp {
-    /// The live working state as an [`UndoStep`]: current recipe + the active
-    /// variant's pixel identity. Arc/path clones only — never pixel copies.
-    pub(crate) fn current_step(&self) -> UndoStep {
-        UndoStep {
-            recipe: self.editor.doc().recipe.clone(),
-            base: self.editor.active_variant().and_then(|v| v.base.clone()),
-            origin: self.editor.active_variant().and_then(|v| v.origin.clone()),
-            keep_skin: self.skin_switch(),
-        }
-    }
-
-    /// Reset undo history — call when a brand-new photo opens, when the active
-    /// variant changes (you can't undo across either), or when a photo GOES
-    /// AWAY: a failed fresh open leaves no canvas for its steps to apply to,
-    /// and an undo there restored one that no longer existed. `committed`
-    /// becomes the current head — with no photo open that is the empty step,
-    /// which is exactly what stops the next settled frame pushing a phantom.
-    pub(crate) fn reset_history(&mut self) {
-        self.editor.session_mut().hist.committed = self.current_step();
-        self.editor.session_mut().hist.undo_stack.clear();
-        self.editor.session_mut().hist.redo_stack.clear();
-    }
-
-    /// Commit the current state as one undo step RIGHT NOW (when it differs
-    /// from the head). Used directly by programmatic pixel swaps (the retouch
-    /// bake-in): waiting for `commit_if_settled` left a one-frame window where
-    /// a same-frame Ctrl+Z saw only the older history and undid a recipe step
-    /// while keeping the freshly retouched pixels installed.
-    pub(crate) fn commit_now(&mut self) {
-        let cur = self.current_step();
-        if cur.recipe != self.editor.session().hist.committed.recipe || !cur.same_pixels(&self.editor.session().hist.committed) {
-            let hist = self.editor.history_mut();
-            hist.undo_stack.push(std::mem::replace(&mut hist.committed, cur));
-            if self.editor.session().hist.undo_stack.len() > 100 {
-                self.editor.session_mut().hist.undo_stack.remove(0); // cap history memory
-            }
-            self.editor.session_mut().hist.redo_stack.clear();
-        } else {
-            // A flip of the skin switch that changed no value belongs to the
-            // step on screen, so a later undo/redo hands it back as set.
-            self.editor.session_mut().hist.committed.keep_skin = cur.keep_skin;
-        }
-    }
-
-    /// Commit the current state as ONE undo step once the edit gesture settles
-    /// (pointer released) — dragging a slider is one step, not one per frame.
-    /// Programmatic edits (Analyze, Reset) land here on the next frame.
-    pub(crate) fn commit_if_settled(&mut self, ctx: &egui::Context) {
-        if !ctx.input(|i| i.pointer.any_down()) {
-            self.commit_now();
-        }
-    }
-
     pub(crate) fn resync_recipe_display(&mut self) {
         self.editor.analysis_mut().rationale = self.editor.doc().recipe.rationale.clone();
         // Typed notes described the PREVIOUS rationale — a swap without a
@@ -169,8 +116,8 @@ impl AutoShadeApp {
         self.resync_recipe_display();
         // The skin switch comes back as the step had it; a step past the
         // skin limits is then put back as it was (Portraits).
-        self.restore_skin_switch(keep_skin);
-        self.release_skin_for_history();
+        self.editor.restore_skin_switch(&mut self.workspace, keep_skin);
+        self.editor.release_skin_for_history(&mut self.workspace);
     }
 
     /// Rebuild the pixel-derived per-variant state after the active variant's
@@ -212,7 +159,7 @@ impl AutoShadeApp {
         let Some(src) = self.editor.photo().src_path.clone() else { return };
         let lang = self.lang;
         // The step BEFORE the turn, so one Ctrl+Z puts it back (7.7).
-        self.commit_now();
+        self.editor.commit_now(&self.workspace);
         let mut next = self.editor.doc().recipe.clone();
         match autoshade::pipeline::rotate_recipe(&mut next, &src, delta) {
             Ok(_) => {
@@ -224,7 +171,7 @@ impl AutoShadeApp {
                 // on the next frame: a click is already a settled gesture, and
                 // the one-frame window let a same-frame Ctrl+Z undo the step
                 // BEFORE this one (the hazard `commit_now`'s own doc records).
-                self.commit_now();
+                self.editor.commit_now(&self.workspace);
             }
             Err(e) => {
                 // All-or-nothing (see `rotate_recipe`): the recipe is the

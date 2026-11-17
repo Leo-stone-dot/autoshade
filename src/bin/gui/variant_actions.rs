@@ -103,7 +103,7 @@ impl AutoShadeApp {
             self.workspace.overlay_mut().mask_dirty = false;
             self.workspace.masks_mut().paint_last = None;
         }
-        self.reset_history(); // you can't undo across variants
+        self.editor.reset_history(&self.workspace); // you can't undo across variants
         self.workspace.overlay_mut().region = None;
         self.workspace.overlay_mut().region_drag = None;
         self.workspace.masks_mut().sel_mask = None;
@@ -536,7 +536,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
     self.editor.doc_mut().recipe = recipe;
     self.resync_recipe_display();
     self.editor.session_mut().dirty = true;
-    self.commit_now();
+    self.editor.commit_now(&self.workspace);
     *self.workspace.status_mut() = trf(
         lang,
         K_ACTIONS_COPIED_ONTO_THE_ORIGINAL_CARD_ITS_PIXELS_ARE_UNT,

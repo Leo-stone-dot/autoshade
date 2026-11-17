@@ -357,7 +357,7 @@
         assert_eq!(Some(photo), app.editor.photo().src_path);
         assert_eq!(kept.exposure_ev, app.editor.doc().recipe.exposure_ev);
         // Undoable, like every analysis landing.
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.undo(&ctx);
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0, "Ctrl+Z goes back");
     }
@@ -420,7 +420,7 @@
         }];
         app.editor.doc_mut().active = 0;
         app.editor.photo_mut().base_preview = Some(b0);
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         app.editor.doc_mut().recipe.exposure_ev = 0.4;
         assert!(app.editor.unsaved_marker_dirty(), "the edit is unsaved before Ctrl+S");
         let ctx = egui::Context::default();
@@ -568,7 +568,7 @@
         }];
         app.editor.doc_mut().active = 0;
         app.editor.photo_mut().base_preview = Some(b0);
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         // The Retouch door's own gate answers: a turned photo is refused
         // before any worker, with that door's words.
         app.editor.doc_mut().recipe.quarter_turns = 1;
@@ -909,10 +909,10 @@
         }];
         app.editor.doc_mut().active = 0;
         app.editor.photo_mut().base_preview = Some(b0.clone());
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         // A look, then the switch on: its ◈ card lands.
         app.editor.doc_mut().recipe.exposure_ev = 0.5;
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.workspace.normal_mut().denoise_pair =
             Some(DenoisePair { photo: src.clone(), plain: ORIGINAL_VARIANT_ID.into(), denoised: None });
         let master = std::path::PathBuf::from("out/_gui_normal_denoise_undo.denoise.png");
@@ -931,7 +931,7 @@
         // Another look, then the switch off: back on the plain card, the
         // history still there.
         app.editor.doc_mut().recipe.contrast = 10.0;
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.set_normal_denoise(false);
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, ORIGINAL_VARIANT_ID);
         app.undo(&ctx);

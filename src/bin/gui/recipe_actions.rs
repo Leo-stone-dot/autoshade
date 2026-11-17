@@ -95,7 +95,7 @@ impl AutoShadeApp {
         // The target's own calibration and baked-source rules, through the
         // same shaper the clipboard paste uses.
         let mut live = crate::persist::paste_recipe_for(&src, &entry);
-        if self.skin_held_for(&src) {
+        if self.editor.skin_held_for(&self.workspace, &src) {
             autoshade::face::keep_skin_natural_in(&mut live);
         }
         if self.editor.active_on_ai_pixels() {

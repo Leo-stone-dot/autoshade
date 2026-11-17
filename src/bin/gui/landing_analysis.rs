@@ -43,7 +43,7 @@ pub(crate) fn on_analyzed(
                     // wholesale install below folds it into the
                     // pre-analyze step and Ctrl+Z skips it.
                     self.commit_pending_names();
-                    self.commit_now();
+                    self.editor.commit_now(&self.workspace);
                     let accepted = logic::analysis_landing::accepted(&verdict);
                     // The recipe arrives with its base_curve already
                     // stamped by produce_recipe (saved-curve-first, else a
@@ -67,7 +67,7 @@ pub(crate) fn on_analyzed(
                     // `logic::analysis_landing::shape`.
                     let shaped = logic::analysis_landing::shape(
                         recipe,
-                        self.skin_held(),
+                        self.editor.skin_held(&self.workspace),
                         self.editor.active_on_ai_pixels(),
                     );
                     let stamped = shaped.stamped;

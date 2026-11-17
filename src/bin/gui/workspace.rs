@@ -1128,6 +1128,37 @@ impl WorkspaceView {
 }
 
 impl WorkspaceView {
+    /// Disarm every canvas tool — the SINGLE owner of the disarm list. Ten
+    /// arming sites used to hand-copy these assignments, and the comments at
+    /// two of them record real bugs born from copies drifting; every arming
+    /// site now calls this before setting its own flag. The crop mode is the
+    /// editor's, so the aggregate takes it as an argument.
+    ///
+    /// Transient gesture anchors die with the tools: a stale place_start or
+    /// crop_drag used to hijack the next drag. clone_src (the sampled source
+    /// pin) deliberately survives — samples stay for resuming, like paint.
+    pub(crate) fn disarm_tools(&mut self, editor: &mut Editor) {
+        editor.set_crop_mode(self, false);
+        self.masks_mut().paint_mode = false;
+        self.tools_mut().clone_mode = false;
+        self.tools_mut().wb_picking = false;
+        self.tools_mut().range_picking = None;
+        self.tools_mut().point_color_picking = false;
+        self.tools_mut().lens_focus_picking = false;
+        self.masks_mut().placing_mask = None;
+        self.masks_mut().place_start = None;
+        self.crop_mut().drag = None;
+        self.masks_mut().mask_drag = None;
+        self.masks_mut().paint_last = None;
+        self.end_mask_brush();
+        // A preset change armed for the crop tool must die with it — the
+        // flag survived Esc / Done / a hold-B detour and rewrote the box as
+        // a surprise on the next crop entry (CX5-4).
+        self.crop_mut().aspect_pending = false;
+    }
+}
+
+impl WorkspaceView {
     /// Selection moved: every INDEX-ARMED tool whose target is no longer
     /// the selected mask dies with it — `remap_mask_indices`' twin (that
     /// one covers list SHAPE changes; this one covers which row is live).

@@ -200,7 +200,7 @@ impl AutoShadeApp {
         let lang = self.lang;
         portrait_group(ui, tr(lang, K_PORTRAIT_SKIN));
         let gate = self.editor.portrait_face_gate(&self.workspace, lang);
-        let guarded = self.keep_skin_on();
+        let guarded = self.editor.keep_skin_on(&self.workspace);
         let mut changed = false;
         ui.add_enabled_ui(gate.is_none(), |ui| {
             let mut probe = LocalAdjustment::default();

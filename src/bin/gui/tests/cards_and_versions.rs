@@ -470,7 +470,7 @@ rationale: "stale rationale".into(),
                 ..Default::default()
 
             }; editor } , ..Default::default() };
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         app.apply_to_original(1, &ctx);
 
         assert_eq!(app.editor.doc().active, 0, "the canvas lands on the card that was written");

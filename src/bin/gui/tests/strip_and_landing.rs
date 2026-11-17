@@ -265,7 +265,7 @@
         }];
         app.editor.doc_mut().active = 0;
         app.editor.photo_mut().base_preview = Some(b0.clone());
-        app.reset_history(); // committed = (neutral recipe, b0)
+        app.editor.reset_history(&app.workspace); // committed = (neutral recipe, b0)
 
         // A slider edit still mid-gesture when the worker returns.
         app.editor.doc_mut().recipe.exposure_ev = 0.5;

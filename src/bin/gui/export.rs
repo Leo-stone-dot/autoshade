@@ -1282,7 +1282,7 @@ impl AutoShadeApp {
         // "Keep skin natural" (Portraits) holds each target's write where it
         // is written, by that target's own switch (`skin_held_for`).
         let skin_held: std::collections::HashSet<PathBuf> =
-            targets.iter().filter(|t| self.skin_held_for(t)).cloned().collect();
+            targets.iter().filter(|t| self.editor.skin_held_for(&self.workspace, t)).cloned().collect();
         if n_raster > 0 && has_foreign_target {
             self.workspace.toast(
                 ToastKind::Error,

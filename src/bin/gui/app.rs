@@ -1436,7 +1436,7 @@ impl AutoShadeApp {
 
         // Land a finished edit gesture (slider release, AI Analyze, Reset) into
         // the undo history — once per gesture, after all controls are read.
-        self.commit_if_settled(ctx);
+        self.editor.commit_if_settled(&self.workspace, ctx);
         // LAST, after every panel had its chance to spawn (L12-3): evaluated
         // at the top of update (inside poll_workers) the gate judged a frame
         // whose spawns had not happened yet, so the FIRST batch of workers

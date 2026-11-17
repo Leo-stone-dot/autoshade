@@ -162,7 +162,7 @@
         app.editor.doc_mut().active = 0;
         app.editor.doc_mut().recipe = developed.clone();
         app.editor.photo_mut().base_preview = Some(b0.clone());
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         let out = std::path::PathBuf::from("out/_fill_layer_test.fill.png");
         let land = |app: &mut AutoShadeApp| {
             let epoch = app.workspace.tools().gen_epoch;
@@ -197,7 +197,7 @@
         app.editor.doc_mut().variants = vec![card(VariantKind::Generated, "gen", &generated, Some("out/_fill_layer_test.reimagine.png".into()))];
         app.editor.doc_mut().active = 0;
         app.editor.doc_mut().recipe = generated.clone();
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         land(&mut app);
         assert_eq!(strip_kinds(&app), vec![VariantKind::Generated, VariantKind::Edited]);
         assert_eq!(app.editor.doc().active, 1, "the ✎ card is under the canvas");
@@ -245,7 +245,7 @@
 
 
                     }; editor } , ..Default::default() };
-                app.reset_history();
+                app.editor.reset_history(&app.workspace);
                 let out = unique_out(&src, "adjust").unwrap();
                 assert_eq!(out.file_name().unwrap().to_string_lossy(),
                     format!("adjust-{lang:?}-{region}.adjust.png"));
@@ -884,7 +884,7 @@
         app.editor.doc_mut().active = 0;
         app.editor.doc_mut().recipe = developed.clone();
         app.editor.photo_mut().base_preview = Some(b0.clone());
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         assert_eq!(app.negative_origin(), None);
         assert_eq!(app.negative_path().as_deref(), Some(src.as_path()), "no master: the loaded file");
         let out = std::path::PathBuf::from("out/_negative_follow_test.denoise.png");
@@ -1032,7 +1032,7 @@
 
 
             }; editor } , ..Default::default() };
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         let out = std::path::PathBuf::from("out/_stack_landing_test.stack.png");
         let epoch = app.workspace.tools().gen_epoch;
         app.on_retouched(
@@ -1263,11 +1263,11 @@
 
         // Every surface that shows a develop reads the source's film edge.
         let framed = "develop_preview_framed(";
-        develops_at_film(src, "pub(crate) fn refresh_mask_overlay(", "self.film_short_edge()", framed);
-        develops_at_film(src, "pub(crate) fn handle_range_pick(", "self.film_short_edge()", framed);
-        develops_at_film(src, "pub(crate) fn handle_point_color_pick(", "self.film_short_edge()", framed);
+        develops_at_film(src, "pub(crate) fn refresh_mask_overlay(", "self.editor.film_short_edge()", framed);
+        develops_at_film(src, "pub(crate) fn handle_range_pick(", "self.editor.film_short_edge()", framed);
+        develops_at_film(src, "pub(crate) fn handle_point_color_pick(", "self.editor.film_short_edge()", framed);
         develops_at_film(src, "fn developed_card_pixels(", "autoshade::decode::film_short_edge(path)", framed);
-        develops_at_film(src, "pub(crate) fn start_redevelop(", "self.film_short_edge()", "build_preview(");
+        develops_at_film(src, "pub(crate) fn start_redevelop(", "self.editor.film_short_edge()", "build_preview(");
         develops_at_film(src, "pub(crate) fn build_preview(", "film_short_edge", "develop_preview_film(");
         let serve = include_str!("../../../serve.rs");
         develops_at_film(serve, "fn api_develop(", "decode::film_short_edge(&src)", "develop_preview_film(");

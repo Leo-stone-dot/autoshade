@@ -91,10 +91,10 @@ pub(crate) fn start_find_people(&mut self) {
         // The detectors see the ORIGINAL frame the masks are stored in; the
         // skin seed is sampled on the canvas's own base (v1.17.0: a corrected
         // one, with the face mask read into its frame).
-        let Some(original) = self.original_frame_base() else { return };
-        let lens = self.base_corrected().then(|| autoshade::render::geometry_profile(&self.editor.doc().recipe).into_owned());
+        let Some(original) = self.editor.original_frame_base() else { return };
+        let lens = self.editor.base_corrected().then(|| autoshade::render::geometry_profile(&self.editor.doc().recipe).into_owned());
         let recipe = self.editor.doc().recipe.clone();
-        let film = self.film_short_edge();
+        let film = self.editor.film_short_edge();
         let raw_source = self.editor.source_is_raw();
         self.workspace.set_busy(true);
         self.workspace.portrait_mut().line = PortraitLine::Finding;
@@ -180,54 +180,13 @@ pub(crate) fn start_remove_blemishes(&mut self) {
     }
 
 pub(crate) fn guard_portrait_skin(&mut self) {
-        if self.skin_held() && autoshade::face::keep_skin_natural_in(&mut self.editor.doc_mut().recipe) {
+        if self.editor.skin_held(&self.workspace) && autoshade::face::keep_skin_natural_in(&mut self.editor.doc_mut().recipe) {
             self.editor.session_mut().dirty = true;
         }
     }
 
-pub(crate) fn skin_held(&self) -> bool {
-        self.keep_skin_on()
-    }
-
-pub(crate) fn skin_held_for(&self, photo: &std::path::Path) -> bool {
-        if self.editor.photo().src_path.as_deref() == Some(photo) {
-            return self.skin_held();
-        }
-        self.workspace.open().nav_stash.get(photo).is_none_or(|st| {
-            self.workspace.portrait().keep_skin.get(&(photo.to_path_buf(), st.id.clone())).copied().unwrap_or(true)
-        })
-    }
-
-pub(crate) fn release_skin_for_history(&mut self) {
-        if self.skin_held()
-            && autoshade::face::skin_values_beyond(&self.editor.doc().recipe) > 0
-            && let Some(key) = self.skin_key()
-        {
-            self.workspace.portrait_mut().keep_skin.insert(key, false);
-        }
-    }
-
-pub(crate) fn skin_switch(&self) -> Option<bool> {
-        self.skin_key().map(|_| self.keep_skin_on())
-    }
-
-pub(crate) fn restore_skin_switch(&mut self, on: Option<bool>) {
-        if let (Some(on), Some(key)) = (on, self.skin_key()) {
-            self.workspace.portrait_mut().keep_skin.insert(key, on);
-        }
-    }
-
-fn skin_key(&self) -> Option<(PathBuf, String)> {
-        let photo = self.editor.photo().src_path.clone()?;
-        Some((photo, self.editor.doc().variants.get(self.editor.doc().active).map(|v| v.id.clone()).unwrap_or_default()))
-    }
-
-pub(crate) fn keep_skin_on(&self) -> bool {
-        self.skin_key().and_then(|k| self.workspace.portrait().keep_skin.get(&k).copied()).unwrap_or(true)
-    }
-
 pub(crate) fn set_keep_skin(&mut self, on: bool) {
-        let Some(key) = self.skin_key() else { return };
+        let Some(key) = self.editor.skin_key() else { return };
         self.workspace.portrait_mut().keep_skin.insert(key, on);
         if !on {
             return;
@@ -260,7 +219,7 @@ fn switch_off_cards_past_limits(&mut self) {
     }
 
 pub(crate) fn decide_keep_skin_for_card(&mut self) {
-        let Some(key) = self.skin_key() else { return };
+        let Some(key) = self.editor.skin_key() else { return };
         self.workspace.portrait_mut().keep_skin.remove(&key);
         if autoshade::face::skin_values_beyond(&self.editor.doc().recipe) > 0 {
             self.workspace.portrait_mut().keep_skin.insert(key, false);

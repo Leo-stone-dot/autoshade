@@ -267,7 +267,7 @@
         // ON: a card inside the limits opens with the switch on, and a later
         // write past them is pulled back by a real frame of the app.
         let mut app = portrait_app(Lang::En, true);
-        assert!(app.keep_skin_on(), "a card inside the limits opens with the switch on");
+        assert!(app.editor.keep_skin_on(&app.workspace), "a card inside the limits opens with the switch on");
         push_skin(&mut app);
         let ctx = egui::Context::default();
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
@@ -275,7 +275,7 @@
         assert_eq!((skin.saturation, skin.sharpness, skin.texture), (15.0, 0.0, -60.0), "pulled back to the limits");
         // OFF (the user's flip): the same write stands.
         let mut free = portrait_app(Lang::En, true);
-        assert!(free.keep_skin_on());
+        assert!(free.editor.keep_skin_on(&free.workspace));
         free.set_keep_skin(false);
         push_skin(&mut free);
         free.guard_portrait_skin();
@@ -331,11 +331,11 @@
             (s.saturation, s.sharpness, s.texture)
         };
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "opening changed nothing");
-        assert!(!app.keep_skin_on(), "the switch opens off for this card");
+        assert!(!app.editor.keep_skin_on(&app.workspace), "the switch opens off for this card");
         // Per card: the other card has no say from this one.
         let card = app.editor.doc().active;
         app.editor.doc_mut().active = 0;
-        assert!(app.keep_skin_on(), "another card is not touched");
+        assert!(app.editor.keep_skin_on(&app.workspace), "another card is not touched");
         app.editor.doc_mut().active = card;
         // Turning it on is the explicit act: three values come back, said so.
         app.editor.session_mut().dirty = false;
@@ -343,7 +343,7 @@
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0));
         assert!(app.editor.session().dirty, "an edit like any other");
         assert_eq!(app.workspace.status(), "Skin kept natural: 3 values brought back within the limits");
-        assert!(app.keep_skin_on());
+        assert!(app.editor.keep_skin_on(&app.workspace));
         // A fork keeps the switch of the card it came from.
         app.set_keep_skin(false);
         let from = app.editor.doc().variants[app.editor.doc().active].id.clone();
@@ -352,7 +352,7 @@
         // A version inside the limits reads with the switch on, and the
         // guardrail holds a later write past them.
         app.load_version(2);
-        assert!(app.keep_skin_on(), "inside the limits: on");
+        assert!(app.editor.keep_skin_on(&app.workspace), "inside the limits: on");
         push_skin(&mut app);
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0));
@@ -361,9 +361,9 @@
         app.set_keep_skin(false);
         push_skin(&mut app);
         app.decide_keep_skin_for_photo();
-        assert!(!app.keep_skin_on(), "the open card past the limits: off");
+        assert!(!app.editor.keep_skin_on(&app.workspace), "the open card past the limits: off");
         app.editor.doc_mut().active = 0;
-        assert!(app.keep_skin_on(), "a card inside them: on");
+        assert!(app.editor.keep_skin_on(&app.workspace), "a card inside them: on");
     }
 
     /// A stand-in AI portrait look: a face mask pushed past every skin limit,
@@ -479,7 +479,7 @@
         } else {
             app.editor.doc_mut().recipe.masks.push(autoshade::face::background_adjustment("mask-subject.png".into()));
         }
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         app.workspace.portrait_mut().heal_runner = Some(blemish_runner);
         let ctx = egui::Context::default();
         crate::theme::install_theme(&ctx, crate::theme::ThemePref::Dark);
@@ -602,12 +602,12 @@
         let mut app = portrait_app(Lang::En, true);
         app.editor.doc_mut().active = 0;
         let ctx = egui::Context::default();
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         app.set_keep_skin(false);
         push_skin(&mut app);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.set_keep_skin(true);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         let read = |app: &mut AutoShadeApp| {
             let s = autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
@@ -616,7 +616,7 @@
         app.undo(&ctx);
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "undone as it was");
-        assert!(!app.keep_skin_on(), "the switch follows the edit put back");
+        assert!(!app.editor.keep_skin_on(&app.workspace), "the switch follows the edit put back");
         assert_eq!(app.editor.session().hist.redo_stack.len(), 1, "the step forward is still there");
     }
 
@@ -631,27 +631,27 @@
         let mut app = portrait_app(Lang::En, true);
         app.editor.doc_mut().active = 0;
         let ctx = egui::Context::default();
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         app.set_keep_skin(false);
         push_skin(&mut app);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.set_keep_skin(true);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         let read = |app: &mut AutoShadeApp| {
             let s = autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
         };
         app.undo(&ctx);
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
-        assert!(!app.keep_skin_on(), "undone: off");
+        assert!(!app.editor.keep_skin_on(&app.workspace), "undone: off");
         app.redo(&ctx);
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0), "redone: held");
-        assert!(app.keep_skin_on(), "redone: the switch is on again");
+        assert!(app.editor.keep_skin_on(&app.workspace), "redone: the switch is on again");
         assert_eq!((app.editor.session().hist.undo_stack.len(), app.editor.session().hist.redo_stack.len()), (2, 0), "the frame recorded nothing");
         app.undo(&ctx);
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "Ctrl+Z still walks back");
-        assert!(!app.keep_skin_on());
+        assert!(!app.editor.keep_skin_on(&app.workspace));
     }
 
     /// A flip of the switch that changes no value is not a step of its own:
@@ -667,25 +667,25 @@
         let mut app = portrait_app(Lang::En, true);
         app.editor.doc_mut().active = 0;
         let ctx = egui::Context::default();
-        app.reset_history();
-        assert!(app.keep_skin_on());
+        app.editor.reset_history(&app.workspace);
+        assert!(app.editor.keep_skin_on(&app.workspace));
         let edit = |app: &mut AutoShadeApp, v: f32| {
             autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap().saturation = v;
         };
         edit(&mut app, 5.0);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.undo(&ctx);
         app.redo(&ctx);
-        assert!(app.keep_skin_on(), "a value edit made while held comes back held");
+        assert!(app.editor.keep_skin_on(&app.workspace), "a value edit made while held comes back held");
         app.set_keep_skin(false);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         assert_eq!(app.editor.session().hist.undo_stack.len(), 1, "the flip records no step");
         edit(&mut app, 10.0);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.undo(&ctx);
-        assert!(!app.keep_skin_on(), "undo of a later edit keeps the switch off");
+        assert!(!app.editor.keep_skin_on(&app.workspace), "undo of a later edit keeps the switch off");
         app.redo(&ctx);
-        assert!(!app.keep_skin_on(), "and so does redo");
+        assert!(!app.editor.keep_skin_on(&app.workspace), "and so does redo");
     }
 
     /// After Ctrl+Z past the switch-on, a new edit starts a new branch: the
@@ -698,19 +698,19 @@
         let mut app = portrait_app(Lang::En, true);
         app.editor.doc_mut().active = 0;
         let ctx = egui::Context::default();
-        app.reset_history();
+        app.editor.reset_history(&app.workspace);
         app.set_keep_skin(false);
         push_skin(&mut app);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.set_keep_skin(true);
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         app.undo(&ctx);
         autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap().saturation = 70.0;
-        app.commit_now();
+        app.editor.commit_now(&app.workspace);
         assert!(app.editor.session().hist.redo_stack.is_empty(), "the new edit drops the redo branch");
-        assert!(!app.keep_skin_on(), "the switch stays off");
+        assert!(!app.editor.keep_skin_on(&app.workspace), "the switch stays off");
         app.undo(&ctx);
-        assert!(!app.keep_skin_on(), "undoing the new edit puts back an edit past the limits: off");
+        assert!(!app.editor.keep_skin_on(&app.workspace), "undoing the new edit puts back an edit past the limits: off");
     }
 
     /// A paste in Portraits meets each target's switch where it is written:

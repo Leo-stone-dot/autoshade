@@ -26,7 +26,7 @@ impl AutoShadeApp {
         let disp = tr(lang, label).to_string();
         // The ORIGINAL frame the recipe stores the mask in (v1.17.0: a
         // corrected base is mapped back first).
-        let Some(base) = self.original_frame_base() else { return };
+        let Some(base) = self.editor.original_frame_base() else { return };
         let Some(src) = self.editor.photo().src_path.clone() else { return };
         self.workspace.set_busy(true);
         *self.workspace.status_mut() = trf(
