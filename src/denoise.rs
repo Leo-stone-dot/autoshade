@@ -91,6 +91,7 @@ pub(crate) fn bounded_child_output(
     budget_env: &str,
     group: Option<crate::KillGroup>,
 ) -> Result<std::process::Output> {
+    #[allow(clippy::disallowed_methods)] // the sidecar output drainer: one thread per pipe
     fn drain<R: std::io::Read + Send + 'static>(
         reader: Option<R>,
     ) -> std::thread::JoinHandle<(Vec<u8>, bool)> {

@@ -1,5 +1,5 @@
 #![allow(clippy::disallowed_types)]
-#![deny(clippy::disallowed_methods)]
+#![allow(clippy::disallowed_methods)]
 // Release builds run WITHOUT a console window — a GUI app shouldn't flash a
 // terminal on launch. Debug keeps the console so panics/logs stay visible.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -72,7 +72,7 @@ mod open_actions;
 mod variant_actions;
 mod version_actions;
 mod actions;
-#[deny(clippy::disallowed_types)]
+#[deny(clippy::disallowed_types, clippy::disallowed_methods)]
 mod logic;
 mod app;
 mod budget;

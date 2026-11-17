@@ -129,6 +129,7 @@ impl AppState {
     }
 }
 
+#[allow(clippy::disallowed_methods)] // the HTTP server's request threads
 pub fn serve(dir: &Path, port: u16) -> Result<()> {
     // Sources = RAWs + already-baked PNG/TIFF/JPEG (the PNG-source edit mode).
     let raws = pipeline::find_sources(dir)?;

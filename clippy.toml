@@ -1,8 +1,7 @@
-# The headless-logic rule, enforced where the compiler can see it.
+# Architecture constraints, expressed as lints.
 #
-# `disallowed-types` is crate-wide by nature: once configured, the lint is
-# armed everywhere. The crate root allows it, and `mod logic` denies it, so
-# only the logic layer is checked.
+# Paths are DEFINITION paths: `autoshade_gui::model::ToastKind`, not
+# `crate::ToastKind`. clippy matches those, including local items.
 disallowed-types = [
     { path = "egui::Context", reason = "logic/ is headless: no widget layer" },
     { path = "egui::Ui", reason = "logic/ is headless: no widget layer" },
@@ -10,13 +9,18 @@ disallowed-types = [
     { path = "egui::TextureHandle", reason = "logic/ is headless: no textures" },
     { path = "eframe::Frame", reason = "logic/ is headless: no frame hooks" },
     { path = "rfd::FileDialog", reason = "logic/ is headless: no dialogs" },
+    { path = "autoshade_gui::model::Msg", reason = "logic/ is headless: no worker messages" },
+    { path = "autoshade_gui::model::ToastKind", reason = "logic/ is headless: no toast styling" },
+    { path = "autoshade_gui::app::AutoShadeApp", reason = "logic/ is headless: no root" },
+    { path = "autoshade_gui::services::Services", reason = "logic/ is headless: no workers" },
 ]
 
-# Child processes and the process environment have one door each: the spawn
-# helpers in `lib.rs` / `harness.rs` / `gui/util.rs` add the kill group, the
-# console flag and the env allowlist. A direct call anywhere else skips them.
 disallowed-methods = [
     { path = "std::process::Command::new", reason = "child processes go through the shared spawn doors" },
     { path = "std::env::set_var", reason = "the config load must not write the process environment" },
     { path = "std::env::remove_var", reason = "the config load must not write the process environment" },
+    { path = "std::thread::spawn", reason = "logic/ is headless: no threads" },
+    { path = "autoshade_gui::i18n::tr", reason = "logic/ is headless: return UiText, never a rendered sentence" },
+    { path = "autoshade_gui::i18n::trf", reason = "logic/ is headless: return UiText, never a rendered sentence" },
+    { path = "autoshade_gui::services::Services::spawn_worker", reason = "logic/ is headless: return an Effect" },
 ]
