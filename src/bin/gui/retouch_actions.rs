@@ -357,6 +357,10 @@ pub(crate) fn start_ai_denoise(&mut self) {
         // This fold's OWN dial (the Export fold's 「on export」 has its own):
         // captured at the click, like every other input the worker reads.
         let strength = self.editor.selected_denoise_strength(self.workspace, false);
+        #[cfg(test)]
+        {
+            self.seams.denoise_strength_asked = Some((false, strength));
+        }
         let edge = self.editor.canvas_edge(self.workspace); // show at the CANVAS's res (canvas_edge)
         let out_claim = out.clone(); // release the claim on failure (worker tail)
         let out_panic = out.clone(); // …and on a worker panic (see the error closure)

@@ -1293,23 +1293,6 @@
         assert!(layer.contains("self.fit_source_menu()"), "the prompt builds its own source list again");
         assert!(layer.contains("self.start_fit()"), "the prompt runs a fit of its own");
 
-        // Each denoise verb reads ITS fold's dial and no literal strength.
-        let now = &src[src.find("pub(crate) fn start_ai_denoise(").expect("start_ai_denoise moved")..];
-        let now = &now[..now.find("pub(crate) fn start_clone(").expect("start_clone moved")];
-        assert!(now.contains("let strength = self.editor.selected_denoise_strength(self.workspace, false);"));
-        assert!(now.contains("DenoiseOpts::from_config(&cfg, None, strength)"));
-        assert!(!now.contains("save_denoise_strength"), "「AI Denoise now」 must not read the Export dial");
-        let export = &src[src.find("pub(crate) fn start_render_to(").expect("start_render_to moved")..];
-        let export = &export[..export.find("\n    pub(crate) fn ").unwrap()];
-        assert!(export.contains("let denoise_strength = self.editor.selected_denoise_strength(self.workspace, true);"));
-        assert!(!export.contains("self.workspace.exp().denoise_strength"), "the export must not read the Detail dial");
-        for (name, text) in [("start_ai_denoise", now), ("start_render_to", export)] {
-            assert!(
-                !text.contains("None, 1.0)") && !text.contains("None, 0.5)"),
-                "{name}: a literal strength bypasses the dial"
-            );
-        }
-
         // The reverse-fit block reads its own dial at both entry points; the
         // Analysis dial is read once, in `analysis_strength`.
         let worker = &src[src.find("pub(crate) fn start_fit(").expect("start_fit moved")..];
@@ -1364,4 +1347,49 @@
         let network = number("NETWORK_BYTES =");
         let mb = ((weight + network) as f64 / 1e6).round() as u32;
         assert_eq!(mb, crate::panels::normal::DENOISE_FIRST_DOWNLOAD_MB, "{weight} + {network} bytes");
+    }
+    /// The Detail fold's 「AI Denoise now」 reads the Detail dial; the Export
+    /// fold reads the Export dial. Each verb records the strength it captured,
+    /// so the wiring is checked as behaviour instead of as source text.
+    #[test]
+    fn each_denoise_verb_reads_its_own_fold_dial() {
+        let src = std::path::PathBuf::from("_denoise_dials_test.ARW");
+        let mut app = AutoShadeApp { editor: { let mut editor = Editor::default(); *editor.photo_mut() = PhotoPixels {
+            src_path: Some(src),
+            ..Default::default()
+        }; editor }, ..Default::default() };
+        let base = std::sync::Arc::new(image::DynamicImage::new_rgba8(4, 4));
+        app.editor.doc_mut().variants = vec![Variant {
+            id: ORIGINAL_VARIANT_ID.into(),
+            name: None,
+            kind: VariantKind::Original,
+            recipe: EditRecipe::default(),
+            base: Some(base.clone()),
+            origin: None,
+            thumb: None,
+        }];
+        app.editor.doc_mut().active = 0;
+        app.editor.photo_mut().base_preview = Some(base);
+        app.editor.reset_history(&app.workspace);
+        // Distinct values on both pixel kinds, so the fold — not the kind —
+        // is what the assertion sees.
+        app.workspace.exp_mut().denoise_strength = 0.11;
+        app.workspace.exp_mut().baked_denoise_strength = 0.11;
+        app.workspace.exp_mut().save_denoise_strength = 0.77;
+        app.workspace.exp_mut().baked_save_denoise_strength = 0.77;
+
+        app.commands().start_ai_denoise();
+        assert_eq!(
+            app.seams.denoise_strength_asked,
+            Some((false, 0.11)),
+            "the Detail verb must read the Detail dial"
+        );
+
+        app.workspace.set_busy(false);
+        app.commands().start_render_to(std::path::PathBuf::from("out/_denoise_dials.jpg"));
+        assert_eq!(
+            app.seams.denoise_strength_asked,
+            Some((true, 0.77)),
+            "the export must read the Export dial"
+        );
     }

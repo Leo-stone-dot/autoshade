@@ -798,6 +798,8 @@ pub(crate) struct TestSeams {
     pub(crate) adjust_btn_enabled: Option<bool>,
     pub(crate) brush_slider_rect: Option<egui::Rect>,
     pub(crate) analysis_box_rect: Option<egui::Rect>,
+    /// The last denoise strength a verb captured: (on_export, strength).
+    pub(crate) denoise_strength_asked: Option<(bool, f32)>,
     pub(crate) histogram_rect: Option<egui::Rect>,
     pub(crate) prompt_rects: Vec<egui::Rect>,
     pub(crate) ai_gate_enabled: Option<bool>,
