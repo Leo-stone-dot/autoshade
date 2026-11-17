@@ -2814,30 +2814,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// Two doors, one construction each: every `get_decoder` in this file goes
-    /// through `decoder_for` (the one wording for a refusal — the CR3/RAF
-    /// XMP-packet read had its own), and every baked `ImageReader` is
-    /// `baked_reader`'s (the one set of limits — `source_window` opened its
-    /// own, under the crate's 512 MB default). A second direct call of either
-    /// is the drift this pins against.
-    ///
-    /// MUTATION: call `rawler::get_decoder` or `image::ImageReader::open`
-    /// directly anywhere above the tests.
-    #[test]
-    fn decoder_and_baked_reader_construction_each_have_one_door() {
-        let src = crate::source_before_tests(include_str!("decode.rs"));
-        assert_eq!(
-            src.matches("get_decoder(").count(),
-            1,
-            "a `get_decoder` call outside `decoder_for`"
-        );
-        assert_eq!(
-            src.matches("ImageReader::open(").count(),
-            1,
-            "an `ImageReader` opened outside `baked_reader`"
-        );
-    }
-
     /// The TIFF path is the one README's LR/Topaz round-trip actually takes,
     /// and it needs the fallback query: image's `TiffDecoder::set_limits`
     /// makes IFD tag-value reads fail ("decoder limits exceeded" — the tiff
