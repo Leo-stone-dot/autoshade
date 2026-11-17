@@ -25,6 +25,8 @@ pub(crate) struct PanelView<'a, 'b> {
     pub(crate) gallery: Vec<logic::gallery::GalleryAction>,
     /// The settings form's intents this pass reported.
     pub(crate) settings: Vec<logic::settings::SettingsAction>,
+    /// The Lens Blur section's intents this pass reported.
+    pub(crate) lens: Vec<logic::lens_blur::LensAction>,
     #[cfg(test)]
     pub(crate) seams: &'a mut TestSeams,
 }
@@ -2168,13 +2170,13 @@ impl PanelView<'_, '_> {
         // every surface).
         let actions = self.lens_blur_section(ui);
         let touched = !actions.is_empty();
-        if touched {
-            self.act_all(actions);
+        for action in actions {
+            self.act_lens(action);
         }
         touched
     }
 
-    pub(crate) fn lens_blur_section(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
+    pub(crate) fn lens_blur_section(&mut self, ui: &mut egui::Ui) -> Vec<logic::lens_blur::LensAction> {
         let lang = self.lang;
         let active = logic::lens_blur::active(&self.editor.doc().recipe);
         let mut actions = Vec::new();
@@ -2189,7 +2191,7 @@ impl PanelView<'_, '_> {
         actions
     }
 
-    pub(crate) fn lens_blur_body(&mut self, ui: &mut egui::Ui) -> Vec<logic::Action> {
+    pub(crate) fn lens_blur_body(&mut self, ui: &mut egui::Ui) -> Vec<logic::lens_blur::LensAction> {
         let lang = self.lang;
         let mut actions = Vec::new();
         let has_helper = depth_helper_available();
@@ -2202,7 +2204,7 @@ impl PanelView<'_, '_> {
             tr(lang, K_LENS_THIS_FEATURE_NEEDS_AUTOSHADE_S_PYTHON_HELPER_WHI).to_string()
         };
         if action_row(ui, can_run, verb).on_hover_text(tip).clicked() {
-            actions.push(logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth));
+            actions.push(logic::lens_blur::LensAction::EstimateDepth);
         }
         // The card's current values, copied out so the draw below never holds a
         // borrow into the recipe the facade is about to change.
@@ -2215,15 +2217,15 @@ impl PanelView<'_, '_> {
         ui.horizontal(|ui| {
             let mute = tr(lang, K_LENS_SHOW_MUTE_THE_LENS_BLUR_WITHOUT_LOSING_ITS_SETTI);
             if glyph_toggle(ui, enabled, "👁").on_hover_text(mute).clicked() {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::ToggleLensBlur(!enabled)));
+                actions.push(logic::lens_blur::LensAction::ToggleLensBlur(!enabled));
             }
             let cell = egui::vec2(ui.available_width() - row_h(ui) - ui.spacing().item_spacing.x, row_h(ui));
             let how = tr(lang, K_LENS_CLICK_THE_PHOTO_WHATEVER_IS_AT_THAT_DISTANCE_STA);
             if toggle_in(ui, cell, picking, tr(lang, K_LENS_PICK_FOCUS)).on_hover_text(how).clicked() {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusPicking(!picking)));
+                actions.push(logic::lens_blur::LensAction::SetFocusPicking(!picking));
             }
             if glyph(ui, true, "🗑").on_hover_text(tr(lang, K_LENS_REMOVE_THE_LENS_BLUR)).clicked() {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::RemoveLensBlur));
+                actions.push(logic::lens_blur::LensAction::RemoveLensBlur);
             }
         });
         // The two dials of `render::LensBlur`; the copy is what the view may
@@ -2231,11 +2233,11 @@ impl PanelView<'_, '_> {
         ui.add_enabled_ui(enabled, |ui| {
             let mut next = amount;
             if slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut next, 0.0, 100.0, 50.0) {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetBlurAmount(next)));
+                actions.push(logic::lens_blur::LensAction::SetBlurAmount(next));
             }
             let mut next = range;
             if slider(ui, lang, tr(lang, K_LENS_FOCUS_RANGE), &mut next, 0.0, 100.0, 10.0) {
-                actions.push(logic::Action::Lens(logic::lens_blur::LensAction::SetFocusRange(next)));
+                actions.push(logic::lens_blur::LensAction::SetFocusRange(next));
             }
         });
         let carried = tr(lang, K_LENS_RENDERED_HERE_AND_IN_EVERY_EXPORT_FROM_THIS_APP);
@@ -3036,6 +3038,11 @@ impl PanelView<'_, '_> {
     /// Report one settings verb; the host applies it after the pass.
     pub(crate) fn act_settings(&mut self, action: logic::settings::SettingsAction) {
         self.settings.push(action);
+    }
+
+    /// Report one Lens Blur verb; the host applies it after the pass.
+    pub(crate) fn act_lens(&mut self, action: logic::lens_blur::LensAction) {
+        self.lens.push(action);
     }
 
     /// Toggle the clipping overlay (the J overlay and the histogram's corner

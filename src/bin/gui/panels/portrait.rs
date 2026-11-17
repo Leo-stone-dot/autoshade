@@ -285,7 +285,8 @@ impl Commands<'_> {
                 .clicked()
             {
                 self.workspace.portrait_mut().blur_from_panel = true;
-                self.apply_actions(vec![logic::Action::Lens(logic::lens_blur::LensAction::EstimateDepth)]);
+                let effects = self.apply_lens(logic::lens_blur::LensAction::EstimateDepth);
+                self.run_effects(effects);
             }
         } else if let Some(lb) = self.editor.doc_mut().recipe.lens_blur.as_mut() {
             changed |= slider(ui, lang, tr(lang, K_LENS_BLUR_AMOUNT), &mut lb.amount, 0.0, 100.0, 50.0);

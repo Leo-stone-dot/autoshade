@@ -913,9 +913,9 @@ impl Editor {
         ui: &egui::Ui,
         resp: &egui::Response,
         xf: ViewXform,
-    ) -> Option<logic::Action> {
+    ) -> Option<logic::lens_blur::LensAction> {
         let (nx, ny) = self.clicked_orig_norm(ui, resp, xf)?;
-        Some(logic::Action::Lens(logic::lens_blur::LensAction::FocusPicked([nx, ny])))
+        Some(logic::lens_blur::LensAction::FocusPicked([nx, ny]))
     }
 }
 

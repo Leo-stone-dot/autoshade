@@ -67,6 +67,7 @@ impl AutoShadeApp {
             actions,
             gallery: Vec::new(),
             settings: Vec::new(),
+            lens: Vec::new(),
             #[cfg(test)]
             seams: &mut self.seams,
         }
@@ -79,12 +80,17 @@ impl AutoShadeApp {
         draw(&mut view);
         let gallery = std::mem::take(&mut view.gallery);
         let settings = std::mem::take(&mut view.settings);
+        let lens = std::mem::take(&mut view.lens);
         drop(view);
         for action in gallery {
             self.commands().apply_gallery(action);
         }
         for action in settings {
             self.commands().apply_settings(action);
+        }
+        for action in lens {
+            let effects = self.commands().apply_lens(action);
+            self.commands().run_effects(effects);
         }
         self.commands().apply_actions(actions);
     }

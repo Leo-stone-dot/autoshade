@@ -29,15 +29,6 @@ impl Commands<'_> {
                     );
                     self.run_effects(started);
                 }
-                Action::Lens(action) => {
-                    let start = match action {
-                        logic::lens_blur::LensAction::EstimateDepth => {
-                            self.editor.photo().src_path.clone().zip(self.editor.original_frame_base()).map(|(photo, base)| (photo, base))
-                        }
-                        _ => None,
-                    };
-                    effects.extend(logic::lens_blur::apply(&mut self.editor.doc_mut().recipe, action, start, self.workspace.busy()));
-                }
                 Action::Pick(action) => {
                     effects.extend(logic::pick::apply(&mut self.editor.doc_mut().recipe, action));
                 }
@@ -145,6 +136,20 @@ impl Commands<'_> {
             }
         }
         self.run_effects(effects);
+    }
+
+    /// The Lens Blur section's verbs.
+    pub(crate) fn apply_lens(&mut self, action: logic::lens_blur::LensAction) -> Vec<logic::Effect> {
+        let start = match action {
+            logic::lens_blur::LensAction::EstimateDepth => self
+                .editor
+                .photo()
+                .src_path
+                .clone()
+                .zip(self.editor.original_frame_base()),
+            _ => None,
+        };
+        logic::lens_blur::apply(&mut self.editor.doc_mut().recipe, action, start, self.workspace.busy())
     }
 
     /// The settings panel's folder and form verbs.

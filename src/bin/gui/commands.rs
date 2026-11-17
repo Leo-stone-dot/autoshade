@@ -42,6 +42,7 @@ impl Commands<'_> {
             actions: &mut actions,
             gallery: Vec::new(),
             settings: Vec::new(),
+            lens: Vec::new(),
             #[cfg(test)]
             seams: &mut *self.seams,
         });
