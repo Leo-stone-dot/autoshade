@@ -633,7 +633,8 @@ impl Commands<'_> {
             let Some(px) = sample_5x5_mean(base, nx, ny) else { return };
             px
         };
-        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::WhiteBalance(px))]);
+        let effects = self.apply_pick(logic::pick::PickAction::WhiteBalance(px));
+                self.run_effects(effects);
     }
 
     /// Colour-range sample: click keys the pending mask's Color range to that
@@ -684,12 +685,13 @@ impl Commands<'_> {
             let Some(smp) = sample_5x5_mean(reference, bx, by) else { return };
             smp
         };
-        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::RangeColor {
+        let effects = self.apply_pick(logic::pick::PickAction::RangeColor {
             mask: mi,
             rgb: smp,
             px: nx,
             py: ny,
-        })]);
+        });
+                self.run_effects(effects);
     }
 
     /// Point Color eyedropper (v1.5.0): click a colour and a swatch keyed to
@@ -723,7 +725,8 @@ impl Commands<'_> {
             let Some(px) = sample_5x5_mean(&img, bx, by) else { return };
             px
         };
-        self.apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
+        let effects = self.apply_pick(logic::pick::PickAction::PointColor(px));
+                self.run_effects(effects);
     }
 
 
@@ -793,7 +796,7 @@ impl Commands<'_> {
             let cur = orig_at(p);
             // The knob's geometry is the logic layer's (`logic/mask_edit`).
             if let Some(mask) = self.workspace.masks().sel_mask {
-                self.apply_actions(vec![logic::Action::MaskEdit(
+                let effects = self.apply_mask_edit(
                     logic::mask_edit::MaskEditAction::Drag {
                         mask,
                         component: self.workspace.masks().sel_component,
@@ -801,7 +804,8 @@ impl Commands<'_> {
                         last,
                         cur,
                     },
-                )]);
+                );
+                self.run_effects(effects);
             }
             self.workspace.masks_mut().mask_drag = Some((h, cur));
             // Masks are develop stages: the preview follows every drag frame.
@@ -856,7 +860,8 @@ impl Commands<'_> {
                     map(egui::pos2(s.x, e.y)),
                     map(egui::pos2(e.x, s.y)),
                 ];
-                self.apply_actions(vec![logic::Action::Region(logic::region::RegionAction::Select(corners))]);
+                let effects = self.apply_region(logic::region::RegionAction::Select(corners));
+                self.run_effects(effects);
             }
         } else if resp.clicked() && !resp.double_clicked() {
             // Remember what this click cleared: if it turns out to be the
@@ -903,11 +908,12 @@ impl Commands<'_> {
             // The box is the logic layer's geometry (`logic::crop`); this view
             // keeps the pick, the handles and the overlay.
             let current = self.editor.doc().recipe.crop.map(|c| [c.left, c.top, c.right, c.bottom]);
-            self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Preset {
+            let effects = self.apply_crop(logic::crop::CropAction::Preset {
                 current,
                 aspect_px: aspect,
                 tex: (tex_size.x, tex_size.y),
-            })]);
+            });
+            self.run_effects(effects);
         }
         let cur = self.editor.doc().recipe
             .crop
@@ -992,19 +998,21 @@ impl Commands<'_> {
                 let centre = egui::pos2((a.x + b.x) / 2.0, (a.y + b.y) / 2.0);
                 let ang = |q: egui::Pos2| (q.y - centre.y).atan2(q.x - centre.x);
                 let raw_delta_deg = (ang(p) - ang(start)).to_degrees();
-                self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Rotate {
+                let effects = self.apply_crop(logic::crop::CropAction::Rotate {
                     base_deg: deg0,
                     raw_delta_deg,
-                })]);
+                });
+            self.run_effects(effects);
             } else {
                 let (sn, pn) = (xf.to_norm(start), xf.to_norm(p));
-                self.apply_actions(vec![logic::Action::Crop(logic::crop::CropAction::Drag {
+                let effects = self.apply_crop(logic::crop::CropAction::Drag {
                     handle: h,
                     start: orig,
                     delta: (pn.0 - sn.0, pn.1 - sn.1),
                     aspect_px: aspect,
                     tex: (tex_size.x, tex_size.y),
-                })]);
+                });
+            self.run_effects(effects);
             }
         }
         if resp.drag_stopped() {

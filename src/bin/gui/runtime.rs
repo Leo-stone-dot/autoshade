@@ -29,16 +29,6 @@ impl Commands<'_> {
                     );
                     self.run_effects(started);
                 }
-                Action::Pick(action) => {
-                    effects.extend(logic::pick::apply(&mut self.editor.doc_mut().recipe, action));
-                }
-                Action::Crop(action) => {
-                    effects.extend(logic::crop::apply(&mut self.editor.doc_mut().recipe, action));
-                }
-                Action::MaskEdit(action) => {
-                    effects.extend(logic::mask_edit::apply(&mut self.editor.doc_mut().recipe, action));
-                }
-                Action::Region(action) => effects.extend(logic::region::apply(action)),
                 Action::Develop(action) => match action {
                     logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),
                     logic::develop::DevelopAction::Stack(extra) => self.start_stack(extra),
@@ -60,6 +50,26 @@ impl Commands<'_> {
             }
         }
         self.run_effects(effects);
+    }
+
+    /// An on-canvas eyedropper sample.
+    pub(crate) fn apply_pick(&mut self, action: logic::pick::PickAction) -> Vec<logic::Effect> {
+        logic::pick::apply(&mut self.editor.doc_mut().recipe, action)
+    }
+
+    /// A crop gesture.
+    pub(crate) fn apply_crop(&mut self, action: logic::crop::CropAction) -> Vec<logic::Effect> {
+        logic::crop::apply(&mut self.editor.doc_mut().recipe, action)
+    }
+
+    /// A knob drag on the selected mask's geometry.
+    pub(crate) fn apply_mask_edit(&mut self, action: logic::mask_edit::MaskEditAction) -> Vec<logic::Effect> {
+        logic::mask_edit::apply(&mut self.editor.doc_mut().recipe, action)
+    }
+
+    /// A box-selected AI region.
+    pub(crate) fn apply_region(&mut self, action: logic::region::RegionAction) -> Vec<logic::Effect> {
+        logic::region::apply(action)
     }
 
     /// The AI panel's folder and generative verbs.

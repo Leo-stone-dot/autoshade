@@ -235,7 +235,8 @@
         use autoshade::recipe::MAX_POINT_COLORS;
         let mut app = AutoShadeApp::default();
         let pick = |app: &mut AutoShadeApp, px: [f32; 3]| {
-            app.commands().apply_actions(vec![logic::Action::Pick(logic::pick::PickAction::PointColor(px))]);
+            let effects = app.commands().apply_pick(logic::pick::PickAction::PointColor(px));
+            app.commands().run_effects(effects);
         };
         assert!(!app.workspace.tool_armed(), "premise: a fresh app has no tool armed");
         app.workspace.tools_mut().point_color_picking = true;

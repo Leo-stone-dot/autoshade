@@ -64,14 +64,6 @@ pub(crate) enum Action {
     /// Read this folder as the reference library, then look at the photo that
     /// was open when it was picked.
     References(PathBuf),
-    /// An on-canvas eyedropper sample.
-    Pick(pick::PickAction),
-    /// A crop gesture (preset pick, handle drag, rotate-straighten).
-    Crop(crop::CropAction),
-    /// A knob drag on the selected mask's geometry.
-    MaskEdit(mask_edit::MaskEditAction),
-    /// A box-selected AI region.
-    Region(region::RegionAction),
     /// The develop panel's list verbs.
     Develop(develop::DevelopAction),
 }
