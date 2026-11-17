@@ -1355,7 +1355,7 @@ impl AutoShadeApp {
             self.fork_edited_card();
             // Wholesale recipe replacement: disarm index-carrying tools and
             // refresh derived display, like every other whole-swap path.
-            self.resync_recipe_display();
+            self.editor.resync_recipe_display(&mut self.workspace);
             self.workspace.open_mut().pasted_open = Some((open, live));
         }
         let lang = self.lang; // pre-spawn UI statuses only; results land as FACTS (L12#4)

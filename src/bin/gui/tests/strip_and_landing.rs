@@ -478,13 +478,13 @@
         app.workspace.open_mut().open_in_flight = true;
         app.workspace.open_mut().open_same_path = true;
         app.workspace.cards_mut().keep_recipe = false;
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.doc().recipe.version, 1, "fresh-reopen flight: the install is NOT repaired");
         assert_eq!(app.editor.doc().recipe.base_curve, washy, "…and the washed curve is untouched");
         // Same-path keep-flight: request AND fact — admitted, and the memo's
         // primed answer is adopted with its era stamp.
         app.workspace.cards_mut().keep_recipe = true;
-        app.redo(&ctx);
+        app.editor.redo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(
             app.editor.doc().recipe.version,
             autoshade::recipe::CALIB_ERA,
@@ -503,7 +503,7 @@
         // `&& self.workspace.open().open_same_path` from the apply_step gate repairs it and
         // fails these asserts.
         app.workspace.open_mut().open_same_path = false;
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.doc().recipe.version, 1, "cross-photo flight: the install is NOT repaired");
         assert_eq!(app.editor.doc().recipe.base_curve, washy, "…and the washed curve is untouched");
     }

@@ -80,7 +80,7 @@ pub(crate) fn on_analyzed(
                     // Wholesale replacement: disarm index-carrying tools +
                     // refresh rationale, THEN install the fresh verdict
                     // and the typed notes (resync cleared both).
-                    self.resync_recipe_display();
+                    self.editor.resync_recipe_display(&mut self.workspace);
                     self.editor.analysis_mut().rationale_notes = rationale_notes;
                     self.editor.analysis_mut().verdict =
                         Some((verdict.decision.clone(), verdict.reasons.clone()));

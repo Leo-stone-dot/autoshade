@@ -188,7 +188,7 @@
         );
         assert_eq!(app.editor.doc().variants[0].origin, None, "…and its pixel source");
         assert!(app.workspace.status().contains("layer"), "{}", app.workspace.status());
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert!(app.editor.doc().recipe.pixel_layers.is_empty(), "one Ctrl+Z takes the layer off");
         assert_eq!(app.editor.doc().recipe.contrast, 7.0, "…and only the layer");
 

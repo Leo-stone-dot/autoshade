@@ -358,7 +358,7 @@
         assert_eq!(kept.exposure_ev, app.editor.doc().recipe.exposure_ev);
         // Undoable, like every analysis landing.
         app.editor.commit_now(&app.workspace);
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0, "Ctrl+Z goes back");
     }
 
@@ -922,11 +922,11 @@
         app.poll_workers(&ctx);
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "the ◈ card is on the canvas");
         let denoised = app.editor.doc().variants[app.editor.doc().active].base.clone().unwrap();
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0, "Ctrl+Z goes back to the look before");
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].kind, VariantKind::Denoised, "on the card on screen");
         assert!(std::sync::Arc::ptr_eq(app.editor.doc().variants[app.editor.doc().active].base.as_ref().unwrap(), &denoised), "its pixels kept");
-        app.redo(&ctx);
+        app.editor.redo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.5, "and forward again");
         // Another look, then the switch off: back on the plain card, the
         // history still there.
@@ -934,10 +934,10 @@
         app.editor.commit_now(&app.workspace);
         app.set_normal_denoise(false);
         assert_eq!(app.editor.doc().variants[app.editor.doc().active].id, ORIGINAL_VARIANT_ID);
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!((app.editor.doc().recipe.exposure_ev, app.editor.doc().recipe.contrast), (0.5, 0.0), "Ctrl+Z after the switch went off");
         assert!(std::sync::Arc::ptr_eq(app.editor.doc().variants[app.editor.doc().active].base.as_ref().unwrap(), &b0), "the plain card's pixels kept");
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.doc().recipe.exposure_ev, 0.0, "all the way back");
     }
 

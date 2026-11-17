@@ -490,7 +490,7 @@ rationale: "stale rationale".into(),
         assert_eq!(app.editor.doc().recipe.contrast, 44.0, "the canvas shows what was applied");
 
         // ONE Ctrl+Z, and the negative's own develop is back.
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.doc().recipe.contrast, 11.0, "one undo step, not zero and not two");
 
         // A PIXEL-STATE source is refused with the reverse-fit remedy — its

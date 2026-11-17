@@ -613,7 +613,7 @@
             (s.saturation, s.sharpness, s.texture)
         };
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0), "turned on: held");
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "undone as it was");
         assert!(!app.editor.keep_skin_on(&app.workspace), "the switch follows the edit put back");
@@ -641,15 +641,15 @@
             let s = autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap();
             (s.saturation, s.sharpness, s.texture)
         };
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         assert!(!app.editor.keep_skin_on(&app.workspace), "undone: off");
-        app.redo(&ctx);
+        app.editor.redo(&mut app.workspace, app.lang, &ctx);
         let _ = ctx.run(egui::RawInput::default(), |ctx| app.run_frame(ctx));
         assert_eq!(read(&mut app), (15.0, 0.0, -60.0), "redone: held");
         assert!(app.editor.keep_skin_on(&app.workspace), "redone: the switch is on again");
         assert_eq!((app.editor.session().hist.undo_stack.len(), app.editor.session().hist.redo_stack.len()), (2, 0), "the frame recorded nothing");
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(read(&mut app), (60.0, 40.0, -90.0), "Ctrl+Z still walks back");
         assert!(!app.editor.keep_skin_on(&app.workspace));
     }
@@ -674,17 +674,17 @@
         };
         edit(&mut app, 5.0);
         app.editor.commit_now(&app.workspace);
-        app.undo(&ctx);
-        app.redo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
+        app.editor.redo(&mut app.workspace, app.lang, &ctx);
         assert!(app.editor.keep_skin_on(&app.workspace), "a value edit made while held comes back held");
         app.set_keep_skin(false);
         app.editor.commit_now(&app.workspace);
         assert_eq!(app.editor.session().hist.undo_stack.len(), 1, "the flip records no step");
         edit(&mut app, 10.0);
         app.editor.commit_now(&app.workspace);
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert!(!app.editor.keep_skin_on(&app.workspace), "undo of a later edit keeps the switch off");
-        app.redo(&ctx);
+        app.editor.redo(&mut app.workspace, app.lang, &ctx);
         assert!(!app.editor.keep_skin_on(&app.workspace), "and so does redo");
     }
 
@@ -704,12 +704,12 @@
         app.editor.commit_now(&app.workspace);
         app.set_keep_skin(true);
         app.editor.commit_now(&app.workspace);
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         autoshade::face::skin_target(&mut app.editor.doc_mut().recipe).unwrap().saturation = 70.0;
         app.editor.commit_now(&app.workspace);
         assert!(app.editor.session().hist.redo_stack.is_empty(), "the new edit drops the redo branch");
         assert!(!app.editor.keep_skin_on(&app.workspace), "the switch stays off");
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert!(!app.editor.keep_skin_on(&app.workspace), "undoing the new edit puts back an edit past the limits: off");
     }
 

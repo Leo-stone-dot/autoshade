@@ -27,7 +27,7 @@
         app.editor.photo_mut().src_path = Some(src);
 
         assert!(app.editor.can_rotate(&app.workspace), "a parametric photo with a plate is rotatable");
-        app.rotate_photo(1, &ctx);
+        app.editor.rotate_photo(&mut app.workspace, app.lang, 1, &ctx);
         assert_eq!(app.editor.doc().recipe.quarter_turns, 1);
         assert_eq!(app.editor.photo().base_turns, 1);
         assert_eq!(
@@ -38,22 +38,22 @@
         assert_eq!(app.editor.photo().source_preview.as_ref().unwrap().dimensions(), (6, 8));
 
         // A second turn moves by the DELTA, not by the running total.
-        app.rotate_photo(1, &ctx);
+        app.editor.rotate_photo(&mut app.workspace, app.lang, 1, &ctx);
         assert_eq!(app.editor.doc().recipe.quarter_turns, 2);
         assert_eq!(app.editor.photo().base_preview.as_ref().unwrap().dimensions(), (8, 6));
 
         // An UNDO changes only the recipe; the per-frame reconciler is what
         // brings the plate back — one mover for both directions.
-        app.undo(&ctx);
+        app.editor.undo(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.doc().recipe.quarter_turns, 1, "one Ctrl+Z per turn (7.7)");
-        app.sync_base_turns(&ctx);
+        app.editor.sync_base_turns(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.photo().base_preview.as_ref().unwrap().dimensions(), (6, 8));
         assert_eq!(app.editor.photo().base_turns, 1);
 
         // Idempotent: the common per-frame call is a u8 compare that moves
         // nothing (a reconciler that turned on every frame would spin the
         // canvas).
-        app.sync_base_turns(&ctx);
+        app.editor.sync_base_turns(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.photo().base_preview.as_ref().unwrap().dimensions(), (6, 8));
 
         // BAKED PIXELS close the door, whole strip (a limitation by design):
@@ -62,7 +62,7 @@
         app.editor.doc_mut().variants[0].origin = Some("master.png".into());
         assert!(!app.editor.can_rotate(&app.workspace), "a baked master must block the turn, not be turned under");
         let before = app.editor.doc().recipe.quarter_turns;
-        app.rotate_photo(1, &ctx);
+        app.editor.rotate_photo(&mut app.workspace, app.lang, 1, &ctx);
         assert_eq!(app.editor.doc().recipe.quarter_turns, before, "a refused turn changes nothing");
     }
 
@@ -846,7 +846,7 @@
         app.editor.photo_mut().base_turns = 0;
         app.workspace.masks_mut().mask_paint = Some(image::RgbaImage::new(8, 6));
         app.editor.doc_mut().recipe.quarter_turns = 1;
-        app.sync_base_turns(&ctx);
+        app.editor.sync_base_turns(&mut app.workspace, app.lang, &ctx);
         assert_eq!(app.editor.photo().base_preview.as_ref().unwrap().dimensions(), (6, 8));
         assert_eq!(
             app.workspace.masks().mask_paint.as_ref().unwrap().dimensions(),

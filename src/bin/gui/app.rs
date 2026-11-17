@@ -277,8 +277,8 @@ impl AutoShadeApp {
                     self.workspace.toast(ToastKind::Error, t);
                 }
             } else {
-                if armed_undo { self.undo(ctx); }
-                if armed_redo { self.redo(ctx); }
+                if armed_undo { self.editor.undo(&mut self.workspace, self.lang, ctx); }
+                if armed_redo { self.editor.redo(&mut self.workspace, self.lang, ctx); }
             }
             // R mirrors the crop button exactly (incl. the one-tool-at-a-time
             // disarms); no photo → nothing to crop.
@@ -627,7 +627,7 @@ impl AutoShadeApp {
                         self.editor.session_mut().dirty = true;
                         // The old AI rationale/verdict describe the recipe Reset
                         // just discarded — showing them under neutral sliders lies.
-                        self.resync_recipe_display();
+                        self.editor.resync_recipe_display(&mut self.workspace);
                     }
                 });
                 group(ui, &[tr(lang, K_APP_UNDO), tr(lang, K_APP_REDO)], 0, |ui| {
@@ -636,14 +636,14 @@ impl AutoShadeApp {
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
-                        self.undo(&ctx);
+                        self.editor.undo(&mut self.workspace, self.lang, &ctx);
                     }
                     if action(ui, ready && !self.editor.session().hist.redo_stack.is_empty(), tr(lang, K_APP_REDO))
                         .on_hover_text(tr(lang, K_APP_CTRL_Y_REDO_THE_UNDONE_EDIT))
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
-                        self.redo(&ctx);
+                        self.editor.redo(&mut self.workspace, self.lang, &ctx);
                     }
                 });
                 group(ui, &[tr(lang, K_APP_TURN_LEFT), tr(lang, K_APP_TURN_RIGHT)], 0, |ui| {
@@ -672,7 +672,7 @@ impl AutoShadeApp {
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
-                        self.rotate_photo(3, &ctx); // anticlockwise = three clockwise
+                        self.editor.rotate_photo(&mut self.workspace, self.lang, 3, &ctx); // anticlockwise = three clockwise
                     }
                     let right_hover = if can_rotate {
                         tr(lang, K_APP_A_QUARTER_TURN_CLOCKWISE_THE_CROP_AND_EVERY_MASK)
@@ -684,7 +684,7 @@ impl AutoShadeApp {
                         .clicked()
                     {
                         let ctx = ui.ctx().clone();
-                        self.rotate_photo(1, &ctx);
+                        self.editor.rotate_photo(&mut self.workspace, self.lang, 1, &ctx);
                     }
                 });
                 group(ui, &[tr(lang, K_APP_COMPARE), tr(lang, K_APP_SINGLE)], 0, |ui| {
@@ -1289,7 +1289,7 @@ impl AutoShadeApp {
         // arrived: the toolbar, an undo, a variant switch, a version load —
         // lands in the same frame it was asked for. Returns on a `u8` compare
         // when nothing turned, which is every frame but the one.
-        self.sync_base_turns(ctx);
+        self.editor.sync_base_turns(&mut self.workspace, self.lang, ctx);
         // Reset re-stamping a legacy photo, a paste, or a restore would
         // otherwise leave the compare against a stale starting point. One
         // cheap LUT-only develop, and only when the curve actually changed.

@@ -128,7 +128,7 @@ impl AutoShadeApp {
         // A recipe placed on the pristine ✨ card is an edit like any other:
         // it lands on a new ✎ card (the immutability rule).
         self.fork_edited_card();
-        self.resync_recipe_display();
+        self.editor.resync_recipe_display(&mut self.workspace);
         let text = trf(self.lang, K_ACTIONS_APPLIED_RECIPE_CTRL_Z_RETURNS_TO_BEFORE, &[("name", name)]);
         self.workspace.recipe_status(true, text);
     }

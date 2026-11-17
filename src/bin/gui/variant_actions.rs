@@ -534,7 +534,7 @@ pub(crate) fn apply_to_original(&mut self, idx: usize, ctx: &egui::Context) {
         o.thumb = None;
     }
     self.editor.doc_mut().recipe = recipe;
-    self.resync_recipe_display();
+    self.editor.resync_recipe_display(&mut self.workspace);
     self.editor.session_mut().dirty = true;
     self.editor.commit_now(&self.workspace);
     *self.workspace.status_mut() = trf(
