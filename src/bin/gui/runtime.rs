@@ -142,7 +142,14 @@ impl Commands<'_> {
                         }
                     }
                 },
-                Action::Settings(action) => match action {
+            }
+        }
+        self.run_effects(effects);
+    }
+
+    /// The settings panel's folder and form verbs.
+    pub(crate) fn apply_settings(&mut self, action: logic::settings::SettingsAction) {
+        match action {
                     logic::settings::SettingsAction::ImportLegacyFolder => {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
                             self.start_import_legacy(dir);
@@ -162,10 +169,7 @@ impl Commands<'_> {
                         self.fetch_models(role);
                     }
                     logic::settings::SettingsAction::InstallPython => self.start_python_env_install(),
-                },
-            }
         }
-        self.run_effects(effects);
     }
 
     /// Execute the effects the logic asked for: worker spawns, lines, flags.

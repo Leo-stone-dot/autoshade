@@ -41,6 +41,7 @@ impl Commands<'_> {
             aip: &mut *self.aip,
             actions: &mut actions,
             gallery: Vec::new(),
+            settings: Vec::new(),
             #[cfg(test)]
             seams: &mut *self.seams,
         });

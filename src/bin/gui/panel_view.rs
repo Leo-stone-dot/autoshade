@@ -23,6 +23,8 @@ pub(crate) struct PanelView<'a, 'b> {
     pub(crate) actions: &'b mut Vec<logic::Action>,
     /// The gallery's intents this pass reported.
     pub(crate) gallery: Vec<logic::gallery::GalleryAction>,
+    /// The settings form's intents this pass reported.
+    pub(crate) settings: Vec<logic::settings::SettingsAction>,
     #[cfg(test)]
     pub(crate) seams: &'a mut TestSeams,
 }
@@ -3029,6 +3031,11 @@ impl PanelView<'_, '_> {
     /// Report one gallery verb; the host applies it after the pass.
     pub(crate) fn act_gallery(&mut self, action: logic::gallery::GalleryAction) {
         self.gallery.push(action);
+    }
+
+    /// Report one settings verb; the host applies it after the pass.
+    pub(crate) fn act_settings(&mut self, action: logic::settings::SettingsAction) {
+        self.settings.push(action);
     }
 
     /// Toggle the clipping overlay (the J overlay and the histogram's corner
