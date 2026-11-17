@@ -57,20 +57,6 @@ impl Commands<'_> {
                         }
                     }
                 },
-                Action::Recipe(action) => match action {
-                    logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
-                    logic::recipes::RecipeAction::Refresh => self.workspace.refresh_recipes(),
-                    logic::recipes::RecipeAction::SaveCurrent => self.save_current_recipe(),
-                    logic::recipes::RecipeAction::ApplyToOpen(name) => self.apply_recipe_to_open(&name),
-                    logic::recipes::RecipeAction::ApplyToSelection(name) => {
-                        self.apply_recipe_to_selection(&name)
-                    }
-                    logic::recipes::RecipeAction::UpdateFromOpen(name) => {
-                        self.update_recipe_from_open(&name)
-                    }
-                    logic::recipes::RecipeAction::Rename { from, to } => self.rename_recipe(&from, &to),
-                    logic::recipes::RecipeAction::Delete(name) => self.delete_recipe(&name),
-                },
                 Action::Ai(action) => match action {
                     logic::ai::AiAction::PickRawFolder => {
                         if let Some(dir) = rfd::FileDialog::new().pick_folder() {
@@ -110,6 +96,20 @@ impl Commands<'_> {
             }
         }
         self.run_effects(effects);
+    }
+
+    /// The recipe-library window's verbs.
+    pub(crate) fn apply_recipe(&mut self, action: logic::recipes::RecipeAction) {
+        match action {
+            logic::recipes::RecipeAction::ImportFile => self.import_recipe(),
+            logic::recipes::RecipeAction::Refresh => self.workspace.refresh_recipes(),
+            logic::recipes::RecipeAction::SaveCurrent => self.save_current_recipe(),
+            logic::recipes::RecipeAction::ApplyToOpen(name) => self.apply_recipe_to_open(&name),
+            logic::recipes::RecipeAction::ApplyToSelection(name) => self.apply_recipe_to_selection(&name),
+            logic::recipes::RecipeAction::UpdateFromOpen(name) => self.update_recipe_from_open(&name),
+            logic::recipes::RecipeAction::Rename { from, to } => self.rename_recipe(&from, &to),
+            logic::recipes::RecipeAction::Delete(name) => self.delete_recipe(&name),
+        }
     }
 
     /// The Normal panel's Save group and reference folder.

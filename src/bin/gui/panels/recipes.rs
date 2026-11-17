@@ -8,7 +8,7 @@ impl Commands<'_> {
     /// Open the window (the Library panel's 「Recipe library…」 button).
     pub(crate) fn open_recipe_library(&mut self) {
         self.workspace.rlib_mut().show_recipes = true;
-        self.apply_actions(vec![logic::Action::Recipe(logic::recipes::RecipeAction::Refresh)]);
+        self.apply_recipe(logic::recipes::RecipeAction::Refresh);
     }
 
     /// One `recipe_library` window frame.
@@ -48,9 +48,7 @@ impl Commands<'_> {
                     .on_hover_text(tr(lang, K_RECIPES_ADD_A_RECIPE_JSON_OR_A_LIGHTROOM_CAMERA_RAW_XMP))
                     .clicked()
                 {
-                    self.apply_actions(vec![logic::Action::Recipe(
-                        logic::recipes::RecipeAction::ImportFile,
-                    )]);
+                    self.apply_recipe(logic::recipes::RecipeAction::ImportFile,);
                 }
             });
         });
@@ -74,9 +72,7 @@ impl Commands<'_> {
                 .on_disabled_hover_text(tr(lang, K_RECIPES_OPEN_A_PHOTO_FIRST_THIS_SAVES_THE_OPEN_PHOTO_S_L))
                 .clicked();
             if ready && (clicked || entered) {
-                self.apply_actions(vec![logic::Action::Recipe(
-                    logic::recipes::RecipeAction::SaveCurrent,
-                )]);
+                self.apply_recipe(logic::recipes::RecipeAction::SaveCurrent,);
             }
         });
         ui.separator();
@@ -198,10 +194,10 @@ impl Commands<'_> {
             }
         });
         if let Some((from, to)) = commit_rename {
-            self.apply_actions(vec![logic::Action::Recipe(logic::recipes::RecipeAction::Rename {
+            self.apply_recipe(logic::recipes::RecipeAction::Rename {
                 from: from.clone(),
                 to: to.clone(),
-            })]);
+            });
         }
         if let Some(name) = picked {
             self.workspace.rlib_mut().recipe_sel = Some(name);
@@ -238,9 +234,7 @@ impl Commands<'_> {
             .clicked()
                 && let Some(name) = &sel
             {
-                self.apply_actions(vec![logic::Action::Recipe(
-                    logic::recipes::RecipeAction::ApplyToSelection(name.to_owned()),
-                )]);
+                self.apply_recipe(logic::recipes::RecipeAction::ApplyToSelection(name.to_owned()),);
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if action(ui, true, tr(lang, K_RECIPES_SHOW_LIBRARY_FOLDER))
@@ -358,18 +352,14 @@ impl Commands<'_> {
                 .on_disabled_hover_text(needs_photo())
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Recipe(
-                    logic::recipes::RecipeAction::ApplyToOpen(name.to_owned()),
-                )]);
+                self.apply_recipe(logic::recipes::RecipeAction::ApplyToOpen(name.to_owned()),);
             }
             if action(ui, ok && has_photo && !busy, tr(lang, K_RECIPES_WRITE_BACK_TO_THIS_RECIPE))
                 .on_hover_text(tr(lang, K_RECIPES_SAVES_WHAT_IS_ON_THE_CANVAS_INTO_THIS_ENTRY_KEEP))
                 .on_disabled_hover_text(needs_photo())
                 .clicked()
             {
-                self.apply_actions(vec![logic::Action::Recipe(
-                    logic::recipes::RecipeAction::UpdateFromOpen(name.to_owned()),
-                )]);
+                self.apply_recipe(logic::recipes::RecipeAction::UpdateFromOpen(name.to_owned()),);
             }
             if action(ui, ok && !busy, tr(lang, K_RECIPES_RENAME))
                 .on_hover_text(tr(lang, K_RECIPES_RENAME_THIS_RECIPE_THE_FILE_MOVES_WITH_IT))
@@ -387,9 +377,7 @@ impl Commands<'_> {
                 .clicked()
             {
                 if armed {
-                    self.apply_actions(vec![logic::Action::Recipe(
-                        logic::recipes::RecipeAction::Delete(name.to_owned()),
-                    )]);
+                    self.apply_recipe(logic::recipes::RecipeAction::Delete(name.to_owned()),);
                 } else {
                     self.workspace.rlib_mut().recipe_delete_armed = Some(name.to_string());
                 }

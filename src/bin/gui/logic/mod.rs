@@ -74,8 +74,6 @@ pub(crate) enum Action {
     Region(region::RegionAction),
     /// The develop panel's list verbs.
     Develop(develop::DevelopAction),
-    /// The recipe-library window's verbs.
-    Recipe(recipes::RecipeAction),
     /// The AI panel's folder verbs.
     Ai(ai::AiAction),
 }
