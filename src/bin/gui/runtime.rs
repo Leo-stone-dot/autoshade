@@ -29,27 +29,31 @@ impl Commands<'_> {
                     );
                     self.run_effects(started);
                 }
-                Action::Develop(action) => match action {
-                    logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),
-                    logic::develop::DevelopAction::Stack(extra) => self.start_stack(extra),
-                    logic::develop::DevelopAction::MaskBrush(target) => self.start_mask_brush(target),
-                    logic::develop::DevelopAction::Segment { target, label } => {
-                        self.start_segment(target, label)
-                    }
-                    logic::develop::DevelopAction::MaskRefine(i) => self.start_mask_refine(i),
-                    logic::develop::DevelopAction::MoveMaskUp(i) => self.editor.move_mask(&mut self.workspace, i, true),
-                    logic::develop::DevelopAction::MoveMaskDown(i) => self.editor.move_mask(&mut self.workspace, i, false),
-                    logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
-                    logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
-                    logic::develop::DevelopAction::DeleteVersion(n) => {
-                        if let Some(src) = self.editor.photo().src_path.clone() {
-                            self.delete_version_clicked(self.lang, src, n);
-                        }
-                    }
-                },
             }
         }
         self.run_effects(effects);
+    }
+
+    /// The Develop panel's list and mask verbs.
+    pub(crate) fn apply_develop(&mut self, action: logic::develop::DevelopAction) {
+    match action {
+                logic::develop::DevelopAction::AiDenoise => self.start_ai_denoise(),
+                logic::develop::DevelopAction::Stack(extra) => self.start_stack(extra),
+                logic::develop::DevelopAction::MaskBrush(target) => self.start_mask_brush(target),
+                logic::develop::DevelopAction::Segment { target, label } => {
+                    self.start_segment(target, label)
+                }
+                logic::develop::DevelopAction::MaskRefine(i) => self.start_mask_refine(i),
+                logic::develop::DevelopAction::MoveMaskUp(i) => self.editor.move_mask(&mut self.workspace, i, true),
+                logic::develop::DevelopAction::MoveMaskDown(i) => self.editor.move_mask(&mut self.workspace, i, false),
+                logic::develop::DevelopAction::DuplicateMask(i) => self.duplicate_mask(self.lang, i),
+                logic::develop::DevelopAction::LoadVersion(n) => self.load_version(n),
+                logic::develop::DevelopAction::DeleteVersion(n) => {
+                    if let Some(src) = self.editor.photo().src_path.clone() {
+                        self.delete_version_clicked(self.lang, src, n);
+                    }
+                }
+            }
     }
 
     /// An on-canvas eyedropper sample.

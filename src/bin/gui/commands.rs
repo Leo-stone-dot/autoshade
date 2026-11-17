@@ -34,7 +34,7 @@ impl Commands<'_> {
     /// its own [`PanelView`] calls the helper directly.
     pub(crate) fn with_panel<R>(&mut self, f: impl FnOnce(&mut PanelView<'_, '_>) -> R) -> R {
         let mut actions = Vec::new();
-        let out = f(&mut PanelView {
+        let mut view = PanelView {
             editor: &mut *self.editor,
             workspace: &mut *self.workspace,
             lang: self.lang,
@@ -43,9 +43,16 @@ impl Commands<'_> {
             gallery: Vec::new(),
             settings: Vec::new(),
             lens: Vec::new(),
+            develop: Vec::new(),
             #[cfg(test)]
             seams: &mut *self.seams,
-        });
+        };
+        let out = f(&mut view);
+        let develop = std::mem::take(&mut view.develop);
+        drop(view);
+        for action in develop {
+            self.apply_develop(action);
+        }
         self.apply_actions(actions);
         out
     }

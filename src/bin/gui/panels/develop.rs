@@ -678,9 +678,7 @@ impl Commands<'_> {
                     self.workspace.cards_mut().version_name_buf = Some((p, n, cur.clone(), cur));
                 }
                 if let Some(n) = load {
-                    self.apply_actions(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::LoadVersion(n),
-                    )]);
+                    self.apply_develop(logic::develop::DevelopAction::LoadVersion(n));
                 }
                 if let Some(n) = delete
                     && let Some(src) = self.editor.photo().src_path.clone()
@@ -694,9 +692,7 @@ impl Commands<'_> {
                     {
                         self.workspace.cards_mut().version_name_buf = None;
                     }
-                    self.apply_actions(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::DeleteVersion(n),
-                    )]);
+                    self.apply_develop(logic::develop::DevelopAction::DeleteVersion(n));
                 }
                 if n_ver == 0 {
                     explainer(ui, lang, tr(lang, K_DEVELOP_LIKE_LR_VIRTUAL_COPIES_STORE_MULTIPLE_PARAMETER));

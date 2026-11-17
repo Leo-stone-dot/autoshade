@@ -27,6 +27,8 @@ pub(crate) struct PanelView<'a, 'b> {
     pub(crate) settings: Vec<logic::settings::SettingsAction>,
     /// The Lens Blur section's intents this pass reported.
     pub(crate) lens: Vec<logic::lens_blur::LensAction>,
+    /// The Develop sections' intents this pass reported.
+    pub(crate) develop: Vec<logic::develop::DevelopAction>,
     #[cfg(test)]
     pub(crate) seams: &'a mut TestSeams,
 }
@@ -382,9 +384,7 @@ impl PanelView<'_, '_> {
                 if brush_armed {
                     self.disarm_tools();
                 } else if self.editor.photo().base_preview.is_some() {
-                    self.act_all(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::MaskBrush(None),
-                    )]);
+                    self.act_develop(logic::develop::DevelopAction::MaskBrush(None),);
                 }
             }
         });
@@ -1158,17 +1158,13 @@ impl PanelView<'_, '_> {
                 .on_hover_text(tr(lang, K_DEVELOP_MOVE_UP_RENDERS_EARLIER))
                 .clicked()
             {
-                self.act_all(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::MoveMaskUp(i),
-                )]);
+                self.act_develop(logic::develop::DevelopAction::MoveMaskUp(i),);
             }
             if glyph(ui, i + 1 < self.editor.doc().recipe.masks.len(), "⬇")
                 .on_hover_text(tr(lang, K_DEVELOP_MOVE_DOWN_RENDERS_LATER))
                 .clicked()
             {
-                self.act_all(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::MoveMaskDown(i),
-                )]);
+                self.act_develop(logic::develop::DevelopAction::MoveMaskDown(i),);
             }
             // Duplicate: a second gradient with the same tuned ten
             // sliders; rasters are DETACHED copies (the version-load
@@ -1177,9 +1173,7 @@ impl PanelView<'_, '_> {
                 .on_hover_text(tr(lang, K_DEVELOP_DUPLICATE_THIS_MASK_BITMAP_RASTERS_ARE_COPIED_SO))
                 .clicked()
             {
-                self.act_all(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::DuplicateMask(i),
-                )]);
+                self.act_develop(logic::develop::DevelopAction::DuplicateMask(i),);
             }
         });
         // R38: the two switches on their own row, under the verbs.
@@ -1278,18 +1272,14 @@ impl PanelView<'_, '_> {
                     if edit_armed {
                         self.disarm_tools();
                     } else {
-                        self.act_all(vec![logic::Action::Develop(
-                        logic::develop::DevelopAction::MaskBrush(Some(i)),
-                    )]);
+                        self.act_develop(logic::develop::DevelopAction::MaskBrush(Some(i)),);
                     }
                 }
                 if action_in(ui, cell, !self.workspace.busy(), tr(lang, K_DEVELOP_FULL_RES_REFINE))
                     .on_hover_text(tr(lang, K_DEVELOP_RE_CUT_THIS_MASK_AGAINST_THE_FULL_RESOLUTION_SOU))
                     .clicked()
                 {
-                    self.act_all(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::MaskRefine(i),
-                )]);
+                    self.act_develop(logic::develop::DevelopAction::MaskRefine(i),);
                 }
             });
             ui.horizontal(|ui| {
@@ -1370,9 +1360,7 @@ impl PanelView<'_, '_> {
                 )) } else { missing.to_string() })
                 .clicked()
             {
-                self.act_all(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::Segment { target: "subject", label: "Subject" },
-                )]);
+                self.act_develop(logic::develop::DevelopAction::Segment { target: "subject", label: "Subject" },);
             }
             if action_in(ui, cell, can_seg, tr(lang, K_DEVELOP_SELECT_SKY))
                 .on_hover_text(if has_helper { ai_xref(lang, tr(lang,
@@ -1380,9 +1368,7 @@ impl PanelView<'_, '_> {
                 )) } else { missing.to_string() })
                 .clicked()
             {
-                self.act_all(vec![logic::Action::Develop(
-                    logic::develop::DevelopAction::Segment { target: "sky", label: "Sky" },
-                )]);
+                self.act_develop(logic::develop::DevelopAction::Segment { target: "sky", label: "Sky" },);
             }
         });
         // Empty state: an open section with zero rows looked like a bug;
@@ -1833,9 +1819,7 @@ impl PanelView<'_, '_> {
                         )) } else { missing.to_string() })
                         .clicked()
                     {
-                        self.act_all(vec![logic::Action::Develop(
-                            logic::develop::DevelopAction::AiDenoise,
-                        )]);
+                        self.act_develop(logic::develop::DevelopAction::AiDenoise,);
                     }
                     // No 「Full-res」 checkbox any more (2026-09-15): the
                     // result is a CARD, and a card baked from a ≤2048 px
@@ -2154,9 +2138,7 @@ impl PanelView<'_, '_> {
                         .clicked()
                         && let Some(extra) = photo_files_dialog()
                     {
-                        self.act_all(vec![logic::Action::Develop(
-                            logic::develop::DevelopAction::Stack(extra),
-                        )]);
+                        self.act_develop(logic::develop::DevelopAction::Stack(extra),);
                     }
                 });
             });
@@ -3043,6 +3025,11 @@ impl PanelView<'_, '_> {
     /// Report one Lens Blur verb; the host applies it after the pass.
     pub(crate) fn act_lens(&mut self, action: logic::lens_blur::LensAction) {
         self.lens.push(action);
+    }
+
+    /// Report one Develop verb; the host applies it after the pass.
+    pub(crate) fn act_develop(&mut self, action: logic::develop::DevelopAction) {
+        self.develop.push(action);
     }
 
     /// Toggle the clipping overlay (the J overlay and the histogram's corner

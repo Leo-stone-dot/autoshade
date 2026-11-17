@@ -64,8 +64,6 @@ pub(crate) enum Action {
     /// Read this folder as the reference library, then look at the photo that
     /// was open when it was picked.
     References(PathBuf),
-    /// The develop panel's list verbs.
-    Develop(develop::DevelopAction),
 }
 
 /// A short display list: the first three entries joined, with an ellipsis when
