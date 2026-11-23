@@ -348,6 +348,56 @@ case 分别在自身的 Dehaze、局部覆盖、HSL、Temperature、Sharpening �
 断言处失败；neutral case 按 premise 继续通过。结合 neutral 的 `+1 EV` mutation，
 七个新增不变量都有对应红灯。生产 `src/render/develop.rs` 已恢复、无最终 diff。
 
+### Tone ramp safety
+
+- Main cases：
+  - `src/render/tests/tone_and_colour.rs::region_tones_pin_endpoints_and_stay_monotonic`
+  - `src/render/tests/tone_and_colour.rs::no_slider_setting_collapses_a_tonal_band`
+  - `src/render/tests/tone_and_colour.rs::no_slider_collapses_an_interior_band_at_any_exposure`
+- 当前 case：`tests/render_behavior.rs::extreme_tone_controls_keep_a_monotonic_tonal_ramp`
+- 状态：`rewritten`（当前覆盖 tone region controls；不同 exposure 的额外抽样仍待审）
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| extreme tone controls 下 LUT 不下降 | 256-code 灰阶通过公开 preview 后逐像素不下降 | 改写为交付像素 |
+| 黑白端点与各 region 内部细分 | 至少保留 32 个交付灰阶 | 合并为“不能折叠 tonal ramp”的公开结果 |
+| 任意 exposure 下的内部 band 分离 | 暂无完整矩阵 | 不能由当前 case 勾销 |
+
+Mutation 证据：把 tone LUT 的单个中点清零没有稳定到达 8-bit 交付，不能计为保护；
+改为将整条 tone LUT 反向后，当前 case 在第一个倒序像素处失败。生产
+`src/render/tone.rs` 已恢复。
+
+### Shadow Color Grade
+
+- Main case：`src/render/tests/local_effects_and_hsl.rs::color_grade_tints_the_targeted_tonal_region`
+- 当前 case：`tests/render_behavior.rs::shadow_colour_grading_leaves_highlights_neutral`
+- 状态：`rewritten`
+- 映射：Shadow wheel 使暗灰 blue 通道占优；亮灰相对 neutral render 每通道偏移
+  不超过 2 codes。main 的 neutral grade no-op 已由全入口 bypass 对照和 neutral
+  render case共同覆盖。
+
+### Point Color
+
+- Main case：`src/render/tests/tone_and_colour.rs::a_point_color_moves_its_own_colour_and_nothing_else`
+- 当前 case：`tests/render_behavior.rs::point_colour_moves_its_sampled_colour_without_moving_a_distant_hue`
+- 状态：`rewritten`
+- 映射：使用公开 `point_color_at` 建 swatch；采样 Red 的 chroma spread 降到
+  32 codes 以下，远端 Blue 三通道相对 neutral render 均不超过 2 codes。
+
+### Local Point Curve
+
+- Main case：`src/render/tests/local_effects_and_hsl.rs::a_local_point_curve_darkens_only_inside_the_mask`
+- 当前 case：`tests/render_behavior.rs::a_local_point_curve_leaves_uncovered_pixels_unchanged`
+- 状态：`rewritten`
+- 映射：公开 recipe 的 covered edge 至少降低 10 codes；零覆盖半幅逐像素等于
+  neutral render。main 的 local Red/Green/Blue curve 三通道路由仍由全局 RGB curve
+  case 部分覆盖，局部 per-channel 路由尚未单独勾销。
+
+共同 mutation 证据：公开 preview 入口原样返回输入时，Color Grade、Point Color 和
+Local Point Curve 三个 case 各自在自己的可见像素断言处失败；恢复后通过。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：

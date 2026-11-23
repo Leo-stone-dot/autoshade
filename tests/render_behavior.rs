@@ -1,4 +1,6 @@
-use autoshade::recipe::{CurvePoint, EditRecipe, LocalAdjustment, MaskGeometry};
+use autoshade::recipe::{
+    ColorGrade, CurvePoint, EditRecipe, LocalAdjustment, MaskGeometry,
+};
 use image::{DynamicImage, Rgb, RgbImage};
 
 fn render(source: &RgbImage, recipe: &EditRecipe) -> RgbImage {
@@ -280,6 +282,169 @@ fn each_rgb_curve_controls_only_its_own_channel() {
             assert!(
                 pixel[channel] < 5,
                 "curve for channel {expected_channel} moved channel {channel}: {pixel:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn extreme_tone_controls_keep_a_monotonic_tonal_ramp() {
+    let source = RgbImage::from_fn(256, 1, |x, _| {
+        let value = x as u8;
+        Rgb([value, value, value])
+    });
+    let recipes = [
+        EditRecipe {
+            highlights: -100.0,
+            shadows: 100.0,
+            contrast: 100.0,
+            ..EditRecipe::default()
+        },
+        EditRecipe {
+            highlights: 100.0,
+            shadows: -100.0,
+            contrast: -100.0,
+            ..EditRecipe::default()
+        },
+        EditRecipe {
+            whites: -100.0,
+            blacks: 100.0,
+            ..EditRecipe::default()
+        },
+        EditRecipe {
+            whites: 100.0,
+            blacks: -100.0,
+            ..EditRecipe::default()
+        },
+    ];
+
+    for recipe in recipes {
+        let delivered = render(&source, &recipe);
+        let levels = delivered
+            .pixels()
+            .map(|pixel| pixel[0])
+            .collect::<std::collections::BTreeSet<_>>();
+        for x in 1..delivered.width() {
+            assert!(
+                delivered.get_pixel(x, 0)[0] >= delivered.get_pixel(x - 1, 0)[0],
+                "tone controls reversed the ramp at {x}: {:?}",
+                recipe
+            );
+        }
+        assert!(
+            levels.len() >= 32,
+            "tone controls collapsed the ramp to {} levels: {:?}",
+            levels.len(),
+            recipe
+        );
+    }
+}
+
+#[test]
+fn shadow_colour_grading_leaves_highlights_neutral() {
+    let source = RgbImage::from_raw(2, 1, vec![38, 38, 38, 230, 230, 230]).unwrap();
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            color_grade: ColorGrade {
+                shadow_hue: 240.0,
+                shadow_sat: 100.0,
+                blending: 100.0,
+                ..ColorGrade::default()
+            },
+            ..EditRecipe::default()
+        },
+    );
+    let shadow = delivered.get_pixel(0, 0);
+    let highlight = delivered.get_pixel(1, 0);
+
+    assert!(
+        shadow[2] > shadow[0] && shadow[2] > shadow[1],
+        "the shadow wheel did not tint the shadow blue: {shadow:?}"
+    );
+    for channel in 0..3 {
+        assert!(
+            highlight[channel].abs_diff(neutral.get_pixel(1, 0)[channel]) <= 2,
+            "the shadow wheel moved the highlight: {:?} -> {highlight:?}",
+            neutral.get_pixel(1, 0)
+        );
+    }
+}
+
+#[test]
+fn point_colour_moves_its_sampled_colour_without_moving_a_distant_hue() {
+    let source = RgbImage::from_raw(2, 1, vec![204, 26, 26, 26, 26, 204]).unwrap();
+    let neutral = render(&source, &EditRecipe::default());
+    let mut swatch =
+        autoshade::render::point_color_at([0.8, 0.1, 0.1]).expect("red has a point-colour swatch");
+    swatch.sat_scale = -1.0;
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            point_colors: vec![swatch],
+            ..EditRecipe::default()
+        },
+    );
+    let red = delivered.get_pixel(0, 0);
+    let red_spread = red[0].max(red[1]).max(red[2]) - red[0].min(red[1]).min(red[2]);
+
+    assert!(red_spread < 32, "the sampled red did not desaturate: {red:?}");
+    for channel in 0..3 {
+        assert!(
+            delivered.get_pixel(1, 0)[channel].abs_diff(neutral.get_pixel(1, 0)[channel]) <= 2,
+            "the red swatch moved the distant blue hue: {:?} -> {:?}",
+            neutral.get_pixel(1, 0),
+            delivered.get_pixel(1, 0)
+        );
+    }
+}
+
+#[test]
+fn a_local_point_curve_leaves_uncovered_pixels_unchanged() {
+    let source = RgbImage::from_pixel(16, 4, Rgb([153, 128, 102]));
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.5,
+                    zero_y: 0.0,
+                    full_x: 0.0,
+                    full_y: 0.0,
+                },
+                amount: 1.0,
+                main_curve: vec![
+                    CurvePoint {
+                        input: 0,
+                        output: 0,
+                    },
+                    CurvePoint {
+                        input: 128,
+                        output: 64,
+                    },
+                    CurvePoint {
+                        input: 255,
+                        output: 255,
+                    },
+                ],
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(
+        delivered.get_pixel(0, 2)[0] + 10 < neutral.get_pixel(0, 2)[0],
+        "the local point curve did not darken its covered area"
+    );
+    for y in 0..source.height() {
+        for x in source.width() / 2..source.width() {
+            assert_eq!(
+                delivered.get_pixel(x, y),
+                neutral.get_pixel(x, y),
+                "the local point curve leaked into uncovered pixel ({x}, {y})"
             );
         }
     }
