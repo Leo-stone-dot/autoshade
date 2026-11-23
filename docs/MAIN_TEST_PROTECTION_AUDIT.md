@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：474 cases，约 1,200 个断言宏，31 个显式 ignore。
+- 当前工作树：484 cases，约 1,217 个断言宏，31 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，67 条 `rewritten`、11 条
-`lint`、2,203 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，70 条 `rewritten`、11 条
+`lint`、2,200 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -851,6 +851,70 @@ Mutation 证据：
 
 所有 mutation 均已恢复，`src/recipe_library.rs` 无 diff。
 
+### Adobe resource discovery
+
+- Main cases：
+  - `src/adobe/tests.rs::the_override_comes_first_and_only_real_directories_survive`
+  - `src/adobe/tests.rs::the_walk_is_recursive_case_insensitive_and_bounded`
+- 当前入口：公开 `adobe::camera_raw_roots`、`adobe::walk_extension`
+- 状态：两条均为 `rewritten`
+- Gate：默认 `tests/adobe_behavior.rs`
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| 现存 override 是第一 root，所有返回项都是真实目录 | `an_existing_adobe_override_is_the_first_resource_root` | 用户指定 profile 不优先，或 phantom root 延迟到更难懂的读取错误 |
+| missing override 不进入 roots | `a_missing_adobe_override_is_not_a_resource_root` | 不存在路径伪装成 Camera Raw install |
+| empty override 不变成 cwd | `an_empty_adobe_override_does_not_make_the_working_directory_a_resource_root` | 仓库/工作目录被误扫为 Adobe profiles |
+| walk 递归且 extension 大小写不敏感 | `an_adobe_resource_walk_is_recursive_and_extension_case_insensitive` | vendor 子目录或 Adobe 的大写扩展资源消失 |
+| extension 是调用参数而非硬编码 | `an_adobe_resource_walk_uses_the_requested_extension` | LCP/DCP 两个 caller 只能有一个工作 |
+| budget 0 不读取 entry | `a_zero_adobe_walk_budget_reads_no_entries` | symlink/大目录预算失效 |
+| missing root 安静返回空 | `a_missing_adobe_resource_root_is_a_quiet_empty_result` | 未安装 Camera Raw 导致 panic/伪结果 |
+
+全部 filesystem fixture 使用独立 `TempTree`；三个 override cases 通过 `ScopedEnv` 串行
+修改并恢复唯一测试变量。
+
+Mutation 证据：
+
+- roots 统一返回空时，现存 override case 变红；去掉 empty guard 和 `is_dir` filter
+  时，现存/missing/empty 三个 guard case 变红。
+- walk 同时停止递归、写死大小写敏感 `lcp`、忽略 budget 时，recursive/case、
+  extension 参数、zero-budget 三个 case 各自变红。
+- missing `read_dir` 伪造一个 path 时，missing-root case 变红。
+
+所有 mutation 均已恢复，`src/adobe.rs` 无 diff。
+
+### Recoverable panic scope
+
+- Main case：`src/panic_guard.rs::the_scope_nests_and_a_caught_panic_still_restores_it`
+- 当前 cases：
+  - `a_recoverable_scope_marks_only_its_own_lifetime`
+  - `a_nested_recoverable_scope_does_not_clear_its_outer_scope`
+  - `a_caught_panic_restores_the_thread_to_fatal_ground`
+- 状态：`rewritten`
+- Gate：默认 `tests/panic_guard_behavior.rs`
+
+逐断言映射：
+
+| main 断言组 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| bare false、entered true、scope exit false | `a_recoverable_scope_marks_only_its_own_lifetime` | 可恢复 parser/worker panic 被误报 fatal，或普通 panic 被吞成可恢复 |
+| inner enter/exit 不清除 outer | `a_nested_recoverable_scope_does_not_clear_its_outer_scope` | worker 内 parser guard 结束后，外层剩余工作被误报 fatal |
+| intentional panic 被 catch，且 unwind 后恢复 false | `a_caught_panic_restores_the_thread_to_fatal_ground` | 一次可恢复 panic 污染线程后续 panic 分类 |
+
+测试构造修正：最初把 `panic_is_recoverable()` 的 premise 写在 `catch_unwind` 内；
+premise 自己失败也会被 catch，可能造成假绿。最终 case 先把观察写入外部 `Cell`，再在
+catch 之后独立断言 premise、panic 被捕获和 Drop 恢复三个结果。
+
+Mutation 证据：状态查询永假时三个 case 均红；Drop 把 depth 清零时 nested case 红；
+Drop no-op 时普通 scope exit 与 panic unwind 两个 case 红。实现已恢复，
+`src/panic_guard.rs` 无 diff。
+
+`src/render.rs::xmp_component_round_trip_preserves_unquantized_composed_weights` 仍保持
+`open`：main case 直接调用私有 `combined_mask_weight`。它必须改写为公开
+`mask_coverage`/XMP 后实际覆盖像素结果，不能在本批复制私有 helper 断言。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -896,6 +960,8 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
+| `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
+| `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
