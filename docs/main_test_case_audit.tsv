@@ -1178,15 +1178,15 @@ src/harness.rs	608	verdict_carries_the_critic_score_as_a_reason	3	default	open		
 src/harness.rs	617	deferred_recipe_round_trips_the_default_recipe	1	default	open		Awaiting assertion-by-assertion review.
 src/harness.rs	633	deferred_recipe_refuses_missing_or_invalid_recipe	2	default	open		Awaiting assertion-by-assertion review.
 src/harness.rs	643	a_bundled_node_beside_the_app_wins_over_path	4	default	open		Awaiting assertion-by-assertion review.
-src/jobs.rs	538	sequencer_releases_in_index_order_not_completion_order	2	default	open		Awaiting assertion-by-assertion review.
-src/jobs.rs	560	a_block_out_of_turn_is_held_and_releases_nothing	2	default	open		Awaiting assertion-by-assertion review.
-src/jobs.rs	576	the_memory_cap_divides_the_budget_by_the_measured_per_photo_peak	7	default	open		Awaiting assertion-by-assertion review.
-src/jobs.rs	598	the_plan_takes_the_smallest_of_asked_work_and_memory	8	default	open		Awaiting assertion-by-assertion review.
-src/jobs.rs	626	an_absurd_memory_reading_plans_a_pool_instead_of_panicking	2	default	open		Awaiting assertion-by-assertion review.
-src/jobs.rs	650	the_survey_budgets_for_the_biggest_file_and_names_it	6	default	open		Awaiting assertion-by-assertion review.
-src/jobs.rs	681	the_pool_visits_every_index_once_and_returns_results_positionally	4	default	open		Awaiting assertion-by-assertion review.
+src/jobs.rs	538	sequencer_releases_in_index_order_not_completion_order	2	default	rewritten	tests/jobs_behavior.rs::sequencer_releases_completed_blocks_in_index_order	Public Sequencer output is captured from a subprocess after out-of-order releases and asserted to be index ordered.
+src/jobs.rs	560	a_block_out_of_turn_is_held_and_releases_nothing	2	default	rewritten	tests/jobs_behavior.rs::sequencer_holds_a_block_until_every_earlier_index_arrives	A public release of index 7 produces no stdout before indices 0 through 6.
+src/jobs.rs	576	the_memory_cap_divides_the_budget_by_the_measured_per_photo_peak	7	default	rewritten	tests/jobs_behavior.rs::memory_budget_uses_half_the_headroom_and_the_declared_peak + an_unmeasurable_machine_does_not_invent_a_memory_cap + tests/properties.rs	Public plans assert the half-headroom arithmetic, one-worker floor, absent cap, injected peak, and zero-divisor safety.
+src/jobs.rs	598	the_plan_takes_the_smallest_of_asked_work_and_memory	8	default	rewritten	tests/jobs_behavior.rs::worker_plan_takes_the_smallest_of_request_work_and_memory + zero_request_and_zero_work_still_plan_one_worker + a_memory_downgrade_names_the_request_headroom_and_peak + tests/properties.rs	Public plans assert request/work/memory minima and disclosure exactly when memory reduces the count.
+src/jobs.rs	626	an_absurd_memory_reading_plans_a_pool_instead_of_panicking	2	default	rewritten	tests/jobs_behavior.rs::an_absurd_memory_reading_plans_without_overflowing	Public planning is exercised at u64::MAX and its multiplication boundary without overflow or zero workers.
+src/jobs.rs	650	the_survey_budgets_for_the_biggest_file_and_names_it	6	default	rewritten	tests/jobs_behavior.rs::survey_uses_the_largest_baked_header_and_names_it + survey_keeps_the_corpus_default_when_no_header_exceeds_it	Public survey reads synthetic baked headers, chooses and names the largest, and keeps the corpus default for small/RAW/empty work.
+src/jobs.rs	681	the_pool_visits_every_index_once_and_returns_results_positionally	4	default	rewritten	tests/jobs_behavior.rs::parallel_pool_returns_results_at_their_input_indices + parallel_pool_visits_every_index_exactly_once	Public pool results and invocation counts are independently asserted without timing sleeps.
 src/jobs.rs	756	probe_per_photo_peak_commit	2	default	open		Awaiting assertion-by-assertion review.
-src/jobs.rs	849	one_job_runs_strictly_in_order	1	default	open		Awaiting assertion-by-assertion review.
+src/jobs.rs	849	one_job_runs_strictly_in_order	1	default	rewritten	tests/jobs_behavior.rs::one_worker_visits_indices_in_strict_order	The public one-worker pool visits every index in ascending order.
 src/lcp.rs	1346	the_vignette_model_is_a_falloff_so_the_correction_is_its_reciprocal	6	default	open		Awaiting assertion-by-assertion review.
 src/lcp.rs	1382	the_render_distortion_knots_leave_adobes_scale_factor_out	3	default	open		Awaiting assertion-by-assertion review.
 src/lcp.rs	1413	a_node_that_states_no_vignette_model_solves_no_gains	5	default	open		Awaiting assertion-by-assertion review.

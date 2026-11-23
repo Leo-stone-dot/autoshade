@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：485 cases，约 1,219 个断言宏，31 个显式 ignore。
+- 当前工作树：500 cases，约 1,243 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，71 条 `rewritten`、11 条
-`lint`、2,199 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，79 条 `rewritten`、11 条
+`lint`、2,191 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -927,6 +927,50 @@ coverage。它保留“用户存取 XMP 后蒙版画面不变”的产品契约�
 Mutation 证据：临时把 XMP 读回的第一个 component mode 强制为 Add，Add 对照仍通过，
 Subtract 在整张 coverage 比较处变红。reader 已恢复，`src/xmp/read.rs` 无 diff。
 
+### Jobs 并发顺序与资源计划
+
+- Main cases：`src/jobs.rs` 中除 Windows peak probe 外的 8 条默认 case
+- 当前入口：公开 `Sequencer::release`、`for_each_indexed`、`plan_with_peak`、
+  `survey_peak_mb`
+- 状态：8 条 `rewritten`；`probe_per_photo_peak_commit` 仍 `open`
+- Gate：默认 `tests/jobs_behavior.rs`；两个 subprocess worker 自身明确 ignore
+
+逐断言映射：
+
+| main 断言组 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| completion 按 3/1/2/0 到达，stdout 仍按 0/1/2/3 | `sequencer_releases_completed_blocks_in_index_order` | 并行 batch 报告按完成顺序乱序，照片与诊断错位 |
+| index 7 在 0..6 前到达时不输出 | `sequencer_holds_a_block_until_every_earlier_index_arrives` | 后续照片越过未完成照片提前发布 |
+| 50% headroom / per-photo peak 得到 4/2/1 workers，未测机器不造 cap，较大 file peak 收紧 | `memory_budget_uses_half_the_headroom_and_the_declared_peak`；`an_unmeasurable_machine_does_not_invent_a_memory_cap`；`worker_plan_stays_within_the_requested_and_work_limits` | 并发 commit 超过机器预算，或测不到内存时被静默串行化 |
+| request/work/memory 三者取最小；0 request/work 仍为 1 | `worker_plan_takes_the_smallest_of_request_work_and_memory`；`zero_request_and_zero_work_still_plan_one_worker` | 请求无 worker、空列表生成无效 pool，或 workers 超过照片数 |
+| 内存真正降低 worker 时 note 同时命名 ask/headroom/peak；未降低时无 note | `a_memory_downgrade_names_the_request_headroom_and_peak`；`worker_plan_discloses_a_memory_limit_when_it_reduces_the_worker_count` | `--jobs` 看似失效却无解释，或无降级时产生虚假警告 |
+| `u64::MAX` 邻域不 overflow 且至少一个 worker | `an_absurd_memory_reading_plans_without_overflowing` | 注入/异常内存读数导致 debug panic 或计划 0 |
+| survey 从真实 baked headers 选择最大 peak 并命名文件；small/RAW/empty 保持 corpus default | `survey_uses_the_largest_baked_header_and_names_it`；`survey_keeps_the_corpus_default_when_no_header_exceeds_it` | 大 TIFF/PNG 被按平均/默认值低估，普通 run 又被噪声 note 污染 |
+| parallel pool 结果按输入位置返回，每个 index 恰执行一次 | `parallel_pool_returns_results_at_their_input_indices`；`parallel_pool_visits_every_index_exactly_once` | 汇总值对应错照片、漏处理或重复付费调用 |
+| one-worker 路径严格升序 | `one_worker_visits_indices_in_strict_order` | serial mode 不再等价于普通 for-loop |
+
+Sequencer 的公开 stdout 通过当前 test binary 的 subprocess fixture 捕获：parent cases
+默认执行，两个 worker cases 本身明确 ignore，避免默认套件把 fixture 当产品 case。
+Pool tests 使用 atomics/Mutex，不用 sleep。Survey fixture 是带合法 IHDR/IDAT/IEND 的
+header-only PNG，真实进入 `cheap_develop_peak_mb`，不分配声明尺寸对应的像素。
+
+Mutation 证据：
+
+- Sequencer 改成 arrival 即打印时，out-of-order 与 held-block 两个 parent case 均红。
+- 内存预算比例改成 100%、0 request/work 不再 floor 1、cap note 被删除、饱和乘法改为
+  普通乘法时，四个 planner case 分别在 worker 数、披露和 overflow 处变红。
+- Survey 固定返回 corpus default 时 largest-header case 红；对所有输入伪报 oversized
+  时 default/RAW/empty case 红。
+- Pool 把结果写到下一个 slot、每个 body 调两次、单 worker 反转 index 时，
+  positional、exactly-once、strict-order 三个 case 分别变红。
+
+所有 mutation 均已恢复，`src/jobs.rs` 无 diff。
+
+`src/jobs.rs::probe_per_photo_peak_commit` 保持 `open`。main probe 只验证探针 API 成功并
+打印峰值，没有“峰值不得超过预算”的断言；按新原则它不是性能保护。后续必须把它
+改成 Windows + 指定真实 RAW 的 external gate，并声明可执行的峰值阈值，才能标为
+`external-gate`；不能因它是 slow/平台 case 就直接删除或宣称已保护。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -975,6 +1019,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 4 | payload/namespace round-trip、composed mask coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
+| `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
