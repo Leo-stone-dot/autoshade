@@ -622,6 +622,25 @@ recipe，case 在“develop recipe 必须存在”处失败；恢复后通过。
 已撤回，没有改读 App 私有字段或按 rect 猜滑块坐标。Exposure 等 slider 的公开
 accessibility/交互保护仍是明确 GUI 缺口。
 
+## 当前公开引擎基线
+
+以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
+本表不把整份 main 文件自动标为 `equivalent`；具体映射仍以本文件已裁决条目和
+`docs/TEST_GAP_CHECKLIST.md` 的 premise/act/assert/mutation 记录为准。
+
+| 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
+| --- | ---: | --- | --- | --- |
+| `tests/product_behavior.rs` | 78 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
+| `tests/domain_behavior.rs` | 81 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
+| `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
+| `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
+| `tests/denoise_behavior.rs` | 5 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
+| `tests/process_behavior.rs` | 1 | 杀 sidecar 进程组同时回收孙进程 | Lib/process、Denoise | Windows Job Object 分支 |
+
+这些 case 数只说明本次提交 inventory，不是质量得分。每个已有 mutation 的具体故障
+与红灯位置登记在 `docs/BEHAVIOR_PROTECTION.md`；没有 mutation 证据的 main 断言仍
+不能靠本表宣称已保护。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：
