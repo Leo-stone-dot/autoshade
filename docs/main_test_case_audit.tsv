@@ -2000,7 +2000,7 @@ src/store/tests.rs	2915	the_verbatim_local_spelling_is_local_on_windows_and_refu
 src/store/tests.rs	2939	the_store_directory_name_and_the_rename_adoption_agree_per_platform	4	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2999	a_plain_local_path_keeps_the_key_it_had_before_canonical_identity	2	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3014	a_network_path_is_keyed_lexically_without_probing	1	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	3022	a_directory_junction_and_its_target_share_one_develop	2	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	3022	a_directory_junction_and_its_target_share_one_develop	2	default	rewritten	tests/store_behavior.rs::a_directory_alias_and_its_target_share_one_photo_key_and_develop	A real Unix symlink or Windows junction must build successfully, then both spellings return the same public photo key and develop directory; the old private lexical-key premise is not copied.
 src/store/tests.rs	3045	an_alias_develop_dir_is_adopted_without_clobbering	9	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3095	two_spellings_with_two_develops_keep_both_and_disclose	7	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3143	a_pending_transaction_defers_adoption	2	default	open		Awaiting assertion-by-assertion review.

@@ -66,6 +66,25 @@ fn photo(root: &Path, name: &str) -> PathBuf {
     path
 }
 
+fn directory_alias(link: &Path, target: &Path) {
+    #[cfg(unix)]
+    let created = std::os::unix::fs::symlink(target, link).is_ok();
+    #[cfg(windows)]
+    let created = Command::new("cmd")
+        .args(["/c", "mklink", "/J"])
+        .arg(link)
+        .arg(target)
+        .output()
+        .is_ok_and(|output| output.status.success());
+
+    assert!(
+        created,
+        "directory alias fixture could not be built: {} -> {}",
+        link.display(),
+        target.display()
+    );
+}
+
 fn valid_recipe() -> EditRecipe {
     EditRecipe {
         exposure_ev: 0.5,
@@ -149,6 +168,20 @@ fn two_case_spellings_fold_only_when_they_cannot_be_separate_files() {
         .is_ok();
 
     assert_eq!(volume_folds_case(&first), !created_second);
+}
+
+#[test]
+fn a_directory_alias_and_its_target_share_one_photo_key_and_develop() {
+    let store = TempStore::new("directory-alias-key");
+    let target = store.root().join("real");
+    std::fs::create_dir(&target).unwrap();
+    let alias = store.root().join("alias");
+    directory_alias(&alias, &target);
+    let canonical = photo(&target, "aliased.arw");
+    let through_alias = alias.join("aliased.arw");
+
+    assert_eq!(photo_key(&through_alias), photo_key(&canonical));
+    assert_eq!(develop_dir(&through_alias), develop_dir(&canonical));
 }
 
 #[test]
