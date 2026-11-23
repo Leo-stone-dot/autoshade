@@ -442,6 +442,47 @@ Linear 与 Bitmap 的 mutation 证据：公开 preview 入口原样返回输入�
 - Mutation：强制调用 `radial_falloff(0, d)` 后 coverage 只有硬边，case 在中间覆盖
   断言处失败；恢复后通过。
 
+### Export 遇到丢失的活动蒙版
+
+- Main case：`src/render/tests/geometry_and_lens.rs::export_refuses_a_recipe_whose_mask_raster_is_unreadable`
+- 当前 case：`tests/render_behavior.rs::export_with_an_unreadable_active_mask_writes_nothing_and_names_the_mask`
+- 状态：`rewritten`
+- 映射：真实 source PNG、活动 `sky` bitmap adjustment、缺失 raster；公开
+  `render_to_file` 必须返回包含 mask 名称的错误，且目标文件不存在。main 的 amount=0
+  和 parked-mask 对照尚未由此 case 勾销。
+- Mutation：把 baked export 的严格 `load_mask_raster_snapshot` 换成 best-effort
+  loader 后，API 错误变为 `Ok((16, 12))`，case 在 `unwrap_err` 处失败；恢复后通过。
+
+### Profile vignetting
+
+- Main case：`src/render/tests/geometry_and_lens.rs::lens_profile_vignette_lifts_corners_only_and_geometry_roundtrips`
+- 当前 case：`tests/render_behavior.rs::profile_vignetting_lifts_corners_without_moving_the_center`
+- 状态：`rewritten`（vignetting arm）
+- 映射：真实公开 preview 上中心保持 code 100、角落提升到大于 110；main 同 case 的
+  distortion/CA roundtrip 部分由现有 geometry properties 与下方 manual CA case分别
+  执行。
+- Mutation：preview 入口原样返回输入时，角落仍为 100，case 失败。
+
+### Manual chromatic aberration
+
+- Main case：`src/render/tests/raw_matrix_and_ca.rs::manual_ca_shifts_the_red_channel_radius`
+- 当前 case：`tests/render_behavior.rs::manual_chromatic_aberration_moves_only_the_red_channel`
+- 状态：`rewritten`
+- 映射：公开 `geometry_profile + apply_lens_geometry` 处理同通道同心环；Red 必须有像素
+  变化，Green/Blue 必须逐像素不变。main 的具体 sub-pixel 坐标和内部常量不迁移。
+- Mutation：强制关闭 `apply_lens_geometry` 的 CA arm 后，case 在“manual CA did not
+  move red”处失败；恢复后通过。
+
+### Straighten direction
+
+- Main case：`src/render/tests/geometry_and_lens.rs::straighten_rotation_geometry_and_direction`
+- 当前 case：`tests/render_behavior.rs::positive_straighten_rotates_the_frame_clockwise`
+- 状态：`rewritten`（方向主张）
+- 映射：Red/Blue 垂直分割图经过公开 `rotate_straighten(+10°)`，顶部中心右侧必须落在
+  Red；main 同 case 的 0° identity、inscribed dimensions 和无黑角断言由后续几何
+  审计分别归属，不能由方向 case 一并勾销。
+- Mutation：把传入角度乘 0 后，探针保持 Blue，方向 case 失败；恢复后通过。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：

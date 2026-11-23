@@ -1,5 +1,5 @@
 use autoshade::recipe::{
-    ColorGrade, CurvePoint, EditRecipe, LocalAdjustment, MaskGeometry,
+    ColorGrade, CurvePoint, EditRecipe, LensProfile, LocalAdjustment, MaskGeometry,
 };
 use image::{DynamicImage, Rgb, RgbImage};
 
@@ -568,5 +568,131 @@ fn radial_feather_produces_intermediate_coverage() {
     assert!(
         values.iter().any(|value| (1..=254).contains(value)),
         "a feathered radial mask contained no transition coverage"
+    );
+}
+
+#[test]
+fn export_with_an_unreadable_active_mask_writes_nothing_and_names_the_mask() {
+    let tree = support::TempTree::new("render-unreadable-mask-export");
+    let source = tree.path().join("source.png");
+    let output = tree.path().join("output.png");
+    RgbImage::from_pixel(16, 12, Rgb([96, 112, 128]))
+        .save(&source)
+        .unwrap();
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            name: "sky".to_string(),
+            mask: MaskGeometry::Bitmap {
+                path: tree.path().join("missing-mask.png").to_string_lossy().into_owned(),
+            },
+            amount: 1.0,
+            exposure_ev: 1.0,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    let error = autoshade::render::render_to_file(
+        &source,
+        &recipe,
+        &output,
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap_err()
+    .to_string();
+
+    assert!(error.contains("sky"), "the refusal did not name the lost mask: {error}");
+    assert!(!output.exists(), "a refused export left a delivery behind");
+}
+
+#[test]
+fn profile_vignetting_lifts_corners_without_moving_the_center() {
+    let source = RgbImage::from_pixel(120, 80, Rgb([100, 100, 100]));
+    let recipe = EditRecipe {
+        lens_profile: LensProfile {
+            vignette: (0..16)
+                .map(|index| 1.0 + 0.42 * (index as f32 / 15.0).powi(2))
+                .collect(),
+            vignette_on: true,
+            ..LensProfile::default()
+        },
+        ..EditRecipe::default()
+    };
+
+    let delivered = render(&source, &recipe);
+
+    assert_eq!(delivered.get_pixel(60, 40)[0], 100);
+    assert!(
+        delivered.get_pixel(0, 0)[0] > 110,
+        "profile vignetting did not lift the corner: {:?}",
+        delivered.get_pixel(0, 0)
+    );
+}
+
+#[test]
+fn manual_chromatic_aberration_moves_only_the_red_channel() {
+    let source = DynamicImage::ImageRgb16(image::ImageBuffer::from_fn(161, 161, |x, y| {
+        let dx = x as f32 - 80.0;
+        let dy = y as f32 - 80.0;
+        let radius = (dx * dx + dy * dy).sqrt();
+        let value = (((radius * 0.7).sin() * 0.5 + 0.5) * 60_000.0) as u16;
+        image::Rgb([value; 3])
+    }));
+    let neutral = EditRecipe::default();
+    let shifted = EditRecipe {
+        ca_r: -100.0,
+        ..EditRecipe::default()
+    };
+    let before = autoshade::render::apply_lens_geometry(
+        &source,
+        &autoshade::render::geometry_profile(&neutral),
+        0.0,
+    )
+    .to_rgb16();
+    let after = autoshade::render::apply_lens_geometry(
+        &source,
+        &autoshade::render::geometry_profile(&shifted),
+        0.0,
+    )
+    .to_rgb16();
+
+    assert!(
+        after
+            .pixels()
+            .zip(before.pixels())
+            .any(|(after, before)| after[0] != before[0]),
+        "manual CA did not move red"
+    );
+    assert!(
+        after
+            .pixels()
+            .zip(before.pixels())
+            .all(|(after, before)| after[1] == before[1] && after[2] == before[2]),
+        "manual red CA moved green or blue"
+    );
+}
+
+#[test]
+fn positive_straighten_rotates_the_frame_clockwise() {
+    let split = RgbImage::from_fn(100, 100, |x, _| {
+        if x < 50 {
+            Rgb([255, 0, 0])
+        } else {
+            Rgb([0, 0, 255])
+        }
+    });
+
+    let delivered = autoshade::render::rotate_straighten(
+        &DynamicImage::ImageRgb8(split),
+        10.0,
+    )
+    .to_rgb8();
+    let probe = delivered.get_pixel(delivered.width() / 2 + 3, 1);
+
+    assert!(
+        probe[0] > probe[2],
+        "positive straighten did not rotate clockwise at the top edge: {probe:?}"
     );
 }
