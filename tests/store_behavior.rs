@@ -18,9 +18,10 @@ use autoshade::store::{
     ActiveWrite, CommitMember, DevelopCommit, EditStateKind, VariantEntry, VariantsRead,
     VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, MAX_STORE_NAME, OwnedRaster,
     backup_saved_develop, claim_version, clear_develop, clear_pixel_source, clear_variants,
-    commit_develop, delete_version, detach_rasters, develop_dir, export_xmp_beside, has_develop,
-    has_develop_or_sidecar, has_pixel_source, lightroom_sidecar, list_edits, list_versions,
-    mask_family, migrate_legacy, migrate_legacy_from_many, photo_key, pixel_source_path,
+    commit_develop, delete_version, detach_rasters, develop_dir, develop_revision,
+    export_xmp_beside, has_develop, has_develop_or_sidecar, has_pixel_source,
+    lightroom_sidecar, list_edits, list_versions, mask_family, migrate_legacy,
+    migrate_legacy_from_many, photo_key, pixel_source_path,
     read_develop_snapshot, read_pixel_source, read_variants_checked, recipe_revision,
     recipe_target, recover_orphan_baks, relativize_mask_paths, render_source_checked,
     resolve_mask_paths, saved_quarter_turns, set_version_name, snapshot_rasters,
@@ -1447,6 +1448,73 @@ fn a_recipe_revision_changes_when_the_saved_bytes_change() {
     assert!(first.is_some());
     assert!(second.is_some());
     assert_ne!(first, second);
+}
+
+#[test]
+fn a_sidecar_only_develop_revision_changes_with_lightroom_content() {
+    let store = TempStore::new("develop-revision-sidecar");
+    let raw = photo(store.root(), "revision-sidecar.arw");
+    assert_eq!(develop_revision(&raw).as_deref(), Some("none"));
+    let sidecar = raw.with_extension("xmp");
+    std::fs::write(
+        &sidecar,
+        autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            contrast: 30.0,
+            ..EditRecipe::default()
+        }),
+    )
+    .unwrap();
+    let first = develop_revision(&raw).unwrap();
+    assert!(first.starts_with("none+lr"));
+
+    std::fs::write(
+        &sidecar,
+        autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            contrast: -30.0,
+            ..EditRecipe::default()
+        }),
+    )
+    .unwrap();
+
+    assert_ne!(develop_revision(&raw).unwrap(), first);
+}
+
+#[test]
+fn an_older_lightroom_sidecar_does_not_change_the_store_revision() {
+    use std::time::{Duration as StdDuration, SystemTime};
+
+    let store = TempStore::new("develop-revision-store");
+    let raw = photo(store.root(), "revision-store.arw");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    std::fs::write(recipe_target(&raw), br#"{"contrast":10.0}"#).unwrap();
+    let sidecar = raw.with_extension("xmp");
+    std::fs::write(
+        &sidecar,
+        autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            contrast: 30.0,
+            ..EditRecipe::default()
+        }),
+    )
+    .unwrap();
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&sidecar)
+        .unwrap()
+        .set_modified(SystemTime::now() - StdDuration::from_secs(7200))
+        .unwrap();
+
+    assert_eq!(develop_revision(&raw), recipe_revision(&raw));
+    assert!(!develop_revision(&raw).unwrap().contains("+lr"));
+}
+
+#[test]
+fn an_unreadable_lightroom_sidecar_makes_the_develop_revision_untaggable() {
+    let store = TempStore::new("develop-revision-unreadable");
+    let raw = photo(store.root(), "revision-unreadable.arw");
+    std::fs::write(raw.with_extension("xmp"), [0xff, 0xfe]).unwrap();
+
+    assert!(develop_revision(&raw).is_none());
 }
 
 #[test]
