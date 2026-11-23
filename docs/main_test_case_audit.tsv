@@ -2016,8 +2016,8 @@ src/store/tests.rs	3531	durable_replace_lands_complete_bytes_and_consumes_its_st
 src/store/tests.rs	3548	durable_write_replaces_complete_bytes_and_consumes_its_stage	2	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3577	a_stale_sidecar_stage_is_reclaimed_and_nothing_else_is_touched	3	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3625	a_durable_write_reports_whether_the_bytes_reached_the_live_name	4	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	3673	clearing_one_same_stem_photo_suppresses_but_never_unlinks_legacy_bytes	7	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	3724	the_tombstone_fixture_cleans_up_through_a_panic	6	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	3673	clearing_one_same_stem_photo_suppresses_but_never_unlinks_legacy_bytes	7	default	rewritten	tests/store_behavior.rs::clearing_one_same_stem_photo_keeps_legacy_work_available_to_the_other	Public clear hides shared legacy work only for the selected photo; the same-stem peer still sees and migrates byte-identical work while the cleared photo stays absent.
+src/store/tests.rs	3724	the_tombstone_fixture_cleans_up_through_a_panic	6	default	drop	docs/MAIN_TEST_PROTECTION_AUDIT.md	The case asserts only that a test-only Drop guard removes its own fixture after a synthetic panic; it has no product premise, public entry point, or user-visible outcome and is not migrated.
 src/store/tests.rs	3752	unknown_store_kinds_are_refused_without_rewriting_the_newer_record	4	default	rewritten	tests/store_behavior.rs::an_unknown_pixel_source_kind_is_refused_without_rewriting_the_record + an_unknown_variant_kind_is_not_treated_as_absent	Unknown pixel and variant kinds are both unresolved and their original bytes remain unchanged.
 src/store/tests.rs	3795	very_long_source_names_produce_portable_but_distinct_develop_keys	4	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3817	parsed_relative_store_paths_cannot_escape_the_develop_directory	5	default	open		Awaiting assertion-by-assertion review.

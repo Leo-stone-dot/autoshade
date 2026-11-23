@@ -1647,6 +1647,37 @@ fn clearing_a_develop_suppresses_legacy_files_without_deleting_them() {
 }
 
 #[test]
+fn clearing_one_same_stem_photo_keeps_legacy_work_available_to_the_other() {
+    let (store, legacy) = TempStore::with_legacy("clear-same-stem-legacy");
+    let trip_a = store.root().join("trip-a");
+    let trip_b = store.root().join("trip-b");
+    std::fs::create_dir_all(&trip_a).unwrap();
+    std::fs::create_dir_all(&trip_b).unwrap();
+    let first = photo(&trip_a, "DSC001.ARW");
+    let second = photo(&trip_b, "DSC001.ARW");
+    let legacy_recipe = legacy.join("DSC001.recipe.json");
+    let recipe = serde_json::to_vec_pretty(&EditRecipe {
+        contrast: 22.0,
+        ..EditRecipe::default()
+    })
+    .unwrap();
+    std::fs::write(&legacy_recipe, &recipe).unwrap();
+
+    assert!(has_develop(&first));
+    assert!(has_develop(&second));
+    let outcome = clear_develop(&first).unwrap();
+
+    assert!(outcome.removed);
+    assert_eq!(std::fs::read(&legacy_recipe).unwrap(), recipe);
+    assert!(!has_develop(&first));
+    assert!(has_develop(&second));
+    assert!(!migrate_legacy(&first));
+    assert!(migrate_legacy(&second));
+    assert!(!recipe_target(&first).exists());
+    assert_eq!(std::fs::read(recipe_target(&second)).unwrap(), recipe);
+}
+
+#[test]
 fn clearing_an_empty_develop_is_an_idempotent_noop() {
     let store = TempStore::new("clear-idempotent");
     let raw = photo(store.root(), "clear-empty.dng");
