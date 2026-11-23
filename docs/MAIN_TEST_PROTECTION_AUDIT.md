@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：458 cases，约 1,166 个断言宏，31 个显式 ignore。
+- 当前工作树：474 cases，约 1,200 个断言宏，31 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，59 条 `rewritten`、11 条
-`lint`、2,211 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，67 条 `rewritten`、11 条
+`lint`、2,203 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -807,6 +807,50 @@ Mutation 证据：让所有输入固定返回 `abc` 摘要时，空、多块、�
 同时变红而 `abc` 保持绿色；改为固定返回空输入摘要时，`abc` case 变红。实现已恢复，
 `src/sha256.rs` 无 diff。
 
+### Recipe library 公开文件生命周期与 portability
+
+- Main cases：`src/recipe_library.rs` 中全部 8 条 case
+- 当前入口：公开 `create_in`、`list_in`、`read_in`、`replace_in`、`rename_in`、
+  `delete_in`、`check_name`、`portable`、`read_file`
+- 状态：8 条均为 `rewritten`
+- Gate：默认 `tests/recipe_library_behavior.rs`，并复用
+  `tests/product_behavior.rs` / `tests/domain_behavior.rs` 的现有公开行为
+
+逐断言映射：
+
+| main 断言组 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| create 写出普通 recipe JSON，list/read 返回同名同 look | `creating_a_recipe_library_entry_writes_a_plain_recipe_file`；`listing_and_reading_a_recipe_library_entry_returns_its_name_and_look` | 保存后 CLI 不能读取，或 GUI 列表/打开丢失内容 |
+| replace 只改变同名 look | `replacing_a_recipe_library_entry_changes_its_saved_look` | 替换未落盘或名字漂移 |
+| rename 移走旧名、保留 recipe；delete 只删指定项 | `renaming_a_recipe_library_entry_moves_its_file_and_preserves_the_recipe`；`deleting_a_recipe_library_entry_removes_only_the_named_entry` | 改名/删除误伤或内容丢失 |
+| create/rename 遇到 taken name 均拒绝且双方内容保留 | `creating_a_recipe_library_entry_refuses_to_replace_an_existing_name`；`renaming_to_a_taken_recipe_name_preserves_both_entries` | 用户不可恢复的 recipe 被静默覆盖 |
+| malformed entry 仍作为 error row，且 valid row 不消失 | `listing_a_malformed_recipe_library_entry_reports_its_error`；`a_malformed_recipe_entry_does_not_hide_a_valid_entry` | 损坏文件被静默隐藏，用户误以为从未保存 |
+| missing library 列表为空；missing name 不存在 | `a_missing_recipe_library_lists_as_empty`；`a_missing_recipe_name_is_reported_as_absent` | 首次使用被当成错误或伪报已占名 |
+| 名称 trim；path/reserved ending/empty/oversized 分别拒绝 | `surrounding_whitespace_is_removed_from_a_recipe_name`；`a_recipe_library_name_with_a_path_separator_is_refused`；`filesystem_reserved_recipe_name_endings_are_refused`；`an_empty_recipe_name_is_refused`；`an_oversized_recipe_name_is_refused` | 名称逃逸目录、跨平台撞名或无法持久化 |
+| geometry 与 bitmap mask 被丢弃并计数，global look 与 parametric mask 保留 | `portable_recipe_drops_photo_bound_masks_and_geometry_but_keeps_the_look`；`portable_recipe_keeps_a_parametric_mask_and_the_global_look` | recipe 把源照片坐标带到另一张，或丢掉可迁移 look |
+| colour field / pixel layers / lens blur 被丢弃并分别披露 | `portable_recipe_drops_advanced_photo_specific_state_and_counts_each_loss` | 每照片像素/深度状态静默污染另一张照片 |
+| plain recipe 无损；intent-only zone 保留，带 raster zone 丢弃并计数 | `a_plain_portable_recipe_loses_nothing`；`an_intent_only_zone_mask_travels_to_another_photo`；`a_zone_mask_with_a_photo_raster_does_not_travel` | 可重建意图被误删，或源照片 raster 被错误复用 |
+| `.xmp` 经公开 `read_file` 导入 Exposure | `importing_an_xmp_recipe_uses_the_public_xmp_reader` | 用户选择的 Lightroom sidecar 被当成中性/普通 JSON |
+
+`a_missing_recipe_name_is_reported_as_absent` 在独立 integration binary 中用
+`ScopedEnv` 隔离 `AUTOSHADE_DATA_DIR`；其余文件 case 均使用每 case 独立临时目录，可
+并行运行。
+
+Mutation 证据：
+
+- 保持 create 正常、让 list/read/rename/delete 返回空或 no-op 时，domain 2 个、新
+  suite 3 个、product 3 个相关 case 变红；missing/name/portable/XMP cases 仍绿。
+- 让 durable writer no-op 时，“新建即普通 recipe 文件”与 taken-name create 两个
+  case 分别变红。
+- missing library 伪造一行、`exists` 永真、名称校验无条件接受时，missing/name 的
+  7 个负向 case 变红，正常 CRUD 仍绿。
+- portability 原样返回时，应丢弃的 geometry/advanced state/raster zone 三类 case
+  变红；统一返回默认 recipe 时，应保留的 global look/parametric mask/plain
+  recipe/intent zone cases 变红。
+- XMP arm 返回中性 recipe 时，公开 import case 的 Exposure 断言变红。
+
+所有 mutation 均已恢复，`src/recipe_library.rs` 无 diff。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -851,6 +895,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/product_behavior.rs` | 81 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
+| `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

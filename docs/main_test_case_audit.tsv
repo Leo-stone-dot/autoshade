@@ -1407,14 +1407,14 @@ src/rationale.rs	1668	sidecar_failure_disclosure_has_no_traceback_or_home_path	1
 src/rationale.rs	1735	a_url_scheme_is_not_a_drive_letter	4	default	open		Awaiting assertion-by-assertion review.
 src/rationale.rs	1758	exit_codes_are_read_from_the_word_exit_and_not_from_inside_other_words	9	default	open		Awaiting assertion-by-assertion review.
 src/rationale.rs	1774	push_note_binds_the_string_and_the_vec_together	5	default	open		Awaiting assertion-by-assertion review.
-src/recipe_library.rs	324	the_library_writes_reads_renames_and_deletes_one_file_per_recipe	11	default	open		Awaiting assertion-by-assertion review.
-src/recipe_library.rs	351	a_taken_name_is_refused_rather_than_overwritten	4	default	open		Awaiting assertion-by-assertion review.
-src/recipe_library.rs	362	an_unreadable_file_is_listed_with_its_error_not_hidden	3	default	open		Awaiting assertion-by-assertion review.
-src/recipe_library.rs	374	a_missing_library_is_an_empty_list_not_an_error	2	default	open		Awaiting assertion-by-assertion review.
-src/recipe_library.rs	381	names_a_file_cannot_hold_are_refused	6	default	open		Awaiting assertion-by-assertion review.
-src/recipe_library.rs	391	portable_drops_what_belongs_to_the_source_photo_and_counts_it	11	default	open		Awaiting assertion-by-assertion review.
-src/recipe_library.rs	425	a_zone_mask_without_its_raster_travels_and_one_with_it_does_not	4	default	open		Awaiting assertion-by-assertion review.
-src/recipe_library.rs	457	an_xmp_sidecar_imports_through_the_same_reader	1	default	open		Awaiting assertion-by-assertion review.
+src/recipe_library.rs	324	the_library_writes_reads_renames_and_deletes_one_file_per_recipe	11	default	rewritten	tests/recipe_library_behavior.rs + tests/product_behavior.rs + tests/domain_behavior.rs	Public create/plain-file/list/read/replace/rename/delete results collectively execute every lifecycle assertion.
+src/recipe_library.rs	351	a_taken_name_is_refused_rather_than_overwritten	4	default	rewritten	tests/product_behavior.rs::creating_a_recipe_library_entry_refuses_to_replace_an_existing_name + tests/recipe_library_behavior.rs::renaming_to_a_taken_recipe_name_preserves_both_entries	Create and rename collisions preserve both existing recipes through public file APIs.
+src/recipe_library.rs	362	an_unreadable_file_is_listed_with_its_error_not_hidden	3	default	rewritten	tests/domain_behavior.rs::listing_a_malformed_recipe_library_entry_reports_its_error + tests/recipe_library_behavior.rs::a_malformed_recipe_entry_does_not_hide_a_valid_entry	A corrupt row remains visible with an error and does not hide a valid row.
+src/recipe_library.rs	374	a_missing_library_is_an_empty_list_not_an_error	2	default	rewritten	tests/recipe_library_behavior.rs::a_missing_recipe_library_lists_as_empty + a_missing_recipe_name_is_reported_as_absent	Missing directory and missing named entry return public absence results.
+src/recipe_library.rs	381	names_a_file_cannot_hold_are_refused	6	default	rewritten	tests/recipe_library_behavior.rs + tests/product_behavior.rs::a_recipe_library_name_with_a_path_separator_is_refused	Whitespace normalization plus path, reserved-ending, empty, and length boundaries are independently asserted.
+src/recipe_library.rs	391	portable_drops_what_belongs_to_the_source_photo_and_counts_it	11	default	rewritten	tests/domain_behavior.rs::portable_recipe_drops_photo_bound_masks_and_geometry_but_keeps_the_look + tests/recipe_library_behavior.rs	Geometry, bitmap, colour-field, layer, and lens-blur losses plus parametric/global preservation and the no-loss case are asserted.
+src/recipe_library.rs	425	a_zone_mask_without_its_raster_travels_and_one_with_it_does_not	4	default	rewritten	tests/recipe_library_behavior.rs::an_intent_only_zone_mask_travels_to_another_photo + a_zone_mask_with_a_photo_raster_does_not_travel	The two public portability outcomes and mask-loss counts are independently asserted.
+src/recipe_library.rs	457	an_xmp_sidecar_imports_through_the_same_reader	1	default	rewritten	tests/recipe_library_behavior.rs::importing_an_xmp_recipe_uses_the_public_xmp_reader	The public read_file entry imports a synthetic XMP exposure through the real XMP reader.
 src/recipe.rs	4864	upright_matrices_past_the_sixth_are_dropped	2	default	open		Awaiting assertion-by-assertion review.
 src/recipe.rs	4879	transform_scale_is_clamped_to_lightrooms_band	1	default	open		Awaiting assertion-by-assertion review.
 src/recipe.rs	4891	clamp_bounds_strings_and_can_neutralise_a_recipe	9	default	open		Awaiting assertion-by-assertion review.
