@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：426 cases，约 1,130 个断言宏，31 个显式 ignore。
+- 当前工作树：440 cases，约 1,147 个断言宏，31 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，49 条 `rewritten`、11 条
-`lint`、2,221 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，55 条 `rewritten`、11 条
+`lint`、2,215 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -707,6 +707,49 @@ Mutation 证据：让非空 transcript 直接返回零值时，正常路径在 `
 失败；让空 transcript 返回 `input=1` 时，边界 case 在完整 `Usage` 等值断言处失败。
 两次均已恢复。
 
+### Session 公开 reader 的其余结果
+
+- Main cases：
+  - `src/session.rs::tool_loop_counts_calls_and_results`
+  - `src/session.rs::verdicts_keep_critic_order_and_score`
+  - `src/session.rs::commit_accepts_object_and_legacy_string_forms`
+  - `src/session.rs::resolve_session_accepts_an_id_a_filename_or_a_path`
+  - `src/session.rs::failure_kind_reads_the_record_and_derives_from_legacy_errors`
+  - `src/session.rs::budget_exhaustion_is_a_failure_class_not_an_empty_run`
+- 状态：六条均为 `rewritten`
+- Gate：默认 `tests/domain_behavior.rs`
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| assistant turns、tool calls、tool results 分别为 `2/2/1` | `session_turn_and_tool_counts_ignore_non_assistant_rows` | CLI 会话摘要把非 assistant 内容算入或漏算真实 tool loop |
+| 缺少 messages 时三个计数均为 0 | `a_transcript_without_messages_has_no_turns_or_tools` | 空 transcript 伪造活动 |
+| verdicts 保持 critic 顺序、decision 与 score | `session_verdict_lines_keep_decision_and_score_together` | 用户看到的评审历史乱序或分值错配 |
+| 无 verdicts 与失败但无 verdicts 都返回空 | `a_transcript_without_verdicts_has_no_verdict_lines`；`a_failed_transcript_without_verdicts_does_not_invent_one` | 失败会话伪造评审结论 |
+| object commit 读出 develop/xmp/note | `a_commit_object_exposes_its_develop_xmp_and_note_paths` | 当前格式的持久化结果在 show/replay 中丢失 |
+| legacy JSON-string commit 读出同三项 | `a_legacy_commit_string_exposes_the_same_three_paths` | 旧 transcript 无法 replay |
+| 无 commit 返回三个空字符串 | `a_transcript_without_a_commit_has_no_commit_paths` | 未提交会话伪造文件结果 |
+| session id 与显式现存路径解析到真实文件 | `a_session_id_resolves_to_its_json_file`；`session_resolution_prefers_an_existing_direct_path` | `session show/replay` 找不到用户指定记录 |
+| 缺失 session 返回含查找目录的错误 | `a_missing_session_reports_where_resolution_was_attempted` | 用户无法判断在哪里查找失败 |
+| bare filename 在 sessions 目录解析 | `a_session_filename_resolves_inside_the_sessions_directory` | 补充公开文档已承诺但 main 未单独断言的第三种输入 |
+| structured failure 原样保留 | `a_structured_session_failure_keeps_its_failure_class` | 当前 transcript 的失败类型丢失 |
+| legacy budget/generic error 分别映射为 `budget_exhausted`/`error` | `a_legacy_budget_error_is_reported_as_budget_exhaustion`；`an_unclassified_legacy_session_error_uses_the_generic_failure_class` | 旧记录被错误归因 |
+| 无 error 时 failure 为 `None` | `a_session_without_an_error_has_no_failure_class` | 成功会话被标成失败 |
+| 显式 true 与 legacy budget error 都是 budget exhausted | `an_explicit_budget_exhaustion_flag_is_reported`；`a_legacy_budget_error_is_reported_as_budget_exhaustion` | 新旧格式漏报预算耗尽 |
+| 显式 false 与 model error 都不是 budget exhausted | `a_false_budget_exhaustion_flag_is_not_reported`；`a_model_error_is_not_reported_as_budget_exhaustion` | 普通失败被错误归为预算耗尽 |
+
+Mutation 证据：
+
+- 让五个公开 reader 对有效输入统一返回空/零/错误时，正常计数、verdict、两种
+  commit、三种解析与三类 failure 共 10 个 case 变红；缺失输入 case 仍绿。
+- 恢复正常输入后，让缺失输入统一伪造活动/verdict/commit/session/failure，6 个负向
+  case 变红；正常输入 case 仍绿。
+- 单独忽略结构化 budget flag 时，显式 true case 变红；让 budget reader 一律返回
+  true 时，false flag 与 model error 两个 case 分别变红。
+
+所有 mutation 均已恢复，`src/session.rs` 无 diff。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -749,7 +792,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 78 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
-| `tests/domain_behavior.rs` | 85 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
+| `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

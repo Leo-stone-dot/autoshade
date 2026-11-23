@@ -110,6 +110,15 @@ fn session_turn_and_tool_counts_ignore_non_assistant_rows() {
 }
 
 #[test]
+fn a_transcript_without_messages_has_no_turns_or_tools() {
+    let transcript = json!({});
+
+    assert_eq!(assistant_turns(&transcript), 0);
+    assert_eq!(tool_calls(&transcript), 0);
+    assert_eq!(tool_results(&transcript), 0);
+}
+
+#[test]
 fn session_verdict_lines_keep_decision_and_score_together() {
     let transcript = json!({
         "verdicts": [
@@ -119,6 +128,16 @@ fn session_verdict_lines_keep_decision_and_score_together() {
     });
 
     assert_eq!(verdict_lines(&transcript), ["revise 80", "accept 91"]);
+}
+
+#[test]
+fn a_transcript_without_verdicts_has_no_verdict_lines() {
+    assert!(verdict_lines(&json!({})).is_empty());
+}
+
+#[test]
+fn a_failed_transcript_without_verdicts_does_not_invent_one() {
+    assert!(verdict_lines(&json!({"error": "model_error"})).is_empty());
 }
 
 #[test]
@@ -138,11 +157,54 @@ fn a_legacy_commit_string_exposes_the_same_three_paths() {
 }
 
 #[test]
+fn a_commit_object_exposes_its_develop_xmp_and_note_paths() {
+    let transcript = json!({
+        "commit": {
+            "develop": "photo.develop.json",
+            "xmp": "photo.xmp",
+            "note": "kept"
+        }
+    });
+
+    assert_eq!(
+        commit_paths(&transcript),
+        (
+            "photo.develop.json".to_string(),
+            "photo.xmp".to_string(),
+            "kept".to_string()
+        )
+    );
+}
+
+#[test]
+fn a_transcript_without_a_commit_has_no_commit_paths() {
+    assert_eq!(
+        commit_paths(&json!({})),
+        (String::new(), String::new(), String::new())
+    );
+}
+
+#[test]
 fn a_legacy_budget_error_is_reported_as_budget_exhaustion() {
     let transcript = json!({"error": "budget_exhausted: turn limit"});
 
     assert_eq!(failure_kind(&transcript).as_deref(), Some("budget_exhausted"));
     assert!(budget_exhausted(&transcript));
+}
+
+#[test]
+fn an_explicit_budget_exhaustion_flag_is_reported() {
+    assert!(budget_exhausted(&json!({"budget_exhausted": true})));
+}
+
+#[test]
+fn a_false_budget_exhaustion_flag_is_not_reported() {
+    assert!(!budget_exhausted(&json!({"budget_exhausted": false})));
+}
+
+#[test]
+fn a_model_error_is_not_reported_as_budget_exhaustion() {
+    assert!(!budget_exhausted(&json!({"error": "model_error: 401"})));
 }
 
 #[test]
@@ -157,6 +219,67 @@ fn session_resolution_prefers_an_existing_direct_path() {
     let resolved = resolve_session(direct.to_str().unwrap(), &sessions).unwrap();
 
     assert_eq!(resolved, direct);
+}
+
+#[test]
+fn a_session_id_resolves_to_its_json_file() {
+    let tree = TempTree::new("session-id");
+    let sessions = tree.path().join("sessions");
+    let expected = sessions.join("analyze-9.json");
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(&expected, "{}").unwrap();
+
+    assert_eq!(resolve_session("analyze-9", &sessions).unwrap(), expected);
+}
+
+#[test]
+fn a_session_filename_resolves_inside_the_sessions_directory() {
+    let tree = TempTree::new("session-filename");
+    let sessions = tree.path().join("sessions");
+    let expected = sessions.join("named.json");
+    std::fs::create_dir_all(&sessions).unwrap();
+    std::fs::write(&expected, "{}").unwrap();
+
+    assert_eq!(resolve_session("named.json", &sessions).unwrap(), expected);
+}
+
+#[test]
+fn a_missing_session_reports_where_resolution_was_attempted() {
+    let tree = TempTree::new("session-missing");
+    let sessions = tree.path().join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+
+    let error = resolve_session("analyze-missing", &sessions)
+        .unwrap_err()
+        .to_string();
+
+    assert!(error.contains("no harness session"), "error={error}");
+    assert!(
+        error.contains(&sessions.display().to_string()),
+        "error={error}"
+    );
+}
+
+#[test]
+fn a_structured_session_failure_keeps_its_failure_class() {
+    let transcript = json!({
+        "failure": "model_error",
+        "error": "model_error: 401"
+    });
+
+    assert_eq!(failure_kind(&transcript).as_deref(), Some("model_error"));
+}
+
+#[test]
+fn an_unclassified_legacy_session_error_uses_the_generic_failure_class() {
+    let transcript = json!({"error": "the critic never produced a JSON verdict"});
+
+    assert_eq!(failure_kind(&transcript).as_deref(), Some("error"));
+}
+
+#[test]
+fn a_session_without_an_error_has_no_failure_class() {
+    assert_eq!(failure_kind(&json!({"verdicts": []})), None);
 }
 
 #[test]
