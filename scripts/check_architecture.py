@@ -224,6 +224,81 @@ def function_body(text: str, name: str) -> tuple[int, int] | None:
     return match.start(), end
 
 
+def store_advisory_metadata_lifecycle(root: Path) -> list[str]:
+    findings: list[str] = []
+    versions = root / "src/store/versions.rs"
+    versions_raw = versions.read_text(encoding="utf-8")
+    versions_text = strip_comments(versions_raw)
+    path_body = function_body(versions_text, "version_meta_path")
+    if path_body is None:
+        findings.append(
+            "src/store/versions.rs:1: store-advisory-metadata-lifecycle: "
+            "version_meta_path is missing"
+        )
+    else:
+        start, end = path_body
+        if '".version-meta.json"' not in versions_text[start:end]:
+            findings.append(
+                finding(
+                    versions,
+                    versions_raw,
+                    start,
+                    "store-advisory-metadata-lifecycle",
+                    "version metadata must keep its one advisory file name",
+                )
+            )
+
+    write_body = function_body(versions_text, "write_version_meta_unlocked")
+    if write_body is None:
+        findings.append(
+            "src/store/versions.rs:1: store-advisory-metadata-lifecycle: "
+            "write_version_meta_unlocked is missing"
+        )
+    else:
+        start, end = write_body
+        scope = versions_text[start:end]
+        if "durable_write(" not in scope or "publish_json_sidecar(" in scope:
+            findings.append(
+                finding(
+                    versions,
+                    versions_raw,
+                    start,
+                    "store-advisory-metadata-lifecycle",
+                    "advisory metadata must publish directly, never as a generational sidecar",
+                )
+            )
+
+    forbidden_scopes = (
+        ("src/store/key.rs", "adoption_skips"),
+        ("src/store/snapshot.rs", "recover_orphan_baks_unlocked"),
+        ("src/store/clear.rs", "clear_sweep_in"),
+        ("src/store/commit.rs", "apply_commit_members"),
+    )
+    for rel, name in forbidden_scopes:
+        path = root / rel
+        raw = path.read_text(encoding="utf-8")
+        text = strip_comments(raw)
+        body = function_body(text, name)
+        if body is None:
+            findings.append(
+                f"{rel}:1: store-advisory-metadata-lifecycle: {name} is missing"
+            )
+            continue
+        start, end = body
+        scope = text[start:end]
+        if "version_meta_path" in scope or '".version-meta.json"' in scope:
+            findings.append(
+                finding(
+                    path,
+                    raw,
+                    start,
+                    "store-advisory-metadata-lifecycle",
+                    f"{name} must not make advisory metadata generational or non-adoptable",
+                )
+            )
+    return findings
+
+
 def server_heavy_slots(root: Path) -> list[str]:
     findings: list[str] = []
     path = root / "src/serve.rs"
@@ -410,6 +485,7 @@ RULES = (
     engine_analyzer_boundary,
     base_look_single_entry,
     mask_paint_notification,
+    store_advisory_metadata_lifecycle,
     server_heavy_slots,
     generative_slot_scope,
     heal_slot_scope,
@@ -443,6 +519,27 @@ def self_test() -> int:
         write(root / "src/bin/gui/open_actions.rs", "fn open() { camera_base_look(); }")
         write(root / "src/render/source.rs", "fn develop(d: D) { d.raw_image(src, params, false); }")
         write(root / "src/bin/gui/masks.rs", "fn edit() { mask_paint = Some(x); mask_dirty = true; }")
+        write(
+            root / "src/store/versions.rs",
+            'fn version_meta_path(dev: &Path) -> PathBuf { dev.join(".version-meta.json") }\n'
+            "fn write_version_meta_unlocked() { publish_json_sidecar(); }",
+        )
+        write(
+            root / "src/store/key.rs",
+            'fn adoption_skips(name: &str) -> bool { name == ".version-meta.json" }',
+        )
+        write(
+            root / "src/store/snapshot.rs",
+            "fn recover_orphan_baks_unlocked() { version_meta_path(); }",
+        )
+        write(
+            root / "src/store/clear.rs",
+            "fn clear_sweep_in() { version_meta_path(); }",
+        )
+        write(
+            root / "src/store/commit.rs",
+            "fn apply_commit_members() { version_meta_path(); }",
+        )
         write(root / "src/serve.rs", "fn api_export() { render(); }\nfn api_download() { render(); }")
         write(root / "src/generative.rs", "fn edit_onto() { let heavy = crate::full_res_slot(); call_images_edit(); }")
         write(root / "src/retouch.rs", "fn heal_and_save() { split_alpha(); }")
@@ -461,6 +558,7 @@ def self_test() -> int:
             "engine-analyzer-boundary",
             "base-look-single-entry",
             "mask-paint-notification",
+            "store-advisory-metadata-lifecycle",
             "server-heavy-slot",
             "generative-slot-scope",
             "heal-slot-scope",
@@ -486,6 +584,27 @@ def self_test() -> int:
             write(
                 valid / "src/bin/gui/masks.rs",
                 "fn edit() { mask_paint = Some(x); paint_mask_changed(None); }\nfn paint_mask_changed() { mask_dirty = true; }",
+            )
+            write(
+                valid / "src/store/versions.rs",
+                'fn version_meta_path(dev: &Path) -> PathBuf { dev.join(".version-meta.json") }\n'
+                "fn write_version_meta_unlocked() { durable_write(); }",
+            )
+            write(
+                valid / "src/store/key.rs",
+                'fn adoption_skips(name: &str) -> bool { name == ".develop.lock" }',
+            )
+            write(
+                valid / "src/store/snapshot.rs",
+                "fn recover_orphan_baks_unlocked() { recover_recipe(); }",
+            )
+            write(
+                valid / "src/store/clear.rs",
+                "fn clear_sweep_in() { clear_recipe(); }",
+            )
+            write(
+                valid / "src/store/commit.rs",
+                "fn apply_commit_members() { publish_recipe(); }",
             )
             write(valid / "src/serve.rs", "fn open() { camera_base_look(); }\nfn api_export() { let _heavy = heavy(); render(); }\nfn api_download() { let _heavy = heavy(); render(); }")
             write(valid / "src/generative.rs", "fn edit_onto() { let heavy = crate::full_res_slot(); drop(heavy); call_images_edit(); let _heavy = crate::full_res_slot(); }")

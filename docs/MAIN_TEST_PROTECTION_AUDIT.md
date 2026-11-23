@@ -33,8 +33,8 @@ case 最终必须归入以下一种状态：
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，129 条 `rewritten`、11 条
-`lint`、2,141 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，129 条 `rewritten`、12 条
+`lint`、2,140 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批逐断言闭合 24 条：
+`src/store/tests.rs` 截至本批有 24 条 `rewritten`、1 条 `lint`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1157,6 +1157,18 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `variants_record_round_trips_relocatable_and_recovers_its_bak` | relocate + clear/recovery + future-format cases | 整个store搬迁后raster重锚；clear后不复活；future strip保持Unresolved |
 | `variant_ids_and_names_are_additive_in_both_directions` | metadata preserve + Unicode cap + legacy None cases | 新旧metadata兼容、名称安全限长、旧记录不伪造id/name |
 | `backup_snapshot_is_a_copy_and_freezes_rasters` | identical + frozen-raster + deleted-fingerprint cases | 相同写不增版本；快照独立；删除按内容与raster bytes判定且版本号烧掉 |
+
+架构归属：
+
+| main case | lint执行者 | 覆盖的代码约束 |
+| --- | --- | --- |
+| `the_version_meta_sidecar_keeps_the_non_generational_discipline` | `store-advisory-metadata-lifecycle` | advisory文件名固定；只走direct durable write；不得进入adoption exclusion、orphan recovery、clear或commit generation |
+
+该 rule 随 `scripts/check_architecture.py --self-test` 运行：坏夹具同时把 metadata 接入
+generational publisher与四个禁止scope，必须报
+`store-advisory-metadata-lifecycle`；好夹具使用 direct publisher 且四个scope不引用
+metadata，必须通过。这里的红灯回答“代码允许怎么写”，所以没有复制 main 的私有
+helper/list断言到行为测试。
 
 `clear_develop_leaves_no_resurrection_route` 有一组 main 断言不能原样保留：
 旧 case 要求物理删除 stem-only legacy recipe/XMP；当前产品契约改为写入按照片
