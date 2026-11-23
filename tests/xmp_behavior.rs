@@ -1,6 +1,5 @@
 use autoshade::recipe::{
-    ColourField, EditRecipe, LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry,
-    MaskRole,
+    ColourField, EditRecipe, LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, MaskRole,
 };
 
 fn complex_recipe() -> EditRecipe {
@@ -63,6 +62,63 @@ fn a_fresh_xmp_document_round_trips_the_complete_develop() {
     let restored = autoshade::xmp::xmp_to_recipe(&xmp);
 
     assert_eq!(restored, recipe);
+}
+
+#[test]
+fn composed_mask_coverage_is_unchanged_by_an_xmp_round_trip() {
+    let reference = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+        127,
+        73,
+        image::Rgb([128, 128, 128]),
+    ));
+
+    for mode in [
+        MaskCombine::Add,
+        MaskCombine::Subtract,
+        MaskCombine::Intersect,
+    ] {
+        for inverted in [false, true] {
+            let mask = LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.25,
+                    zero_y: 0.0,
+                    full_x: 0.75,
+                    full_y: 1.0,
+                },
+                components: vec![MaskComponent {
+                    geometry: MaskGeometry::Linear {
+                        zero_x: 0.5,
+                        zero_y: 0.25,
+                        full_x: 0.5,
+                        full_y: 0.75,
+                    },
+                    mode,
+                    inverted,
+                }],
+                ..LocalAdjustment::default()
+            };
+            let recipe = EditRecipe {
+                masks: vec![mask.clone()],
+                ..EditRecipe::default()
+            };
+            let restored = autoshade::xmp::xmp_to_recipe(&autoshade::xmp::recipe_to_xmp(&recipe));
+
+            assert_eq!(restored.masks.len(), 1, "mode={mode:?} inverted={inverted}");
+            assert_eq!(
+                autoshade::render::mask_coverage(
+                    &mask,
+                    &reference,
+                    autoshade::render::MaskFrame::AsRendered,
+                ),
+                autoshade::render::mask_coverage(
+                    &restored.masks[0],
+                    &reference,
+                    autoshade::render::MaskFrame::AsRendered,
+                ),
+                "mode={mode:?} inverted={inverted}",
+            );
+        }
+    }
 }
 
 #[test]

@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：484 cases，约 1,217 个断言宏，31 个显式 ignore。
+- 当前工作树：485 cases，约 1,219 个断言宏，31 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，70 条 `rewritten`、11 条
-`lint`、2,200 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，71 条 `rewritten`、11 条
+`lint`、2,199 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -911,9 +911,21 @@ Mutation 证据：状态查询永假时三个 case 均红；Drop 把 depth 清�
 Drop no-op 时普通 scope exit 与 panic unwind 两个 case 红。实现已恢复，
 `src/panic_guard.rs` 无 diff。
 
-`src/render.rs::xmp_component_round_trip_preserves_unquantized_composed_weights` 仍保持
-`open`：main case 直接调用私有 `combined_mask_weight`。它必须改写为公开
-`mask_coverage`/XMP 后实际覆盖像素结果，不能在本批复制私有 helper 断言。
+### XMP composed mask 的公开 coverage
+
+- Main case：`src/render.rs::xmp_component_round_trip_preserves_unquantized_composed_weights`
+- 当前 case：`tests/xmp_behavior.rs::composed_mask_coverage_is_unchanged_by_an_xmp_round_trip`
+- 状态：`rewritten`
+- Gate：默认 `tests/xmp_behavior.rs`
+
+main 直接调用私有 `combined_mask_weight` 比较未量化浮点值，锁定 render helper。当前
+case 改走公开 `recipe_to_xmp` / `xmp_to_recipe` 与 `mask_coverage`，在 127×73 合成
+frame 上逐像素比较 Add/Subtract/Intersect × component inversion 的完整 8-bit
+coverage。它保留“用户存取 XMP 后蒙版画面不变”的产品契约，不要求未来 renderer
+继续使用同一个私有 helper 或浮点中间表示。
+
+Mutation 证据：临时把 XMP 读回的第一个 component mode 强制为 Add，Add 对照仍通过，
+Subtract 在整张 coverage 比较处变红。reader 已恢复，`src/xmp/read.rs` 无 diff。
 
 ### 零强度 developed denoise 是无损 no-op
 
@@ -962,6 +974,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
+| `tests/xmp_behavior.rs` | 4 | payload/namespace round-trip、composed mask coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

@@ -1465,7 +1465,7 @@ src/recipe.rs	6799	a_non_finite_range_drops_the_whole_mask_on_clamp	1	default	op
 src/recipe.rs	6822	every_mask_role_has_a_tag_and_round_trips	8	default	open		Awaiting assertion-by-assertion review.
 src/recipe.rs	6853	an_older_reader_refuses_a_portrait_role_by_name	2	default	open		Awaiting assertion-by-assertion review.
 src/recipe.rs	6886	warmth_is_an_octave_either_side_of_the_as_shot_temperature	8	default	open		Awaiting assertion-by-assertion review.
-src/render.rs	317	xmp_component_round_trip_preserves_unquantized_composed_weights	1	default	open		Awaiting assertion-by-assertion review.
+src/render.rs	317	xmp_component_round_trip_preserves_unquantized_composed_weights	1	default	rewritten	tests/xmp_behavior.rs::composed_mask_coverage_is_unchanged_by_an_xmp_round_trip	Private unquantized-helper equality is rewritten as public full-frame coverage equality for every combine mode and component inversion.
 src/render/camera.rs	313	a_bright_unclipped_colour_keeps_its_chromaticity	2	default	open		Awaiting assertion-by-assertion review.
 src/render/camera.rs	322	a_clipped_photosite_takes_the_desaturating_blend	2	default	open		Awaiting assertion-by-assertion review.
 src/render/camera.rs	331	range_is_untouched	1	default	open		Awaiting assertion-by-assertion review.
