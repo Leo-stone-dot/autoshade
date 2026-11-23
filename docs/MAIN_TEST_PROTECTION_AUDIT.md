@@ -483,6 +483,55 @@ Linear 与 Bitmap 的 mutation 证据：公开 preview 入口原样返回输入�
   审计分别归属，不能由方向 case 一并勾销。
 - Mutation：把传入角度乘 0 后，探针保持 Blue，方向 case 失败；恢复后通过。
 
+## Store 已裁决
+
+### Lightroom newest intent
+
+- Main case：`src/store/tests.rs::lightroom_sidecar_newest_intent_wins`
+- 当前 case：`tests/store_behavior.rs::the_newest_lightroom_sidecar_intent_wins_over_the_store`
+- 状态：`rewritten`
+- 映射：显式设置文件 mtime，不使用 sleep；较旧 Lightroom sidecar 返回
+  `OlderThanStore`，较新 sidecar 返回 `NewerThanStore` 且携带实际读取文本。main 的
+  “无 sidecar / sidecar-only / 与自家 projection 字节相同”三个独立分支仍由后续
+  ranking 审计分别归属。
+- Mutation：反转 sidecar/store 的 mtime 比较后，older 对照先错误返回 newer，case
+  失败；恢复后通过。
+
+### Settings lock
+
+- Main case：`src/store/tests.rs::a_settings_lock_serializes_writers_and_reenters_on_its_thread`
+- 当前 cases：
+  - `tests/store_behavior.rs::the_settings_lock_reenters_on_its_own_thread`
+  - `tests/store_behavior.rs::the_settings_lock_refuses_other_threads_until_the_owner_releases_it`
+- 状态：`rewritten`
+
+原 case 的两个主张按一 case 一主张拆开：
+
+| main 断言 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| 同线程复合 load/write 可重入 | reentrant case 返回嵌套值 7 | 保留 |
+| 其他线程 NoWait 得到 `WouldBlock` | contention case | 保留 |
+| owner drop 后可再次获得锁 | contention case 最后一次公开调用 | 保留 |
+
+Mutation 证据：
+
+- 让公开 `with_settings_lock` 直接执行闭包时，other-thread case 在 `WouldBlock`
+  断言处失败。
+- 关闭 `with_path_lock` 的同线程 held-set 检查时，nested NoWait 返回
+  `WouldBlock`，reentrant case 失败。
+- 两次 mutation 均已恢复。
+
+### 暂不按旧 fixture 迁移的崩溃恢复
+
+以下 main case 直接写内部事务 marker；按新原则不能复制：
+
+- `a_killed_version_delete_resumes_and_its_number_stays_burned`
+- `a_pending_clear_completes_on_the_next_touch`
+
+两项行为仍有产品价值，状态为 `rewritten` 待完成。验收必须通过真实子进程在公开
+`delete_version` / `clear_develop` 中途被终止，再从公开 list/read/claim 入口验证
+恢复；不能直接创建 `.deleting.vN`、`clear.pending` 或断言内部 registry 文件布局。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：
