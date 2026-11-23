@@ -33,8 +33,8 @@ case 最终必须归入以下一种状态：
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，97 条 `rewritten`、11 条
-`lint`、2,173 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，100 条 `rewritten`、11 条
+`lint`、2,170 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1065,6 +1065,32 @@ Mutation 证据：
 `a_frame_the_warp_could_not_cover_is_not_averaged_in` 保持 `open`：公开 merge 不接收调用者
 构造的 coverage，必须由真实 alignment 产生确定 wedge，不能复制 private cover 参数。
 
+### Stack pyramid 的公开成片执行者
+
+- Main cases：`src/stack/pyramid.rs` 全部 3 条
+- 当前执行者：`tests/stack_merge_behavior.rs` 的 Focus/Fusion 成片 cases
+- 状态：3 条均为 `rewritten`
+- Gate：默认
+
+main 直接断言 private `gaussian/laplacian/collapse/expand/blend_rgb`。当前审计不复制这些
+helper；它用公开成片接管其产品后果：
+
+| main 私有主张 | 当前公开执行者 | 产品故障 |
+| --- | --- | --- |
+| 分 band 后重建原 plane，coarsest brightness 不丢 | Focus 双侧 sharp-frame 像素 fidelity；Fusion colour delivery | merge 即使不改权重也变暗/失色 |
+| expand 的 half-pixel grid 不让 ramp 滑动 | Focus seam 外最大像素误差 `<0.015` | pyramid level 错半个 coarse pixel，产生软 double edge |
+| hard weight edge 按两边选择且无 step，任意权重先 normalize | Focus detail/fidelity；Fusion colour 与 bracket contrast | 单层 blend露 seam，或未归一权重造成亮度 stain |
+
+Mutation 证据：
+
+- 丢掉 Laplacian coarsest level 时 Focus seam 外误差升至 0.481，Fusion colour近乎归零。
+- 去掉 expand 的 `−0.5` 时，公开 Focus seam 外 worst 从正确实现的 `0.01093` 升至
+  `0.01952`；当前 `0.015` 成片阈值红。该阈值位于两者之间并保留约 0.004 平台余量。
+- `depth` 固定为 1 时同一 Focus case 以 `0.01639` 红；跳过 weight normalization 时
+  Focus detail、Fusion colour、bracket shadow contrast 三个公开结果均红。
+
+所有 mutation 均已恢复，`src/stack/pyramid.rs` 无 diff。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -1115,7 +1141,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/xmp_behavior.rs` | 4 | payload/namespace round-trip、composed mask coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
-| `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge | coverage injection |
+| `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

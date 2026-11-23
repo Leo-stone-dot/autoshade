@@ -183,7 +183,7 @@ fn a_focus_stack_reproduces_the_sharp_frame_on_both_sides() {
         })
         .map(|index| (merged.pixels[index][1] - sharp[index][1]).abs())
         .fold(0.0_f32, f32::max);
-    assert!(worst < 0.02, "worst={worst}");
+    assert!(worst < 0.015, "worst={worst}");
 }
 
 #[test]
