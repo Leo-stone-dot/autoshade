@@ -69,6 +69,12 @@ fn photo(root: &Path, name: &str) -> PathBuf {
     path
 }
 
+fn fnv1a64_reference(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3)
+    })
+}
+
 fn directory_alias(link: &Path, target: &Path) {
     #[cfg(unix)]
     let created = std::os::unix::fs::symlink(target, link).is_ok();
@@ -103,6 +109,23 @@ fn photo_keys_follow_the_volume_when_two_case_spellings_name_one_object() {
     let same_object = std::fs::metadata(&lower).is_ok();
 
     assert_eq!(photo_key(&upper) == photo_key(&lower), same_object);
+}
+
+#[test]
+fn photo_key_suffixes_keep_the_published_fnv1a_identity() {
+    let store = TempStore::new("photo-key-fnv");
+    for name in ["a.arw", "foobar.dng", "相片.nef"] {
+        let path = photo(store.root(), name);
+        let identity = std::fs::canonicalize(&path).unwrap();
+        let mut spelling = identity.to_string_lossy().into_owned();
+        if cfg!(windows) {
+            spelling = spelling.to_lowercase();
+        }
+        let expected = format!("{:016x}", fnv1a64_reference(spelling.as_bytes()));
+        let key = photo_key(&path);
+
+        assert_eq!(key.rsplit_once('-').unwrap().1, expected);
+    }
 }
 
 #[cfg(windows)]
