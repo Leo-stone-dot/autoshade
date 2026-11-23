@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：525 cases，约 1,302 个断言宏，33 个显式 ignore。
+- 当前工作树：531 cases，约 1,311 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，100 条 `rewritten`、11 条
-`lint`、2,170 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，105 条 `rewritten`、11 条
+`lint`、2,165 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1091,6 +1091,42 @@ Mutation 证据：
 
 所有 mutation 均已恢复，`src/stack/pyramid.rs` 无 diff。
 
+### Store key 的 volume case 规则与 raster ownership
+
+- Main cases：`src/store.rs` 的 5 条 case
+- 当前入口：公开 `photo_key`、`volume_folds_case`、`OwnedRaster::claim` 与 zoned
+  fallback workflow
+- 状态：5 条均为 `rewritten`
+- Gate：默认 `tests/store_behavior.rs`；Unicode key branch 仅在 Windows 编译执行；
+  owned removal 由显式慢 Fit battery执行
+
+逐断言映射：
+
+| main 断言组 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| 两个 case spelling 若在该 volume 指向同一对象就有同一 `photo_key`，否则不同 | `photo_keys_follow_the_volume_when_two_case_spellings_name_one_object` | 同一照片产生两个 develop/lock，或两个不同照片共享一个 |
+| Windows non-ASCII stem 只折 ASCII 字母且字符数不扩张 | `a_windows_photo_key_folds_only_ascii_letters_in_a_non_ascii_stem`（`cfg(windows)`） | key 前缀变成 NTFS不能解析回原对象的 Unicode spelling |
+| existing leaf 与 missing leaf 都按 volume truth回答 | `volume_case_detection_matches_the_filesystem_and_a_missing_leaf` | 输出覆盖/路径比较按 OS猜测而非实际 volume |
+| 无可探测 entry 时回到 Windows/macOS fold、普通 Linux sensitive | `an_unprobeable_empty_directory_uses_the_platform_case_default` | 空目录首次写入使用不稳定 case规则 |
+| 能创建两个 case spelling时 volume sensitive；第二个 collision时 folds | `two_case_spellings_fold_only_when_they_cannot_be_separate_files` | “存在另一个名字”被误当成“同一对象”，造成数据覆盖 |
+| corpus photo 的 raster claim 只拥有 store placeholder，不拥有 corpus path | `claiming_a_raster_for_a_corpus_photo_owns_only_a_store_path` | fallback/reject清理删除校准语料 |
+| owned placeholder 确实被 fallback remove | `an_unavailable_segmentation_sidecar_delivers_a_global_fit_and_releases_its_claimed_mask` | claimed临时 raster泄漏，或 ownership清理失效 |
+
+Mutation 证据：
+
+- `photo_key` 退回 lexical spelling时，当前 case-insensitive volume上的同一对象得到两个
+  key，public case红。
+- `volume_folds_case` 固定返回平台默认的反值时，live-volume、missing-leaf、
+  empty-fallback、same-object四个 public对照中的三个直接红。
+- `OwnedRaster::claim` 临时直接包装 source path时，corpus ownership case在
+  `starts_with(corpus)` 断言处红。
+- owned removal 的既有 mutation删除释放调用后，slow zoned fallback在真实 placeholder
+  仍存在处红；证据登记于 `docs/BEHAVIOR_PROTECTION.md`。
+
+所有 mutation 均已恢复，`src/store/key.rs` 与 `src/store/paths.rs` 无 diff。
+Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前不得把它表述成本地
+验证结果。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -1142,6 +1178,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
+| `tests/store_behavior.rs` | 43 source / 42 macOS | key identity、atomic commit、locks、recovery、ownership | Store | Windows Unicode key case、crash fault injection |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

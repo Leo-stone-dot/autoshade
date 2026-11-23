@@ -15,12 +15,13 @@ use autoshade::config::{
 use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
 use autoshade::store::{
     ActiveWrite, CommitMember, DevelopCommit, EditStateKind, VariantEntry, VariantsRead,
-    VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, backup_saved_develop,
-    clear_develop, commit_develop, develop_dir, export_xmp_beside, lightroom_sidecar,
-    list_edits, migrate_legacy, pixel_source_path, read_develop_snapshot,
-    read_variants_checked, recipe_revision, recipe_target, recover_orphan_baks,
-    saved_quarter_turns, set_version_name, variants_member, variants_path, version_target,
-    with_develop_lock, with_settings_lock, write_variants, xmp_target,
+    VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, OwnedRaster,
+    backup_saved_develop, clear_develop, commit_develop, develop_dir, export_xmp_beside,
+    lightroom_sidecar, list_edits, migrate_legacy, photo_key, pixel_source_path,
+    read_develop_snapshot, read_variants_checked, recipe_revision, recipe_target,
+    recover_orphan_baks, saved_quarter_turns, set_version_name, variants_member,
+    variants_path, version_target, volume_folds_case, with_develop_lock,
+    with_settings_lock, write_variants, xmp_target,
 };
 use autoshade::pipeline::{ProjectionOutcome, commit_analyzed_develop};
 
@@ -66,6 +67,82 @@ fn valid_recipe() -> EditRecipe {
         exposure_ev: 0.5,
         ..EditRecipe::default()
     }
+}
+
+#[test]
+fn photo_keys_follow_the_volume_when_two_case_spellings_name_one_object() {
+    let store = TempStore::new("photo-key-case");
+    let upper = photo(store.root(), "CasePhoto.ARW");
+    let lower = store.root().join("cASEpHOTO.arw");
+    let same_object = std::fs::metadata(&lower).is_ok();
+
+    assert_eq!(photo_key(&upper) == photo_key(&lower), same_object);
+}
+
+#[cfg(windows)]
+#[test]
+fn a_windows_photo_key_folds_only_ascii_letters_in_a_non_ascii_stem() {
+    let store = TempStore::new("photo-key-unicode");
+    let photo = photo(store.root(), "\u{130}MG_001.ARW");
+    let key = photo_key(&photo);
+    let stem = key.rsplit_once('-').unwrap().0;
+
+    assert_eq!(stem, "\u{130}mg_001");
+    assert_eq!(stem.chars().count(), "\u{130}MG_001".chars().count());
+}
+
+#[test]
+fn volume_case_detection_matches_the_filesystem_and_a_missing_leaf() {
+    let store = TempStore::new("volume-case");
+    let path = photo(store.root(), "Ab.txt");
+    let flipped = store.root().join("aB.txt");
+    let truth = std::fs::metadata(&flipped).is_ok();
+
+    assert_eq!(volume_folds_case(&path), truth);
+    assert_eq!(
+        volume_folds_case(&store.root().join("not-written-yet.json")),
+        truth
+    );
+}
+
+#[test]
+fn an_unprobeable_empty_directory_uses_the_platform_case_default() {
+    let store = TempStore::new("volume-case-empty");
+    let empty = store.root().join("empty");
+    std::fs::create_dir(&empty).unwrap();
+
+    assert_eq!(
+        volume_folds_case(&empty.join("photo.arw")),
+        cfg!(windows) || cfg!(target_os = "macos")
+    );
+}
+
+#[test]
+fn two_case_spellings_fold_only_when_they_cannot_be_separate_files() {
+    let store = TempStore::new("volume-case-object");
+    let first = photo(store.root(), "Cd.txt");
+    let second = store.root().join("cD.txt");
+    let created_second = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&second)
+        .is_ok();
+
+    assert_eq!(volume_folds_case(&first), !created_second);
+}
+
+#[test]
+fn claiming_a_raster_for_a_corpus_photo_owns_only_a_store_path() {
+    let mut store = TempStore::new("owned-raster-corpus");
+    let corpus = store.root().join("calibration-corpus");
+    std::fs::create_dir(&corpus).unwrap();
+    let photo = photo(&corpus, "source.png");
+    store.env.set("AUTOSHADE_FIT_CALIBRATION_DIR", &corpus);
+
+    let raster = OwnedRaster::claim(&photo, "mask-zone-sky").unwrap();
+
+    assert!(raster.path().exists());
+    assert!(!raster.path().starts_with(&corpus));
 }
 
 #[test]
