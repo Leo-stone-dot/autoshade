@@ -2035,7 +2035,7 @@ src/xmp_pair.rs	335	an_absent_xmp_dir_degrades_to_the_sibling	1	default	rewritte
 src/xmp_pair.rs	351	the_exact_lowercase_spelling_outranks_every_other_casing	4	default	open		Awaiting assertion-by-assertion review.
 src/xmp/composition_tests.rs	16	combine_spelling_matches_all_census_rows_and_both_inversions	3	default	open		Awaiting assertion-by-assertion review.
 src/xmp/composition_tests.rs	28	native_compositions_round_trip_editor_intent_and_every_coverage_sample	9	default	open		Awaiting assertion-by-assertion review.
-src/xmp/composition_tests.rs	85	mixed_component_order_and_whole_inversion_survive_native_export	2	default	open		Awaiting assertion-by-assertion review.
+src/xmp/composition_tests.rs	85	mixed_component_order_and_whole_inversion_survive_native_export	2	default	rewritten	tests/xmp_behavior.rs::native_xmp_preserves_mixed_component_order_in_both_whole_inversions	After removing AutoShade editor metadata, native XMP preserves Subtract/Add/Intersect component order and final coverage for both whole-mask inversions; the delivered XML also pins Lightroom's mode-1 spelling count.
 src/xmp/composition_tests.rs	105	census_shaped_sky_intersect_radial_imports_as_intersect	4	default	open		Awaiting assertion-by-assertion review.
 src/xmp/composition_tests.rs	128	edited_ai_component_mode_overrides_imported_blend_and_add_keeps_plain_zero	6	default	open		Awaiting assertion-by-assertion review.
 src/xmp/composition_tests.rs	157	edited_brush_component_uses_the_same_spelling_and_preserves_plain_add_zero	6	default	open		Awaiting assertion-by-assertion review.

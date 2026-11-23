@@ -2,6 +2,15 @@ use autoshade::recipe::{
     ColourField, EditRecipe, LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, MaskRole,
 };
 
+fn without_autoshade_attributes(mut xmp: String) -> String {
+    while let Some(start) = xmp.find(" ash:") {
+        let value = start + xmp[start..].find("=\"").unwrap() + 2;
+        let end = value + xmp[value..].find('"').unwrap() + 1;
+        xmp.replace_range(start..end, "");
+    }
+    xmp
+}
+
 fn complex_recipe() -> EditRecipe {
     let mut recipe = EditRecipe {
         exposure_ev: -0.8034,
@@ -118,6 +127,80 @@ fn composed_mask_coverage_is_unchanged_by_an_xmp_round_trip() {
                 "mode={mode:?} inverted={inverted}",
             );
         }
+    }
+}
+
+#[test]
+fn native_xmp_preserves_mixed_component_order_in_both_whole_inversions() {
+    let reference = image::DynamicImage::new_rgb8(127, 73);
+    let radial = |flipped| MaskGeometry::Radial {
+        top: 0.2,
+        left: 0.2,
+        bottom: 0.8,
+        right: 0.8,
+        feather: 0.5,
+        roundness: 0.0,
+        flipped,
+        angle: 0.0,
+        midpoint: 50.0,
+        mask_version: 2,
+    };
+    let linear = || MaskGeometry::Linear {
+        zero_x: 0.1,
+        zero_y: 0.2,
+        full_x: 0.9,
+        full_y: 0.8,
+    };
+
+    for inverted in [false, true] {
+        let original = LocalAdjustment {
+            mask: linear(),
+            inverted,
+            components: vec![
+                MaskComponent {
+                    geometry: radial(false),
+                    mode: MaskCombine::Subtract,
+                    inverted: false,
+                },
+                MaskComponent {
+                    geometry: linear(),
+                    mode: MaskCombine::Add,
+                    inverted: true,
+                },
+                MaskComponent {
+                    geometry: radial(true),
+                    mode: MaskCombine::Intersect,
+                    inverted: false,
+                },
+            ],
+            ..LocalAdjustment::default()
+        };
+        let native = without_autoshade_attributes(autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            masks: vec![original.clone()],
+            ..EditRecipe::default()
+        }));
+        if !inverted {
+            assert_eq!(
+                native.matches("crs:MaskBlendMode=\"1\"").count(),
+                2,
+                "Subtract and Intersect must keep Lightroom's native mode-1 spelling"
+            );
+        }
+        let restored = autoshade::xmp::xmp_to_recipe(&native);
+
+        assert_eq!(restored.masks[0].components, original.components);
+        assert_eq!(
+            autoshade::render::mask_coverage(
+                &restored.masks[0],
+                &reference,
+                autoshade::render::MaskFrame::AsRendered,
+            ),
+            autoshade::render::mask_coverage(
+                &original,
+                &reference,
+                autoshade::render::MaskFrame::AsRendered,
+            )
+        );
     }
 }
 
