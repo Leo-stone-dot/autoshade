@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：500 cases，约 1,243 个断言宏，33 个显式 ignore。
+- 当前工作树：507 cases，约 1,256 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，79 条 `rewritten`、11 条
-`lint`、2,191 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，84 条 `rewritten`、11 条
+`lint`、2,186 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -971,6 +971,47 @@ Mutation 证据：
 改成 Windows + 指定真实 RAW 的 external gate，并声明可执行的峰值阈值，才能标为
 `external-gate`；不能因它是 slow/平台 case 就直接删除或宣称已保护。
 
+### Stack alignment 的公开 affine / warp 结果
+
+- Main cases：`src/stack/align.rs` 中 5 条 global affine / warp case
+- 当前入口：公开 `solve`、`Warp::apply`、`warp_rgb`、`coverage`
+- 状态：5 条 `rewritten`；registered-stack、local-subject、small-grid 三条仍 `open`
+- Gate：默认 `tests/stack_align_behavior.rs`
+
+逐断言映射：
+
+| main 断言组 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| 两档曝光差下恢复 6/−4 px inverse translation，scale 仍约 1 | `a_two_stop_bracket_recovers_its_translation_without_inventing_scale` | bracket 因亮度差无法对齐，或为亮度差发明缩放 |
+| 恢复 roll、1.2% breathing scale 与 translation | `affine_alignment_recovers_roll_scale_and_translation` | solver 退化成只能平移，focus/bracket 边缘重影 |
+| covered pixels warp 回原 frame | `warping_back_reproduces_every_covered_pixel` | 解出的 warp 方向/采样错误 |
+| coverage 标出真实 wedge，且大半 frame 仍 covered | `coverage_names_the_wedge_a_shift_pushes_outside_the_source` | merge 信任无来源像素或丢掉有效主体 |
+| uncovered pixels 保持 moving frame 原值 | `an_uncovered_warp_pixel_keeps_the_value_it_had` | 边缘被填黑并污染 merge |
+| split dx/dy residual planes 与独立 bilinear 采样 bit-for-bit 一致 | `a_split_residual_field_is_sampled_from_its_matching_planes` | residual 分量互换或 block-centre 坐标漂移 |
+| 48/−32 px shift 在约五分之一 frame 越界时仍恢复 | `a_large_shift_is_recovered_even_with_a_fifth_of_the_frame_uncovered` | 大 wedge 的 clamp 内容把解拉回零 |
+
+合成 scene 复用 main 的多尺度可辨识纹理公式，但所有采样、sRGB exposure 与 bilinear
+oracle 均在 integration test 中独立实现；被测侧只调用公开 API。最初自造的单尺度
+scene 无法恢复大位移，case 在 premise 上红；没有放宽阈值，而是回到 main 已证明可
+辨识的 fixture 公式。
+
+Mutation 证据：
+
+- `solve` 固定返回 identity 时，两档 bracket、roll+scale、大位移三个 case 均红。
+- `warp_rgb` 原样返回输入时 covered reconstruction 红；coverage 永真时 wedge case
+  红；越界采样填黑时 keep-original case 红。
+- `Warp::apply` 交换 dx/dy planes 时 split-field case 在首个坐标 bit 比较处红。
+
+所有 mutation 均已恢复，`src/stack/align.rs` 无 diff。
+
+以下三条保持 `open`，不能用上述 global cases 提前勾销：
+
+- `aligning_frames_that_are_already_registered_costs_the_stack_nothing`：端到端 noise merge
+  parity、uncovered 与 ghost removal。
+- `the_local_pass_finds_a_subject_that_moved_and_refuses_flat_ground`：local parallax 与
+  flat-texture refusal 同帧对照。
+- `a_small_frame_keeps_every_block_it_can_still_measure`：小 frame block grid 的可测性。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -1020,6 +1061,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 4 | payload/namespace round-trip、composed mask coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
+| `tests/stack_align_behavior.rs` | 7 | exposure-blind affine、roll/scale、warp/coverage/residual planes | Stack alignment | registered merge parity、local parallax、small-grid survival |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
