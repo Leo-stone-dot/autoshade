@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：583 cases，约 1,529 个断言宏，33 个显式 ignore。
+- 当前工作树：583 cases，约 1,530 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，148 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,119 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，149 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,118 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 43 条 `rewritten`、2 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 44 条 `rewritten`、2 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1176,6 +1176,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `list_edits_joins_the_strip_with_the_version_history` | public edit-state join case | active位置、background顺序、真实version、名称与provenance一次返回，phantom不出现 |
 | `a_foreign_develop_write_restates_the_strips_active_card` | public commit restatement case | 只改active kind，active与background card其余字段保留；重复kind为Keep |
 | `the_strip_member_keeps_its_hands_off_what_it_must` | four member-decision cases | Absent/Unresolved/Unknown为Keep；owner为exact Write或Clear |
+| `a_pending_clear_outranks_the_sidecar_beside_the_photo` | public failed-clear badge/ranking case | pending intent同时压住badge与旧Lightroom sidecar排序 |
 
 架构归属：
 
@@ -1241,6 +1242,7 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | edit-state列表按记录位置排列cards，随后只列真实version并携带metadata | edit-state join case | GUI错选active卡、显示已删除phantom版本、版本名称/来源丢失 |
 | foreign commit后active kind更新，card/background完整，重复同kind不重写 | variant restatement case | CLI写入新develop后strip仍描述旧卡，或重写时丢背景卡/身份 |
 | 四类caller分别得到Keep、exact Write或Clear | variant member decision cases | 无记录被凭空制造、陌生数据被清除、owner交付被忽略、未知caller误改strip |
+| clear中途失败时badge为false且`lightroom_sidecar`为None | pending-clear ordering case | 清除尚未完成时旧sidecar立即复活为最新编辑 |
 
 两条 Lightroom version case 仍是具体 `open`，不是泛化缺口：
 
@@ -1319,6 +1321,8 @@ Load Version工作流或公开版本读取入口能观察这份bytes，两条 ca
   的Keep快捷路时，case在最后的幂等断言处红。
 - 将Absent改Write、Unresolved改Clear、owner改Keep、Unknown改Clear时，四条独立case
   分别在自己的member断言处红。
+- newest-intent排序只看completed clear、不看pending clear时，badge断言仍绿但
+  `lightroom_sidecar == None`断言红，证明两层各自执行。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 

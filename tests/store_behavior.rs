@@ -2249,6 +2249,7 @@ fn a_failed_clear_hides_the_lightroom_badge_until_recovery_finishes() {
 
     assert!(clear_develop(&raw).is_err());
     assert!(!has_develop_or_sidecar(&raw));
+    assert!(matches!(lightroom_sidecar(&raw), LrSidecar::None));
 }
 
 #[test]
