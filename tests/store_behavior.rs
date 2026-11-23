@@ -1797,6 +1797,10 @@ fn an_unreadable_lightroom_sidecar_is_disclosed_by_the_snapshot() {
 
     assert!(snapshot.lr_xmp.is_none());
     assert!(snapshot.lr_unreadable.is_some());
+    assert!(matches!(
+        lightroom_sidecar(&raw),
+        LrSidecar::Unreadable(why) if why.contains("UTF-8")
+    ));
 }
 
 #[test]
