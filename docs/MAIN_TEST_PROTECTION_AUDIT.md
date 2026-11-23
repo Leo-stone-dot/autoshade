@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：543 cases，约 1,369 个断言宏，33 个显式 ignore。
+- 当前工作树：551 cases，约 1,394 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，121 条 `rewritten`、11 条
-`lint`、2,149 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，126 条 `rewritten`、11 条
+`lint`、2,144 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批逐断言闭合 16 条：
+`src/store/tests.rs` 截至本批逐断言闭合 21 条：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1149,6 +1149,11 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `orphan_bak_is_restored_on_read` | orphan restore + live-wins + unusable-record cases | orphan恢复、live owner胜出、absent与recorded-but-unusable可区分 |
 | `a_cleared_develop_outranks_the_stale_copied_projection` | `a_clear_outranks_an_older_lightroom_sidecar_but_not_a_later_edit` | 旧sidecar不复活，clear之后的新Lightroom编辑仍胜出 |
 | `clear_develop_leaves_no_resurrection_route` | clear live/backups + recovery + legacy suppression + idempotence cases | 当前develop与恢复路线清除、版本保留、legacy按照片抑制、重复clear无删除 |
+| `an_unresolved_strip_refuses_save_and_clear_but_not_reads` | unresolved read/write/commit/clear cases | 读时区分Unresolved/Absent；所有破坏性保存拒绝且bytes不变，显式删除后恢复正常 |
+| `clear_pixel_source_detaches_the_retired_bak_too` | `clearing_a_pixel_source_cannot_resurrect_the_previous_master` | 两代linkage公开写入后clear，recovery也不复活旧master，用户raster不删除 |
+| `migrate_gate_treats_a_nondirectory_as_empty_not_failure` | `a_nondirectory_legacy_gallery_input_migrates_nothing` | 非目录输入公开返回迁移0且原bytes不变 |
+| `has_develop_or_sidecar_counts_a_lightroom_sidecar_beside_the_raw` | RAW/baked badge + failed-clear cases | sidecar-only RAW可见，baked相邻XMP不算，clear进行中隐藏badge |
+| `a_develop_snapshot_carries_the_xmp_layers_the_open_path_reads` | store/newer-LR/unreadable snapshot cases | store projection、新LR意图和unreadable披露均进入同一次公开snapshot |
 
 `clear_develop_leaves_no_resurrection_route` 有一组 main 断言不能原样保留：
 旧 case 要求物理删除 stem-only legacy recipe/XMP；当前产品契约改为写入按照片
@@ -1167,6 +1172,11 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | 旧Lightroom sidecar输给clear，后写sidecar胜出 | clear/Lightroom ordering case | Reset+Save立即复活旧编辑，或之后的真实Lightroom编辑永远无法恢复 |
 | live成员消失、version保留、恢复后仍为空、重复clear报告no-op | clear result/recovery/idempotence cases | 清除半成品复活、误删历史版本，或UI谎报删除了不存在的develop |
 | legacy文件对该照片不可见但原bytes保留 | legacy suppression case | 同stem照片共享的旧数据被误删，或被清除照片仍读取旧数据 |
+| unresolved strip可读为Unresolved，但write/commit/clear均拒绝且bytes不变 | unresolved variant cases | 普通保存或清除销毁当前版本无法理解的背景卡 |
+| public pixel clear后再recovery仍无linkage，两份master原文件保留 | pixel-source clear case | 旧retouch在下次打开复活，或detach误删用户raster |
+| 非目录legacy gallery输入返回0并保持原文件 | nondirectory migration case | UI虚报迁移，或把普通文件当目录改写 |
+| RAW相邻sidecar计入badge；baked不计；失败clear进行中仍压住badge | sidecar badge cases | 对Lightroom-only RAW重复付费分析，或给PNG错误badge，或clear中途复活旧意图 |
+| store XMP、新er Lightroom XMP、unreadable sidecar分别进入snapshot对应字段 | snapshot XMP cases | batch和open对同一照片选择不同develop，或把不可读工作静默当无编辑 |
 
 新增 mutation 证据：
 
@@ -1190,6 +1200,13 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 - clear漏写legacy抑制时 `has_develop`仍为true；改回物理删除legacy bytes时，
   保留共享旧数据的断言红。
 - `ClearOutcome.removed`无条件报true时，空develop幂等case红。
+- 绕过 `clear_variants` 的 unresolved gate时，foreign strip被删除，clear-refusal case红。
+- `clear_pixel_source`只删live linkage时，公开recovery复活前一代master并红。
+- 非目录gallery输入错误返回 `photos.len()` 时，迁移数由0变1并红。
+- 去掉 badge 的 RAW类型门时PNG错误计为develop；去掉 pending-clear门时失败clear后的RAW
+  badge复活，两条case分别红。
+- snapshot不填 `store_xmp`、不填 newer `lr_xmp`、不填 `lr_unreadable` 时，三条对应
+  case分别在公开字段上红。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
@@ -1250,7 +1267,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 55 source / 53 macOS | key identity、atomic commit、locks、recovery、clear/legacy ordering、ownership | Store | Windows key aliases、crash fault injection |
+| `tests/store_behavior.rs` | 63 source / 61 macOS | key identity、atomic commit、locks、recovery、clear/legacy/XMP ordering、ownership | Store | Windows key aliases、crash fault injection |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

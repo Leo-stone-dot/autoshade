@@ -16,9 +16,10 @@ use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
 use autoshade::store::{
     ActiveWrite, CommitMember, DevelopCommit, EditStateKind, VariantEntry, VariantsRead,
     VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, OwnedRaster,
-    backup_saved_develop, clear_develop, commit_develop, detach_rasters, develop_dir,
-    export_xmp_beside, has_develop, has_pixel_source, lightroom_sidecar, list_edits,
-    migrate_legacy, migrate_legacy_from_many, photo_key, pixel_source_path,
+    backup_saved_develop, clear_develop, clear_pixel_source, clear_variants, commit_develop,
+    detach_rasters, develop_dir, export_xmp_beside, has_develop, has_develop_or_sidecar,
+    has_pixel_source, lightroom_sidecar, list_edits, migrate_legacy, migrate_legacy_from_many,
+    photo_key, pixel_source_path,
     read_develop_snapshot, read_pixel_source, read_variants_checked, recipe_revision,
     recipe_target, recover_orphan_baks, render_source_checked, saved_quarter_turns,
     set_version_name, variants_member, variants_path, version_target, volume_folds_case,
@@ -638,6 +639,30 @@ fn an_unresolved_variant_record_is_not_overwritten_by_a_save() {
 }
 
 #[test]
+fn an_unresolved_variant_record_refuses_clear_until_the_record_is_removed() {
+    let store = TempStore::new("unresolved-variant-clear");
+    let raw = photo(store.root(), "unresolved-clear.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let original = b"not a variants record";
+    std::fs::write(variants_path(&raw), original).unwrap();
+
+    assert!(matches!(
+        read_variants_checked(&raw),
+        VariantsRead::Unresolved
+    ));
+    assert!(clear_variants(&raw).is_err());
+    assert_eq!(std::fs::read(variants_path(&raw)).unwrap(), original);
+
+    std::fs::remove_file(variants_path(&raw)).unwrap();
+    clear_variants(&raw).unwrap();
+    assert!(matches!(
+        read_variants_checked(&raw),
+        VariantsRead::Absent
+    ));
+}
+
+#[test]
 fn a_variant_origin_outside_the_develop_directory_is_unresolved() {
     let store = TempStore::new("variant-origin-escape");
     let raw = photo(store.root(), "escape.dng");
@@ -850,6 +875,69 @@ fn an_empty_develop_snapshot_reports_absence_without_an_error() {
 }
 
 #[test]
+fn an_xmp_only_develop_snapshot_carries_the_store_projection() {
+    let store = TempStore::new("snapshot-store-xmp");
+    let raw = photo(store.root(), "store-xmp.arw");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let xmp = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        contrast: 21.0,
+        ..EditRecipe::default()
+    });
+    std::fs::write(xmp_target(&raw), &xmp).unwrap();
+
+    let snapshot = read_develop_snapshot(&raw).unwrap();
+    let (text, kind) = snapshot.store_xmp.unwrap();
+
+    assert!(snapshot.recipe.is_none());
+    assert!(snapshot.lr_xmp.is_none());
+    assert_eq!(text, xmp);
+    assert_eq!(kind, "XMP");
+}
+
+#[test]
+fn a_newer_lightroom_sidecar_rides_the_snapshot_beside_the_store_recipe() {
+    use std::time::{Duration as StdDuration, SystemTime};
+
+    let store = TempStore::new("snapshot-lightroom-newer");
+    let raw = photo(store.root(), "lightroom-newer.arw");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    std::fs::write(recipe_target(&raw), br#"{"exposure_ev":0.5}"#).unwrap();
+    let sidecar = raw.with_extension("xmp");
+    let xmp = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        contrast: 33.0,
+        ..EditRecipe::default()
+    });
+    std::fs::write(&sidecar, &xmp).unwrap();
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&sidecar)
+        .unwrap()
+        .set_modified(SystemTime::now() + StdDuration::from_secs(3600))
+        .unwrap();
+
+    let snapshot = read_develop_snapshot(&raw).unwrap();
+    let (text, kind) = snapshot.lr_xmp.unwrap();
+
+    assert!(snapshot.recipe.is_some());
+    assert_eq!(text, xmp);
+    assert!(kind.contains("Lightroom"));
+}
+
+#[test]
+fn an_unreadable_lightroom_sidecar_is_disclosed_by_the_snapshot() {
+    let store = TempStore::new("snapshot-lightroom-unreadable");
+    let raw = photo(store.root(), "lightroom-unreadable.arw");
+    std::fs::write(raw.with_extension("xmp"), [0xff, 0xfe]).unwrap();
+
+    let snapshot = read_develop_snapshot(&raw).unwrap();
+
+    assert!(snapshot.lr_xmp.is_none());
+    assert!(snapshot.lr_unreadable.is_some());
+}
+
+#[test]
 fn an_empty_recorded_master_is_refused_without_falling_back_to_the_source() {
     let store = TempStore::new("empty-recorded-master");
     let raw = photo(store.root(), "empty-master.dng");
@@ -950,6 +1038,23 @@ fn a_gallery_import_leaves_an_explicitly_cleared_develop_absent() {
     assert_eq!(imported, 0);
     assert!(!recipe_target(&raw).exists());
     assert!(legacy_recipe.exists());
+}
+
+#[test]
+fn a_nondirectory_legacy_gallery_input_migrates_nothing() {
+    let store = TempStore::new("legacy-gallery-file");
+    let raw = photo(store.root(), "legacy-file.dng");
+    let not_a_directory = store.root().join("legacy-input");
+    std::fs::write(&not_a_directory, b"not a directory").unwrap();
+
+    let migrated =
+        migrate_legacy_from_many(&not_a_directory, std::slice::from_ref(&raw));
+
+    assert_eq!(migrated, 0);
+    assert_eq!(
+        std::fs::read(not_a_directory).unwrap(),
+        b"not a directory"
+    );
 }
 
 #[test]
@@ -1113,6 +1218,28 @@ fn a_cleared_develop_stays_absent_after_a_recovery_touch() {
 }
 
 #[test]
+fn clearing_a_pixel_source_cannot_resurrect_the_previous_master() {
+    let store = TempStore::new("clear-pixel-source");
+    let raw = photo(store.root(), "clear-pixels.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let first = develop.join("first-master.png");
+    let second = develop.join("second-master.png");
+    std::fs::write(&first, b"first").unwrap();
+    std::fs::write(&second, b"second").unwrap();
+    write_pixel_source(&raw, &first, false).unwrap();
+    write_pixel_source(&raw, &second, false).unwrap();
+
+    clear_pixel_source(&raw).unwrap();
+    recover_orphan_baks(&raw).unwrap();
+
+    assert!(!has_pixel_source(&raw));
+    assert!(read_pixel_source(&raw).is_none());
+    assert_eq!(std::fs::read(first).unwrap(), b"first");
+    assert_eq!(std::fs::read(second).unwrap(), b"second");
+}
+
+#[test]
 fn clearing_a_develop_suppresses_legacy_files_without_deleting_them() {
     let (store, legacy) = TempStore::with_legacy("clear-legacy");
     let raw = photo(store.root(), "clear-legacy.dng");
@@ -1175,6 +1302,32 @@ fn a_clear_outranks_an_older_lightroom_sidecar_but_not_a_later_edit() {
         lightroom_sidecar(&raw),
         LrSidecar::Only(text) if text == lightroom
     ));
+}
+
+#[test]
+fn a_lightroom_sidecar_counts_as_a_develop_only_for_a_raw_photo() {
+    let store = TempStore::new("lightroom-sidecar-badge");
+    let raw = photo(store.root(), "badge.arw");
+    std::fs::write(raw.with_extension("xmp"), b"<x:xmpmeta/>").unwrap();
+    let baked = photo(store.root(), "badge.png");
+    std::fs::write(baked.with_extension("xmp"), b"<x:xmpmeta/>").unwrap();
+
+    assert!(!has_develop(&raw));
+    assert!(has_develop_or_sidecar(&raw));
+    assert!(!has_develop_or_sidecar(&baked));
+    assert!(matches!(lightroom_sidecar(&raw), LrSidecar::Only(_)));
+}
+
+#[test]
+fn a_failed_clear_hides_the_lightroom_badge_until_recovery_finishes() {
+    let store = TempStore::new("pending-clear-badge");
+    let raw = photo(store.root(), "pending-clear.arw");
+    std::fs::write(raw.with_extension("xmp"), b"<x:xmpmeta/>").unwrap();
+    let recipe = recipe_target(&raw);
+    std::fs::create_dir_all(&recipe).unwrap();
+
+    assert!(clear_develop(&raw).is_err());
+    assert!(!has_develop_or_sidecar(&raw));
 }
 
 #[test]
