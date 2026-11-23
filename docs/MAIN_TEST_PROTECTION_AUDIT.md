@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：590 cases，约 1,570 个断言宏，33 个显式 ignore。
+- 当前工作树：597 cases，约 1,580 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，156 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,111 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，163 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,104 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1389,6 +1389,23 @@ Mutation 证据：在退化公开返回分支分别注入 `exposure_ev=1`、单�
 typed notes；当前 case 依次在三条对应断言处失败。三次均已恢复，`src/fit/solve.rs`
 无 diff。
 
+### XMP sidecar pairing
+
+- Main cases：`src/xmp_pair.rs` 的 extension、mirror、flat、sibling、priority、absence
+  与 missing-directory 7 条
+- 当前执行者：`tests/xmp_pair_behavior.rs`
+- 状态：7 条 `rewritten`
+- Gate：默认
+
+测试建立真实 library/sidecar 目录树，逐项断言公开 `XmpPairing::find` 返回的路径或
+`None`。Mirror > flat > sibling 的优先级在同一 case 中通过依次移除上一级候选验证，
+不是读取实现列表。Extension matcher改成严格小写时 mixed-case case红；搜索目录顺序
+反转时 priority case返回sibling并红。两次mutation均已恢复。
+
+`the_exact_lowercase_spelling_outranks_every_other_casing` 仍为具体 `open`：当前卷不能同时
+创建 `shot.xmp` 与 `shot.XMP` 两个文件，无法建立竞争 premise；在没有大小写敏感卷
+gate前不能用单一现存文件冒充该优先级已执行。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -1404,6 +1421,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 4 | payload/namespace round-trip、composed mask coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
+| `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
