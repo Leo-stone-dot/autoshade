@@ -532,6 +532,43 @@ Mutation 证据：
 `delete_version` / `clear_develop` 中途被终止，再从公开 list/read/claim 入口验证
 恢复；不能直接创建 `.deleting.vN`、`clear.pending` 或断言内部 registry 文件布局。
 
+## XMP 已裁决
+
+### Fresh document carries the complete develop
+
+- Main case：`src/xmp/payload_tests.rs::a_fresh_document_carries_the_whole_develop_and_reads_it_back_exactly`
+- 当前 case：`tests/xmp_behavior.rs::a_fresh_xmp_document_round_trips_the_complete_develop`
+- 状态：`rewritten`
+- 映射：公开 recipe 同时带 global controls、as-shot anchor、colour field、disabled
+  Zone mask、Intersect component、color gains、rationale/confidence；`recipe_to_xmp →
+  xmp_to_recipe` 后完整 `EditRecipe` 相等。当前 fixture 不带 raster 文件；main 关于
+  raster embedding/relocation 的断言仍单独审计。
+- Mutation：关闭 fresh writer 的 payload embedding 后，CRS-only 读回丢失
+  as-shot anchor、colour field、mask 私有状态且 exposure 被量化，完整相等断言失败；
+  恢复后通过。
+
+### Corrupt payload falls back with disclosure
+
+- Main case：`src/xmp/payload_tests.rs::a_payload_this_build_cannot_trust_is_disclosed_and_the_crs_reading_stands`
+- 当前 case：`tests/xmp_behavior.rs::a_corrupt_payload_is_disclosed_and_the_crs_projection_still_opens`
+- 状态：`rewritten`
+- 映射：从公开 writer 生成 document 后篡改 payload；公开 diagnostic reader 必须
+  保留 CRS exposure、拒绝 payload-only colour field，并向注入 `Collector` 发出
+  payload/checksum 披露。
+- Mutation：让 `xmp_to_recipe_with_diag` 改走 silent reader 后，recipe fallback 仍
+  正确但 diagnostics 为空，case 在披露断言处失败；恢复后通过。
+
+### Merge around a foreign namespace prefix
+
+- Main case：`src/xmp/payload_tests.rs::a_merge_replaces_the_previous_payload_and_steps_around_a_foreign_prefix`
+- 当前 case：`tests/xmp_behavior.rs::merging_around_a_foreign_prefix_preserves_both_namespaces`
+- 状态：`rewritten`（foreign-prefix arm）
+- 映射：输入文档已把 `asr` 绑定给外部 URI；公开 merge 必须保留外来绑定和属性，
+  以 `asr1` 写入 AutoShade payload，读回完整 recipe。main 的“再次 merge 替换旧
+  asr1 payload”仍待幂等 merge 审计。
+- Mutation：让公开 merge wrapper 直接返回 `None`，case 在合法文档被拒绝处失败；
+  恢复后通过。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：
