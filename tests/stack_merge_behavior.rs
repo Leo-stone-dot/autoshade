@@ -18,6 +18,14 @@ fn linear_to_srgb(value: f32) -> f32 {
     }
 }
 
+fn srgb_to_linear(value: f32) -> f32 {
+    if value <= 0.040_45 {
+        value / 12.92
+    } else {
+        ((value + 0.055) / 1.055).powf(2.4)
+    }
+}
+
 fn textured(width: usize, height: usize) -> Vec<[f32; 3]> {
     (0..width * height)
         .map(|index| {
@@ -247,6 +255,151 @@ fn exposure_fusion_prefers_midtones_when_detail_is_equal() {
     let level = mean_interior(&merged.pixels, width, height, |pixel| pixel[1]);
 
     assert!(level < 0.6, "level={level}");
+}
+
+#[test]
+fn hdr_merge_restores_structure_above_white_and_preserves_the_room() {
+    let (width, height) = (96, 72);
+    let window = |stops: f32| {
+        let gain = 2.0_f32.powf(stops);
+        (0..width * height)
+            .map(|index| {
+                let (x, y) = (index % width, index / width);
+                let room =
+                    0.06 + 0.04 * (x as f32 / width as f32) + 0.02 * (y as f32 / height as f32);
+                let linear = if (width / 2..width).contains(&x)
+                    && (height / 4..3 * height / 4).contains(&y)
+                {
+                    2.0 + 10.0 * ((x - width / 2) as f32 / (width / 2) as f32)
+                } else {
+                    room
+                };
+                let value = linear_to_srgb((linear * gain).min(1.0));
+                [value, value * 0.98, value * 1.03]
+            })
+            .collect::<Vec<_>>()
+    };
+    let frames = vec![window(0.0), window(-3.0), window(-6.0)];
+    let window_pixels = (0..width * height)
+        .filter(|index| {
+            (width / 2 + 4..width - 4).contains(&(index % width))
+                && (height / 3..2 * height / 3).contains(&(index / width))
+        })
+        .collect::<Vec<_>>();
+    let spread = |frame: &[[f32; 3]]| {
+        let (low, high) = window_pixels
+            .iter()
+            .fold((1.0_f32, 0.0_f32), |(low, high), index| {
+                (low.min(frame[*index][1]), high.max(frame[*index][1]))
+            });
+        high - low
+    };
+
+    assert!(spread(&frames[0]) < 0.001);
+    let merged = merge(
+        &frames,
+        width,
+        height,
+        &MergeOptions {
+            kind: StackKind::Hdr,
+            align: None,
+        },
+    )
+    .unwrap();
+    let room = (0..width * height)
+        .filter(|index| index % width < width / 2 - 4)
+        .map(|index| (merged.pixels[index][1] - frames[0][index][1]).abs())
+        .fold(0.0_f32, f32::max);
+
+    assert!(spread(&merged.pixels) > 0.05);
+    assert!(merged.headroom_ev > 1.5);
+    assert!(room < 0.02, "room={room}");
+}
+
+#[test]
+fn hdr_merge_preserves_the_colour_of_a_partly_clipped_highlight() {
+    let (width, height) = (64, 48);
+    let tinted = |linear: f32, gain: f32| {
+        let channel = |ratio: f32| linear_to_srgb((linear * ratio * gain).min(1.0));
+        [channel(1.0), channel(0.30), channel(0.15)]
+    };
+    let frames = [0.0_f32, -2.0, -4.0]
+        .iter()
+        .map(|stops| {
+            let gain = 2.0_f32.powf(*stops);
+            (0..width * height)
+                .map(|index| {
+                    let linear = if index % width >= width / 2 {
+                        1.5
+                    } else {
+                        0.10
+                    };
+                    tinted(linear, gain)
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let probe = (height / 2) * width + width * 3 / 4;
+
+    assert!(frames[0][probe][0] > 0.99);
+    assert!(frames[0][probe][1] < 0.95);
+    let merged = merge(
+        &frames,
+        width,
+        height,
+        &MergeOptions {
+            kind: StackKind::Hdr,
+            align: None,
+        },
+    )
+    .unwrap();
+    let linear = merged.pixels[probe].map(srgb_to_linear);
+    let green_ratio = linear[1] / linear[0];
+    let blue_ratio = linear[2] / linear[0];
+
+    assert!(linear[0] > 1e-4);
+    assert!(
+        (green_ratio - 0.30).abs() < 0.04 && (blue_ratio - 0.15).abs() < 0.04,
+        "ratios={green_ratio}:{blue_ratio}"
+    );
+}
+
+#[test]
+fn hdr_merge_gives_more_weight_to_the_frame_that_collected_more_light() {
+    let (width, height) = (128, 96);
+    let shot = |seed: u32, stops: f32| {
+        let gain = 2.0_f32.powf(stops);
+        (0..width * height)
+            .map(|index| {
+                let value = linear_to_srgb((0.10 * gain + 0.002 * grain(seed, index)).max(0.0));
+                [value; 3]
+            })
+            .collect::<Vec<_>>()
+    };
+    let frames = vec![shot(1, 0.0), shot(2, -2.0)];
+    let rms = |frame: &[[f32; 3]], scale: f32| {
+        let squared = frame
+            .iter()
+            .map(|pixel| (srgb_to_linear(pixel[1]) * scale - 0.10).powi(2))
+            .sum::<f32>();
+        (squared / frame.len() as f32).sqrt()
+    };
+    let bright = rms(&frames[0], 1.0);
+    let dark = rms(&frames[1], 4.0);
+
+    assert!(dark > 3.0 * bright);
+    let merged = merge(
+        &frames,
+        width,
+        height,
+        &MergeOptions {
+            kind: StackKind::Hdr,
+            align: None,
+        },
+    )
+    .unwrap();
+
+    assert!(rms(&merged.pixels, 1.0) < 1.4 * bright);
 }
 
 #[test]

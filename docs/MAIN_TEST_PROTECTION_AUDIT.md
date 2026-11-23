@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：520 cases，约 1,286 个断言宏，33 个显式 ignore。
+- 当前工作树：523 cases，约 1,296 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，92 条 `rewritten`、11 条
-`lint`、2,178 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，95 条 `rewritten`、11 条
+`lint`、2,175 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1020,9 +1020,10 @@ Surviving mutation 记录：只删除 Shi–Tomasi texture gate 时，flat-regio
 
 ### Stack merge 的公开成片结果
 
-- Main cases：`src/stack/merge/composite.rs` 中 5 条公开可构造 case
+- Main cases：Composite 5 条与 Radiance 3 条公开可构造 case
 - 当前入口：公开 `stack::merge::merge`
-- 状态：5 条 `rewritten`；uncovered injection 仍 `open`
+- 状态：8 条 `rewritten`；uncovered injection、private shoulder、hot-pixel percentile
+  仍 `open`
 - Gate：默认 `tests/stack_merge_behavior.rs`
 
 逐断言映射：
@@ -1037,6 +1038,9 @@ Surviving mutation 记录：只删除 Shi–Tomasi texture gate 时，flat-regio
 | transient ghost 区域最大误差 <0.03 | `a_noise_stack_removes_a_transient_ghost` | 普通平均把行人/物体残影留进成片 |
 | Hdr/Fuse/Focus/Noise 均返回完整 frame 与每输入一项 exposure | `every_stack_kind_returns_a_full_frame_and_one_exposure_per_input` | enum kind 接到错误/缺失 arm 或丢失输入元数据 |
 | 单帧与 ragged frame 被拒绝；store spelling round-trip | `a_stack_refuses_one_frame_and_mismatched_frame_sizes`；`stack_kind_store_spellings_round_trip` | 非 stack 输入被接受，或持久化 kind 无法恢复 |
+| Reference window 已平白 clip；HDR 恢复 >0.05 structure、>1.5 EV headroom，同时 room 误差 <0.02 | `hdr_merge_restores_structure_above_white_and_preserves_the_room` | HDR 仅整体压暗，未恢复真实高光信息，或 shoulder 污染 midtones |
+| Bright frame 只 clip red 的 premise；merged warm highlight 保持 0.30/0.15 线性色比 | `hdr_merge_preserves_the_colour_of_a_partly_clipped_highlight` | 各 channel 独立选 frame，把高光 hue 推偏 |
+| Dark reading 除 exposure 后误差 >3× bright；merged RMS <1.4× bright | `hdr_merge_gives_more_weight_to_the_frame_that_collected_more_light` | 等权 bracket 把低光子数 frame 的放大噪声带入 midtones |
 
 Mutation 证据：
 
@@ -1048,13 +1052,21 @@ Mutation 证据：
   0.0848 最大误差处红。
 - Focus arm 被临时拒绝时 every-kind case 红；移除 one-frame guard 时 invalid-input
   case 红。
+- HDR arm 直接返回 reference 时 clipped-window structure case 红；trustworthiness 只读
+  green channel 时 warm highlight 色比变成 0.402/0.201 并红；confidence 不随 exposure
+  时 bright-frame noise case 红。
 
 所有 mutation 均已恢复，`src/stack/merge.rs` 与
 `src/stack/merge/composite.rs` 无 diff。
 
-`a_frame_the_warp_could_not_cover_is_not_averaged_in` 保持 `open`：当前公开 merge 不接收
-调用者构造的 coverage，必须用真实 alignment 产生确定 wedge 后验收 exclusion；不能
-复制私有 `fuse/focus/average` 的 cover 参数测试。
+以下保持 `open`：
+
+- `a_frame_the_warp_could_not_cover_is_not_averaged_in`：公开 merge 不接收调用者构造的
+  coverage，必须由真实 alignment 产生确定 wedge。
+- `the_shoulder_is_identity_below_the_knee_and_reaches_white_at_the_top`：目前只直接断言
+  private `Shoulder`，需要从公开 HDR ramp 输出重建 knee/white/monotonic 结果。
+- `one_hot_pixel_does_not_set_the_headroom`：需要公开 bracket fixture 让 bulk radiance
+  与单个 glint 可同时恢复，再验收 `headroom_ev`。
 
 ### 零强度 developed denoise 是无损 no-op
 
@@ -1106,7 +1118,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/xmp_behavior.rs` | 4 | payload/namespace round-trip、composed mask coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
-| `tests/stack_merge_behavior.rs` | 8 | focus、exposure fusion weights、noise/ghost、kind/refusal front door | Stack merge | coverage injection、HDR radiance |
+| `tests/stack_merge_behavior.rs` | 11 | focus、fusion weights、noise/ghost、HDR structure/colour/noise、front door | Stack merge | coverage injection、HDR shoulder/hot-pixel percentile |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
