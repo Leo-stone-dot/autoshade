@@ -33,8 +33,8 @@ case 最终必须归入以下一种状态：
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，144 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,123 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，145 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,122 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 39 条 `rewritten`、2 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 40 条 `rewritten`、2 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1172,6 +1172,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `the_develop_revision_folds_in_a_ranked_sidecar` | sidecar/store/unreadable revision cases | 胜出sidecar内容参与tag；旧sidecar不参与；不可读sidecar不可签名 |
 | `a_pending_clear_completes_on_the_next_touch` | failed-clear recovery + later Lightroom case | 中途失败的clear在recovery完成，后续新Lightroom意图重新可见 |
 | `a_zero_byte_live_claim_yields_to_the_surviving_bak` | zero-byte claim recovery case | 空claim不算save，survivor恢复并被公开snapshot读取 |
+| `a_read_modify_write_of_the_strip_keeps_fields_this_build_never_heard_of` | active-kind read-modify-write case | 只改active kind，known identity/name与record/entry unknown fields全保留 |
 
 架构归属：
 
@@ -1233,6 +1234,7 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | sidecar-only内容变化重签；store胜出时保持recipe tag；unreadable返回None | develop-revision cases | stale If-Match覆盖Lightroom新编辑，或不可读工作被当成可安全覆盖 |
 | clear中途失败后recovery清空develop，之后的新Lightroom sidecar重新计入badge | pending-clear recovery case | pending intent永久遮住后续编辑，或半清除文件继续被读取 |
 | 0-byte live claim + survivor恢复成真实bytes并进入snapshot | zero-byte recovery case | 双崩溃窗口把空claim当成最新保存，唯一可恢复recipe永久隐藏 |
+| active kind改写后两层unknown fields与known identity/name均原样保留 | variant read-modify-write case | 旧版CLI保存静默截断新版GUI写入的strip metadata |
 
 两条 Lightroom version case 仍是具体 `open`，不是泛化缺口：
 
@@ -1303,6 +1305,8 @@ Load Version工作流或公开版本读取入口能观察这份bytes，两条 ca
   mutation分别让三条develop-revision case在各自公开结果处红。
 - pending clear recovery直接返回不执行sweep时，后来Lightroom sidecar仍不计入badge并红。
 - recovery把0-byte live当有效save时，survivor不恢复，zero-byte case在bytes断言处红。
+- `variants_record_bytes`丢弃record/entry capture-all map时，read-modify-write case在
+  record-level unknown field断言处红。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
