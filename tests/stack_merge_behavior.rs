@@ -403,6 +403,89 @@ fn hdr_merge_gives_more_weight_to_the_frame_that_collected_more_light() {
 }
 
 #[test]
+fn hdr_shoulder_preserves_low_values_reaches_white_and_stays_monotonic() {
+    let (width, height) = (257, 8);
+    let radiance = (0..width * height)
+        .map(|index| 4.0 * (index % width) as f32 / (width - 1) as f32)
+        .collect::<Vec<_>>();
+    let frames = [0.0_f32, -2.0, -4.0]
+        .iter()
+        .map(|stops| {
+            let gain = 2.0_f32.powf(*stops);
+            radiance
+                .iter()
+                .map(|value| [linear_to_srgb((value * gain).min(1.0)); 3])
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let merged = merge(
+        &frames,
+        width,
+        height,
+        &MergeOptions {
+            kind: StackKind::Hdr,
+            align: None,
+        },
+    )
+    .unwrap();
+    let row = &merged.pixels[..width];
+    let below_knee = width / 20;
+    let reference = linear_to_srgb(radiance[below_knee]);
+
+    assert!((merged.headroom_ev - 2.0).abs() < 0.1);
+    assert!((row[below_knee][0] - reference).abs() < 0.01);
+    assert!((row[width - 1][0] - 1.0).abs() < 1e-3);
+    assert!(row.windows(2).all(|pair| pair[1][0] + 1e-6 >= pair[0][0]));
+    assert!(row[width / 4][0] < 0.97);
+}
+
+#[test]
+fn one_hot_pixel_does_not_set_the_hdr_headroom() {
+    let (width, height) = (100, 100);
+    let mut radiance = (0..width * height)
+        .map(|index| {
+            let (x, y) = ((index % width) as f32, (index / width) as f32);
+            let texture = 0.01 * (x * 0.31).sin() * (y * 0.27).cos();
+            if index % width < 3 * width / 4 {
+                0.10 + texture
+            } else {
+                1.90 + texture
+            }
+        })
+        .collect::<Vec<_>>();
+    radiance[height / 2 * width + width * 7 / 8] = 8.0;
+    let frames = [0.0_f32, -2.0, -4.0]
+        .iter()
+        .map(|stops| {
+            let gain = 2.0_f32.powf(*stops);
+            radiance
+                .iter()
+                .map(|value| [linear_to_srgb((value * gain).min(1.0)); 3])
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let merged = merge(
+        &frames,
+        width,
+        height,
+        &MergeOptions {
+            kind: StackKind::Hdr,
+            align: None,
+        },
+    )
+    .unwrap();
+
+    assert!(
+        (merged.headroom_ev - 1.9_f32.log2()).abs() < 0.1,
+        "headroom={} exposures={:?}",
+        merged.headroom_ev,
+        merged.exposures
+    );
+}
+
+#[test]
 fn exposure_fusion_recovers_contrast_in_both_halves_of_a_bracket() {
     let (width, height) = (128, 96);
     let base = (0..width * height)
