@@ -196,6 +196,41 @@ fn native_xmp_spells_every_combine_mode_and_component_inversion() {
 }
 
 #[test]
+fn component_inversion_is_sparse_and_legacy_json_stays_compatible() {
+    let plain = MaskComponent {
+        geometry: MaskGeometry::Linear {
+            zero_x: 0.1,
+            zero_y: 0.2,
+            full_x: 0.9,
+            full_y: 0.8,
+        },
+        mode: MaskCombine::Intersect,
+        inverted: false,
+    };
+    let plain_json = serde_json::to_string(&plain).unwrap();
+    assert!(!plain_json.contains("inverted"));
+    assert_eq!(
+        serde_json::from_str::<MaskComponent>(&plain_json).unwrap(),
+        plain
+    );
+
+    let inverted = MaskComponent {
+        inverted: true,
+        ..plain
+    };
+    let inverted_json = serde_json::to_string(&inverted).unwrap();
+    assert!(inverted_json.contains("\"inverted\":true"));
+    assert_eq!(
+        serde_json::from_str::<MaskComponent>(&inverted_json).unwrap(),
+        inverted
+    );
+    assert_eq!(
+        EditRecipe::default().schema_era,
+        autoshade::recipe::SCHEMA_ERA
+    );
+}
+
+#[test]
 fn native_xmp_preserves_mixed_component_order_in_both_whole_inversions() {
     let reference = image::DynamicImage::new_rgb8(127, 73);
     let radial = |flipped| MaskGeometry::Radial {
