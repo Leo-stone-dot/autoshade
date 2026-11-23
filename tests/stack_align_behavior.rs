@@ -1,4 +1,5 @@
 use autoshade::stack::align::{Affine, AlignParams, Warp, coverage, solve, warp_rgb};
+use autoshade::stack::merge::{MergeOptions, StackKind, merge};
 
 fn scene(width: usize, height: usize) -> Vec<[f32; 3]> {
     (0..width * height)
@@ -77,6 +78,213 @@ fn exposed(source: &[[f32; 3]], stops: f32) -> Vec<[f32; 3]> {
         .iter()
         .map(|pixel| pixel.map(|value| linear_to_srgb((srgb_to_linear(value) * gain).min(1.0))))
         .collect()
+}
+
+struct SubjectScene {
+    reference: Vec<[f32; 3]>,
+    moving: Vec<[f32; 3]>,
+    cols: std::ops::Range<usize>,
+    rows: std::ops::Range<usize>,
+    flat: std::ops::Range<usize>,
+}
+
+fn subject_scene(
+    width: usize,
+    height: usize,
+    blocks_x: usize,
+    blocks_y: usize,
+    shift_x: f32,
+    exposure: f32,
+) -> SubjectScene {
+    let base = scene(width, height);
+    let displaced = shifted(
+        &base,
+        width,
+        height,
+        Affine([1.0, 0.0, shift_x, 0.0, 1.0, 0.0]),
+    );
+    let cols = (blocks_x / 3)..(2 * blocks_x / 3);
+    let rows = (blocks_y / 4)..(blocks_y - blocks_y / 4);
+    let flat = (2 * blocks_x / 3)..blocks_x;
+    let x_start = cols.start * width / blocks_x;
+    let x_end = cols.end * width / blocks_x;
+    let y_start = rows.start * height / blocks_y;
+    let y_end = rows.end * height / blocks_y;
+    let flat_start = flat.start * width / blocks_x;
+    let (mut reference, mut moving) = (base.clone(), base);
+    for index in 0..width * height {
+        let (x, y) = (index % width, index / width);
+        if (x_start..x_end).contains(&x) && (y_start..y_end).contains(&y) {
+            moving[index] = displaced[index];
+        }
+        if x >= flat_start {
+            reference[index] = [0.5; 3];
+            moving[index] = [0.5; 3];
+        }
+    }
+    SubjectScene {
+        reference,
+        moving: exposed(&moving, exposure),
+        cols,
+        rows,
+        flat,
+    }
+}
+
+struct RegionReadings {
+    subject: Vec<f32>,
+    ground: Vec<f32>,
+    flat: Vec<f32>,
+}
+
+fn region_readings(warp: &Warp, scene: &SubjectScene) -> RegionReadings {
+    let (mut subject, mut ground, mut flat) = (Vec::new(), Vec::new(), Vec::new());
+    for row in 0..warp.by {
+        for col in 0..warp.bx {
+            let value = warp.local[0][row * warp.bx + col];
+            if scene.flat.contains(&col) {
+                flat.push(value);
+            } else if scene.cols.contains(&col) && scene.rows.contains(&row) {
+                subject.push(value);
+            } else {
+                ground.push(value);
+            }
+        }
+    }
+    RegionReadings {
+        subject,
+        ground,
+        flat,
+    }
+}
+
+fn mean(values: &[f32]) -> f32 {
+    values.iter().sum::<f32>() / values.len() as f32
+}
+
+fn grain(seed: u32, index: usize) -> f32 {
+    let mut value = (index as u32)
+        .wrapping_mul(2_654_435_761)
+        .wrapping_add(seed.wrapping_mul(40_503));
+    value ^= value >> 13;
+    value = value.wrapping_mul(1_274_126_177);
+    value ^= value >> 16;
+    value as f32 / u32::MAX as f32 - 0.5
+}
+
+fn registered_burst(
+    width: usize,
+    height: usize,
+    frames: usize,
+    ghost_frame: usize,
+) -> Vec<Vec<[f32; 3]>> {
+    (0..frames)
+        .map(|seed| {
+            (0..width * height)
+                .map(|index| {
+                    let (x, y) = ((index % width) as f32, (index / width) as f32);
+                    if seed == ghost_frame
+                        && (width / 3..width / 3 + width / 5).contains(&(index % width))
+                        && (height / 3..height / 3 + height / 4).contains(&(index / width))
+                    {
+                        return [0.93; 3];
+                    }
+                    let value = 0.45
+                        + 0.18 * (x * 1.3).sin() * (y * 1.1).cos()
+                        + 0.12 * (x * 0.07 + y * 0.05).sin()
+                        + 0.10 * grain(seed as u32 + 1, index);
+                    [value, value * 0.99, value * 1.01]
+                })
+                .collect()
+        })
+        .collect()
+}
+
+struct RegisteredEvidence {
+    one_frame_error: f64,
+    unaligned_error: f64,
+    aligned_error: f64,
+    uncovered: f32,
+    global_travel: Vec<f32>,
+    worst_ghost_error: f32,
+}
+
+fn registered_evidence() -> &'static RegisteredEvidence {
+    static EVIDENCE: std::sync::OnceLock<RegisteredEvidence> = std::sync::OnceLock::new();
+    EVIDENCE.get_or_init(|| {
+        let (width, height) = (384, 256);
+        let frames = registered_burst(width, height, 5, 2);
+        let truth = (0..width * height)
+            .map(|index| {
+                let (x, y) = ((index % width) as f32, (index / width) as f32);
+                let value = 0.45
+                    + 0.18 * (x * 1.3).sin() * (y * 1.1).cos()
+                    + 0.12 * (x * 0.07 + y * 0.05).sin();
+                [value, value * 0.99, value * 1.01]
+            })
+            .collect::<Vec<_>>();
+        let rms = |frame: &[[f32; 3]]| {
+            let (mut squared, mut samples) = (0.0_f64, 0);
+            for index in 0..width * height {
+                if !(8..width - 8).contains(&(index % width))
+                    || !(8..height - 8).contains(&(index / width))
+                {
+                    continue;
+                }
+                squared += (frame[index][1] - truth[index][1]).powi(2) as f64;
+                samples += 1;
+            }
+            (squared / samples as f64).sqrt()
+        };
+        let unaligned = merge(
+            &frames,
+            width,
+            height,
+            &MergeOptions {
+                kind: StackKind::Noise,
+                align: None,
+            },
+        )
+        .unwrap();
+        let aligned = merge(
+            &frames,
+            width,
+            height,
+            &MergeOptions {
+                kind: StackKind::Noise,
+                align: Some(AlignParams::DEFAULT),
+            },
+        )
+        .unwrap();
+        let global_travel = (1..frames.len())
+            .map(|index| {
+                solve(
+                    &frames[0],
+                    &frames[index],
+                    width,
+                    height,
+                    &AlignParams::DEFAULT,
+                )
+                .global
+                .corner_travel(width, height)
+            })
+            .collect();
+        let worst_ghost_error = (0..width * height)
+            .filter(|index| {
+                (width / 3 + 4..width / 3 + width / 5 - 4).contains(&(index % width))
+                    && (height / 3 + 4..height / 3 + height / 4 - 4).contains(&(index / width))
+            })
+            .map(|index| (aligned.pixels[index][1] - truth[index][1]).abs())
+            .fold(0.0_f32, f32::max);
+        RegisteredEvidence {
+            one_frame_error: rms(&frames[0]),
+            unaligned_error: rms(&unaligned.pixels),
+            aligned_error: rms(&aligned.pixels),
+            uncovered: aligned.uncovered,
+            global_travel,
+            worst_ghost_error,
+        }
+    })
 }
 
 struct ShiftedRoundTrip {
@@ -271,4 +479,103 @@ fn a_large_shift_is_recovered_even_with_a_fifth_of_the_frame_uncovered() {
         "solved={solved:?} expected={expected:?}"
     );
     assert!(uncovered > width * height / 6, "uncovered={uncovered}");
+}
+
+#[test]
+fn aligning_registered_frames_preserves_the_noise_stacks_improvement() {
+    let evidence = registered_evidence();
+
+    assert!(
+        evidence.one_frame_error > 0.02
+            && evidence.unaligned_error < evidence.one_frame_error / 1.5,
+        "premise: {} -> {}",
+        evidence.one_frame_error,
+        evidence.unaligned_error
+    );
+    assert!(
+        evidence.aligned_error < 1.005 * evidence.unaligned_error,
+        "aligned={} unaligned={}",
+        evidence.aligned_error,
+        evidence.unaligned_error
+    );
+}
+
+#[test]
+fn registered_frames_stay_inside_their_view_and_near_identity() {
+    let evidence = registered_evidence();
+
+    assert!(
+        evidence.uncovered < 0.02,
+        "uncovered={}",
+        evidence.uncovered
+    );
+    assert!(
+        evidence.global_travel.iter().all(|travel| *travel < 1.0),
+        "travel={:?}",
+        evidence.global_travel
+    );
+}
+
+#[test]
+fn registered_alignment_still_removes_the_transient_ghost() {
+    assert!(
+        registered_evidence().worst_ghost_error < 0.1,
+        "worst={}",
+        registered_evidence().worst_ghost_error
+    );
+}
+
+#[test]
+fn local_alignment_finds_a_moving_subject_and_refuses_flat_ground() {
+    let (width, height) = (384, 288);
+    let scene = subject_scene(width, height, 6, 4, 12.0, -1.5);
+    let warp = solve(
+        &scene.reference,
+        &scene.moving,
+        width,
+        height,
+        &AlignParams {
+            blocks: 6,
+            ..AlignParams::default()
+        },
+    );
+
+    assert!(!warp.local[0].is_empty());
+    assert_eq!((warp.bx, warp.by), (6, 4));
+    let regions = region_readings(&warp, &scene);
+    assert!(
+        mean(&regions.ground) - mean(&regions.subject) > 8.0,
+        "subject={:?} ground={:?}",
+        mean(&regions.subject),
+        mean(&regions.ground)
+    );
+    assert!(regions.flat.iter().all(|value| *value == 0.0));
+}
+
+#[test]
+fn a_small_frame_keeps_every_moving_subject_block_measurable() {
+    let (width, height) = (192, 144);
+    let scene = subject_scene(width, height, 9, 6, 3.0, 0.0);
+    let warp = solve(
+        &scene.reference,
+        &scene.moving,
+        width,
+        height,
+        &AlignParams {
+            blocks: 9,
+            ..AlignParams::default()
+        },
+    );
+
+    assert!(!warp.local[0].is_empty());
+    assert_eq!((warp.bx, warp.by), (9, 6));
+    let regions = region_readings(&warp, &scene);
+    assert!(regions.subject.iter().all(|value| value.abs() > 1e-6));
+    assert!(
+        mean(&regions.ground) - mean(&regions.subject) > 1.5,
+        "subject={:?} ground={:?}",
+        mean(&regions.subject),
+        mean(&regions.ground)
+    );
+    assert!(regions.flat.iter().all(|value| *value == 0.0));
 }

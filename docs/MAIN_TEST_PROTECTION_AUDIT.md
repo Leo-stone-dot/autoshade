@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：507 cases，约 1,256 个断言宏，33 个显式 ignore。
+- 当前工作树：512 cases，约 1,270 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，84 条 `rewritten`、11 条
-`lint`、2,186 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，87 条 `rewritten`、11 条
+`lint`、2,183 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -971,11 +971,11 @@ Mutation 证据：
 改成 Windows + 指定真实 RAW 的 external gate，并声明可执行的峰值阈值，才能标为
 `external-gate`；不能因它是 slow/平台 case 就直接删除或宣称已保护。
 
-### Stack alignment 的公开 affine / warp 结果
+### Stack alignment 的公开 affine / warp / merge 结果
 
-- Main cases：`src/stack/align.rs` 中 5 条 global affine / warp case
+- Main cases：`src/stack/align.rs` 中全部 8 条 case
 - 当前入口：公开 `solve`、`Warp::apply`、`warp_rgb`、`coverage`
-- 状态：5 条 `rewritten`；registered-stack、local-subject、small-grid 三条仍 `open`
+- 状态：8 条均为 `rewritten`
 - Gate：默认 `tests/stack_align_behavior.rs`
 
 逐断言映射：
@@ -989,6 +989,11 @@ Mutation 证据：
 | uncovered pixels 保持 moving frame 原值 | `an_uncovered_warp_pixel_keeps_the_value_it_had` | 边缘被填黑并污染 merge |
 | split dx/dy residual planes 与独立 bilinear 采样 bit-for-bit 一致 | `a_split_residual_field_is_sampled_from_its_matching_planes` | residual 分量互换或 block-centre 坐标漂移 |
 | 48/−32 px shift 在约五分之一 frame 越界时仍恢复 | `a_large_shift_is_recovered_even_with_a_fifth_of_the_frame_uncovered` | 大 wedge 的 clamp 内容把解拉回零 |
+| registered burst 的 aligned merge 不劣于 unaligned noise reduction | `aligning_registered_frames_preserves_the_noise_stacks_improvement` | local aligner 从 grain 发明 motion，抵消 stack 降噪 |
+| registered frames 的 uncovered <2%，每个 global warp corner travel <1 px | `registered_frames_stay_inside_their_view_and_near_identity` | 已对齐照片被推出自身视野或产生幽灵 global transform |
+| aligned noise stack 仍移除 transient ghost | `registered_alignment_still_removes_the_transient_ghost` | 为求稳定而退化成直接保留异常 frame |
+| local subject 相对 ground 移动 >8 px，flat blocks 全零 | `local_alignment_finds_a_moving_subject_and_refuses_flat_ground` | local pass 丢失 parallax 或从无纹理 sky 发明位移 |
+| 192×144 frame 保留 9×6 grid，所有 subject blocks 可测，flat blocks 全零 | `a_small_frame_keeps_every_moving_subject_block_measurable` | coarse-level sample floor 永久杀死 finer-level 可测 block |
 
 合成 scene 复用 main 的多尺度可辨识纹理公式，但所有采样、sRGB exposure 与 bilinear
 oracle 均在 integration test 中独立实现；被测侧只调用公开 API。最初自造的单尺度
@@ -1001,16 +1006,17 @@ Mutation 证据：
 - `warp_rgb` 原样返回输入时 covered reconstruction 红；coverage 永真时 wedge case
   红；越界采样填黑时 keep-original case 红。
 - `Warp::apply` 交换 dx/dy planes 时 split-field case 在首个坐标 bit 比较处红。
+- `BLOCK_MARGIN` 设为 0 时 registered merge parity case 红；Noise merge 直接发布 ghost
+  frame 时 ghost-removal case 红。
+- 禁用 local pass 时 local-subject 与 small-grid cases 均红；把 coarse sample floor 从
+  “跳过 level”改成“永久杀死 block”时 small-grid case 在 subject-block 断言处红。
 
 所有 mutation 均已恢复，`src/stack/align.rs` 无 diff。
 
-以下三条保持 `open`，不能用上述 global cases 提前勾销：
-
-- `aligning_frames_that_are_already_registered_costs_the_stack_nothing`：端到端 noise merge
-  parity、uncovered 与 ghost removal。
-- `the_local_pass_finds_a_subject_that_moved_and_refuses_flat_ground`：local parallax 与
-  flat-texture refusal 同帧对照。
-- `a_small_frame_keeps_every_block_it_can_still_measure`：小 frame block grid 的可测性。
+Surviving mutation 记录：只删除 Shi–Tomasi texture gate 时，flat-region 公开结果仍为
+零；即使同时放宽 field-agreement，singular/后续拒绝仍维持产品行为。因此当前 case
+保护“flat ground 不产生 residual”，不声称某一个内部 gate 必须存在。若未来删除这些
+等价后备也让 flat residual 泄漏，本 case 会红。
 
 ### 零强度 developed denoise 是无损 no-op
 
@@ -1061,7 +1067,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 4 | payload/namespace round-trip、composed mask coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
-| `tests/stack_align_behavior.rs` | 7 | exposure-blind affine、roll/scale、warp/coverage/residual planes | Stack alignment | registered merge parity、local parallax、small-grid survival |
+| `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
