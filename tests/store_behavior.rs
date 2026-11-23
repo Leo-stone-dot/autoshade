@@ -16,13 +16,14 @@ use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
 use autoshade::store::{
     ActiveWrite, CommitMember, DevelopCommit, EditStateKind, VariantEntry, VariantsRead,
     VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, MAX_STORE_NAME, OwnedRaster,
-    backup_saved_develop, clear_develop, clear_pixel_source, clear_variants, commit_develop,
-    detach_rasters, develop_dir, export_xmp_beside, has_develop, has_develop_or_sidecar,
-    has_pixel_source, lightroom_sidecar, list_edits, migrate_legacy, migrate_legacy_from_many,
-    photo_key, pixel_source_path,
+    backup_saved_develop, claim_version, clear_develop, clear_pixel_source, clear_variants,
+    commit_develop, delete_version, detach_rasters, develop_dir, export_xmp_beside, has_develop,
+    has_develop_or_sidecar, has_pixel_source, lightroom_sidecar, list_edits, list_versions,
+    migrate_legacy, migrate_legacy_from_many, photo_key, pixel_source_path,
     read_develop_snapshot, read_pixel_source, read_variants_checked, recipe_revision,
-    recipe_target, recover_orphan_baks, render_source_checked, saved_quarter_turns,
-    set_version_name, variants_member, variants_path, version_target, volume_folds_case,
+    recipe_target, recover_orphan_baks, render_source_checked, resolve_mask_paths,
+    saved_quarter_turns, set_version_name, variants_member, variants_path, version_target,
+    volume_folds_case,
     with_develop_lock, with_settings_lock, write_pixel_source, write_variants, xmp_target,
 };
 use autoshade::pipeline::{ProjectionOutcome, commit_analyzed_develop};
@@ -447,6 +448,235 @@ fn a_backup_that_cannot_freeze_a_raster_leaves_the_live_recipe_untouched() {
     assert!(result.is_err());
     assert_eq!(std::fs::read(recipe_target(&raw)).unwrap(), previous);
     assert!(!version_target(&raw, 1).exists());
+}
+
+#[test]
+fn a_newer_lightroom_sidecar_is_backed_up_after_the_store_recipe() {
+    use std::time::{Duration as StdDuration, SystemTime};
+
+    let store = TempStore::new("backup-newer-lightroom");
+    let raw = photo(store.root(), "backup-lightroom.arw");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let stored = EditRecipe {
+        exposure_ev: 0.5,
+        ..EditRecipe::default()
+    };
+    std::fs::write(
+        recipe_target(&raw),
+        serde_json::to_vec_pretty(&stored).unwrap(),
+    )
+    .unwrap();
+    let sidecar = raw.with_extension("xmp");
+    let sidecar_bytes = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        contrast: 33.0,
+        ..EditRecipe::default()
+    });
+    std::fs::write(&sidecar, &sidecar_bytes).unwrap();
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&sidecar)
+        .unwrap()
+        .set_modified(SystemTime::now() + StdDuration::from_secs(3600))
+        .unwrap();
+
+    let version = backup_saved_develop(
+        &raw,
+        Some(&EditRecipe {
+            exposure_ev: 1.5,
+            ..EditRecipe::default()
+        }),
+    )
+    .unwrap();
+    let first: EditRecipe =
+        serde_json::from_slice(&std::fs::read(version_target(&raw, 1)).unwrap()).unwrap();
+
+    assert_eq!(version, Some(2));
+    assert_eq!(list_versions(&raw), vec![1, 2]);
+    assert_eq!(first.exposure_ev, 0.5);
+    assert_eq!(std::fs::read(sidecar).unwrap(), sidecar_bytes.as_bytes());
+}
+
+#[test]
+fn repeating_a_backup_of_the_same_store_and_lightroom_intents_adds_no_version() {
+    use std::time::{Duration as StdDuration, SystemTime};
+
+    let store = TempStore::new("backup-lightroom-dedup");
+    let raw = photo(store.root(), "backup-dedup.arw");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let incoming = EditRecipe {
+        exposure_ev: 1.5,
+        ..EditRecipe::default()
+    };
+    std::fs::write(
+        recipe_target(&raw),
+        serde_json::to_vec_pretty(&valid_recipe()).unwrap(),
+    )
+    .unwrap();
+    let sidecar = raw.with_extension("xmp");
+    std::fs::write(
+        &sidecar,
+        autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            contrast: 33.0,
+            ..EditRecipe::default()
+        }),
+    )
+    .unwrap();
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&sidecar)
+        .unwrap()
+        .set_modified(SystemTime::now() + StdDuration::from_secs(3600))
+        .unwrap();
+    assert_eq!(
+        backup_saved_develop(&raw, Some(&incoming)).unwrap(),
+        Some(2)
+    );
+    std::fs::write(
+        recipe_target(&raw),
+        serde_json::to_vec_pretty(&incoming).unwrap(),
+    )
+    .unwrap();
+    let before = list_versions(&raw);
+
+    assert_eq!(backup_saved_develop(&raw, Some(&incoming)).unwrap(), None);
+    assert_eq!(list_versions(&raw), before);
+}
+
+#[test]
+fn a_sidecar_only_non_neutral_develop_is_backed_up() {
+    let store = TempStore::new("backup-sidecar-only");
+    let raw = photo(store.root(), "sidecar-only.arw");
+    let sidecar = raw.with_extension("xmp");
+    let bytes = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        contrast: 12.0,
+        ..EditRecipe::default()
+    });
+    std::fs::write(&sidecar, &bytes).unwrap();
+
+    let version = backup_saved_develop(&raw, None).unwrap();
+
+    assert_eq!(version, Some(1));
+    assert_eq!(list_versions(&raw), vec![1]);
+    assert_eq!(std::fs::read(sidecar).unwrap(), bytes.as_bytes());
+}
+
+#[test]
+fn a_neutral_sidecar_only_photo_creates_no_backup() {
+    let store = TempStore::new("backup-neutral-sidecar");
+    let raw = photo(store.root(), "neutral-sidecar.arw");
+    std::fs::write(raw.with_extension("xmp"), b"<x:xmpmeta/>").unwrap();
+
+    assert_eq!(backup_saved_develop(&raw, None).unwrap(), None);
+    assert!(list_versions(&raw).is_empty());
+}
+
+#[test]
+fn a_snapshot_freezes_rasters_without_moving_the_working_develop() {
+    let store = TempStore::new("backup-freezes-raster");
+    let raw = photo(store.root(), "freeze-raster.arw");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let live_raster = develop.join("mask-zone-sky.png");
+    std::fs::write(&live_raster, b"old raster").unwrap();
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: "mask-zone-sky.png".to_string(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let live_recipe = serde_json::to_vec_pretty(&recipe).unwrap();
+    std::fs::write(recipe_target(&raw), &live_recipe).unwrap();
+
+    assert_eq!(backup_saved_develop(&raw, None).unwrap(), Some(1));
+    assert_eq!(std::fs::read(recipe_target(&raw)).unwrap(), live_recipe);
+    let mut snapshot: EditRecipe =
+        serde_json::from_slice(&std::fs::read(version_target(&raw, 1)).unwrap()).unwrap();
+    resolve_mask_paths(&mut snapshot, &develop);
+    let MaskGeometry::Bitmap { path } = &snapshot.masks[0].mask else {
+        panic!("the frozen mask remains a bitmap")
+    };
+    let frozen_raster = PathBuf::from(path);
+
+    std::fs::write(&live_raster, b"new raster").unwrap();
+
+    assert_eq!(std::fs::read(&frozen_raster).unwrap(), b"old raster");
+    assert_eq!(list_versions(&raw), vec![1]);
+    delete_version(&raw, 1).unwrap();
+    assert!(!version_target(&raw, 1).exists());
+    assert!(!frozen_raster.exists());
+    assert_eq!(std::fs::read(live_raster).unwrap(), b"new raster");
+}
+
+#[test]
+fn backing_up_an_identical_raster_recipe_creates_no_snapshot() {
+    let store = TempStore::new("backup-identical-raster");
+    let raw = photo(store.root(), "identical-raster.arw");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    std::fs::write(develop.join("mask-zone-sky.png"), b"mask").unwrap();
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: "mask-zone-sky.png".to_string(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    std::fs::write(
+        recipe_target(&raw),
+        serde_json::to_vec_pretty(&recipe).unwrap(),
+    )
+    .unwrap();
+    let mut incoming = recipe;
+    resolve_mask_paths(&mut incoming, &develop);
+
+    assert_eq!(
+        backup_saved_develop(&raw, Some(&incoming)).unwrap(),
+        None
+    );
+    assert!(list_versions(&raw).is_empty());
+}
+
+#[test]
+fn deleted_snapshot_fingerprints_distinguish_changed_rasters_and_burn_numbers() {
+    let store = TempStore::new("backup-deleted-fingerprint");
+    let raw = photo(store.root(), "deleted-fingerprint.arw");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let live_raster = develop.join("mask-zone-sky.png");
+    std::fs::write(&live_raster, b"old raster").unwrap();
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: "mask-zone-sky.png".to_string(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    std::fs::write(
+        recipe_target(&raw),
+        serde_json::to_vec_pretty(&recipe).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(backup_saved_develop(&raw, None).unwrap(), Some(1));
+    std::fs::write(&live_raster, b"new raster").unwrap();
+    delete_version(&raw, 1).unwrap();
+
+    assert_eq!(backup_saved_develop(&raw, None).unwrap(), Some(2));
+    assert_eq!(list_versions(&raw), vec![2]);
+    delete_version(&raw, 2).unwrap();
+    assert_eq!(backup_saved_develop(&raw, None).unwrap(), None);
+    assert!(list_versions(&raw).is_empty());
+
+    let (next, _) = claim_version(&raw).unwrap();
+    assert_eq!(next, 3);
 }
 
 #[test]
