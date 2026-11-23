@@ -107,6 +107,10 @@ rfd = { version = "0.15", optional = true }
 ab_glyph = { version = "0.2", optional = true }
 fontdb = "0.24.0"
 
+[dev-dependencies]
+# Headless egui/eframe behavior tests through the accessibility tree.
+egui_kittest = { version = "=0.33.3", features = ["eframe"] }
+
 # Sidecar kill-groups (L11#7): a timeout must reap the sidecar's WHOLE
 # process tree, not just the direct child — a launcher's python or a
 # GPU-holding torch worker used to survive the kill. Both crates were

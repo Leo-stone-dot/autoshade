@@ -93,6 +93,8 @@ mod portrait_actions;
 mod recipe_actions;
 mod retouch_actions;
 mod retouch_workflow;
+#[cfg(test)]
+mod tests;
 mod runtime;
 mod settings_actions;
 mod side_panel;

@@ -569,6 +569,59 @@ Mutation 证据：
 - Mutation：让公开 merge wrapper 直接返回 `None`，case 在合法文档被拒绝处失败；
   恢复后通过。
 
+## GUI 已裁决
+
+### 拖放照片进入编辑画布
+
+- Main 保护形态：`src/bin/gui/tests.rs::app_frame/click_at` 与大量直接构造
+  `AutoShadeApp` 的 open/landing case。
+- 当前 case：`src/bin/gui/tests.rs::dropping_a_photo_opens_the_editing_canvas`
+- 状态：`rewritten`
+
+当前 case 不构造或读取任何 App 私有状态：
+
+1. 合成真实 PNG。
+2. 通过 `egui_kittest::Harness` 的 `RawInput.dropped_files` 注入用户拖放。
+3. 有界 realtime frame 等待真实 decode worker。
+4. 从 AccessKit 可见树验收 `No photo open.` 消失且 `Before (source)` 出现。
+
+测试构造修正记录：
+
+- kittest 的 value 查询可能同时命中 Label 与 TextRun，因此使用集合查询，不把节点
+  数量当产品契约。
+- 初版猜测旧注释文案 `Before · source`，基线红；改为资源表真实公开文案
+  `Before (source)`，没有修改产品。
+
+Mutation 证据：临时让 `upd_dropped_and_title` 丢弃全部 dropped files，case 在空状态
+仍存在的断言处失败；恢复后通过，`app.rs` 无最终 diff。
+
+该 case 只勾销“公开拖放能打开并显示画布”。它不勾销 main 对失败打开、过期 worker
+结果、saved develop 恢复、mask resolve、编辑/保存/导出等后续行为的断言。
+
+### 可见编辑后保存
+
+- Main 相关 cases：
+  - `src/bin/gui/tests/normal.rs::the_workspace_save_keys_save_the_develop_and_export`
+  - `src/bin/gui/tests/turns_and_layout.rs::the_toolbar_turn_moves_the_recipe_and_the_plate_together`
+- 当前 case：`src/bin/gui/tests.rs::rotating_and_saving_persists_the_develop_without_changing_the_photo`
+- 状态：`rewritten`（旋转 + Ctrl+S 保存 arm）
+
+公开旅程：
+
+1. 拖放真实 PNG 并等待打开。
+2. 通过 AccessKit Button `⭮ Turn right` 点击一次。
+3. 注入 Command+S。
+4. 通过公开 Store API 定位保存 recipe，断言 `quarter_turns == 1`。
+5. 断言源 PNG 字节完全不变。
+
+Mutation 证据：临时让 `rotate_photo` 立即返回，按钮点击不产生编辑，Ctrl+S 不发布
+recipe，case 在“develop recipe 必须存在”处失败；恢复后通过。
+
+测试构造边界：曾尝试通过 AccessKit 编辑 `Exposure`，但当前自定义 slider 只暴露
+文本 Label，没有关联 numeric control；按 label 查询得到 `numeric_value=None`。该路径
+已撤回，没有改读 App 私有字段或按 rect 猜滑块坐标。Exposure 等 slider 的公开
+accessibility/交互保护仍是明确 GUI 缺口。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：
