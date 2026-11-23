@@ -15,7 +15,7 @@ use autoshade::config::{
 use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
 use autoshade::store::{
     ActiveWrite, CommitMember, DevelopCommit, EditStateKind, VariantEntry, VariantsRead,
-    VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, OwnedRaster,
+    VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, MAX_STORE_NAME, OwnedRaster,
     backup_saved_develop, clear_develop, clear_pixel_source, clear_variants, commit_develop,
     detach_rasters, develop_dir, export_xmp_beside, has_develop, has_develop_or_sidecar,
     has_pixel_source, lightroom_sidecar, list_edits, migrate_legacy, migrate_legacy_from_many,
@@ -770,6 +770,163 @@ fn changing_the_active_variant_kind_preserves_unknown_fields_and_its_name() {
     assert_eq!(saved["future_record"], "keep me");
     assert_eq!(saved["others"][0]["future_entry"], "keep me too");
     assert_eq!(saved["others"][0]["name"], "Background");
+}
+
+#[test]
+fn a_relocated_store_reanchors_variant_rasters_to_its_new_directory() {
+    let mut store = TempStore::new("variant-store-relocation");
+    let raw = photo(store.root(), "relocated-variants.dng");
+    let original_develop = develop_dir(&raw);
+    std::fs::create_dir_all(&original_develop).unwrap();
+    let master = original_develop.join("generated.png");
+    let mask = original_develop.join("mask-sky.png");
+    std::fs::write(&master, b"generated").unwrap();
+    std::fs::write(&mask, b"mask").unwrap();
+    let record = VariantsRecord {
+        v: 1,
+        active_kind: "fitted".to_string(),
+        active_pos: 1,
+        others: vec![VariantEntry {
+            kind: "generated".to_string(),
+            recipe: EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: MaskGeometry::Bitmap {
+                        path: mask.to_string_lossy().into_owned(),
+                    },
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            },
+            origin: Some(master),
+            id: Some("generated-card".to_string()),
+            name: Some("Generated".to_string()),
+            extra: serde_json::Map::new(),
+        }],
+        active_id: Some("fitted-card".to_string()),
+        active_name: Some("Fitted".to_string()),
+        extra: serde_json::Map::new(),
+    };
+    write_variants(&raw, &record).unwrap();
+
+    let relocated_root = store.root().join("relocated-data");
+    store.env.set("AUTOSHADE_DATA_DIR", &relocated_root);
+    let relocated_develop = develop_dir(&raw);
+    std::fs::create_dir_all(relocated_develop.parent().unwrap()).unwrap();
+    std::fs::rename(&original_develop, &relocated_develop).unwrap();
+
+    let VariantsRead::Strip(restored) = read_variants_checked(&raw) else {
+        panic!("the relocated strip remains readable")
+    };
+    assert_eq!(restored.active_kind, "fitted");
+    assert_eq!(restored.active_pos, 1);
+    assert_eq!(
+        restored.others[0].origin.as_deref(),
+        Some(relocated_develop.join("generated.png").as_path())
+    );
+    let MaskGeometry::Bitmap { path } = &restored.others[0].recipe.masks[0].mask else {
+        panic!("the relocated mask remains a bitmap")
+    };
+    assert_eq!(
+        Path::new(path),
+        relocated_develop.join("mask-sky.png").as_path()
+    );
+}
+
+#[test]
+fn clearing_a_variant_strip_cannot_restore_its_previous_generation() {
+    let store = TempStore::new("variant-clear-recovery");
+    let raw = photo(store.root(), "clear-variants.dng");
+    let record = |kind: &str| VariantsRecord {
+        v: 1,
+        active_kind: kind.to_string(),
+        active_pos: 0,
+        others: Vec::new(),
+        active_id: None,
+        active_name: None,
+        extra: serde_json::Map::new(),
+    };
+    write_variants(&raw, &record("original")).unwrap();
+    write_variants(&raw, &record("edited")).unwrap();
+
+    clear_variants(&raw).unwrap();
+    recover_orphan_baks(&raw).unwrap();
+
+    assert!(matches!(
+        read_variants_checked(&raw),
+        VariantsRead::Absent
+    ));
+    clear_variants(&raw).unwrap();
+}
+
+#[test]
+fn variant_names_are_capped_on_a_unicode_character_boundary() {
+    let store = TempStore::new("variant-name-cap");
+    let raw = photo(store.root(), "variant-names.dng");
+    let long = "名".repeat(400);
+    write_variants(
+        &raw,
+        &VariantsRecord {
+            v: 1,
+            active_kind: "original".to_string(),
+            active_pos: 0,
+            others: vec![VariantEntry {
+                kind: "generated".to_string(),
+                recipe: EditRecipe::default(),
+                origin: None,
+                id: Some("background".to_string()),
+                name: Some(long.clone()),
+                extra: serde_json::Map::new(),
+            }],
+            active_id: Some("active".to_string()),
+            active_name: Some(long),
+            extra: serde_json::Map::new(),
+        },
+    )
+    .unwrap();
+
+    let VariantsRead::Strip(restored) = read_variants_checked(&raw) else {
+        panic!("the capped strip remains readable")
+    };
+    let active = restored.active_name.unwrap();
+    let background = restored.others[0].name.as_deref().unwrap();
+    assert!(active.len() <= MAX_STORE_NAME);
+    assert!(background.len() <= MAX_STORE_NAME);
+    assert!(active.ends_with('名'));
+    assert!(background.ends_with('名'));
+}
+
+#[test]
+fn an_idless_nameless_variant_strip_round_trips_without_inventing_metadata() {
+    let store = TempStore::new("variant-legacy-metadata");
+    let raw = photo(store.root(), "legacy-variants.dng");
+    write_variants(
+        &raw,
+        &VariantsRecord {
+            v: 1,
+            active_kind: "original".to_string(),
+            active_pos: 0,
+            others: vec![VariantEntry {
+                kind: "fitted".to_string(),
+                recipe: EditRecipe::default(),
+                origin: None,
+                id: None,
+                name: None,
+                extra: serde_json::Map::new(),
+            }],
+            active_id: None,
+            active_name: None,
+            extra: serde_json::Map::new(),
+        },
+    )
+    .unwrap();
+
+    let VariantsRead::Strip(restored) = read_variants_checked(&raw) else {
+        panic!("the legacy strip remains readable")
+    };
+    assert!(restored.active_id.is_none());
+    assert!(restored.active_name.is_none());
+    assert!(restored.others[0].id.is_none());
+    assert!(restored.others[0].name.is_none());
 }
 
 #[test]
