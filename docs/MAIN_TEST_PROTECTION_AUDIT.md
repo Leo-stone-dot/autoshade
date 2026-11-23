@@ -398,6 +398,50 @@ Mutation 证据：把 tone LUT 的单个中点清零没有稳定到达 8-bit 交
 共同 mutation 证据：公开 preview 入口原样返回输入时，Color Grade、Point Color 和
 Local Point Curve 三个 case 各自在自己的可见像素断言处失败；恢复后通过。
 
+### Linear mask transition
+
+- Main cases：
+  - `src/render/tests/local_wb_and_colour_management.rs::linear_mask_affects_only_the_full_end`
+  - `src/render/tests/coverage_and_ramps.rs::axis_aligned_linear_coverage_is_byte_stable`
+- 当前 case：`tests/render_behavior.rs::a_linear_mask_delivers_a_smooth_monotonic_transition`
+- 状态：`rewritten`
+- 映射：8 行灰阶经公开 preview 后必须逐行严格变暗，证明 linear mask 是连续过渡而
+  不是“任意正权重即全覆盖”的硬 step。main 对每个内部 coverage 数值的精确钉值归入
+  Lightroom parity / profile 审计，不由当前 case 勾销。
+
+### Bitmap alpha
+
+- Main case：`src/render/tests/tone_and_colour.rs::bitmap_mask_sampling_matches_the_producers_convention`
+- 当前 case：`tests/render_behavior.rs::a_bitmap_mask_scales_the_effect_with_its_stored_alpha`
+- 状态：`rewritten`
+- 映射：真实 8-bit mask 文件从 0 到 255，公开 preview 的曝光增益从 0 开始并逐像素
+  严格增加；不直接调用私有 bitmap sampler。
+
+Linear 与 Bitmap 的 mutation 证据：公开 preview 入口原样返回输入时，两条 case
+分别得到常量 153 和全零 gain，并在自己的渐变断言处失败。
+
+### Missing inverted bitmap
+
+- Main case：`src/render/tests/radial_and_bitmap_masks.rs::missing_bitmap_raster_is_inert_even_when_inverted`
+- 当前 case：`tests/render_behavior.rs::a_missing_inverted_bitmap_mask_is_inert`
+- 状态：`rewritten`
+- 映射：不存在的 bitmap path、adjustment inverted、`+2 EV`；公开交付必须逐像素
+  等于 neutral render，不能把“无 alpha”反成整幅覆盖。
+- Mutation：临时删除 `Cover::new` 对缺失 raster 的提前拒绝，交付从 128 变为整幅
+  238，case 失败；恢复后通过。
+
+### Radial feather
+
+- Main cases：
+  - `src/render/tests/radial_and_bitmap_masks.rs::radial_feather_zero_stays_finite_on_the_boundary`
+  - `src/render/tests/coverage_and_ramps.rs` 的 radial falloff 系列
+- 当前 case：`tests/render_behavior.rs::radial_feather_produces_intermediate_coverage`
+- 状态：`rewritten`（feather=75 的公开行为；main 的 Lightroom 全标定矩阵仍待外部
+  parity gate 裁决）
+- 映射：公开 `mask_coverage` 必须同时包含 0、255 和至少一个 1..254 中间值。
+- Mutation：强制调用 `radial_falloff(0, d)` 后 coverage 只有硬边，case 在中间覆盖
+  断言处失败；恢复后通过。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：

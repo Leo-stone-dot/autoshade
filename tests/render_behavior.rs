@@ -3,6 +3,8 @@ use autoshade::recipe::{
 };
 use image::{DynamicImage, Rgb, RgbImage};
 
+mod support;
+
 fn render(source: &RgbImage, recipe: &EditRecipe) -> RgbImage {
     autoshade::render::develop_preview(
         &DynamicImage::ImageRgb8(source.clone()),
@@ -448,4 +450,123 @@ fn a_local_point_curve_leaves_uncovered_pixels_unchanged() {
             );
         }
     }
+}
+
+#[test]
+fn a_linear_mask_delivers_a_smooth_monotonic_transition() {
+    let source = RgbImage::from_pixel(1, 8, Rgb([153, 153, 153]));
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.5,
+                    zero_y: 0.0,
+                    full_x: 0.5,
+                    full_y: 1.0,
+                },
+                amount: 1.0,
+                exposure_ev: -2.0,
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        },
+    );
+    let levels = (0..delivered.height())
+        .map(|y| delivered.get_pixel(0, y)[0])
+        .collect::<Vec<_>>();
+
+    assert!(
+        levels.windows(2).all(|pair| pair[0] > pair[1]),
+        "the linear mask collapsed or reversed its transition: {levels:?}"
+    );
+}
+
+#[test]
+fn a_bitmap_mask_scales_the_effect_with_its_stored_alpha() {
+    let tree = support::TempTree::new("render-bitmap-alpha");
+    let mask_path = tree.path().join("mask.png");
+    image::GrayImage::from_fn(8, 1, |x, _| image::Luma([(x * 255 / 7) as u8]))
+        .save(&mask_path)
+        .unwrap();
+    let source = RgbImage::from_pixel(8, 1, Rgb([128, 128, 128]));
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Bitmap {
+                    path: mask_path.to_string_lossy().into_owned(),
+                },
+                amount: 1.0,
+                exposure_ev: 1.0,
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        },
+    );
+    let gains = (0..8)
+        .map(|x| delivered.get_pixel(x, 0)[0] - neutral.get_pixel(x, 0)[0])
+        .collect::<Vec<_>>();
+
+    assert_eq!(gains[0], 0);
+    assert!(
+        gains.windows(2).all(|pair| pair[0] < pair[1]),
+        "bitmap alpha did not scale the effect monotonically: {gains:?}"
+    );
+}
+
+#[test]
+fn a_missing_inverted_bitmap_mask_is_inert() {
+    let tree = support::TempTree::new("render-missing-bitmap");
+    let source = RgbImage::from_pixel(8, 8, Rgb([128, 128, 128]));
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Bitmap {
+                    path: tree.path().join("missing.png").to_string_lossy().into_owned(),
+                },
+                inverted: true,
+                amount: 1.0,
+                exposure_ev: 2.0,
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        },
+    );
+
+    assert_eq!(delivered, neutral);
+}
+
+#[test]
+fn radial_feather_produces_intermediate_coverage() {
+    let reference = DynamicImage::ImageRgb8(RgbImage::from_pixel(64, 64, Rgb([128, 128, 128])));
+    let mask = LocalAdjustment {
+        mask: MaskGeometry::Radial {
+            top: 0.25,
+            left: 0.25,
+            bottom: 0.75,
+            right: 0.75,
+            feather: 75.0,
+            roundness: 0.0,
+            flipped: false,
+            angle: 0.0,
+            midpoint: 50.0,
+            mask_version: 2,
+        },
+        ..LocalAdjustment::default()
+    };
+
+    let coverage =
+        autoshade::render::mask_coverage(&mask, &reference, autoshade::render::MaskFrame::AsRendered);
+    let values = coverage.pixels().map(|pixel| pixel[0]).collect::<Vec<_>>();
+
+    assert!(values.contains(&0));
+    assert!(values.contains(&255));
+    assert!(
+        values.iter().any(|value| (1..=254).contains(value)),
+        "a feathered radial mask contained no transition coverage"
+    );
 }
