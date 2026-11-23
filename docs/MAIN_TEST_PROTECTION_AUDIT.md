@@ -641,6 +641,21 @@ accessibility/交互保护仍是明确 GUI 缺口。
 与红灯位置登记在 `docs/BEHAVIOR_PROTECTION.md`；没有 mutation 证据的 main 断言仍
 不能靠本表宣称已保护。
 
+## 当前外部边界基线
+
+| 当前文件 | cases | 公开边界 | main 信息来源 |
+| --- | ---: | --- | --- |
+| `tests/cli_behavior.rs` | 3 | 真实 `autoshade decode/apply` 子进程、文件交付、源图不可覆盖 | `src/main.rs`、Pipeline/Render |
+| `tests/mcp_behavior.rs` | 2 | 真实 stdio initialize/tools/list/frame.read 与根目录逃逸拒绝 | `src/mcp.rs` |
+| `tests/library_behavior.rs` | 2 | reference build 增量复用、sidecar settings 只有在实际成片相近时附加 | `src/library/**` |
+| `tests/judge_behavior.rs` | 2 | fake completion 边界下成功解析、typed failure、密钥不泄漏 | Advisor/Judge/Harness |
+| `tests/generative_behavior.rs` | 2 | fake Comfy CLI 协议下完整 PNG 发布、失败不留 partial | Generative/Comfy |
+
+这些 fixture 只替代外部网络、模型或付费系统；被测命令、进程协议、解析与文件发布
+均走真实产品入口。逐 case mutation 证据见 `docs/BEHAVIOR_PROTECTION.md`。它们不
+替代真实付费/模型质量 gate，也不把 Comfy 并发 collision 或 Harness 部分提交缺陷
+解释成已解决。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：
