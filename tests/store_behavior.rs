@@ -1411,6 +1411,58 @@ fn a_writer_that_knows_nothing_about_the_active_card_keeps_the_strip() {
 }
 
 #[test]
+fn a_pristine_card_without_a_pixel_record_hands_identity_to_its_master_card() {
+    let store = TempStore::new("pristine-card-no-pixel-record");
+    let raw = photo(store.root(), "pristine-card.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let master = develop.join("reimagine.png");
+    std::fs::write(&master, b"generated").unwrap();
+    write_variants(
+        &raw,
+        &VariantsRecord {
+            v: 1,
+            active_kind: "generated".to_string(),
+            active_pos: 0,
+            others: Vec::new(),
+            active_id: Some("g1".to_string()),
+            active_name: Some("sky".to_string()),
+            extra: serde_json::Map::new(),
+        },
+    )
+    .unwrap();
+    let edits = EditRecipe {
+        contrast: 7.0,
+        ..EditRecipe::default()
+    };
+
+    let CommitMember::Write(bytes) = variants_member(
+        &raw,
+        ActiveWrite::DevelopOnAiPixels {
+            recipe: &edits,
+            master: &master,
+        },
+    )
+    .unwrap()
+    else {
+        panic!("the edited develop writes a new strip")
+    };
+    let restored: VariantsRecord = serde_json::from_slice(&bytes).unwrap();
+
+    assert_eq!(restored.active_kind, "edited");
+    assert!(restored.active_id.is_none());
+    assert!(restored.active_name.is_none());
+    assert_eq!(restored.others.len(), 1);
+    assert_eq!(restored.others[0].kind, "generated");
+    assert_eq!(restored.others[0].id.as_deref(), Some("g1"));
+    assert_eq!(restored.others[0].name.as_deref(), Some("sky"));
+    assert_eq!(
+        restored.others[0].origin.as_deref(),
+        Some(Path::new("reimagine.png"))
+    );
+}
+
+#[test]
 fn a_relocated_store_reanchors_variant_rasters_to_its_new_directory() {
     let mut store = TempStore::new("variant-store-relocation");
     let raw = photo(store.root(), "relocated-variants.dng");
