@@ -86,6 +86,14 @@ fn session_usage_sums_only_assistant_messages() {
 }
 
 #[test]
+fn a_transcript_without_messages_has_zero_usage() {
+    assert_eq!(
+        usage_of(&json!({})),
+        autoshade::session::Usage::default()
+    );
+}
+
+#[test]
 fn session_turn_and_tool_counts_ignore_non_assistant_rows() {
     let transcript = json!({
         "messages": [
@@ -810,6 +818,22 @@ fn a_look_summary_uses_the_first_reference_with_phrases() {
 }
 
 #[test]
+fn references_without_phrases_have_no_look_summary() {
+    let entry = autoshade::library::Entry {
+        id: "empty".to_string(),
+        path: "empty.jpg".to_string(),
+        stamp: autoshade::library::Stamp { len: 1, modified: 0 },
+        image: unit_vector(),
+        phrases: None,
+        settings: None,
+        settings_checked: None,
+    };
+    let hits = [autoshade::library::Hit { entry: &entry, scene: 0.8 }];
+
+    assert_eq!(autoshade::library::look_summary(&hits), None);
+}
+
+#[test]
 fn a_connected_painted_alpha_blob_becomes_one_retouch_spot() {
     let mut alpha = GrayImage::from_pixel(9, 9, Luma([0]));
     for y in 3..6 {
@@ -1272,6 +1296,32 @@ fn a_deepseek_key_is_not_shared_when_the_other_role_already_has_one() {
             Some(autoshade::config::DEEPSEEK_BASE),
             "synthetic-key",
             true,
+        )
+        .is_none()
+    );
+}
+
+#[test]
+fn a_deepseek_key_is_not_shared_with_a_non_deepseek_role() {
+    assert!(
+        autoshade::config::fill_deepseek_key(
+            Some("https://api.openai.com/v1"),
+            Some(autoshade::config::DEEPSEEK_BASE),
+            "synthetic-key",
+            false,
+        )
+        .is_none()
+    );
+}
+
+#[test]
+fn an_empty_deepseek_key_is_not_shared() {
+    assert!(
+        autoshade::config::fill_deepseek_key(
+            Some(autoshade::config::DEEPSEEK_BASE),
+            Some(autoshade::config::DEEPSEEK_BASE),
+            "",
+            false,
         )
         .is_none()
     );

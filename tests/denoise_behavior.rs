@@ -65,6 +65,22 @@ fn a_zero_strength_mosaic_denoise_is_the_identity_without_a_sidecar() {
 }
 
 #[test]
+fn a_zero_strength_developed_frame_is_the_identity_without_a_sidecar() {
+    let mut pixels = [[1.2_f32, 0.5, -0.1]];
+    let before = pixels;
+
+    denoise_buffer(
+        &options(0.0, PathBuf::from("missing-raw-denoise.py")),
+        &mut pixels,
+        1,
+        1,
+    )
+    .unwrap();
+
+    assert_eq!(pixels, before);
+}
+
+#[test]
 fn a_float_mosaic_is_not_applicable_to_raw_denoise() {
     let mut raw = synthetic_raw();
     raw.data = RawImageData::Float(vec![0.5; 16 * 16]);

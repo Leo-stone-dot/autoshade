@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：421 cases，约 1,125 个断言宏，31 个显式 ignore。
+- 当前工作树：426 cases，约 1,130 个断言宏，31 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，41 条 `rewritten`、11 条
-`lint`、2,229 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，49 条 `rewritten`、11 条
+`lint`、2,221 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -641,6 +641,105 @@ recipe，case 在“develop recipe 必须存在”处失败；恢复后通过。
 已撤回，没有改读 App 私有字段或按 rect 猜滑块坐标。Exposure 等 slider 的公开
 accessibility/交互保护仍是明确 GUI 缺口。
 
+## Config、Library、Session、Denoise 与退化 Fit 已裁决
+
+### DeepSeek key 只在安全边界内共享
+
+- Main cases：
+  - `src/config.rs::one_key_fills_the_other_deepseek_role`
+  - `src/config.rs::a_role_with_its_own_key_is_never_overwritten`
+  - `src/config.rs::one_non_deepseek_endpoint_blocks_the_copy`
+  - `src/config.rs::nothing_typed_copies_nothing`
+- 当前入口：公开 `config::fill_deepseek_key`
+- 状态：四条均为 `rewritten`
+- Gate：默认 `tests/domain_behavior.rs`
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| 两个 DeepSeek role、目标无 key 时复制刚输入的 key 与 base | `a_deepseek_key_is_shared_with_the_other_deepseek_role_when_it_has_no_key` | 用户必须重复配置同一 provider，或一个角色无凭据 |
+| 目标已有 key 时返回 `None` | `a_deepseek_key_is_not_shared_when_the_other_role_already_has_one` | 已保存凭据被另一角色的新输入静默覆盖 |
+| 任一 role 不是 DeepSeek 时返回 `None` | `a_deepseek_key_is_not_shared_with_a_non_deepseek_role` | 凭据跨 provider 误传 |
+| 输入 key 为空时返回 `None` | `an_empty_deepseek_key_is_not_shared` | 空凭据被保存为另一角色的配置 |
+
+Mutation 证据：临时反转四个公开返回分支，让合法共享返回 `None`，并让已有 key、
+跨 provider、空 key 返回 `Some`；四个当前 case 分别在自己的公开结果断言处失败。
+恢复后 `src/config.rs` 无 diff。
+
+### Look summary 只来自真实 reference phrases
+
+- Main case：`src/library/tests.rs::the_look_summary_is_the_first_reference_that_has_phrases`
+- 当前 cases：
+  - `a_look_summary_uses_the_first_reference_with_phrases`
+  - `references_without_phrases_have_no_look_summary`
+- 状态：`rewritten`
+- Gate：默认 `tests/domain_behavior.rs`
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| 跳过无 phrases 的首个 hit，使用首个有效 phrases，并折叠行内空白 | `a_look_summary_uses_the_first_reference_with_phrases` | 保留公开 reviewer intent |
+| 所有 reference 都无 phrases 时返回 `None` | `references_without_phrases_have_no_look_summary` | 独立边界 case；禁止伪造用户未提供的 look |
+
+Mutation 证据：让公开 `look_summary` 一律返回 `None` 时，正常路径 case 在
+`None != Some("cool quiet")` 处失败；让无 phrases 输入返回合成字符串时，边界 case
+在 `Some("synthetic look") != None` 处失败。两次均已恢复。
+
+### Session usage 只累计 assistant，空 transcript 为零
+
+- Main case：`src/session.rs::usage_sums_only_assistant_turns`
+- 当前 cases：
+  - `session_usage_sums_only_assistant_messages`
+  - `a_transcript_without_messages_has_zero_usage`
+- 状态：`rewritten`
+- Gate：默认 `tests/domain_behavior.rs`
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| `input`、`output`、`cache_read`、`total_tokens`、`cost_usd` 只累计 assistant rows | `session_usage_sums_only_assistant_messages` | 保留公开账单/会话汇总行为 |
+| 缺少 `messages` 的 transcript 返回全零 `Usage` | `a_transcript_without_messages_has_zero_usage` | 拆成独立错误边界 |
+
+Mutation 证据：让非空 transcript 直接返回零值时，正常路径在 `input: 0 != 12` 处
+失败；让空 transcript 返回 `input=1` 时，边界 case 在完整 `Usage` 等值断言处失败。
+两次均已恢复。
+
+### 零强度 developed denoise 是无损 no-op
+
+- Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
+- 当前 case：`tests/denoise_behavior.rs::a_zero_strength_developed_frame_is_the_identity_without_a_sidecar`
+- 状态：`rewritten`
+- Gate：默认 `tests/denoise_behavior.rs`
+
+当前 case 通过公开 `denoise_buffer` 输入超出 `[0,1]` 的像素，并给出不存在的
+sidecar。成功返回且像素逐值相同同时证明：零强度不 clamp、不量化，也不启动外部
+进程。
+
+Mutation 证据：把零强度快捷返回从 `<= 0.0` 改成 `< 0.0` 后，case 因尝试进入
+sidecar 路径而返回“denoise sidecar not found”，未到达像素等值断言；恢复后通过。
+
+### 退化 pair 保持中性并披露拒绝
+
+- Main case：`src/fit/tests.rs::a_degenerate_pair_refuses_to_fit_and_says_why`
+- 当前 case：`tests/fit_behavior.rs::a_degenerate_pair_refuses_to_fit_and_discloses_the_refusal`
+- 状态：`rewritten`
+- Gate：`cargo test --test fit_behavior -- --ignored`
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| `exposure_ev == 0` | 同名当前 case 的公开 `FitReport.recipe` | 无证据的黑帧得到可见曝光编辑 |
+| `tone_curve` 为空 | 同一公开 recipe | 退化 CDF 产生常量 tone map |
+| notes 含 typed `FIT_DEGENERATE` | 同一公开 `FitReport.notes` | 用户拿到中性结果却不知道为何拒绝拟合 |
+
+Mutation 证据：在退化公开返回分支分别注入 `exposure_ev=1`、单点 tone curve、清空
+typed notes；当前 case 依次在三条对应断言处失败。三次均已恢复，`src/fit/solve.rs`
+无 diff。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -650,10 +749,10 @@ accessibility/交互保护仍是明确 GUI 缺口。
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 78 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
-| `tests/domain_behavior.rs` | 81 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
+| `tests/domain_behavior.rs` | 85 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
-| `tests/denoise_behavior.rs` | 5 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
+| `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
 | `tests/process_behavior.rs` | 1 | 杀 sidecar 进程组同时回收孙进程 | Lib/process、Denoise | Windows Job Object 分支 |
 
 这些 case 数只说明本次提交 inventory，不是质量得分。每个已有 mutation 的具体故障

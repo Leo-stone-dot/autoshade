@@ -514,10 +514,10 @@ src/config.rs	2746	dotenv_parsing_never_mutates_the_process_environment	11	defau
 src/config.rs	2840	repeated_corrupt_settings_incidents_get_distinct_rescue_files	4	default	open		Awaiting assertion-by-assertion review.
 src/config.rs	2869	a_replaced_settings_file_survives_a_stale_rescuer	3	default	open		Awaiting assertion-by-assertion review.
 src/config.rs	2905	a_non_utf8_settings_file_is_handed_to_the_rescue_with_its_bytes_intact	8	default	open		Awaiting assertion-by-assertion review.
-src/config.rs	2971	one_key_fills_the_other_deepseek_role	1	default	open		Awaiting assertion-by-assertion review.
-src/config.rs	2985	a_role_with_its_own_key_is_never_overwritten	1	default	open		Awaiting assertion-by-assertion review.
-src/config.rs	2993	one_non_deepseek_endpoint_blocks_the_copy	1	default	open		Awaiting assertion-by-assertion review.
-src/config.rs	3006	nothing_typed_copies_nothing	1	default	open		Awaiting assertion-by-assertion review.
+src/config.rs	2971	one_key_fills_the_other_deepseek_role	1	default	rewritten	tests/domain_behavior.rs::a_deepseek_key_is_shared_with_the_other_deepseek_role_when_it_has_no_key	Public key-sharing result is asserted through the exported helper; mutation evidence is recorded in the main audit.
+src/config.rs	2985	a_role_with_its_own_key_is_never_overwritten	1	default	rewritten	tests/domain_behavior.rs::a_deepseek_key_is_not_shared_when_the_other_role_already_has_one	Public non-overwrite result is asserted through the exported helper; mutation evidence is recorded in the main audit.
+src/config.rs	2993	one_non_deepseek_endpoint_blocks_the_copy	1	default	rewritten	tests/domain_behavior.rs::a_deepseek_key_is_not_shared_with_a_non_deepseek_role	Cross-provider key sharing is refused through the exported helper; mutation evidence is recorded in the main audit.
+src/config.rs	3006	nothing_typed_copies_nothing	1	default	rewritten	tests/domain_behavior.rs::an_empty_deepseek_key_is_not_shared	An empty key is not propagated through the exported helper; mutation evidence is recorded in the main audit.
 src/correspond.rs	329	a_healthy_field_parses_and_summarises	5	default	open		Awaiting assertion-by-assertion review.
 src/correspond.rs	341	a_field_with_a_truncated_array_is_refused	1	default	open		Awaiting assertion-by-assertion review.
 src/correspond.rs	355	an_out_of_grid_coordinate_or_grid_is_refused	3	default	open		Awaiting assertion-by-assertion review.
@@ -587,7 +587,7 @@ src/decode.rs	4540	the_legacy_window_shift_is_the_declared_origin_only_where_raw
 src/decode.rs	4587	a_genuinely_unknown_model_keeps_the_calibration_wording	1	default	open		Awaiting assertion-by-assertion review.
 src/denoise.rs	1068	a_truncated_denoise_product_is_refused	1	default	open		Awaiting assertion-by-assertion review.
 src/denoise.rs	1096	a_channel_dropping_denoise_product_is_refused	1	default	open		Awaiting assertion-by-assertion review.
-src/denoise.rs	1122	zero_strength_denoise_is_the_identity	1	default	open		Awaiting assertion-by-assertion review.
+src/denoise.rs	1122	zero_strength_denoise_is_the_identity	1	default	rewritten	tests/denoise_behavior.rs::a_zero_strength_developed_frame_is_the_identity_without_a_sidecar	The public developed-buffer path preserves out-of-range samples and does not require a sidecar at zero strength.
 src/denoise.rs	1143	a_wrong_size_denoise_product_is_refused	2	default	open		Awaiting assertion-by-assertion review.
 src/denoise.rs	1167	the_denoise_product_carries_the_inputs_icc_profile	1	default	open		Awaiting assertion-by-assertion review.
 src/denoise.rs	1212	a_deep_baked_denoise_master_carries_the_working_space_tag	1	default	open		Awaiting assertion-by-assertion review.
@@ -980,7 +980,7 @@ src/fit_zoned/tests.rs	7218	a_zone_whose_target_is_one_tint_away_ships_that_tint
 src/fit_zoned/tests.rs	7294	a_zone_whose_target_is_a_gains_recolour_does_not_read_as_a_tint	3	explicit-or-feature	open		Awaiting assertion-by-assertion review.
 src/fit_zoned/tests.rs	7342	a_zone_the_colour_field_regresses_is_pinned_and_the_field_still_ships	0	explicit-or-feature	open		Awaiting assertion-by-assertion review.
 src/fit_zoned/tests.rs	7352	a_pinned_zone_is_heard_at_full_weight_by_both_field_solves	0	explicit-or-feature	open		Awaiting assertion-by-assertion review.
-src/fit/tests.rs	7	a_degenerate_pair_refuses_to_fit_and_says_why	3	explicit-or-feature	open		Awaiting assertion-by-assertion review.
+src/fit/tests.rs	7	a_degenerate_pair_refuses_to_fit_and_says_why	3	explicit-or-feature	rewritten	tests/fit_behavior.rs::a_degenerate_pair_refuses_to_fit_and_discloses_the_refusal	The public fit result stays neutral, emits no tone curve, and carries the typed refusal note; each assertion has mutation evidence.
 src/fit/tests.rs	27	fit_budget_scales_monotonically_with_strength	13	explicit-or-feature	open		Awaiting assertion-by-assertion review.
 src/fit/tests.rs	54	fit_budget_default_is_byte_identical_to_pre_f1	6	explicit-or-feature	open		Awaiting assertion-by-assertion review.
 src/fit/tests.rs	145	a_full_mode_pair_whose_light_changed_colour_gets_a_white_balance	5	explicit-or-feature	rewritten	docs/MAIN_TEST_PROTECTION_AUDIT.md	Detailed assertion mapping recorded in the main audit.
@@ -1239,7 +1239,7 @@ src/library/tests.rs	96	the_scene_alone_ranks	3	default	open		Awaiting assertion
 src/library/tests.rs	109	the_photo_being_developed_is_never_its_own_reference	1	default	open		Awaiting assertion-by-assertion review.
 src/library/tests.rs	121	versions_of_one_shot_take_one_reference_slot	1	default	open		Awaiting assertion-by-assertion review.
 src/library/tests.rs	134	the_block_numbers_the_references_and_carries_their_phrases_on_one_line_each	5	default	open		Awaiting assertion-by-assertion review.
-src/library/tests.rs	158	the_look_summary_is_the_first_reference_that_has_phrases	2	default	open		Awaiting assertion-by-assertion review.
+src/library/tests.rs	158	the_look_summary_is_the_first_reference_that_has_phrases	2	default	rewritten	tests/domain_behavior.rs::a_look_summary_uses_the_first_reference_with_phrases + references_without_phrases_have_no_look_summary	The two public-output assertions are split into one-claim cases and both have mutation evidence.
 src/library/tests.rs	169	the_style_axis_alone_picks_ceiling_or_target	3	default	open		Awaiting assertion-by-assertion review.
 src/library/tests.rs	176	a_proven_reference_carries_its_settings_on_its_own_line	2	default	open		Awaiting assertion-by-assertion review.
 src/library/tests.rs	193	a_finished_photo_names_its_raw_by_prefix_but_not_a_longer_number	4	default	open		Awaiting assertion-by-assertion review.
@@ -1892,7 +1892,7 @@ src/serve.rs	4598	same_stem_exports_keep_their_persistent_slots_and_preserve_unk
 src/serve.rs	4644	an_ephemeral_bind_reports_and_checks_the_actual_port	2	default	open		Awaiting assertion-by-assertion review.
 src/serve.rs	4661	an_already_denoised_card_is_not_denoised_again_on_export	3	default	open		Awaiting assertion-by-assertion review.
 src/serve.rs	4711	the_web_develop_path_resolves_ai_masks_before_it_renders	1	default	open		Awaiting assertion-by-assertion review.
-src/session.rs	222	usage_sums_only_assistant_turns	6	default	open		Awaiting assertion-by-assertion review.
+src/session.rs	222	usage_sums_only_assistant_turns	6	default	rewritten	tests/domain_behavior.rs::session_usage_sums_only_assistant_messages + a_transcript_without_messages_has_zero_usage	All usage fields and the empty-transcript boundary are asserted through the public reader; mutation evidence is recorded in the main audit.
 src/session.rs	233	tool_loop_counts_calls_and_results	6	default	open		Awaiting assertion-by-assertion review.
 src/session.rs	245	verdicts_keep_critic_order_and_score	3	default	open		Awaiting assertion-by-assertion review.
 src/session.rs	253	commit_accepts_object_and_legacy_string_forms	3	default	open		Awaiting assertion-by-assertion review.
