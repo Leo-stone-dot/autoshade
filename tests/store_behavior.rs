@@ -432,6 +432,30 @@ fn an_orphan_recipe_backup_is_restored_when_the_live_file_is_missing() {
 }
 
 #[test]
+fn a_zero_byte_live_claim_yields_to_the_surviving_recipe() {
+    let store = TempStore::new("zero-byte-live-claim");
+    let raw = photo(store.root(), "zero-byte-claim.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let survivor = br#"{"exposure_ev":0.75}"#;
+    std::fs::write(develop.join("recipe.json.bak"), survivor).unwrap();
+    std::fs::write(recipe_target(&raw), b"").unwrap();
+
+    recover_orphan_baks(&raw).unwrap();
+
+    assert_eq!(std::fs::read(recipe_target(&raw)).unwrap(), survivor);
+    assert_eq!(
+        read_develop_snapshot(&raw)
+            .unwrap()
+            .recipe
+            .unwrap()
+            .0
+            .as_bytes(),
+        survivor
+    );
+}
+
+#[test]
 #[allow(clippy::disallowed_methods)] // this test exercises the kernel lock across threads
 fn a_nowait_develop_lock_refuses_while_another_thread_holds_it() {
     let store = TempStore::new("develop-lock-contention");
@@ -2093,6 +2117,58 @@ fn a_failed_clear_hides_the_lightroom_badge_until_recovery_finishes() {
 
     assert!(clear_develop(&raw).is_err());
     assert!(!has_develop_or_sidecar(&raw));
+}
+
+#[test]
+fn a_failed_clear_finishes_on_recovery_and_allows_later_lightroom_work() {
+    use std::time::{Duration as StdDuration, SystemTime};
+
+    let store = TempStore::new("recover-pending-clear");
+    let raw = photo(store.root(), "recover-clear.arw");
+    commit_develop(
+        &raw,
+        DevelopCommit {
+            recipe: Some(br#"{"exposure_ev":0.5}"#.to_vec()),
+            pixels: CommitMember::Keep,
+            variants: CommitMember::Write(
+                br#"{"v":1,"active_kind":"original","active_pos":0,"others":[]}"#.to_vec(),
+            ),
+            xmp: CommitMember::Keep,
+        },
+    )
+    .unwrap();
+    std::fs::create_dir(xmp_target(&raw)).unwrap();
+
+    assert!(clear_develop(&raw).is_err());
+    std::fs::remove_dir(xmp_target(&raw)).unwrap();
+    recover_orphan_baks(&raw).unwrap();
+
+    let snapshot = read_develop_snapshot(&raw).unwrap();
+    assert!(snapshot.recipe.is_none());
+    assert!(snapshot.store_xmp.is_none());
+    assert!(matches!(
+        read_variants_checked(&raw),
+        VariantsRead::Absent
+    ));
+
+    let sidecar = raw.with_extension("xmp");
+    std::fs::write(
+        &sidecar,
+        autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            contrast: 22.0,
+            ..EditRecipe::default()
+        }),
+    )
+    .unwrap();
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&sidecar)
+        .unwrap()
+        .set_modified(SystemTime::now() + StdDuration::from_secs(3600))
+        .unwrap();
+
+    assert!(has_develop_or_sidecar(&raw));
+    assert!(matches!(lightroom_sidecar(&raw), LrSidecar::Only(_)));
 }
 
 #[test]

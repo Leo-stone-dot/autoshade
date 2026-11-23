@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：575 cases，约 1,493 个断言宏，33 个显式 ignore。
+- 当前工作树：577 cases，约 1,501 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，142 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,125 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，144 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,123 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 37 条 `rewritten`、2 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 39 条 `rewritten`、2 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1170,6 +1170,8 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `a_directory_junction_and_its_target_share_one_develop` | real directory-alias case | Unix symlink/Windows junction两种spelling共用公开key与develop |
 | `the_verbatim_local_spelling_is_local_on_windows_and_refused_elsewhere` | cross-platform public resolver case | Windows保留verbatim local，其他平台禁用同一spelling |
 | `the_develop_revision_folds_in_a_ranked_sidecar` | sidecar/store/unreadable revision cases | 胜出sidecar内容参与tag；旧sidecar不参与；不可读sidecar不可签名 |
+| `a_pending_clear_completes_on_the_next_touch` | failed-clear recovery + later Lightroom case | 中途失败的clear在recovery完成，后续新Lightroom意图重新可见 |
+| `a_zero_byte_live_claim_yields_to_the_surviving_bak` | zero-byte claim recovery case | 空claim不算save，survivor恢复并被公开snapshot读取 |
 
 架构归属：
 
@@ -1229,6 +1231,8 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | 真实目录alias与target的 `photo_key`、`develop_dir`分别相同 | directory-alias case | 同一照片经不同spelling生成两个develop与两把锁，后续保存分叉 |
 | verbatim local raster path在Windows保留、其他平台落到store sentinel | cross-platform resolver case | Windows误禁真实本地raster，或其他平台把无效spelling当成本地路径 |
 | sidecar-only内容变化重签；store胜出时保持recipe tag；unreadable返回None | develop-revision cases | stale If-Match覆盖Lightroom新编辑，或不可读工作被当成可安全覆盖 |
+| clear中途失败后recovery清空develop，之后的新Lightroom sidecar重新计入badge | pending-clear recovery case | pending intent永久遮住后续编辑，或半清除文件继续被读取 |
+| 0-byte live claim + survivor恢复成真实bytes并进入snapshot | zero-byte recovery case | 双崩溃窗口把空claim当成最新保存，唯一可恢复recipe永久隐藏 |
 
 两条 Lightroom version case 仍是具体 `open`，不是泛化缺口：
 
@@ -1297,6 +1301,8 @@ Load Version工作流或公开版本读取入口能观察这份bytes，两条 ca
   sentinel，cross-platform case红；Windows arm随平台gate编译执行。
 - 胜出sidecar不参与revision、旧sidecar错误参与revision、Unreadable返回base tag三种
   mutation分别让三条develop-revision case在各自公开结果处红。
+- pending clear recovery直接返回不执行sweep时，后来Lightroom sidecar仍不计入badge并红。
+- recovery把0-byte live当有效save时，survivor不恢复，zero-byte case在bytes断言处红。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
@@ -1357,7 +1363,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 87 source / 85 macOS | key identity/alias/bounds、atomic commit、locks、recovery/revisions、per-photo legacy suppression/no-clobber migration、XMP ordering、cross-platform safe raster paths、version snapshots、ownership | Store | Windows key aliases、crash fault injection、lossless version XMP public read |
+| `tests/store_behavior.rs` | 89 source / 87 macOS | key identity/alias/bounds、atomic commit、locks、crash/clear recovery、revisions、per-photo legacy suppression/no-clobber migration、XMP ordering、cross-platform safe raster paths、version snapshots、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
