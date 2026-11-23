@@ -282,6 +282,35 @@ fn unsafe_raster_references_are_disabled_across_every_recipe_raster_kind() {
 }
 
 #[test]
+fn a_verbatim_local_path_is_kept_only_on_windows() {
+    let store = TempStore::new("verbatim-local-path");
+    let raw = photo(store.root(), "verbatim-path.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let verbatim = r"\\?\C:\photos\mask.png";
+    let mut recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: verbatim.to_string(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    resolve_mask_paths(&mut recipe, &develop);
+    let MaskGeometry::Bitmap { path } = &recipe.masks[0].mask else {
+        panic!("the mask remains a bitmap")
+    };
+
+    if cfg!(windows) {
+        assert_eq!(path, verbatim);
+    } else {
+        assert_eq!(Path::new(path), develop.join(".invalid-mask-reference"));
+    }
+}
+
+#[test]
 fn depth_protect_and_layer_paths_round_trip_with_the_store() {
     let store = TempStore::new("additional-raster-roundtrip");
     let raw = photo(store.root(), "additional-rasters.dng");
