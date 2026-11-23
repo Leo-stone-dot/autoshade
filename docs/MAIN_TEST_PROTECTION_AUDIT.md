@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：440 cases，约 1,147 个断言宏，31 个显式 ignore。
+- 当前工作树：458 cases，约 1,166 个断言宏，31 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，55 条 `rewritten`、11 条
-`lint`、2,215 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，59 条 `rewritten`、11 条
+`lint`、2,211 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -750,6 +750,63 @@ Mutation 证据：
 
 所有 mutation 均已恢复，`src/session.rs` 无 diff。
 
+### Model picker 分类、资源边界与 capabilities
+
+- Main cases：
+  - `src/openai_models.rs::classifies_real_account_ids`
+  - `src/openai_models.rs::model_catalogues_bound_items_and_identifiers_before_sorting`
+  - `src/openai_models.rs::the_listing_says_which_tiers_and_images_a_model_takes_when_it_says_anything`
+- 当前入口：公开 `is_image_model`、`is_chat_model`、`list_models`
+- 状态：三条均为 `rewritten`
+- Gate：默认 `tests/openai_models_behavior.rs`，并复用
+  `tests/domain_behavior.rs` 的 Qwen/DeepSeek 样本
+
+逐断言映射：
+
+| main 断言组 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| `gpt-image-*`/`chatgpt-image-*`/case-folded Qwen 是 image 且不进 chat | `known_image_generation_ids_are_recognized_and_not_offered_as_chat`；`image_generation_models_are_not_offered_as_chat_models` | 设置页把图像模型送进 chat endpoint，或不再提供真实图像模型 |
+| `gpt-*`、`o3/o4` 与五个第三方 vendor ID 进入 chat | `known_openai_chat_ids_are_offered_as_chat`；`third_party_chat_ids_are_offered_as_chat`；`vendor_prefixed_chat_models_are_offered_by_the_chat_filter` | 可配置 endpoint 的真实模型从 picker 消失 |
+| audio/embed/rerank/guard/DALL-E/Sora 等非 chat modality 均被排除，且大小写折叠 | `non_chat_modalities_are_not_offered_as_chat` | 选择后必然被 chat endpoint 拒绝的模型进入 picker |
+| `babbage-002`/`davinci-002` 与空 ID 被排除 | `completion_only_models_are_not_offered_as_chat`；`an_empty_model_id_is_not_offered_as_chat` | completion-only 或空模型被作为 chat 提交 |
+| 普通 chat ID 不被误判为 image | `a_non_image_chat_id_is_not_classified_as_an_image_model` | chat 模型跑到生成图角色 |
+| 超过 4096 items 的 listing 被拒绝 | `a_model_listing_over_the_item_limit_is_refused` | 不受信响应制造无界 picker/内存开销 |
+| 超长 ID 与含控制字符 ID 被拒绝 | `an_oversized_model_id_is_refused`；`a_model_id_with_control_characters_is_refused` | 不受信 ID 污染 UI 或诊断 |
+| plain listing 保持 capabilities `None` | `a_plain_model_listing_keeps_capabilities_unknown` | “未知”被误当成“不支持”，固定建议消失 |
+| Venice reasoning/vision 声明过滤坏 tier 并保留真假 | `a_venice_reasoner_listing_exposes_sanitized_tiers_and_vision`；`a_venice_non_reasoner_listing_exposes_no_tiers_and_no_vision` | 设置页发送非法 effort 或错误展示 vision |
+| OpenRouter modalities/parameters 映射到三档 reasoning 与 vision | `an_openrouter_vision_listing_exposes_reasoning_tiers_and_vision`；`an_openrouter_text_listing_exposes_no_tiers_and_no_vision` | provider capability 在 UI 中被误读 |
+
+资源与 capability cases 各自启动随机 localhost 端口的一次性 HTTP server，stub 只替代
+外部服务；API key 校验、HTTP 请求、有界响应读取和 `list_models` 公开返回均走真实
+产品路径。
+
+Mutation 证据：
+
+- 让 image/chat 分类器统一返回 false，3 个正向 classifier case 变红；统一返回 true，
+  5 个负向 classifier case 变红。
+- 让合法 `/models` 响应统一解析为空列表，三个资源拒绝与五个 capability case 共
+  8 个红灯；分类器 cases 不受影响。
+
+所有 mutation 均已恢复，`src/openai_models.rs` 无 diff。
+
+### SHA-256 持久键匹配 FIPS 向量
+
+- Main case：`src/sha256.rs::sha256_matches_the_fips_180_4_vectors`
+- 当前 cases：
+  - `the_sha256_known_answer_matches_the_standard_vector`
+  - `the_sha256_empty_input_matches_the_standard_vector`
+  - `the_sha256_multi_block_input_matches_the_standard_vector`
+  - `the_sha256_million_byte_input_matches_the_standard_vector`
+- 状态：`rewritten`
+- Gate：默认 `tests/product_behavior.rs`
+
+四个 case 通过公开 `sha256_hex` 分别保护 `abc`、空输入、跨 block padding 与百万字节
+长度字段；故障会重新命名持久缓存/sidecar drift key，而不是只改变内部实现。
+
+Mutation 证据：让所有输入固定返回 `abc` 摘要时，空、多块、百万字节三个 case
+同时变红而 `abc` 保持绿色；改为固定返回空输入摘要时，`abc` case 变红。实现已恢复，
+`src/sha256.rs` 无 diff。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -791,8 +848,9 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 78 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
+| `tests/product_behavior.rs` | 81 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
+| `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

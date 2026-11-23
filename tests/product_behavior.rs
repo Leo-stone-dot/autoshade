@@ -829,6 +829,32 @@ fn the_sha256_known_answer_matches_the_standard_vector() {
 }
 
 #[test]
+fn the_sha256_empty_input_matches_the_standard_vector() {
+    assert_eq!(
+        autoshade::sha256::sha256_hex(b""),
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
+}
+
+#[test]
+fn the_sha256_multi_block_input_matches_the_standard_vector() {
+    assert_eq!(
+        autoshade::sha256::sha256_hex(
+            b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+        ),
+        "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1",
+    );
+}
+
+#[test]
+fn the_sha256_million_byte_input_matches_the_standard_vector() {
+    assert_eq!(
+        autoshade::sha256::sha256_hex(&vec![b'a'; 1_000_000]),
+        "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0",
+    );
+}
+
+#[test]
 fn deleting_a_recipe_library_entry_removes_only_the_named_entry() {
     let tree = TempTree::new("recipe-library-delete");
     autoshade::recipe_library::create_in(tree.path(), "keep", &EditRecipe::default()).unwrap();
