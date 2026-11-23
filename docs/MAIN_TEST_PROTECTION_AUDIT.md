@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：579 cases，约 1,521 个断言宏，33 个显式 ignore。
+- 当前工作树：583 cases，约 1,529 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，147 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,120 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，148 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,119 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 42 条 `rewritten`、2 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 43 条 `rewritten`、2 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1175,6 +1175,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `a_read_modify_write_of_the_strip_keeps_fields_this_build_never_heard_of` | active-kind read-modify-write case | 只改active kind，known identity/name与record/entry unknown fields全保留 |
 | `list_edits_joins_the_strip_with_the_version_history` | public edit-state join case | active位置、background顺序、真实version、名称与provenance一次返回，phantom不出现 |
 | `a_foreign_develop_write_restates_the_strips_active_card` | public commit restatement case | 只改active kind，active与background card其余字段保留；重复kind为Keep |
+| `the_strip_member_keeps_its_hands_off_what_it_must` | four member-decision cases | Absent/Unresolved/Unknown为Keep；owner为exact Write或Clear |
 
 架构归属：
 
@@ -1239,6 +1240,7 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | active kind改写后两层unknown fields与known identity/name均原样保留 | variant read-modify-write case | 旧版CLI保存静默截断新版GUI写入的strip metadata |
 | edit-state列表按记录位置排列cards，随后只列真实version并携带metadata | edit-state join case | GUI错选active卡、显示已删除phantom版本、版本名称/来源丢失 |
 | foreign commit后active kind更新，card/background完整，重复同kind不重写 | variant restatement case | CLI写入新develop后strip仍描述旧卡，或重写时丢背景卡/身份 |
+| 四类caller分别得到Keep、exact Write或Clear | variant member decision cases | 无记录被凭空制造、陌生数据被清除、owner交付被忽略、未知caller误改strip |
 
 两条 Lightroom version case 仍是具体 `open`，不是泛化缺口：
 
@@ -1315,6 +1317,8 @@ Load Version工作流或公开版本读取入口能观察这份bytes，两条 ca
   version metadata时，同一case在版本名称断言处红。
 - restatement时清空active id/background，case在identity断言处红；移除already-true
   的Keep快捷路时，case在最后的幂等断言处红。
+- 将Absent改Write、Unresolved改Clear、owner改Keep、Unknown改Clear时，四条独立case
+  分别在自己的member断言处红。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
@@ -1375,7 +1379,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 91 source / 89 macOS | key identity/alias/bounds、atomic commit、locks、crash/clear recovery、revisions、variant/edit-state joins、per-photo legacy suppression/no-clobber migration、XMP ordering、cross-platform safe raster paths、version snapshots、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
+| `tests/store_behavior.rs` | 95 source / 93 macOS | key identity/alias/bounds、atomic commit、locks、crash/clear recovery、revisions、variant member/edit-state joins、per-photo legacy suppression/no-clobber migration、XMP ordering、cross-platform safe raster paths、version snapshots、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

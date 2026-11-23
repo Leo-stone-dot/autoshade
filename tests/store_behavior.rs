@@ -1342,6 +1342,75 @@ fn a_foreign_develop_commit_restates_only_the_active_variant_kind() {
 }
 
 #[test]
+fn a_kind_only_writer_leaves_an_absent_variant_strip_absent() {
+    let store = TempStore::new("variant-member-absent");
+    let raw = photo(store.root(), "absent-strip.dng");
+
+    assert!(matches!(
+        variants_member(&raw, ActiveWrite::Kind("fitted")).unwrap(),
+        CommitMember::Keep
+    ));
+    assert!(matches!(
+        read_variants_checked(&raw),
+        VariantsRead::Absent
+    ));
+}
+
+#[test]
+fn a_kind_only_writer_leaves_an_unresolved_variant_strip_untouched() {
+    let store = TempStore::new("variant-member-unresolved");
+    let raw = photo(store.root(), "unresolved-strip.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let original = b"not a strip";
+    std::fs::write(variants_path(&raw), original).unwrap();
+
+    assert!(matches!(
+        variants_member(&raw, ActiveWrite::Kind("fitted")).unwrap(),
+        CommitMember::Keep
+    ));
+    assert_eq!(std::fs::read(variants_path(&raw)).unwrap(), original);
+}
+
+#[test]
+fn a_strip_owner_hands_over_exact_bytes_or_an_explicit_clear() {
+    let store = TempStore::new("variant-member-owner");
+    let raw = photo(store.root(), "owned-strip.dng");
+    let record = VariantsRecord {
+        v: 1,
+        active_kind: "generated".to_string(),
+        active_pos: 0,
+        others: Vec::new(),
+        active_id: Some("generated".to_string()),
+        active_name: Some("Sky".to_string()),
+        extra: serde_json::Map::new(),
+    };
+    let expected = autoshade::store::variants_record_bytes(&raw, &record).unwrap();
+
+    let CommitMember::Write(bytes) =
+        variants_member(&raw, ActiveWrite::Strip(Some(&record))).unwrap()
+    else {
+        panic!("an owned strip is written")
+    };
+    assert_eq!(bytes, expected);
+    assert!(matches!(
+        variants_member(&raw, ActiveWrite::Strip(None)).unwrap(),
+        CommitMember::Clear
+    ));
+}
+
+#[test]
+fn a_writer_that_knows_nothing_about_the_active_card_keeps_the_strip() {
+    let store = TempStore::new("variant-member-unknown");
+    let raw = photo(store.root(), "unknown-card.dng");
+
+    assert!(matches!(
+        variants_member(&raw, ActiveWrite::Unknown).unwrap(),
+        CommitMember::Keep
+    ));
+}
+
+#[test]
 fn a_relocated_store_reanchors_variant_rasters_to_its_new_directory() {
     let mut store = TempStore::new("variant-store-relocation");
     let raw = photo(store.root(), "relocated-variants.dng");
