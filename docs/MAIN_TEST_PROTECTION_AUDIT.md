@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：588 cases，约 1,561 个断言宏，33 个显式 ignore。
+- 当前工作树：589 cases，约 1,564 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，154 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,113 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，155 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,112 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 49 条 `rewritten`、2 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 50 条 `rewritten`、2 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1182,6 +1182,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `a_pristine_card_without_a_pixel_record_hands_its_identity_to_the_fresh_master_card` | no-pixel-record generated-card case | edited active无继承身份，generated master card接过原id/name/origin |
 | `migrate_legacy_moves_recipe_xmp_versions_and_rasters` | full bundle + deleted-version migration cases | recipe/XMP/version/raster迁入且legacy保留；幂等；deleted version不复活 |
 | `fnv1a64_is_the_reference_function` | public photo-key suffix case | 三个canonical identity的16-hex suffix匹配独立FNV-1a reference |
+| `deleting_a_version_that_does_not_exist_leaves_no_marker_and_burns_nothing` | missing-version delete/claim case | NotFound保持，列表为空，后续claim仍从v1开始 |
 
 架构归属：
 
@@ -1253,6 +1254,7 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | 无pixel record的generated active被编辑时，身份移到fresh master card | generated-card identity case | 版本指向的card身份与用户命名在web/batch编辑后消失 |
 | legacy完整bundle迁入central且源bytes保留，删除version后不从retained legacy复活 | legacy migration cases | 迁移丢mask/version、破坏旧数据，或用户删除的历史版本再次出现 |
 | 三个真实photo key suffix匹配published FNV-1a identity | public key compatibility case | hash漂移导致所有既有develop目录、版本与锁对用户“消失” |
+| 删除不存在v7返回NotFound，后续claim仍为v1 | missing-version delete case | stale UI操作留下事务残留并烧掉从未存在的版本号 |
 
 两条 Lightroom version case 仍是具体 `open`，不是泛化缺口：
 
@@ -1340,6 +1342,7 @@ Load Version工作流或公开版本读取入口能观察这份bytes，两条 ca
 - raster prefix永不匹配时bundle case无法读取central raster并红；忽略deleted-version
   registry时第二次gallery migration返回1并复活v2，deletion case红。
 - 生产FNV offset改变1时，首个public photo-key suffix断言红。
+- 删除missing-version existence probe时，NotFound虽仍返回，但后续claim变v8，case红。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
@@ -1400,7 +1403,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 100 source / 98 macOS | stable key identity/alias/bounds、atomic commit、locks、crash/clear recovery、revisions、variant identity/member/edit-state joins、full legacy migration/suppression、XMP ordering/handoff、cross-platform safe raster paths、version snapshots、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
+| `tests/store_behavior.rs` | 101 source / 99 macOS | stable key identity/alias/bounds、atomic commit、locks、crash/clear recovery、revisions、variant identity/member/edit-state joins、full legacy migration/suppression、XMP ordering/handoff、cross-platform safe raster paths、version snapshot/delete semantics、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

@@ -981,6 +981,19 @@ fn deleted_snapshot_fingerprints_distinguish_changed_rasters_and_burn_numbers() 
 }
 
 #[test]
+fn deleting_a_missing_version_returns_not_found_without_burning_its_number() {
+    let store = TempStore::new("delete-missing-version");
+    let raw = photo(store.root(), "missing-version.dng");
+
+    let error = delete_version(&raw, 7).unwrap_err();
+
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+    assert!(list_versions(&raw).is_empty());
+    let (next, _) = claim_version(&raw).unwrap();
+    assert_eq!(next, 1);
+}
+
+#[test]
 fn a_develop_commit_publishes_recipe_pixels_and_variants_together() {
     let store = TempStore::new("commit-generation");
     let raw = photo(store.root(), "commit.dng");
