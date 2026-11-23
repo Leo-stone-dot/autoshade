@@ -274,10 +274,18 @@ fn same_named_photos_in_different_folders_get_distinct_store_keys() {
     std::fs::write(&first, b"first").unwrap();
     std::fs::write(&second, b"second").unwrap();
 
-    assert_ne!(
-        autoshade::store::photo_key(&first),
-        autoshade::store::photo_key(&second)
-    );
+    let first_key = autoshade::store::photo_key(&first);
+    let second_key = autoshade::store::photo_key(&second);
+    let prefix = if cfg!(windows) {
+        "dsc0001-"
+    } else {
+        "DSC0001-"
+    };
+
+    assert!(first_key.starts_with(prefix), "key={first_key}");
+    assert!(second_key.starts_with(prefix), "key={second_key}");
+    assert_ne!(first_key, second_key);
+    assert_eq!(first_key, autoshade::store::photo_key(&first));
 }
 
 #[test]

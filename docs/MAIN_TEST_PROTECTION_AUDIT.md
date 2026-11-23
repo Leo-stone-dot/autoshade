@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：531 cases，约 1,311 个断言宏，33 个显式 ignore。
+- 当前工作树：534 cases，约 1,327 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，105 条 `rewritten`、11 条
-`lint`、2,165 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，113 条 `rewritten`、11 条
+`lint`、2,157 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1127,6 +1127,38 @@ Mutation 证据：
 Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前不得把它表述成本地
 验证结果。
 
+#### Store 子模块的已闭合文件结果
+
+`src/store/tests.rs` 本批逐断言闭合 8 条：
+
+| main case | 当前执行者 | 保留的产品契约 |
+| --- | --- | --- |
+| `one_file_spelled_two_ways_is_one_develop_key` | live-volume key case + Windows alias case | trailing dot/case/dotdot aliases共用 develop，不同照片不共用 |
+| `a_staged_member_above_the_recovery_cap_refuses_the_save_whole` | `a_commit_with_an_oversized_member_leaves_no_partial_generation` | 错误命名 store limit，live members与 `.commit` stage均不留下 |
+| `a_recipe_revision_names_the_bytes_and_absence_is_a_real_tag` | `a_recipe_revision_changes_when_the_saved_bytes_change` | absence可比较、同 bytes同 tag、不同 bytes不同 tag |
+| `a_develop_snapshot_recovers_the_bak_before_choosing_a_recipe` | `a_develop_snapshot_recovers_an_orphan_recipe_before_reading_it` | snapshot先恢复 bak，再返回 central recipe与一致 pixel absence |
+| `a_live_file_survives_recovery_and_keeps_its_retired_bak` | `a_live_recipe_is_not_replaced_by_an_orphan_backup` | newest live bytes胜出，retired bak不被误消费 |
+| `photo_key_disambiguates_same_stem_different_folder` | `same_named_photos_in_different_folders_get_distinct_store_keys` | 平台 prefix正确、folder hash不同、重复调用稳定 |
+| `a_nonblocking_develop_lock_reports_contention_and_recovers_after_drop` | thread + subprocess lock cases | held时 WouldBlock，释放后可重新取得 |
+| `unknown_store_kinds_are_refused_without_rewriting_the_newer_record` | unknown pixel/variant cases | 两类 future kind均 unresolved且原 bytes不重写 |
+
+新增 mutation 证据：
+
+- 取消 staged-member cap时 oversized commit错误变为 `Ok`，case在 `unwrap_err` 处红。
+- revision固定为一个 tag时 changed-bytes 断言红；snapshot跳过 bak recovery时 recipe
+  变 `None` 并红。
+- `photo_key` 只用 stem、不含folder identity时 same-stem case红。
+- unknown pixel kind按 `inplace` 接受、unknown variant kind无条件认作 known时，两条
+  refusal cases分别红。
+- recovery删除非零 live再恢复 bak时，live-wins case读到 older backup并红。
+- lock bypass的 thread/process mutation证据已登记于
+  `docs/BEHAVIOR_PROTECTION.md`。
+
+以下相邻 main cases继续 `open`，因为仍有断言未执行：组合式
+`orphan_bak_is_restored_on_read`、完整 `clear_develop_leaves_no_resurrection_route`，
+以及需要真实 crash marker/subprocess fault injection 的 version-delete / half-commit
+恢复。不能用本批的局部相似行为提前勾销。
+
 ### 零强度 developed denoise 是无损 no-op
 
 - Main case：`src/denoise.rs::zero_strength_denoise_is_the_identity`
@@ -1178,7 +1210,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 43 source / 42 macOS | key identity、atomic commit、locks、recovery、ownership | Store | Windows Unicode key case、crash fault injection |
+| `tests/store_behavior.rs` | 46 source / 44 macOS | key identity、atomic commit、locks、recovery、ownership | Store | Windows key aliases、crash fault injection |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

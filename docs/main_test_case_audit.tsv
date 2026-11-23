@@ -1935,7 +1935,7 @@ src/store/tests.rs	164	a_first_run_adopts_nothing_and_says_nothing	3	default	ope
 src/store/tests.rs	177	an_explicit_store_root_is_never_second_guessed	1	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	196	owned_raster_siblings_are_atomic_and_independently_releasable	5	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	243	every_store_read_goes_through_the_capped_reader	4	default	lint	scripts/check_architecture.py#store-capped-read	All persisted Store reads are mechanically routed through bounded readers.
-src/store/tests.rs	326	one_file_spelled_two_ways_is_one_develop_key	5	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	326	one_file_spelled_two_ways_is_one_develop_key	5	default	rewritten	tests/store_behavior.rs::photo_keys_follow_the_volume_when_two_case_spellings_name_one_object + a_windows_photo_key_unifies_trailing_dot_case_and_dotdot_aliases	Public path identity covers live volume aliases; the Windows-only case pins trailing-dot, case, dotdot, and genuinely different names.
 src/store/tests.rs	350	a_killed_version_delete_resumes_and_its_number_stays_burned	7	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	396	deleting_a_version_that_does_not_exist_leaves_no_marker_and_burns_nothing	4	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	423	a_pending_clear_completes_on_the_next_touch	7	default	open		Awaiting assertion-by-assertion review.
@@ -1948,7 +1948,7 @@ src/store/tests.rs	654	a_locked_touch_finishes_a_pending_adoption_first	2	defaul
 src/store/tests.rs	738	a_wait_mode_touch_queues_behind_a_held_adoption_lock_instead_of_failing	2	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	767	a_resume_that_lost_the_race_copies_nothing_over_the_finished_adoption	1	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	795	a_superseded_memo_entry_is_dropped_and_the_touch_lands_canonically	2	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	844	a_staged_member_above_the_recovery_cap_refuses_the_save_whole	3	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	844	a_staged_member_above_the_recovery_cap_refuses_the_save_whole	3	default	rewritten	tests/store_behavior.rs::a_commit_with_an_oversized_member_leaves_no_partial_generation	Public commit names the store limit and leaves recipe/pixels/variants plus the commit stage absent.
 src/store/tests.rs	870	a_clear_marker_that_cannot_be_consumed_fails_the_resolution	2	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	938	a_foreign_develop_write_restates_the_strips_active_card	12	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	1006	a_read_modify_write_of_the_strip_keeps_fields_this_build_never_heard_of	7	default	open		Awaiting assertion-by-assertion review.
@@ -1965,8 +1965,8 @@ src/store/tests.rs	1543	a_cleared_develop_takes_its_pending_commit_with_it	4	def
 src/store/tests.rs	1575	a_develop_commit_lands_all_four_or_nothing	17	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	1658	a_pending_clear_outranks_the_sidecar_beside_the_photo	2	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	1695	an_empty_master_claim_is_refused_not_restored	2	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	1724	a_recipe_revision_names_the_bytes_and_absence_is_a_real_tag	4	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	1749	a_develop_snapshot_recovers_the_bak_before_choosing_a_recipe	5	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	1724	a_recipe_revision_names_the_bytes_and_absence_is_a_real_tag	4	default	rewritten	tests/store_behavior.rs::a_recipe_revision_changes_when_the_saved_bytes_change	Absence, readable bytes, byte-identical republish, and changed bytes produce the documented public revision behavior.
+src/store/tests.rs	1749	a_develop_snapshot_recovers_the_bak_before_choosing_a_recipe	5	default	rewritten	tests/store_behavior.rs::a_develop_snapshot_recovers_an_orphan_recipe_before_reading_it	Public snapshot restores orphan bytes into the central recipe, reports no error, and returns no pixel link for the fixture.
 src/store/tests.rs	1778	lightroom_sidecar_newest_intent_wins	10	default	rewritten	docs/MAIN_TEST_PROTECTION_AUDIT.md	Detailed assertion mapping recorded in the main audit.
 src/store/tests.rs	1841	a_sidecar_swapped_after_the_read_is_disclosed_not_ranked	5	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	1883	lightroom_sidecar_unreadable_is_disclosed_not_absent	2	default	open		Awaiting assertion-by-assertion review.
@@ -1978,7 +1978,7 @@ src/store/tests.rs	2050	a_gallery_import_leaves_a_cleared_develop_alone	3	defaul
 src/store/tests.rs	2077	a_pristine_card_without_a_pixel_record_hands_its_identity_to_the_fresh_master_card	8	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2114	orphan_bak_is_restored_on_read	8	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2150	a_cleared_develop_outranks_the_stale_copied_projection	4	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	2188	a_live_file_survives_recovery_and_keeps_its_retired_bak	2	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	2188	a_live_file_survives_recovery_and_keeps_its_retired_bak	2	default	rewritten	tests/store_behavior.rs::a_live_recipe_is_not_replaced_by_an_orphan_backup	Public recovery preserves the live bytes and leaves the retired backup intact.
 src/store/tests.rs	2227	clear_develop_leaves_no_resurrection_route	13	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2293	variants_record_round_trips_relocatable_and_recovers_its_bak	18	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2381	an_unresolved_strip_refuses_save_and_clear_but_not_reads	6	default	open		Awaiting assertion-by-assertion review.
@@ -1991,7 +1991,7 @@ src/store/tests.rs	2664	publish_no_clobber_never_replaces_an_owner	3	default	ope
 src/store/tests.rs	2679	publish_no_clobber_lands_on_a_fresh_destination	3	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2693	move_no_clobber_adopts_owner_and_keeps_the_source	3	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2708	migrate_gate_treats_a_nondirectory_as_empty_not_failure	2	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	2722	photo_key_disambiguates_same_stem_different_folder	5	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	2722	photo_key_disambiguates_same_stem_different_folder	5	default	rewritten	tests/product_behavior.rs::same_named_photos_in_different_folders_get_distinct_store_keys	Public keys preserve the platform stem prefix, differ across folders, and remain stable across calls.
 src/store/tests.rs	2748	fnv1a64_is_the_reference_function	3	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2757	resolve_and_relativize_round_trip	6	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2786	migrate_legacy_moves_recipe_xmp_versions_and_rasters	12	default	open		Awaiting assertion-by-assertion review.
@@ -2010,7 +2010,7 @@ src/store/tests.rs	3274	a_newer_lightroom_sidecar_is_snapshotted_before_a_progra
 src/store/tests.rs	3330	a_sidecar_only_develop_is_snapshotted_instead_of_reported_as_nothing	4	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3365	backup_snapshot_is_a_copy_and_freezes_rasters	14	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3426	the_no_hard_link_publish_fallback_never_replaces_an_owner	6	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	3457	a_nonblocking_develop_lock_reports_contention_and_recovers_after_drop	1	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	3457	a_nonblocking_develop_lock_reports_contention_and_recovers_after_drop	1	default	rewritten	tests/store_behavior.rs::a_nowait_develop_lock_refuses_while_another_thread_holds_it + a_develop_lock_serializes_across_processes	Thread and process boundaries both observe WouldBlock while held and successful acquisition after release.
 src/store/tests.rs	3492	a_settings_lock_serializes_writers_and_reenters_on_its_thread	2	default	rewritten	docs/MAIN_TEST_PROTECTION_AUDIT.md	Detailed assertion mapping recorded in the main audit.
 src/store/tests.rs	3531	durable_replace_lands_complete_bytes_and_consumes_its_stage	2	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3548	durable_write_replaces_complete_bytes_and_consumes_its_stage	2	default	open		Awaiting assertion-by-assertion review.
@@ -2018,7 +2018,7 @@ src/store/tests.rs	3577	a_stale_sidecar_stage_is_reclaimed_and_nothing_else_is_t
 src/store/tests.rs	3625	a_durable_write_reports_whether_the_bytes_reached_the_live_name	4	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3673	clearing_one_same_stem_photo_suppresses_but_never_unlinks_legacy_bytes	7	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3724	the_tombstone_fixture_cleans_up_through_a_panic	6	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	3752	unknown_store_kinds_are_refused_without_rewriting_the_newer_record	4	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	3752	unknown_store_kinds_are_refused_without_rewriting_the_newer_record	4	default	rewritten	tests/store_behavior.rs::an_unknown_pixel_source_kind_is_refused_without_rewriting_the_record + an_unknown_variant_kind_is_not_treated_as_absent	Unknown pixel and variant kinds are both unresolved and their original bytes remain unchanged.
 src/store/tests.rs	3795	very_long_source_names_produce_portable_but_distinct_develop_keys	4	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3817	parsed_relative_store_paths_cannot_escape_the_develop_directory	5	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	3872	depth_protect_and_layer_paths_are_refused_at_load_like_a_mask_path	1	default	open		Awaiting assertion-by-assertion review.

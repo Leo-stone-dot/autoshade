@@ -18,10 +18,10 @@ use autoshade::store::{
     VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, OwnedRaster,
     backup_saved_develop, clear_develop, commit_develop, develop_dir, export_xmp_beside,
     lightroom_sidecar, list_edits, migrate_legacy, photo_key, pixel_source_path,
-    read_develop_snapshot, read_variants_checked, recipe_revision, recipe_target,
-    recover_orphan_baks, saved_quarter_turns, set_version_name, variants_member,
-    variants_path, version_target, volume_folds_case, with_develop_lock,
-    with_settings_lock, write_variants, xmp_target,
+    read_develop_snapshot, read_pixel_source, read_variants_checked, recipe_revision,
+    recipe_target, recover_orphan_baks, saved_quarter_turns, set_version_name,
+    variants_member, variants_path, version_target, volume_folds_case,
+    with_develop_lock, with_settings_lock, write_variants, xmp_target,
 };
 use autoshade::pipeline::{ProjectionOutcome, commit_analyzed_develop};
 
@@ -89,6 +89,22 @@ fn a_windows_photo_key_folds_only_ascii_letters_in_a_non_ascii_stem() {
 
     assert_eq!(stem, "\u{130}mg_001");
     assert_eq!(stem.chars().count(), "\u{130}MG_001".chars().count());
+}
+
+#[cfg(windows)]
+#[test]
+fn a_windows_photo_key_unifies_trailing_dot_case_and_dotdot_aliases() {
+    let store = TempStore::new("photo-key-aliases");
+    let photo = photo(store.root(), "DSC001.NEF");
+    let plain = photo_key(&photo);
+
+    assert_eq!(photo_key(&store.root().join("dsc001.nef")), plain);
+    assert_eq!(photo_key(&store.root().join("DSC001.NEF.")), plain);
+    assert_eq!(
+        photo_key(&store.root().join("sub").join("..").join("DSC001.NEF")),
+        plain
+    );
+    assert_ne!(photo_key(&store.root().join("DSC002.NEF")), plain);
 }
 
 #[test]
@@ -461,7 +477,7 @@ fn a_commit_with_an_oversized_member_leaves_no_partial_generation() {
     let raw = photo(store.root(), "oversized.dng");
     let oversized = vec![b'x'; MAX_STORE_JSON as usize + 1];
 
-    let result = commit_develop(
+    let error = commit_develop(
         &raw,
         DevelopCommit {
             recipe: Some(br#"{"exposure_ev":0.25}"#.to_vec()),
@@ -469,12 +485,14 @@ fn a_commit_with_an_oversized_member_leaves_no_partial_generation() {
             variants: CommitMember::Write(oversized),
             xmp: CommitMember::Keep,
         },
-    );
+    )
+    .unwrap_err();
 
-    assert!(result.is_err());
+    assert!(error.to_string().contains("store limit"), "error={error}");
     assert!(!recipe_target(&raw).exists());
     assert!(!pixel_source_path(&raw).exists());
     assert!(!variants_path(&raw).exists());
+    assert!(!develop_dir(&raw).join(".commit").exists());
 }
 
 #[test]
@@ -604,6 +622,20 @@ fn an_unknown_variant_kind_is_not_treated_as_absent() {
 }
 
 #[test]
+fn an_unknown_pixel_source_kind_is_refused_without_rewriting_the_record() {
+    let store = TempStore::new("pixel-source-unknown-kind");
+    let raw = photo(store.root(), "future-pixels.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    std::fs::write(develop.join("future-master.png"), b"future master").unwrap();
+    let bytes = br#"{"origin":"future-master.png","kind":"layered"}"#;
+    std::fs::write(pixel_source_path(&raw), bytes).unwrap();
+
+    assert!(read_pixel_source(&raw).is_none());
+    assert_eq!(std::fs::read(pixel_source_path(&raw)).unwrap(), bytes);
+}
+
+#[test]
 fn changing_the_active_variant_kind_preserves_unknown_fields_and_its_name() {
     let store = TempStore::new("variant-read-modify-write");
     let raw = photo(store.root(), "variants.dng");
@@ -677,12 +709,33 @@ fn a_recipe_revision_changes_when_the_saved_bytes_change() {
     assert_eq!(recipe_revision(&raw).as_deref(), Some("none"));
     std::fs::write(recipe_target(&raw), br#"{"exposure_ev":0.0}"#).unwrap();
     let first = recipe_revision(&raw);
+    std::fs::write(recipe_target(&raw), br#"{"exposure_ev":0.0}"#).unwrap();
+    assert_eq!(recipe_revision(&raw), first);
     std::fs::write(recipe_target(&raw), br#"{"exposure_ev":1.0}"#).unwrap();
     let second = recipe_revision(&raw);
 
     assert!(first.is_some());
     assert!(second.is_some());
     assert_ne!(first, second);
+}
+
+#[test]
+fn a_develop_snapshot_recovers_an_orphan_recipe_before_reading_it() {
+    let store = TempStore::new("snapshot-recovers-recipe");
+    let raw = photo(store.root(), "snapshot-recovery.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let saved = br#"{"contrast":17.0}"#;
+    std::fs::write(develop.join("recipe.json.bak"), saved).unwrap();
+
+    let snapshot = read_develop_snapshot(&raw).unwrap();
+    let (recipe, path) = snapshot.recipe.unwrap();
+
+    assert_eq!(recipe.as_bytes(), saved);
+    assert_eq!(path, recipe_target(&raw));
+    assert!(snapshot.recipe_err.is_none());
+    assert!(!snapshot.pixel_recorded);
+    assert!(snapshot.pixel_source.is_none());
 }
 
 #[test]
