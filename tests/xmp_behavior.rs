@@ -11,6 +11,19 @@ fn without_autoshade_attributes(mut xmp: String) -> String {
     xmp
 }
 
+fn xmp_attribute_values<'a>(xmp: &'a str, name: &str) -> Vec<&'a str> {
+    let marker = format!("{name}=\"");
+    let mut values = Vec::new();
+    let mut rest = xmp;
+    while let Some(start) = rest.find(&marker) {
+        let value = &rest[start + marker.len()..];
+        let end = value.find('"').unwrap();
+        values.push(&value[..end]);
+        rest = &value[end + 1..];
+    }
+    values
+}
+
 fn complex_recipe() -> EditRecipe {
     let mut recipe = EditRecipe {
         exposure_ev: -0.8034,
@@ -125,6 +138,58 @@ fn composed_mask_coverage_is_unchanged_by_an_xmp_round_trip() {
                     autoshade::render::MaskFrame::AsRendered,
                 ),
                 "mode={mode:?} inverted={inverted}",
+            );
+        }
+    }
+}
+
+#[test]
+fn native_xmp_spells_every_combine_mode_and_component_inversion() {
+    let linear = || MaskGeometry::Linear {
+        zero_x: 0.1,
+        zero_y: 0.2,
+        full_x: 0.9,
+        full_y: 0.8,
+    };
+    for (mode, blend, value) in [
+        (MaskCombine::Add, "0", "1"),
+        (MaskCombine::Subtract, "1", "0"),
+        (MaskCombine::Intersect, "1", "0"),
+    ] {
+        for inverted in [false, true] {
+            let recipe = EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: linear(),
+                    components: vec![MaskComponent {
+                        geometry: linear(),
+                        mode,
+                        inverted,
+                    }],
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            };
+            let native =
+                without_autoshade_attributes(autoshade::xmp::recipe_to_xmp(&recipe));
+            let blends = xmp_attribute_values(&native, "crs:MaskBlendMode");
+            let inversions = xmp_attribute_values(&native, "crs:MaskInverted");
+            let values = xmp_attribute_values(&native, "crs:MaskValue");
+
+            assert_eq!(blends.last().copied(), Some(blend));
+            assert_eq!(
+                inversions.last().copied(),
+                Some(if mode == MaskCombine::Intersect {
+                    if inverted { "false" } else { "true" }
+                } else if inverted {
+                    "true"
+                } else {
+                    "false"
+                })
+            );
+            assert_eq!(values.last().copied(), Some(value));
+            assert_eq!(
+                autoshade::xmp::xmp_to_recipe(&native).masks[0].components[0],
+                recipe.masks[0].components[0]
             );
         }
     }
