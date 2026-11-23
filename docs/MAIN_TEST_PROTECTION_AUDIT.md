@@ -27,8 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：384 cases，约 1,048 个断言宏，20 个显式 ignore。
+- 当前工作树：421 cases，约 1,125 个断言宏，31 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
+
+完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
+`python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
+`open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
+当前校验结果：2,281 行与 main snapshot 精确一致，41 条 `rewritten`、11 条
+`lint`、2,229 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -56,6 +62,19 @@ case 最终必须归入以下一种状态：
 | 其余 27 个小家族 | 182 | 766 | 0 | 待审计 |
 
 这里的数量仅用于证明 inventory 完整，不是质量指标，也不是迁移目标。
+
+### 架构断言的首批归属
+
+11 个 main case 已在逐 case TSV 中归为 `lint`，执行者分别是
+`check_architecture.py` 的 RAW plane/develop ceiling、Store capped read、
+engine/analyzer boundary、base-look single entry、paint notification、server/generative/heal
+slot、linear-ramp single definition 与 `gui-logic-headless` 规则。
+
+`src/bin/gui/tests/architecture.rs::the_migrated_panels_stay_behind_the_seam` 没有被伪标
+完成：当前 `panels/` 仍存在直接写 dirty/toast/store 和 `start_*` 的生产路径。它是
+架构事实而非行为测试，但新增等价 lint 会在当前代码上失败；修复需要生产重构，与
+本 goal 的“不得为测试修改生产代码”冲突，因此保持 `open`，而不是复制源码扫描或
+静默删除。
 
 ## 已裁决
 

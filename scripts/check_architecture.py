@@ -379,6 +379,30 @@ def gui_control_registry(root: Path) -> list[str]:
     return findings
 
 
+def gui_logic_is_headless(root: Path) -> list[str]:
+    findings: list[str] = []
+    calls = ("tr(", "trf(", "spawn_worker(")
+    names = ("egui::", "AutoShadeApp", "rfd::", "Msg::", "ToastKind", "std::thread")
+    logic = root / "src/bin/gui/logic"
+    if not logic.exists():
+        return findings
+    for path in sorted(logic.rglob("*.rs")):
+        raw = path.read_text(encoding="utf-8")
+        text = strip_comments(raw)
+        for needle in (*calls, *names):
+            for match in re.finditer(re.escape(needle), text):
+                findings.append(
+                    finding(
+                        path,
+                        raw,
+                        match.start(),
+                        "gui-logic-headless",
+                        f"logic reaches the view/runtime through {needle!r}",
+                    )
+                )
+    return findings
+
+
 RULES = (
     raw_image_plane_guards,
     raw_develop_ceiling,
@@ -391,6 +415,7 @@ RULES = (
     heal_slot_scope,
     linear_ramp_single_definition,
     gui_control_registry,
+    gui_logic_is_headless,
 )
 
 
@@ -426,6 +451,7 @@ def self_test() -> int:
         write(root / "src/advisor/catalogue.rs", 'pub const RECIPE_CONTROLS: [Control; 1] = [Control { name: "exposure_ev" }];\npub const LOCAL_CONTROLS: [Control; 0] = [];')
         write(root / "src/recipe.rs", "pub struct EditRecipe { pub exposure_ev: f32, pub mystery: f32 }")
         write(root / "src/bin/gui/panel.rs", "fn edit(r: &mut EditRecipe) { r.mystery = 1.0; }")
+        write(root / "src/bin/gui/logic/gallery.rs", "fn leak() { egui::Button::new(\"open\"); }")
 
         bad = "\n".join(run_rules(root))
         expected = (
@@ -440,6 +466,7 @@ def self_test() -> int:
             "heal-slot-scope",
             "linear-ramp-single-definition",
             "gui-control-registry",
+            "gui-logic-headless",
         )
         if any(label not in bad for label in expected):
             print("architecture self-test: one or more violation rules did not fire", file=sys.stderr)
@@ -467,12 +494,16 @@ def self_test() -> int:
             write(valid / "src/advisor/catalogue.rs", 'pub const RECIPE_CONTROLS: [Control; 1] = [Control { name: "exposure_ev" }];\npub const LOCAL_CONTROLS: [Control; 0] = [];')
             write(valid / "src/recipe.rs", "pub struct EditRecipe { pub exposure_ev: f32, pub mystery: f32 }")
             write(valid / "src/bin/gui/panel.rs", "fn edit(r: &mut EditRecipe) { r.exposure_ev = 1.0; }")
+            write(valid / "src/bin/gui/logic/gallery.rs", "fn action() { Effect::Open; }")
             valid_findings = run_rules(valid)
             if valid_findings:
                 print("architecture self-test: valid fixture was rejected", file=sys.stderr)
                 print("\n".join(valid_findings), file=sys.stderr)
                 return 1
-    print("architecture self-test: all eleven code-shape classes rejected; valid fixture passes")
+    print(
+        f"architecture self-test: all {len(RULES)} code-shape classes rejected; "
+        "valid fixture passes"
+    )
     return 0
 
 

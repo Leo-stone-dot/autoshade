@@ -41,7 +41,7 @@ HTTP、CLI、文件结果或可见 GUI 进入。
   `#[ignore]` 标记；这些是执行范围清单，不是质量分数。按用户决定暂缓 A4/A5 后，
   当前不带手工过滤的 release + GUI 回归为 360 passed、21 ignored、0 failed。
   A5 四次并行复跑为 2 passed / 2 failed，A4 单独运行确定性失败；两者没有被改写成
-  通过。clippy、测试政策、十一条架构形状规则、文本、文档漂移和文档声明通过；
+  通过。clippy、测试政策、十二条架构形状规则、文本、文档漂移和文档声明通过；
   文档声明的外部 XMP census 因未配置语料明确 skip。字体检查因系统 Python 缺少
   `fontTools` 未运行。
 - **门禁范围纠正**：原 wrapper 在两行 `cfg(test)` 接线没有 mutant 时，退化为
@@ -111,7 +111,7 @@ HTTP、CLI、文件结果或可见 GUI 进入。
 
 - **目标**：`check_architecture.py` 只声称它实际能机械拒绝的代码形状；产品结果另有
   行为测试。
-- **现有缺口**：当前 self-test 只验证十一段预置文本触发正则，不能证明 Rust 语法
+- **现有缺口**：当前 self-test 只验证十二段预置文本触发正则，不能证明 Rust 语法
   等价写法均被识别。原 `baked-load-image-reason` 只要求注释、不能证明输入不是 RAW，
   已从 gate 删除；
   `mask-paint-notification`、RAW guard 和 slot 顺序也不能单独证明刷新、资源拒绝或并发
@@ -129,7 +129,7 @@ HTTP、CLI、文件结果或可见 GUI 进入。
   基线通过并得到 `1 caught`。
 - **未验证边界**：paint-buffer 修改后的真实蒙版刷新、4 GiB RAW develop ceiling、
   原生 GUI 启动 / 偏好，以及 full-resolution slot 的全部资源结果仍未得到本轮执行
-  证据。它们没有被十一条正则规则勾销，明确留给后续具备执行环境的行为审计。
+  证据。它们没有被十二条正则规则勾销，明确留给后续具备执行环境的行为审计。
 
 ### [x] A7 回归、慢 gate 与诊断覆盖率
 
