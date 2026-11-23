@@ -886,13 +886,28 @@ fn a_recipe_library_name_with_a_path_separator_is_refused() {
 fn a_store_read_past_its_byte_cap_is_refused() {
     let tree = TempTree::new("store-cap");
     let file = tree.path().join("oversized.json");
-    std::fs::write(
-        &file,
-        vec![b'x'; (autoshade::store::MAX_STORE_JSON + 1) as usize],
-    )
-    .unwrap();
+    std::fs::write(&file, b"12345678").unwrap();
+    assert_eq!(
+        autoshade::store::read_text_capped(&file, 8).unwrap(),
+        "12345678"
+    );
 
-    assert!(autoshade::store::read_text_capped(&file, autoshade::store::MAX_STORE_JSON).is_err());
+    let error = autoshade::store::read_text_capped(&file, 7).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    assert!(error.to_string().contains("limit"), "error={error}");
+    assert_eq!(
+        autoshade::store::read_text_capped(&tree.path().join("missing.json"), 8)
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::NotFound
+    );
+    std::fs::write(&file, [0xff, 0xfe]).unwrap();
+    assert_eq!(
+        autoshade::store::read_text_capped(&file, 8)
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::InvalidData
+    );
 }
 
 #[test]

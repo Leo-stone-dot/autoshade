@@ -454,6 +454,7 @@ fn a_develop_commit_publishes_recipe_pixels_and_variants_together() {
     let recipe = br#"{"exposure_ev":0.25}"#.to_vec();
     let pixels = br#"{"origin":"master.png","kind":"inplace"}"#.to_vec();
     let variants = br#"{"v":1,"active_kind":"edited","active_pos":0,"others":[]}"#.to_vec();
+    let xmp = b"<x:xmpmeta>generation</x:xmpmeta>".to_vec();
 
     commit_develop(
         &raw,
@@ -461,7 +462,7 @@ fn a_develop_commit_publishes_recipe_pixels_and_variants_together() {
             recipe: Some(recipe.clone()),
             pixels: CommitMember::Write(pixels.clone()),
             variants: CommitMember::Write(variants.clone()),
-            xmp: CommitMember::Keep,
+            xmp: CommitMember::Write(xmp.clone()),
         },
     )
     .unwrap();
@@ -469,6 +470,70 @@ fn a_develop_commit_publishes_recipe_pixels_and_variants_together() {
     assert_eq!(std::fs::read(recipe_target(&raw)).unwrap(), recipe);
     assert_eq!(std::fs::read(pixel_source_path(&raw)).unwrap(), pixels);
     assert_eq!(std::fs::read(variants_path(&raw)).unwrap(), variants);
+    assert_eq!(std::fs::read(xmp_target(&raw)).unwrap(), xmp);
+    assert!(!develop_dir(&raw).join(".commit").exists());
+}
+
+#[test]
+fn a_second_commit_can_write_clear_and_keep_members_together() {
+    let store = TempStore::new("commit-member-actions");
+    let raw = photo(store.root(), "member-actions.dng");
+    let variants = br#"{"v":1,"active_kind":"edited","active_pos":0,"others":[]}"#.to_vec();
+    commit_develop(
+        &raw,
+        DevelopCommit {
+            recipe: Some(b"gen1-recipe".to_vec()),
+            pixels: CommitMember::Write(
+                br#"{"origin":"master.png","kind":"inplace"}"#.to_vec(),
+            ),
+            variants: CommitMember::Write(variants.clone()),
+            xmp: CommitMember::Write(b"gen1-xmp".to_vec()),
+        },
+    )
+    .unwrap();
+
+    commit_develop(
+        &raw,
+        DevelopCommit {
+            recipe: Some(b"gen2-recipe".to_vec()),
+            pixels: CommitMember::Clear,
+            variants: CommitMember::Keep,
+            xmp: CommitMember::Clear,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(std::fs::read(recipe_target(&raw)).unwrap(), b"gen2-recipe");
+    assert!(!pixel_source_path(&raw).exists());
+    assert_eq!(std::fs::read(variants_path(&raw)).unwrap(), variants);
+    assert!(!xmp_target(&raw).exists());
+    assert!(!develop_dir(&raw).join(".commit").exists());
+}
+
+#[test]
+fn an_unresolved_variant_refuses_the_whole_commit_before_staging() {
+    let store = TempStore::new("commit-unresolved-variant");
+    let raw = photo(store.root(), "unresolved-commit.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    std::fs::write(variants_path(&raw), b"not json at all").unwrap();
+
+    let error = commit_develop(
+        &raw,
+        DevelopCommit {
+            recipe: Some(b"new recipe".to_vec()),
+            pixels: CommitMember::Keep,
+            variants: CommitMember::Clear,
+            xmp: CommitMember::Write(b"new xmp".to_vec()),
+        },
+    )
+    .unwrap_err();
+
+    assert!(error.to_string().contains("cannot be honoured"));
+    assert!(!recipe_target(&raw).exists());
+    assert!(!xmp_target(&raw).exists());
+    assert!(!develop.join(".commit").exists());
+    assert_eq!(std::fs::read(variants_path(&raw)).unwrap(), b"not json at all");
 }
 
 #[test]
