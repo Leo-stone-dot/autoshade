@@ -1953,15 +1953,77 @@ fn a_legacy_recipe_and_xmp_are_migrated_into_the_develop_store() {
     let (store, legacy) = TempStore::with_legacy("migrate-legacy");
     let raw = photo(store.root(), "legacy.dng");
     let stem = autoshade::pipeline::stem(&raw);
-    let recipe = serde_json::to_vec_pretty(&valid_recipe()).unwrap();
+    let legacy_raster = legacy.join(format!("{stem}.mask-sky.png"));
+    std::fs::write(&legacy_raster, b"legacy raster").unwrap();
+    let recipe = serde_json::to_vec_pretty(&EditRecipe {
+        exposure_ev: 0.5,
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: legacy_raster.file_name().unwrap().to_string_lossy().into_owned(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    })
+    .unwrap();
     let xmp = b"<x:xmpmeta><rdf:RDF/></x:xmpmeta>";
-    std::fs::write(legacy.join(format!("{stem}.recipe.json")), &recipe).unwrap();
-    std::fs::write(legacy.join(format!("{stem}.xmp")), xmp).unwrap();
+    let legacy_recipe = legacy.join(format!("{stem}.recipe.json"));
+    let legacy_xmp = legacy.join(format!("{stem}.xmp"));
+    let legacy_version = legacy.join(format!("{stem}.v2.recipe.json"));
+    std::fs::write(&legacy_recipe, &recipe).unwrap();
+    std::fs::write(&legacy_xmp, xmp).unwrap();
+    std::fs::write(&legacy_version, serde_json::to_vec(&EditRecipe::default()).unwrap()).unwrap();
 
     assert!(migrate_legacy(&raw));
 
-    assert_eq!(std::fs::read(recipe_target(&raw)).unwrap(), recipe);
     assert_eq!(std::fs::read(xmp_target(&raw)).unwrap(), xmp);
+    assert_eq!(list_versions(&raw), vec![2]);
+    let mut migrated: EditRecipe =
+        serde_json::from_slice(&std::fs::read(recipe_target(&raw)).unwrap()).unwrap();
+    resolve_mask_paths(&mut migrated, &develop_dir(&raw));
+    let MaskGeometry::Bitmap { path } = &migrated.masks[0].mask else {
+        panic!("the migrated mask remains a bitmap")
+    };
+    assert!(Path::new(path).starts_with(develop_dir(&raw)));
+    assert_eq!(std::fs::read(path).unwrap(), b"legacy raster");
+    assert!(legacy_recipe.exists());
+    assert!(legacy_xmp.exists());
+    assert!(legacy_version.exists());
+    assert!(legacy_raster.exists());
+    assert!(!migrate_legacy(&raw));
+}
+
+#[test]
+fn gallery_migration_does_not_restore_a_deleted_legacy_version() {
+    let store = TempStore::new("migrate-deleted-version");
+    let legacy = store.root().join("legacy-gallery");
+    std::fs::create_dir(&legacy).unwrap();
+    let raw = photo(store.root(), "deleted-version.dng");
+    let stem = autoshade::pipeline::stem(&raw);
+    let legacy_version = legacy.join(format!("{stem}.v2.recipe.json"));
+    std::fs::write(
+        &legacy_version,
+        serde_json::to_vec(&EditRecipe {
+            exposure_ev: 0.5,
+            ..EditRecipe::default()
+        })
+        .unwrap(),
+    )
+    .unwrap();
+
+    assert_eq!(
+        migrate_legacy_from_many(&legacy, std::slice::from_ref(&raw)),
+        1
+    );
+    assert_eq!(list_versions(&raw), vec![2]);
+    delete_version(&raw, 2).unwrap();
+
+    assert_eq!(
+        migrate_legacy_from_many(&legacy, std::slice::from_ref(&raw)),
+        0
+    );
+    assert!(list_versions(&raw).is_empty());
+    assert!(legacy_version.exists());
 }
 
 #[test]
