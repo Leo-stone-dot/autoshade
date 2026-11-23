@@ -656,6 +656,27 @@ accessibility/交互保护仍是明确 GUI 缺口。
 替代真实付费/模型质量 gate，也不把 Comfy 并发 collision 或 Harness 部分提交缺陷
 解释成已解决。
 
+### HTTP / Serve
+
+- 当前入口：`tests/serve_behavior.rs` 与 `tests/http_*/mod.rs`
+- 默认 gate：53 passed，7 ignored。
+- 显式资源 gate：两个真实 256 MiB request case 与“999 次失败后 heal 容量恢复”
+  case，`scripts/http_resource_battery.sh` 实测 2 + 1 passed。
+
+默认套件覆盖真实 `autoshade serve` 子进程、session/image capability、revision
+并发、save/reset/import、Analyze、settings、library、Fill、Heal、Stack、Export 和
+Download 的公开 HTTP 结果。下列 ignore 不得混成“核心行为已绿”：
+
+- `print_develop_directory_fixture`、`record_generated_pixel_source_fixture`：父测试
+  启动的 fixture worker，不是独立产品 case。
+- Harness 部分提交后失败：已知生产缺陷，保留确定性红灯与启用命令。
+- 同时 Comfy Fill：已知临时路径 collision，保留红灯与启用命令。
+- 三条资源 case：由显式 battery 执行，本轮已绿。
+
+HTTP case 的具体 mutation 与公开失败结果登记在 `docs/HTTP_BEHAVIOR_AUDIT.md` 和
+`docs/BEHAVIOR_PROTECTION.md`；该套件通过子进程执行，因此 llvm-cov 未合并
+`serve.rs` profile 不能反向证明这些行为没执行。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：
