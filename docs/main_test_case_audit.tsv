@@ -1953,7 +1953,7 @@ src/store/tests.rs	870	a_clear_marker_that_cannot_be_consumed_fails_the_resoluti
 src/store/tests.rs	938	a_foreign_develop_write_restates_the_strips_active_card	12	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	1006	a_read_modify_write_of_the_strip_keeps_fields_this_build_never_heard_of	7	default	rewritten	tests/store_behavior.rs::changing_the_active_variant_kind_preserves_unknown_fields_and_its_name	Public read-modify-write changes only the active kind while preserving active identity/name, background identity/name, and capture-all fields at both record and entry levels.
 src/store/tests.rs	1046	the_strip_member_keeps_its_hands_off_what_it_must	12	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	1090	list_edits_joins_the_strip_with_the_version_history	15	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	1090	list_edits_joins_the_strip_with_the_version_history	15	default	rewritten	tests/store_behavior.rs::edit_states_join_variant_order_with_real_version_metadata	The public edit-state query restores the active card at its recorded position, preserves background order and card identities, appends only real versions, and joins name, origin and card provenance without surfacing phantom metadata.
 src/store/tests.rs	1165	a_committed_generation_replays_over_a_stale_triple	7	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	1230	the_projection_replays_with_its_generation	12	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	1305	a_develop_over_ai_pixels_forks_the_record_and_keeps_the_pristine_card	32	default	open		Awaiting assertion-by-assertion review.

@@ -16,14 +16,16 @@ use autoshade::render::{LensBlur, PixelLayer};
 use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
 use autoshade::store::{
     ActiveWrite, CommitMember, DevelopCommit, EditStateKind, VariantEntry, VariantsRead,
-    VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, MAX_STORE_NAME, OwnedRaster,
+    VariantsRecord, VersionMetaEntry, DevelopLockMode, LrSidecar, MAX_STORE_JSON,
+    MAX_STORE_NAME, OwnedRaster, VERSION_ORIGIN_USER,
     backup_saved_develop, claim_version, clear_develop, clear_pixel_source, clear_variants,
     commit_develop, delete_version, detach_rasters, develop_dir, develop_revision,
     export_xmp_beside, has_develop, has_develop_or_sidecar, has_pixel_source,
     lightroom_sidecar, list_edits, list_versions, mask_family, migrate_legacy,
     migrate_legacy_from_many, photo_key, pixel_source_path,
     read_develop_snapshot, read_pixel_source, read_variants_checked, recipe_revision,
-    recipe_target, recover_orphan_baks, relativize_mask_paths, render_source_checked,
+    recipe_target, record_version_meta, recover_orphan_baks, relativize_mask_paths,
+    render_source_checked,
     resolve_mask_paths, saved_quarter_turns, set_version_name, snapshot_rasters,
     variants_member, variants_path, version_target, volume_folds_case,
     with_develop_lock, with_settings_lock, write_pixel_source, write_variants, xmp_target,
@@ -2189,6 +2191,81 @@ fn a_named_snapshot_appears_in_the_edit_state_list_without_changing_its_recipe()
         .expect("the snapshot is listed");
     assert_eq!(version.name.as_deref(), Some("warm afternoon"));
     assert_eq!(std::fs::read(version_target(&raw, 1)).unwrap(), recipe);
+}
+
+#[test]
+fn edit_states_join_variant_order_with_real_version_metadata() {
+    let store = TempStore::new("list-edit-states");
+    let raw = photo(store.root(), "edit-states.dng");
+    write_variants(
+        &raw,
+        &VariantsRecord {
+            v: 1,
+            active_kind: "fitted".to_string(),
+            active_pos: 0,
+            others: vec![VariantEntry {
+                kind: "original".to_string(),
+                recipe: EditRecipe::default(),
+                origin: None,
+                id: Some("original".to_string()),
+                name: None,
+                extra: serde_json::Map::new(),
+            }],
+            active_id: Some("card-fit".to_string()),
+            active_name: Some("dusk".to_string()),
+            extra: serde_json::Map::new(),
+        },
+    )
+    .unwrap();
+    std::fs::write(version_target(&raw, 1), b"{}").unwrap();
+    record_version_meta(
+        &raw,
+        &VersionMetaEntry {
+            n: 1,
+            name: Some("before".to_string()),
+            from_kind: Some("original".to_string()),
+            from_id: Some("original".to_string()),
+            origin: Some(VERSION_ORIGIN_USER.to_string()),
+        },
+    )
+    .unwrap();
+    record_version_meta(
+        &raw,
+        &VersionMetaEntry {
+            n: 9,
+            name: Some("phantom".to_string()),
+            ..VersionMetaEntry::default()
+        },
+    )
+    .unwrap();
+
+    let edits = list_edits(&raw);
+
+    assert_eq!(edits.len(), 3);
+    assert_eq!(edits[0].id, "card-fit");
+    assert_eq!(edits[0].name.as_deref(), Some("dusk"));
+    assert!(matches!(
+        &edits[0].state,
+        EditStateKind::Variant { kind, active } if kind == "fitted" && *active
+    ));
+    assert_eq!(edits[1].id, "original");
+    assert!(matches!(
+        &edits[1].state,
+        EditStateKind::Variant { kind, active } if kind == "original" && !*active
+    ));
+    assert_eq!(edits[2].id, "v1");
+    assert_eq!(edits[2].name.as_deref(), Some("before"));
+    assert!(matches!(
+        &edits[2].state,
+        EditStateKind::Version {
+            n: 1,
+            from_kind,
+            from_id,
+            source,
+        } if from_kind.as_deref() == Some("original")
+            && from_id.as_deref() == Some("original")
+            && source.as_deref() == Some(VERSION_ORIGIN_USER)
+    ));
 }
 
 #[test]
