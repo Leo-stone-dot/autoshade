@@ -12,6 +12,7 @@ use autoshade::config::{
     LocalSettings, load_local_settings, local_settings_path, save_local_settings,
     update_local_settings,
 };
+use autoshade::render::{LensBlur, PixelLayer};
 use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
 use autoshade::store::{
     ActiveWrite, CommitMember, DevelopCommit, EditStateKind, VariantEntry, VariantsRead,
@@ -19,11 +20,11 @@ use autoshade::store::{
     backup_saved_develop, claim_version, clear_develop, clear_pixel_source, clear_variants,
     commit_develop, delete_version, detach_rasters, develop_dir, export_xmp_beside, has_develop,
     has_develop_or_sidecar, has_pixel_source, lightroom_sidecar, list_edits, list_versions,
-    migrate_legacy, migrate_legacy_from_many, photo_key, pixel_source_path,
+    mask_family, migrate_legacy, migrate_legacy_from_many, photo_key, pixel_source_path,
     read_develop_snapshot, read_pixel_source, read_variants_checked, recipe_revision,
-    recipe_target, recover_orphan_baks, render_source_checked, resolve_mask_paths,
-    saved_quarter_turns, set_version_name, variants_member, variants_path, version_target,
-    volume_folds_case,
+    recipe_target, recover_orphan_baks, relativize_mask_paths, render_source_checked,
+    resolve_mask_paths, saved_quarter_turns, set_version_name, snapshot_rasters,
+    variants_member, variants_path, version_target, volume_folds_case,
     with_develop_lock, with_settings_lock, write_pixel_source, write_variants, xmp_target,
 };
 use autoshade::pipeline::{ProjectionOutcome, commit_analyzed_develop};
@@ -148,6 +149,194 @@ fn two_case_spellings_fold_only_when_they_cannot_be_separate_files() {
         .is_ok();
 
     assert_eq!(volume_folds_case(&first), !created_second);
+}
+
+#[test]
+fn very_long_source_names_keep_bounded_distinct_store_keys() {
+    let store = TempStore::new("long-photo-key");
+    let shared = "相片".repeat(180);
+    let first = store.root().join(format!("{shared}a.ARW"));
+    let second = store.root().join(format!("{shared}b.ARW"));
+
+    let first_key = photo_key(&first);
+    let second_key = photo_key(&second);
+
+    assert!(first_key.len() <= 240);
+    assert!(first_key.encode_utf16().count() <= 240);
+    assert_ne!(first_key, second_key);
+    assert_eq!(first_key.rsplit_once('-').unwrap().1.len(), 16);
+}
+
+#[test]
+fn mask_raster_paths_round_trip_relative_to_the_develop_directory() {
+    let store = TempStore::new("mask-path-roundtrip");
+    let raw = photo(store.root(), "mask-paths.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let raster = develop.join("mask-sky.png");
+    std::fs::write(&raster, b"mask").unwrap();
+    let mut recipe = EditRecipe {
+        masks: vec![
+            LocalAdjustment {
+                mask: MaskGeometry::Bitmap {
+                    path: "mask-sky.png".to_string(),
+                },
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                mask: MaskGeometry::Bitmap {
+                    path: "legacy/missing.png".to_string(),
+                },
+                ..LocalAdjustment::default()
+            },
+        ],
+        ..EditRecipe::default()
+    };
+
+    resolve_mask_paths(&mut recipe, &develop);
+    let MaskGeometry::Bitmap { path: resolved } = &recipe.masks[0].mask else {
+        panic!("the first raster remains a bitmap")
+    };
+    let MaskGeometry::Bitmap { path: missing } = &recipe.masks[1].mask else {
+        panic!("the second raster remains a bitmap")
+    };
+    assert_eq!(Path::new(resolved), raster);
+    assert_eq!(missing, "legacy/missing.png");
+
+    relativize_mask_paths(&mut recipe, &develop);
+    let MaskGeometry::Bitmap { path } = &recipe.masks[0].mask else {
+        panic!("the round-tripped raster remains a bitmap")
+    };
+    assert_eq!(path, "mask-sky.png");
+}
+
+#[test]
+fn unsafe_raster_references_are_disabled_across_every_recipe_raster_kind() {
+    let store = TempStore::new("unsafe-raster-paths");
+    let raw = photo(store.root(), "unsafe-paths.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let mut recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: r"\\nas\share\mask.png".to_string(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        lens_blur: Some(LensBlur {
+            depth_map: "//nas/share/depth.png".to_string(),
+            protect: Some(r"\\.\COM1".to_string()),
+            ..LensBlur::default()
+        }),
+        pixel_layers: vec![PixelLayer {
+            path: "../../outside.png".to_string(),
+            ..PixelLayer::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    resolve_mask_paths(&mut recipe, &develop);
+    let sentinel = develop.join(".invalid-mask-reference");
+    let MaskGeometry::Bitmap { path: mask } = &recipe.masks[0].mask else {
+        panic!("the mask remains a bitmap")
+    };
+    let blur = recipe.lens_blur.as_ref().unwrap();
+
+    assert_eq!(Path::new(mask), sentinel);
+    assert_eq!(Path::new(&blur.depth_map), sentinel);
+    assert_eq!(Path::new(blur.protect.as_deref().unwrap()), sentinel);
+    assert_eq!(Path::new(&recipe.pixel_layers[0].path), sentinel);
+}
+
+#[test]
+fn depth_protect_and_layer_paths_round_trip_with_the_store() {
+    let store = TempStore::new("additional-raster-roundtrip");
+    let raw = photo(store.root(), "additional-rasters.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let depth = develop.join("depth.png");
+    let protect = develop.join("protect.png");
+    let layer = develop.join("layer.png");
+    for path in [&depth, &protect, &layer] {
+        std::fs::write(path, b"raster").unwrap();
+    }
+    let mut recipe = EditRecipe {
+        lens_blur: Some(LensBlur {
+            depth_map: depth.to_string_lossy().into_owned(),
+            protect: Some(protect.to_string_lossy().into_owned()),
+            ..LensBlur::default()
+        }),
+        pixel_layers: vec![PixelLayer {
+            path: layer.to_string_lossy().into_owned(),
+            ..PixelLayer::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    relativize_mask_paths(&mut recipe, &develop);
+    let blur = recipe.lens_blur.as_ref().unwrap();
+    assert_eq!(blur.depth_map, "depth.png");
+    assert_eq!(blur.protect.as_deref(), Some("protect.png"));
+    assert_eq!(recipe.pixel_layers[0].path, "layer.png");
+
+    resolve_mask_paths(&mut recipe, &develop);
+    let blur = recipe.lens_blur.as_ref().unwrap();
+    assert_eq!(Path::new(&blur.depth_map), depth);
+    assert_eq!(Path::new(blur.protect.as_deref().unwrap()), protect);
+    assert_eq!(Path::new(&recipe.pixel_layers[0].path), layer);
+}
+
+#[test]
+fn a_version_snapshot_freezes_depth_protect_and_layer_rasters() {
+    let store = TempStore::new("additional-raster-snapshot");
+    let raw = photo(store.root(), "snapshot-rasters.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    for (name, bytes) in [
+        ("depth.png", b"depth".as_slice()),
+        ("protect.png", b"protect".as_slice()),
+        ("layer.png", b"layer".as_slice()),
+    ] {
+        std::fs::write(develop.join(name), bytes).unwrap();
+    }
+    let mut recipe = EditRecipe {
+        lens_blur: Some(LensBlur {
+            depth_map: "depth.png".to_string(),
+            protect: Some("protect.png".to_string()),
+            ..LensBlur::default()
+        }),
+        pixel_layers: vec![PixelLayer {
+            path: "layer.png".to_string(),
+            ..PixelLayer::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    snapshot_rasters(&mut recipe, &develop, 7).unwrap();
+    for name in ["depth.png", "protect.png", "layer.png"] {
+        std::fs::write(develop.join(name), b"new").unwrap();
+    }
+    resolve_mask_paths(&mut recipe, &develop);
+    let blur = recipe.lens_blur.as_ref().unwrap();
+
+    assert_eq!(std::fs::read(&blur.depth_map).unwrap(), b"depth");
+    assert_eq!(
+        std::fs::read(blur.protect.as_deref().unwrap()).unwrap(),
+        b"protect"
+    );
+    assert_eq!(
+        std::fs::read(&recipe.pixel_layers[0].path).unwrap(),
+        b"layer"
+    );
+}
+
+#[test]
+fn raster_families_ignore_claim_and_version_counters_only() {
+    assert_eq!(mask_family("mask-sky.png"), "mask-sky");
+    assert_eq!(mask_family("mask-sky-3.png"), "mask-sky");
+    assert_eq!(mask_family("v3.mask-sky-2.png"), "mask-sky");
+    assert_eq!(mask_family("mask-sky"), "mask-sky");
+    assert_eq!(mask_family("mask-sky-3x.png"), "mask-sky-3x");
 }
 
 #[test]

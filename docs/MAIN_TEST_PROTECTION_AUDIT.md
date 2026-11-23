@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：563 cases，约 1,449 个断言宏，33 个显式 ignore。
+- 当前工作树：569 cases，约 1,478 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，130 条 `rewritten`、12 条
-`lint`、1 条 `drop`、2,138 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，138 条 `rewritten`、12 条
+`lint`、1 条 `drop`、2,130 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 25 条 `rewritten`、1 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 33 条 `rewritten`、1 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1158,6 +1158,14 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `variant_ids_and_names_are_additive_in_both_directions` | metadata preserve + Unicode cap + legacy None cases | 新旧metadata兼容、名称安全限长、旧记录不伪造id/name |
 | `backup_snapshot_is_a_copy_and_freezes_rasters` | identical + frozen-raster + deleted-fingerprint cases | 相同写不增版本；快照独立；删除按内容与raster bytes判定且版本号烧掉 |
 | `clearing_one_same_stem_photo_suppresses_but_never_unlinks_legacy_bytes` | same-stem clear/migrate case | A的clear只抑制A；B仍可见并迁移原bytes；A不复活 |
+| `resolve_and_relativize_round_trip` | mask path round-trip case | bare路径锚定、缺失legacy引用不猜、in-store绝对路径重新变bare |
+| `a_network_or_device_mask_reference_is_refused_on_every_platform` | unsafe + ordinary raster path cases | network/device引用禁用，普通本地store引用仍可搬迁 |
+| `very_long_source_names_produce_portable_but_distinct_develop_keys` | long-key case | UTF-8/UTF-16组件均有界，截断前缀后仍靠16-hex身份区分 |
+| `parsed_relative_store_paths_cannot_escape_the_develop_directory` | unsafe + ordinary raster path cases | `..`逃逸落到store sentinel，合法bare/legacy路径保留正常语义 |
+| `depth_protect_and_layer_paths_are_refused_at_load_like_a_mask_path` | unsafe raster case | mask/depth/protect/layer走同一公开拒绝结果 |
+| `depth_protect_and_layer_paths_round_trip_relative_like_a_mask_path` | additional raster round-trip case | 三类路径bare存储并重锚到原store |
+| `a_version_snapshot_freezes_depth_protect_and_layer_rasters` | additional raster snapshot case | live改写后三类版本引用仍读取旧bytes |
+| `a_rasters_family_is_its_name_without_the_claim_counter` | raster-family case | 扩展名、claim计数与版本前缀剥离，非计数后缀保留 |
 
 架构归属：
 
@@ -1206,6 +1214,8 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | unknown字段与已知id/name保留；长Unicode名按公开字节上限截断；旧记录仍None | variant metadata cases | 新版读取旧strip伪造身份，旧版字段在修改时丢失，或恶意名称撑爆UI/store |
 | 相同raster recipe不增版本；快照复制并冻结bytes；删除指纹区分新旧bytes且烧号 | snapshot/fingerprint cases | 自动版本膨胀、live改写污染历史、删除后错误复活或编号复用 |
 | 同stem照片A clear后A不可见、B仍可见并迁移、共享legacy bytes未被提前删除 | same-stem clear/migrate case | 清除一张照片误删或全局屏蔽另一张同名照片的唯一旧编辑 |
+| raster路径相对化/重锚、unsafe引用统一禁用、版本冻结bytes独立 | six path behavior cases | store搬迁丢raster、打开恶意store访问外部路径、历史版本随live改变 |
+| 超长key有界且不同源仍不同；family只忽略真实计数 | long-key / raster-family cases | 文件系统拒绝过长develop目录、两个源静默共用key、rerun追加重复mask |
 
 两条 Lightroom version case 仍是具体 `open`，不是泛化缺口：
 
@@ -1258,6 +1268,13 @@ Load Version工作流或公开版本读取入口能观察这份bytes，两条 ca
 - 删除指纹只比较recipe结构、不比较raster bytes时，改变过raster的保存被错误抑制；
   忽略deleted registry high-water mark时，v1编号被复用。两次分别红。
 - legacy tombstone错误按stem全局共享时，清除A后B的 `has_develop` 变false并红。
+- key组件上限取消时long-key超240 bytes并红；相对化变no-op时mask与
+  depth/protect/layer两个round-trip case均红。
+- `raster_paths_mut`退回只遍历mask时，additional raster拒绝、round-trip与snapshot
+  case分别红；`snapshot_rasters`只改引用不复制bytes时snapshot case也单独红。
+- network/device lexical gate旁路时UNC mask不再落sentinel；containment无条件join时
+  `../../outside.png` layer不再落sentinel。两次分别红。
+- `mask_family`不剥claim/version计数时family case红。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
@@ -1318,7 +1335,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 75 source / 73 macOS | key identity、atomic commit、locks、recovery、per-photo legacy suppression、XMP ordering、relocatable variants、version/raster snapshots、ownership | Store | Windows key aliases、crash fault injection、lossless version XMP public read |
+| `tests/store_behavior.rs` | 81 source / 79 macOS | key identity/bounds、atomic commit、locks、recovery、per-photo legacy suppression、XMP ordering、relocatable/safe raster paths、version snapshots、ownership | Store | Windows key aliases、crash fault injection、lossless version XMP public read |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
