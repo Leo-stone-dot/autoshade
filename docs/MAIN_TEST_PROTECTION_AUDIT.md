@@ -33,8 +33,8 @@ case 最终必须归入以下一种状态：
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，140 条 `rewritten`、12 条
-`lint`、1 条 `drop`、2,128 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，140 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,127 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 35 条 `rewritten`、1 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 35 条 `rewritten`、2 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1174,12 +1174,17 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | main case | lint执行者 | 覆盖的代码约束 |
 | --- | --- | --- |
 | `the_version_meta_sidecar_keeps_the_non_generational_discipline` | `store-advisory-metadata-lifecycle` | advisory文件名固定；只走direct durable write；不得进入adoption exclusion、orphan recovery、clear或commit generation |
+| `the_store_directory_name_and_the_rename_adoption_agree_per_platform` | `store-root-platform-contract` | macOS显示名、其他平台小写名、Application Support父目录、macOS禁用pre-rename adoption |
 
 该 rule 随 `scripts/check_architecture.py --self-test` 运行：坏夹具同时把 metadata 接入
 generational publisher与四个禁止scope，必须报
 `store-advisory-metadata-lifecycle`；好夹具使用 direct publisher 且四个scope不引用
 metadata，必须通过。这里的红灯回答“代码允许怎么写”，所以没有复制 main 的私有
 helper/list断言到行为测试。
+
+`store-root-platform-contract` 的坏夹具分别把两个平台目录名对调、无条件开启 adoption、
+并把 macOS 根移出 `Library/Application Support`；self-test 必须报该 rule。好夹具同时
+满足四项并通过。旧 case 的三个源码 `contains` 断言因此删除，平台配置仍有实际执行者。
 
 删除归属：
 

@@ -299,6 +299,46 @@ def store_advisory_metadata_lifecycle(root: Path) -> list[str]:
     return findings
 
 
+def store_root_platform_contract(root: Path) -> list[str]:
+    path = root / "src/store/root.rs"
+    raw = path.read_text(encoding="utf-8")
+    text = strip_comments(raw)
+    required = (
+        (
+            r'#\s*\[\s*cfg\s*\(\s*target_os\s*=\s*"macos"\s*\)\s*\]\s*'
+            r'pub\s*\(\s*crate\s*\)\s+const\s+STORE_DIR_NAME\s*:\s*&str\s*=\s*"AutoShade"\s*;',
+            "macOS store directory must use the application display name",
+        ),
+        (
+            r'#\s*\[\s*cfg\s*\(\s*not\s*\(\s*target_os\s*=\s*"macos"\s*\)\s*\)\s*\]\s*'
+            r'pub\s*\(\s*crate\s*\)\s+const\s+STORE_DIR_NAME\s*:\s*&str\s*=\s*"autoshade"\s*;',
+            "non-macOS store directory must keep the lowercase name",
+        ),
+        (
+            r'pub\s*\(\s*super\s*\)\s+const\s+ADOPT_PRE_RENAME\s*:\s*bool\s*=\s*'
+            r'!\s*cfg\s*!\s*\(\s*target_os\s*=\s*"macos"\s*\)\s*;',
+            "pre-rename adoption must stay disabled only on macOS",
+        ),
+        (
+            r'\.join\s*\(\s*"Library"\s*\)\s*\.join\s*\(\s*"Application Support"\s*\)',
+            "macOS store root must remain under Library/Application Support",
+        ),
+    )
+    findings: list[str] = []
+    for pattern, detail in required:
+        if re.search(pattern, text, re.DOTALL) is None:
+            findings.append(
+                finding(
+                    path,
+                    raw,
+                    0,
+                    "store-root-platform-contract",
+                    detail,
+                )
+            )
+    return findings
+
+
 def server_heavy_slots(root: Path) -> list[str]:
     findings: list[str] = []
     path = root / "src/serve.rs"
@@ -486,6 +526,7 @@ RULES = (
     base_look_single_entry,
     mask_paint_notification,
     store_advisory_metadata_lifecycle,
+    store_root_platform_contract,
     server_heavy_slots,
     generative_slot_scope,
     heal_slot_scope,
@@ -540,6 +581,13 @@ def self_test() -> int:
             root / "src/store/commit.rs",
             "fn apply_commit_members() { version_meta_path(); }",
         )
+        write(
+            root / "src/store/root.rs",
+            '#[cfg(target_os = "macos")] pub(crate) const STORE_DIR_NAME: &str = "autoshade";\n'
+            '#[cfg(not(target_os = "macos"))] pub(crate) const STORE_DIR_NAME: &str = "AutoShade";\n'
+            'pub(super) const ADOPT_PRE_RENAME: bool = true;\n'
+            'fn mac_root(home: &Path) { home.join("Library"); }',
+        )
         write(root / "src/serve.rs", "fn api_export() { render(); }\nfn api_download() { render(); }")
         write(root / "src/generative.rs", "fn edit_onto() { let heavy = crate::full_res_slot(); call_images_edit(); }")
         write(root / "src/retouch.rs", "fn heal_and_save() { split_alpha(); }")
@@ -559,6 +607,7 @@ def self_test() -> int:
             "base-look-single-entry",
             "mask-paint-notification",
             "store-advisory-metadata-lifecycle",
+            "store-root-platform-contract",
             "server-heavy-slot",
             "generative-slot-scope",
             "heal-slot-scope",
@@ -605,6 +654,13 @@ def self_test() -> int:
             write(
                 valid / "src/store/commit.rs",
                 "fn apply_commit_members() { publish_recipe(); }",
+            )
+            write(
+                valid / "src/store/root.rs",
+                '#[cfg(target_os = "macos")] pub(crate) const STORE_DIR_NAME: &str = "AutoShade";\n'
+                '#[cfg(not(target_os = "macos"))] pub(crate) const STORE_DIR_NAME: &str = "autoshade";\n'
+                'pub(super) const ADOPT_PRE_RENAME: bool = !cfg!(target_os = "macos");\n'
+                'fn mac_root(home: &Path) { home.join("Library").join("Application Support"); }',
             )
             write(valid / "src/serve.rs", "fn open() { camera_base_look(); }\nfn api_export() { let _heavy = heavy(); render(); }\nfn api_download() { let _heavy = heavy(); render(); }")
             write(valid / "src/generative.rs", "fn edit_onto() { let heavy = crate::full_res_slot(); drop(heavy); call_images_edit(); let _heavy = crate::full_res_slot(); }")
