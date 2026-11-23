@@ -1281,6 +1281,67 @@ fn changing_the_active_variant_kind_preserves_unknown_fields_and_its_name() {
 }
 
 #[test]
+fn a_foreign_develop_commit_restates_only_the_active_variant_kind() {
+    let store = TempStore::new("foreign-develop-variant");
+    let raw = photo(store.root(), "foreign-develop.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let master = develop.join("background.png");
+    std::fs::write(&master, b"background").unwrap();
+    write_variants(
+        &raw,
+        &VariantsRecord {
+            v: 1,
+            active_kind: "original".to_string(),
+            active_pos: 1,
+            others: vec![VariantEntry {
+                kind: "generated".to_string(),
+                recipe: EditRecipe {
+                    contrast: 12.0,
+                    ..EditRecipe::default()
+                },
+                origin: Some(master.clone()),
+                id: Some("card-b".to_string()),
+                name: Some("warm".to_string()),
+                extra: serde_json::Map::new(),
+            }],
+            active_id: Some("card-a".to_string()),
+            active_name: Some("negative".to_string()),
+            extra: serde_json::Map::new(),
+        },
+    )
+    .unwrap();
+
+    commit_develop(
+        &raw,
+        DevelopCommit {
+            recipe: Some(b"{}".to_vec()),
+            pixels: CommitMember::Clear,
+            variants: variants_member(&raw, ActiveWrite::Kind("fitted")).unwrap(),
+            xmp: CommitMember::Keep,
+        },
+    )
+    .unwrap();
+    let VariantsRead::Strip(restored) = read_variants_checked(&raw) else {
+        panic!("the restated strip remains readable")
+    };
+
+    assert_eq!(restored.active_kind, "fitted");
+    assert_eq!(restored.active_id.as_deref(), Some("card-a"));
+    assert_eq!(restored.active_name.as_deref(), Some("negative"));
+    assert_eq!(restored.active_pos, 1);
+    assert_eq!(restored.others.len(), 1);
+    assert_eq!(restored.others[0].id.as_deref(), Some("card-b"));
+    assert_eq!(restored.others[0].name.as_deref(), Some("warm"));
+    assert_eq!(restored.others[0].origin.as_deref(), Some(master.as_path()));
+    assert_eq!(restored.others[0].recipe.contrast, 12.0);
+    assert!(matches!(
+        variants_member(&raw, ActiveWrite::Kind("fitted")).unwrap(),
+        CommitMember::Keep
+    ));
+}
+
+#[test]
 fn a_relocated_store_reanchors_variant_rasters_to_its_new_directory() {
     let mut store = TempStore::new("variant-store-relocation");
     let raw = photo(store.root(), "relocated-variants.dng");
