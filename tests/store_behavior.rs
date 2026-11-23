@@ -1593,6 +1593,34 @@ fn a_legacy_recipe_and_xmp_are_migrated_into_the_develop_store() {
 }
 
 #[test]
+fn legacy_migration_never_replaces_an_existing_central_owner() {
+    let (store, legacy) = TempStore::with_legacy("migrate-owner-wins");
+    let raw = photo(store.root(), "owner-wins.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let central = serde_json::to_vec_pretty(&EditRecipe {
+        exposure_ev: 1.0,
+        ..EditRecipe::default()
+    })
+    .unwrap();
+    let older = serde_json::to_vec_pretty(&EditRecipe {
+        exposure_ev: 0.25,
+        ..EditRecipe::default()
+    })
+    .unwrap();
+    std::fs::write(recipe_target(&raw), &central).unwrap();
+    let legacy_recipe = legacy.join(format!(
+        "{}.recipe.json",
+        autoshade::pipeline::stem(&raw)
+    ));
+    std::fs::write(&legacy_recipe, &older).unwrap();
+
+    assert!(!migrate_legacy(&raw));
+    assert_eq!(std::fs::read(recipe_target(&raw)).unwrap(), central);
+    assert_eq!(std::fs::read(legacy_recipe).unwrap(), older);
+}
+
+#[test]
 fn a_gallery_import_leaves_an_explicitly_cleared_develop_absent() {
     let store = TempStore::new("cleared-gallery-import");
     let legacy = store.root().join("gallery-legacy");

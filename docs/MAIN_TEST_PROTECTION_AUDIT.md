@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：569 cases，约 1,478 个断言宏，33 个显式 ignore。
+- 当前工作树：570 cases，约 1,481 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，138 条 `rewritten`、12 条
-`lint`、1 条 `drop`、2,130 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，139 条 `rewritten`、12 条
+`lint`、1 条 `drop`、2,129 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 33 条 `rewritten`、1 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 34 条 `rewritten`、1 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1166,6 +1166,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `depth_protect_and_layer_paths_round_trip_relative_like_a_mask_path` | additional raster round-trip case | 三类路径bare存储并重锚到原store |
 | `a_version_snapshot_freezes_depth_protect_and_layer_rasters` | additional raster snapshot case | live改写后三类版本引用仍读取旧bytes |
 | `a_rasters_family_is_its_name_without_the_claim_counter` | raster-family case | 扩展名、claim计数与版本前缀剥离，非计数后缀保留 |
+| `move_no_clobber_adopts_owner_and_keeps_the_source` | central-owner legacy migration case | 已有central owner胜出且bytes不变，ambiguous legacy source保留 |
 
 架构归属：
 
@@ -1216,6 +1217,7 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | 同stem照片A clear后A不可见、B仍可见并迁移、共享legacy bytes未被提前删除 | same-stem clear/migrate case | 清除一张照片误删或全局屏蔽另一张同名照片的唯一旧编辑 |
 | raster路径相对化/重锚、unsafe引用统一禁用、版本冻结bytes独立 | six path behavior cases | store搬迁丢raster、打开恶意store访问外部路径、历史版本随live改变 |
 | 超长key有界且不同源仍不同；family只忽略真实计数 | long-key / raster-family cases | 文件系统拒绝过长develop目录、两个源静默共用key、rerun追加重复mask |
+| central owner存在时migration报告未迁移、owner与legacy source bytes都不变 | central-owner migration case | 旧legacy bytes覆盖新保存，或migration误删无法证明归属的共享源 |
 
 两条 Lightroom version case 仍是具体 `open`，不是泛化缺口：
 
@@ -1275,6 +1277,9 @@ Load Version工作流或公开版本读取入口能观察这份bytes，两条 ca
 - network/device lexical gate旁路时UNC mask不再落sentinel；containment无条件join时
   `../../outside.png` layer不再落sentinel。两次分别红。
 - `mask_family`不剥claim/version计数时family case红。
+- 仅移除migration早期owner检查仍绿、仅改坏未走到的non-recipe move也仍绿，证明两层
+  防线各自冗余；同时移除owner检查并把实际recipe publish改成replace时，公开case在
+  “未迁移”断言处红。该故障反例对应真实产品覆盖，不锁调用顺序。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
@@ -1335,7 +1340,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 81 source / 79 macOS | key identity/bounds、atomic commit、locks、recovery、per-photo legacy suppression、XMP ordering、relocatable/safe raster paths、version snapshots、ownership | Store | Windows key aliases、crash fault injection、lossless version XMP public read |
+| `tests/store_behavior.rs` | 82 source / 80 macOS | key identity/bounds、atomic commit、locks、recovery、per-photo legacy suppression/no-clobber migration、XMP ordering、relocatable/safe raster paths、version snapshots、ownership | Store | Windows key aliases、crash fault injection、lossless version XMP public read |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

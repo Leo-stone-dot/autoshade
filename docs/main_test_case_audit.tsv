@@ -1989,7 +1989,7 @@ src/store/tests.rs	2624	clear_pixel_source_detaches_the_retired_bak_too	4	defaul
 src/store/tests.rs	2653	tmp_names_are_process_unique_across_minters	2	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2664	publish_no_clobber_never_replaces_an_owner	3	default	open		Awaiting assertion-by-assertion review.
 src/store/tests.rs	2679	publish_no_clobber_lands_on_a_fresh_destination	3	default	open		Awaiting assertion-by-assertion review.
-src/store/tests.rs	2693	move_no_clobber_adopts_owner_and_keeps_the_source	3	default	open		Awaiting assertion-by-assertion review.
+src/store/tests.rs	2693	move_no_clobber_adopts_owner_and_keeps_the_source	3	default	rewritten	tests/store_behavior.rs::legacy_migration_never_replaces_an_existing_central_owner	The public migration reports no move when a central owner exists, preserves its newer bytes, and retains the ambiguous legacy source byte-identically; the early owner check and atomic no-clobber publish are deliberately redundant.
 src/store/tests.rs	2708	migrate_gate_treats_a_nondirectory_as_empty_not_failure	2	default	rewritten	tests/store_behavior.rs::a_nondirectory_legacy_gallery_input_migrates_nothing	The public gallery migration reports zero migrated photos and leaves a non-directory input unchanged; main's private retry-status bit is not a public contract and is intentionally not copied.
 src/store/tests.rs	2722	photo_key_disambiguates_same_stem_different_folder	5	default	rewritten	tests/product_behavior.rs::same_named_photos_in_different_folders_get_distinct_store_keys	Public keys preserve the platform stem prefix, differ across folders, and remain stable across calls.
 src/store/tests.rs	2748	fnv1a64_is_the_reference_function	3	default	open		Awaiting assertion-by-assertion review.
