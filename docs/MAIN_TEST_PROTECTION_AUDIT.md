@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：583 cases，约 1,531 个断言宏，33 个显式 ignore。
+- 当前工作树：585 cases，约 1,537 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，150 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,117 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，151 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,116 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 截至本批有 45 条 `rewritten`、2 条 `lint`、1 条 `drop`：
+`src/store/tests.rs` 截至本批有 46 条 `rewritten`、2 条 `lint`、1 条 `drop`：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1178,6 +1178,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `the_strip_member_keeps_its_hands_off_what_it_must` | four member-decision cases | Absent/Unresolved/Unknown为Keep；owner为exact Write或Clear |
 | `a_pending_clear_outranks_the_sidecar_beside_the_photo` | public failed-clear badge/ranking case | pending intent同时压住badge与旧Lightroom sidecar排序 |
 | `lightroom_sidecar_unreadable_is_disclosed_not_absent` | unreadable public reader/snapshot case | 返回Unreadable并命名UTF-8原因，不提供可用XMP文本 |
+| `the_lightroom_hand_off_lands_beside_the_photo_and_never_clobbers_in_silence` | missing/first/refuse-overwrite handoff cases | 缺失时拒绝、首次精确交付、已有文件不静默覆盖、显式overwrite生效 |
 
 架构归属：
 
@@ -1245,6 +1246,7 @@ tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删�
 | 四类caller分别得到Keep、exact Write或Clear | variant member decision cases | 无记录被凭空制造、陌生数据被清除、owner交付被忽略、未知caller误改strip |
 | clear中途失败时badge为false且`lightroom_sidecar`为None | pending-clear ordering case | 清除尚未完成时旧sidecar立即复活为最新编辑 |
 | 非UTF-8 sidecar返回Unreadable原因，snapshot披露且无lr_xmp | unreadable sidecar case | 损坏或陌生编码被静默折成“没有编辑” |
+| missing projection无文件且命名remedy；首次交付bytes/path/RAW；拒绝与overwrite | Lightroom handoff cases | 空claim冒充交付、覆盖用户sidecar、错误路径或改坏源照片 |
 
 两条 Lightroom version case 仍是具体 `open`，不是泛化缺口：
 
@@ -1326,6 +1328,8 @@ Load Version工作流或公开版本读取入口能观察这份bytes，两条 ca
 - newest-intent排序只看completed clear、不看pending clear时，badge断言仍绿但
   `lightroom_sidecar == None`断言红，证明两层各自执行。
 - sidecar reader把Unreadable折成None时，snapshot disclosure断言红。
+- missing projection错误丢掉workflow remedy时missing case红；首次handoff在claim后不发布
+  bytes却返回成功时，first-handoff case在完整bytes断言处红。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
@@ -1386,7 +1390,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 95 source / 93 macOS | key identity/alias/bounds、atomic commit、locks、crash/clear recovery、revisions、variant member/edit-state joins、per-photo legacy suppression/no-clobber migration、XMP ordering、cross-platform safe raster paths、version snapshots、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
+| `tests/store_behavior.rs` | 97 source / 95 macOS | key identity/alias/bounds、atomic commit、locks、crash/clear recovery、revisions、variant member/edit-state joins、per-photo legacy suppression/no-clobber migration、XMP ordering/handoff、cross-platform safe raster paths、version snapshots、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |

@@ -1867,6 +1867,36 @@ fn exporting_a_sidecar_does_not_replace_lightrooms_existing_file_without_permiss
 }
 
 #[test]
+fn exporting_without_a_stored_projection_writes_nothing_and_names_the_remedy() {
+    let store = TempStore::new("export-xmp-missing");
+    let raw = photo(store.root(), "missing-projection.arw");
+    let sidecar = raw.with_extension("xmp");
+
+    let error = export_xmp_beside(&raw, false).unwrap_err();
+
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+    assert!(error.to_string().contains("save the develop first"));
+    assert!(!sidecar.exists());
+}
+
+#[test]
+fn a_first_lightroom_handoff_writes_exact_projection_bytes_beside_the_photo() {
+    let store = TempStore::new("export-xmp-first");
+    let raw = photo(store.root(), "first-handoff.arw");
+    let raw_before = std::fs::read(&raw).unwrap();
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let projection = b"<x:xmpmeta>stored projection</x:xmpmeta>";
+    std::fs::write(xmp_target(&raw), projection).unwrap();
+
+    let delivered = export_xmp_beside(&raw, false).unwrap();
+
+    assert_eq!(delivered, raw.with_extension("xmp"));
+    assert_eq!(std::fs::read(delivered).unwrap(), projection);
+    assert_eq!(std::fs::read(raw).unwrap(), raw_before);
+}
+
+#[test]
 fn a_legacy_recipe_and_xmp_are_migrated_into_the_develop_store() {
     let (store, legacy) = TempStore::with_legacy("migrate-legacy");
     let raw = photo(store.root(), "legacy.dng");
