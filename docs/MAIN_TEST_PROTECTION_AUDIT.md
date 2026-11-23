@@ -275,6 +275,79 @@ Mutation 过程也验证了 fixture：
 3. 临时把 `lr_net_inverted` 改成只写 geometry bit 时，case 在公开 XMP
    `MaskInverted` 断言处失败；恢复后通过。
 
+## Render 已裁决
+
+以下 case 全部从公开 `render::develop_preview` 进入，不复制 main 的
+`apply_develop_anon`、`apply_dehaze`、`apply_hsl`、LUT 或 mask-weight helper。
+
+### Neutral develop
+
+- Main case：`src/render/tests/dehaze_texture_clarity.rs::neutral_recipe_is_near_identity`
+- 当前 case：`tests/render_behavior.rs::a_neutral_recipe_preserves_the_delivered_pixels`
+- 状态：`rewritten`
+- 映射：main 对两个 float 像素逐通道容差 `< 0.02`；当前改为合成 32×24 RGB
+  图像，公开预览交付逐通道最大偏移不超过一个 8-bit code。
+- Mutation：公开 preview 入口额外加 `+1 EV` 时，当前 case 以最大偏移 78 codes
+  失败；恢复后通过。
+
+### Global Dehaze
+
+- Main case：`src/render/tests/dehaze_texture_clarity.rs::dehaze_positive_recovers_a_hazy_ramp`
+- 当前 case：`tests/render_behavior.rs::positive_dehaze_restores_tonal_span_and_colour`
+- 状态：`rewritten`
+- 映射：保留线性光散射 fixture，以及“q90-q10 明暗跨度至少提高 15%”和“平均
+  chroma 至少提高 10%”两个共同描述 haze recovery 的结果；不调用私有 dehaze
+  算子。
+- Fixture 纠正：初版在 gamma 空间混合 haze，premise 不成立并红灯；改为
+  `I = J*t + A*(1-t)` 的线性光 fixture 后基线通过，没有放宽阈值。
+
+### Local Dehaze
+
+- Main case：`src/render/tests/local_effects_and_hsl.rs::mask_dehaze_renders_only_inside_the_mask`
+- 当前 case：`tests/render_behavior.rs::local_dehaze_leaves_uncovered_pixels_unchanged`
+- 状态：`rewritten`
+- 映射：保留“全覆盖区域确实改变”和“零覆盖半幅逐像素不变”；删除对内部
+  smoothstep 的具体列号解释。
+
+### HSL routing
+
+- Main case：`src/render/tests/local_effects_and_hsl.rs::hsl_adjusts_only_the_targeted_colour_band`
+- 当前 case：`tests/render_behavior.rs::hsl_saturation_changes_only_the_target_colour_family`
+- 状态：`rewritten`
+- 映射：Red band 去饱和后 channel spread `< 16` codes；Blue family 三通道相对
+  neutral render 偏移均不超过 2 codes。main 对 Yellow/Green/Aqua/Purple 的扩展
+  census 尚未由此 case 勾销，留给色族矩阵审计。
+
+### Local Temperature
+
+- Main case：`src/render/tests/local_wb_and_colour_management.rs::local_temperature_warms_the_masked_region_only`
+- 当前 case：`tests/render_behavior.rs::local_temperature_warms_only_the_covered_region`
+- 状态：`rewritten`
+- 映射：gradient 零端等于 neutral render；全覆盖端 red 上升且 blue 下降。main
+  对四行精确 coverage 权重的断言归入 linear-mask coverage 审计，不混入 WB case。
+
+### Sharpening
+
+- Main case：`src/render/tests/dehaze_texture_clarity.rs::sharpening_raises_local_contrast_at_an_edge`
+- 当前 case：`tests/render_behavior.rs::sharpening_strengthens_an_edge_without_moving_far_flat_pixels`
+- 状态：`rewritten`
+- 映射：真实预览的边缘 step 必须变强，Gaussian 支持范围外的平坦像素逐字节不变。
+  main 的 float 通道灰度相等断言尚未由此 case 勾销，留给 detail colour-neutral
+  审计。
+
+### RGB curves
+
+- Main case：`src/render/tests/local_effects_and_hsl.rs::rgb_curves_shape_each_channel_independently`
+- 当前 case：`tests/render_behavior.rs::each_rgb_curve_controls_only_its_own_channel`
+- 状态：`rewritten`
+- 映射：Red/Green/Blue 三条公开 recipe 曲线逐一运行；目标通道从黑场提升超过 38
+  codes，其余通道保持低于 5 codes。
+
+共同 mutation 证据：临时让公开 `develop_preview` 原样返回输入后，上述六个非中性
+case 分别在自身的 Dehaze、局部覆盖、HSL、Temperature、Sharpening 和 RGB curve
+断言处失败；neutral case 按 premise 继续通过。结合 neutral 的 `+1 EV` mutation，
+七个新增不变量都有对应红灯。生产 `src/render/develop.rs` 已恢复、无最终 diff。
+
 ## 明确不迁移的旧机制
 
 以下机制发现即逐 case 归入 `lint` 或 `drop`，不能复制到当前测试：

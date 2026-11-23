@@ -1,0 +1,286 @@
+use autoshade::recipe::{CurvePoint, EditRecipe, LocalAdjustment, MaskGeometry};
+use image::{DynamicImage, Rgb, RgbImage};
+
+fn render(source: &RgbImage, recipe: &EditRecipe) -> RgbImage {
+    autoshade::render::develop_preview(
+        &DynamicImage::ImageRgb8(source.clone()),
+        recipe,
+    )
+    .to_rgb8()
+}
+
+fn luma(pixel: &Rgb<u8>) -> f64 {
+    0.299 * f64::from(pixel[0])
+        + 0.587 * f64::from(pixel[1])
+        + 0.114 * f64::from(pixel[2])
+}
+
+fn mean_chroma(image: &RgbImage) -> f64 {
+    image
+        .pixels()
+        .map(|pixel| {
+            let min = pixel[0].min(pixel[1]).min(pixel[2]);
+            let max = pixel[0].max(pixel[1]).max(pixel[2]);
+            f64::from(max - min)
+        })
+        .sum::<f64>()
+        / f64::from(image.width() * image.height())
+}
+
+fn luma_spread(image: &RgbImage) -> f64 {
+    let mut values = image.pixels().map(luma).collect::<Vec<_>>();
+    values.sort_by(f64::total_cmp);
+    values[values.len() * 9 / 10] - values[values.len() / 10]
+}
+
+fn srgb_to_linear(channel: f32) -> f32 {
+    if channel <= 0.04045 {
+        channel / 12.92
+    } else {
+        ((channel + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn linear_to_srgb(channel: f32) -> f32 {
+    if channel <= 0.003_130_8 {
+        channel * 12.92
+    } else {
+        1.055 * channel.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+fn hazy_ramp(width: u32, height: u32) -> RgbImage {
+    RgbImage::from_fn(width, height, |x, y| {
+        let light = x as f32 / (width - 1) as f32;
+        let clear = match y * 4 / height {
+            0 => [light, light, light],
+            1 => [light, light * 0.6, light * 0.2],
+            2 => [light * 0.2, light * 0.7, light],
+            _ => [light * 0.3, light, light * 0.4],
+        };
+        let hazy = clear.map(|channel| {
+            linear_to_srgb(srgb_to_linear(channel) * 0.55 + 0.9 * 0.45)
+        });
+        Rgb(hazy.map(|channel| (channel * 255.0).round() as u8))
+    })
+}
+
+#[test]
+fn a_neutral_recipe_preserves_the_delivered_pixels() {
+    let source = RgbImage::from_fn(32, 24, |x, y| {
+        Rgb([
+            ((x * 7 + y * 3) % 256) as u8,
+            ((x * 5 + y * 11) % 256) as u8,
+            ((x * 13 + y * 2) % 256) as u8,
+        ])
+    });
+
+    let delivered = render(&source, &EditRecipe::default());
+    let max_delta = source
+        .pixels()
+        .zip(delivered.pixels())
+        .flat_map(|(before, after)| {
+            before
+                .0
+                .into_iter()
+                .zip(after.0)
+                .map(|(before, after)| before.abs_diff(after))
+        })
+        .max()
+        .unwrap();
+
+    assert!(
+        max_delta <= 1,
+        "a neutral develop moved a channel by {max_delta} codes"
+    );
+}
+
+#[test]
+fn positive_dehaze_restores_tonal_span_and_colour() {
+    let source = hazy_ramp(64, 32);
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            dehaze: 50.0,
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(
+        luma_spread(&delivered) > luma_spread(&source) * 1.15,
+        "dehaze did not restore the tonal span"
+    );
+    assert!(
+        mean_chroma(&delivered) > mean_chroma(&source) * 1.10,
+        "dehaze did not restore colour separation"
+    );
+}
+
+#[test]
+fn local_dehaze_leaves_uncovered_pixels_unchanged() {
+    let source = hazy_ramp(64, 16);
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.5,
+                    zero_y: 0.0,
+                    full_x: 0.0,
+                    full_y: 0.0,
+                },
+                amount: 1.0,
+                dehaze: 100.0,
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(
+        delivered.get_pixel(0, 8) != neutral.get_pixel(0, 8),
+        "the fully covered area did not receive local dehaze"
+    );
+    for y in 0..source.height() {
+        for x in source.width() / 2..source.width() {
+            assert_eq!(
+                delivered.get_pixel(x, y),
+                neutral.get_pixel(x, y),
+                "local dehaze leaked into uncovered pixel ({x}, {y})"
+            );
+        }
+    }
+}
+
+#[test]
+fn hsl_saturation_changes_only_the_target_colour_family() {
+    let source = RgbImage::from_raw(2, 1, vec![204, 26, 26, 26, 26, 204]).unwrap();
+    let mut recipe = EditRecipe::default();
+    recipe.hsl.saturation[0] = -100.0;
+
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(&source, &recipe);
+    let red = delivered.get_pixel(0, 0);
+    let red_spread = red[0].max(red[1]).max(red[2]) - red[0].min(red[1]).min(red[2]);
+
+    assert!(red_spread < 16, "the red family did not desaturate: {red:?}");
+    for channel in 0..3 {
+        assert!(
+            delivered.get_pixel(1, 0)[channel].abs_diff(neutral.get_pixel(1, 0)[channel]) <= 2,
+            "the red control moved the blue family: {:?} -> {:?}",
+            neutral.get_pixel(1, 0),
+            delivered.get_pixel(1, 0)
+        );
+    }
+}
+
+#[test]
+fn local_temperature_warms_only_the_covered_region() {
+    let source = RgbImage::from_pixel(1, 4, Rgb([128, 128, 128]));
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.5,
+                    zero_y: 0.125,
+                    full_x: 0.5,
+                    full_y: 0.875,
+                },
+                amount: 1.0,
+                temperature: 100.0,
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        },
+    );
+
+    assert_eq!(delivered.get_pixel(0, 0), neutral.get_pixel(0, 0));
+    let warm = delivered.get_pixel(0, 3);
+    assert!(
+        warm[0] > neutral.get_pixel(0, 3)[0]
+            && warm[2] < neutral.get_pixel(0, 3)[2],
+        "the covered region did not warm: {:?} -> {warm:?}",
+        neutral.get_pixel(0, 3)
+    );
+}
+
+#[test]
+fn sharpening_strengthens_an_edge_without_moving_far_flat_pixels() {
+    let source = RgbImage::from_fn(32, 8, |x, _| {
+        if x < 16 {
+            Rgb([77, 77, 77])
+        } else {
+            Rgb([179, 179, 179])
+        }
+    });
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            sharpening: 120.0,
+            ..EditRecipe::default()
+        },
+    );
+    let before = i16::from(neutral.get_pixel(16, 4)[0])
+        - i16::from(neutral.get_pixel(15, 4)[0]);
+    let after = i16::from(delivered.get_pixel(16, 4)[0])
+        - i16::from(delivered.get_pixel(15, 4)[0]);
+
+    assert!(after > before, "sharpening did not strengthen the edge");
+    for x in [0, 1, 30, 31] {
+        assert_eq!(
+            delivered.get_pixel(x, 4),
+            neutral.get_pixel(x, 4),
+            "sharpening moved far flat pixel {x}"
+        );
+    }
+}
+
+#[test]
+fn each_rgb_curve_controls_only_its_own_channel() {
+    let source = RgbImage::from_pixel(1, 1, Rgb([0, 0, 0]));
+    let lift = || {
+        vec![
+            CurvePoint {
+                input: 0,
+                output: 60,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ]
+    };
+    let recipes = [
+        EditRecipe {
+            red_curve: lift(),
+            ..EditRecipe::default()
+        },
+        EditRecipe {
+            green_curve: lift(),
+            ..EditRecipe::default()
+        },
+        EditRecipe {
+            blue_curve: lift(),
+            ..EditRecipe::default()
+        },
+    ];
+
+    for (expected_channel, recipe) in recipes.iter().enumerate() {
+        let delivered = render(&source, recipe);
+        let pixel = delivered.get_pixel(0, 0);
+        assert!(
+            pixel[expected_channel] > 38,
+            "channel {expected_channel} was not lifted: {pixel:?}"
+        );
+        for channel in (0..3).filter(|channel| *channel != expected_channel) {
+            assert!(
+                pixel[channel] < 5,
+                "curve for channel {expected_channel} moved channel {channel}: {pixel:?}"
+            );
+        }
+    }
+}
