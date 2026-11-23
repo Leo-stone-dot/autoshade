@@ -28,6 +28,227 @@ fn textured(width: usize, height: usize) -> Vec<[f32; 3]> {
         .collect()
 }
 
+fn gaussian_blur(plane: &[f32], width: usize, height: usize, sigma: f32) -> Vec<f32> {
+    let radius = (3.0 * sigma).ceil() as isize;
+    let mut kernel = (-radius..=radius)
+        .map(|offset| (-(offset as f32).powi(2) / (2.0 * sigma * sigma)).exp())
+        .collect::<Vec<_>>();
+    let sum = kernel.iter().sum::<f32>();
+    for weight in &mut kernel {
+        *weight /= sum;
+    }
+    let sample = |values: &[f32], x: isize, y: isize| {
+        let x = x.clamp(0, width as isize - 1) as usize;
+        let y = y.clamp(0, height as isize - 1) as usize;
+        values[y * width + x]
+    };
+    let mut horizontal = vec![0.0; width * height];
+    for y in 0..height {
+        for x in 0..width {
+            horizontal[y * width + x] = (-radius..=radius)
+                .zip(&kernel)
+                .map(|(offset, weight)| weight * sample(plane, x as isize + offset, y as isize))
+                .sum();
+        }
+    }
+    let mut vertical = vec![0.0; width * height];
+    for y in 0..height {
+        for x in 0..width {
+            vertical[y * width + x] = (-radius..=radius)
+                .zip(&kernel)
+                .map(|(offset, weight)| {
+                    weight * sample(&horizontal, x as isize, y as isize + offset)
+                })
+                .sum();
+        }
+    }
+    vertical
+}
+
+fn detail_energy(frame: &[[f32; 3]], width: usize, height: usize, left: bool) -> f32 {
+    let grey = frame
+        .iter()
+        .map(|pixel| (pixel[0] + pixel[1] + pixel[2]) / 3.0)
+        .collect::<Vec<_>>();
+    (0..width * height)
+        .filter(|index| (index % width < width / 2) == left)
+        .map(|index| {
+            let x = index % width;
+            let y = index / width;
+            let sample = |x: usize, y: usize| grey[y * width + x];
+            let left = sample(x.saturating_sub(1), y);
+            let right = sample((x + 1).min(width - 1), y);
+            let up = sample(x, y.saturating_sub(1));
+            let down = sample(x, (y + 1).min(height - 1));
+            (left + right + up + down - 4.0 * grey[index]).abs()
+        })
+        .sum()
+}
+
+fn mean_interior(
+    frame: &[[f32; 3]],
+    width: usize,
+    height: usize,
+    pick: impl Fn(&[f32; 3]) -> f32,
+) -> f32 {
+    let values = (0..width * height)
+        .filter(|index| {
+            (8..width - 8).contains(&(index % width)) && (8..height - 8).contains(&(index / width))
+        })
+        .map(|index| pick(&frame[index]))
+        .collect::<Vec<_>>();
+    values.iter().sum::<f32>() / values.len() as f32
+}
+
+fn saturation(pixel: &[f32; 3]) -> f32 {
+    let mean = pixel.iter().sum::<f32>() / 3.0;
+    (pixel
+        .iter()
+        .map(|value| (value - mean).powi(2))
+        .sum::<f32>()
+        / 3.0)
+        .sqrt()
+}
+
+#[test]
+fn a_focus_stack_reproduces_the_sharp_frame_on_both_sides() {
+    let (width, height) = (128, 96);
+    let sharp = (0..width * height)
+        .map(|index| {
+            let on = (index % width) % 24 < 4 || (index / width) % 32 < 4;
+            let value = if on { 0.72 } else { 0.32 };
+            [value, value * 0.98, value * 1.02]
+        })
+        .collect::<Vec<_>>();
+    let planes = (0..3)
+        .map(|channel| sharp.iter().map(|pixel| pixel[channel]).collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    let soft = planes
+        .iter()
+        .map(|plane| gaussian_blur(plane, width, height, 3.0))
+        .collect::<Vec<_>>();
+    let mix = |left_sharp: bool| {
+        (0..width * height)
+            .map(|index| {
+                let use_sharp = (index % width < width / 2) == left_sharp;
+                std::array::from_fn(|channel| {
+                    if use_sharp {
+                        sharp[index][channel]
+                    } else {
+                        soft[channel][index]
+                    }
+                })
+            })
+            .collect::<Vec<_>>()
+    };
+    let frames = vec![mix(true), mix(false)];
+
+    for (index, sharp_left) in [(0, true), (1, false)] {
+        assert!(
+            detail_energy(&frames[index], width, height, sharp_left)
+                > 3.0 * detail_energy(&frames[index], width, height, !sharp_left)
+        );
+    }
+    let merged = merge(
+        &frames,
+        width,
+        height,
+        &MergeOptions {
+            kind: StackKind::Focus,
+            align: None,
+        },
+    )
+    .unwrap();
+
+    for left in [true, false] {
+        assert!(
+            detail_energy(&merged.pixels, width, height, left)
+                > 0.99 * detail_energy(&sharp, width, height, left)
+        );
+    }
+    let seam = width / 2 - 12..width / 2 + 12;
+    let worst = (0..width * height)
+        .filter(|index| {
+            (8..width - 8).contains(&(index % width))
+                && (8..height - 8).contains(&(index / width))
+                && !seam.contains(&(index % width))
+        })
+        .map(|index| (merged.pixels[index][1] - sharp[index][1]).abs())
+        .fold(0.0_f32, f32::max);
+    assert!(worst < 0.02, "worst={worst}");
+}
+
+#[test]
+fn exposure_fusion_prefers_colour_when_detail_is_equal() {
+    let (width, height) = (96, 72);
+    let texture = |index: usize| {
+        let (x, y) = ((index % width) as f32, (index / width) as f32);
+        0.07 * (x * 1.1).sin() * (y * 0.9).cos()
+    };
+    let coloured = (0..width * height)
+        .map(|index| {
+            let value = 0.5 + texture(index);
+            [value + 0.15, value, value - 0.15]
+        })
+        .collect::<Vec<_>>();
+    let grey = (0..width * height)
+        .map(|index| {
+            let value = 0.5 + texture(index);
+            [value; 3]
+        })
+        .collect::<Vec<_>>();
+
+    let merged = merge(
+        &[coloured.clone(), grey],
+        width,
+        height,
+        &MergeOptions {
+            kind: StackKind::Fuse,
+            align: None,
+        },
+    )
+    .unwrap();
+    let got = mean_interior(&merged.pixels, width, height, saturation);
+    let expected = mean_interior(&coloured, width, height, saturation);
+
+    assert!(got > 0.7 * expected, "got={got} expected={expected}");
+}
+
+#[test]
+fn exposure_fusion_prefers_midtones_when_detail_is_equal() {
+    let (width, height) = (96, 72);
+    let texture = |index: usize| {
+        let (x, y) = ((index % width) as f32, (index / width) as f32);
+        0.07 * (x * 1.1).sin() * (y * 0.9).cos()
+    };
+    let middle = (0..width * height)
+        .map(|index| {
+            let value = 0.5 + texture(index);
+            [value; 3]
+        })
+        .collect::<Vec<_>>();
+    let pale = (0..width * height)
+        .map(|index| {
+            let value = 0.88 + texture(index);
+            [value; 3]
+        })
+        .collect::<Vec<_>>();
+
+    let merged = merge(
+        &[middle, pale],
+        width,
+        height,
+        &MergeOptions {
+            kind: StackKind::Fuse,
+            align: None,
+        },
+    )
+    .unwrap();
+    let level = mean_interior(&merged.pixels, width, height, |pixel| pixel[1]);
+
+    assert!(level < 0.6, "level={level}");
+}
+
 #[test]
 fn exposure_fusion_recovers_contrast_in_both_halves_of_a_bracket() {
     let (width, height) = (128, 96);
