@@ -994,6 +994,29 @@ fn deleting_a_missing_version_returns_not_found_without_burning_its_number() {
 }
 
 #[test]
+fn an_interrupted_version_delete_finishes_on_recovery_and_burns_the_number() {
+    let store = TempStore::new("recover-version-delete");
+    let raw = photo(store.root(), "recover-version.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    std::fs::write(version_target(&raw, 1), b"{}").unwrap();
+    let blocked_raster = develop.join("v1.mask-sky.png");
+    std::fs::create_dir(&blocked_raster).unwrap();
+
+    assert!(delete_version(&raw, 1).is_err());
+    assert!(list_versions(&raw).is_empty());
+    std::fs::remove_dir(&blocked_raster).unwrap();
+
+    recover_orphan_baks(&raw).unwrap();
+
+    assert!(!version_target(&raw, 1).exists());
+    assert!(list_versions(&raw).is_empty());
+    let (next, claim) = claim_version(&raw).unwrap();
+    assert_eq!(next, 2);
+    assert!(claim.exists());
+}
+
+#[test]
 fn a_develop_commit_publishes_recipe_pixels_and_variants_together() {
     let store = TempStore::new("commit-generation");
     let raw = photo(store.root(), "commit.dng");
