@@ -16,12 +16,13 @@ use autoshade::recipe::{EditRecipe, LocalAdjustment, MaskGeometry};
 use autoshade::store::{
     ActiveWrite, CommitMember, DevelopCommit, EditStateKind, VariantEntry, VariantsRead,
     VariantsRecord, DevelopLockMode, LrSidecar, MAX_STORE_JSON, OwnedRaster,
-    backup_saved_develop, clear_develop, commit_develop, develop_dir, export_xmp_beside,
-    lightroom_sidecar, list_edits, migrate_legacy, photo_key, pixel_source_path,
+    backup_saved_develop, clear_develop, commit_develop, detach_rasters, develop_dir,
+    export_xmp_beside, has_develop, has_pixel_source, lightroom_sidecar, list_edits,
+    migrate_legacy, migrate_legacy_from_many, photo_key, pixel_source_path,
     read_develop_snapshot, read_pixel_source, read_variants_checked, recipe_revision,
-    recipe_target, recover_orphan_baks, saved_quarter_turns, set_version_name,
-    variants_member, variants_path, version_target, volume_folds_case,
-    with_develop_lock, with_settings_lock, write_variants, xmp_target,
+    recipe_target, recover_orphan_baks, render_source_checked, saved_quarter_turns,
+    set_version_name, variants_member, variants_path, version_target, volume_folds_case,
+    with_develop_lock, with_settings_lock, write_pixel_source, write_variants, xmp_target,
 };
 use autoshade::pipeline::{ProjectionOutcome, commit_analyzed_develop};
 
@@ -697,6 +698,7 @@ fn an_unknown_pixel_source_kind_is_refused_without_rewriting_the_record() {
     std::fs::write(pixel_source_path(&raw), bytes).unwrap();
 
     assert!(read_pixel_source(&raw).is_none());
+    assert!(has_pixel_source(&raw));
     assert_eq!(std::fs::read(pixel_source_path(&raw)).unwrap(), bytes);
 }
 
@@ -848,6 +850,50 @@ fn an_empty_develop_snapshot_reports_absence_without_an_error() {
 }
 
 #[test]
+fn an_empty_recorded_master_is_refused_without_falling_back_to_the_source() {
+    let store = TempStore::new("empty-recorded-master");
+    let raw = photo(store.root(), "empty-master.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    let master = develop.join("retouch-master.png");
+    std::fs::write(&master, b"").unwrap();
+    write_pixel_source(&raw, &master, false).unwrap();
+
+    assert!(read_pixel_source(&raw).is_none());
+    assert!(has_pixel_source(&raw));
+    let error = render_source_checked(&raw, &mut EditRecipe::default()).unwrap_err();
+    assert!(error.contains("saved retouch master could not be loaded"));
+}
+
+#[test]
+fn a_detached_snapshot_raster_survives_deleting_its_source() {
+    let store = TempStore::new("detach-snapshot-raster");
+    let raw = photo(store.root(), "detach.dng");
+    let snapshot = store.root().join("snapshot-mask.png");
+    std::fs::write(&snapshot, b"snapshot raster").unwrap();
+    let mut recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: snapshot.to_string_lossy().into_owned(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    detach_rasters(&raw, &mut recipe, "restored-mask");
+    let MaskGeometry::Bitmap { path } = &recipe.masks[0].mask else {
+        panic!("the detached mask remains a bitmap")
+    };
+    let detached = PathBuf::from(path);
+    assert_ne!(detached, snapshot);
+    assert_eq!(std::fs::read(&detached).unwrap(), b"snapshot raster");
+
+    std::fs::remove_file(&snapshot).unwrap();
+    assert_eq!(std::fs::read(detached).unwrap(), b"snapshot raster");
+}
+
+#[test]
 fn exporting_a_sidecar_does_not_replace_lightrooms_existing_file_without_permission() {
     let store = TempStore::new("export-xmp");
     let raw = photo(store.root(), "sidecar.dng");
@@ -880,6 +926,30 @@ fn a_legacy_recipe_and_xmp_are_migrated_into_the_develop_store() {
 
     assert_eq!(std::fs::read(recipe_target(&raw)).unwrap(), recipe);
     assert_eq!(std::fs::read(xmp_target(&raw)).unwrap(), xmp);
+}
+
+#[test]
+fn a_gallery_import_leaves_an_explicitly_cleared_develop_absent() {
+    let store = TempStore::new("cleared-gallery-import");
+    let legacy = store.root().join("gallery-legacy");
+    std::fs::create_dir(&legacy).unwrap();
+    let raw = photo(store.root(), "cleared-import.dng");
+    let legacy_recipe = legacy.join(format!(
+        "{}.recipe.json",
+        autoshade::pipeline::stem(&raw)
+    ));
+    std::fs::write(
+        &legacy_recipe,
+        serde_json::to_vec_pretty(&valid_recipe()).unwrap(),
+    )
+    .unwrap();
+    clear_develop(&raw).unwrap();
+
+    let imported = migrate_legacy_from_many(&legacy, std::slice::from_ref(&raw));
+
+    assert_eq!(imported, 0);
+    assert!(!recipe_target(&raw).exists());
+    assert!(legacy_recipe.exists());
 }
 
 #[test]
@@ -981,6 +1051,130 @@ fn clearing_a_develop_removes_backups_that_could_resurrect_it() {
     assert!(!recipe_target(&raw).exists());
     assert!(!dev.join("recipe.json.bak").exists());
     assert!(!dev.join("pixels.json.bak").exists());
+}
+
+#[test]
+fn a_cleared_develop_stays_absent_after_a_recovery_touch() {
+    let store = TempStore::new("clear-no-resurrection");
+    let raw = photo(store.root(), "clear-recovery.dng");
+    let develop = develop_dir(&raw);
+    std::fs::create_dir_all(&develop).unwrap();
+    std::fs::write(develop.join("master-one.png"), b"one").unwrap();
+    std::fs::write(develop.join("master-two.png"), b"two").unwrap();
+
+    for (recipe, master, kind) in [
+        (
+            br#"{"exposure_ev":0.25}"#.to_vec(),
+            "master-one.png",
+            "original",
+        ),
+        (
+            br#"{"exposure_ev":0.75}"#.to_vec(),
+            "master-two.png",
+            "edited",
+        ),
+    ] {
+        commit_develop(
+            &raw,
+            DevelopCommit {
+                recipe: Some(recipe),
+                pixels: CommitMember::Write(
+                    serde_json::to_vec(&serde_json::json!({
+                        "origin": master,
+                        "kind": "inplace",
+                    }))
+                    .unwrap(),
+                ),
+                variants: CommitMember::Write(
+                    serde_json::to_vec(&serde_json::json!({
+                        "v": 1,
+                        "active_kind": kind,
+                        "active_pos": 0,
+                        "others": [],
+                    }))
+                    .unwrap(),
+                ),
+                xmp: CommitMember::Write(format!("<x:xmpmeta>{kind}</x:xmpmeta>").into_bytes()),
+            },
+        )
+        .unwrap();
+    }
+
+    clear_develop(&raw).unwrap();
+    recover_orphan_baks(&raw).unwrap();
+    let snapshot = read_develop_snapshot(&raw).unwrap();
+
+    assert!(!has_develop(&raw));
+    assert!(snapshot.recipe.is_none());
+    assert!(snapshot.store_xmp.is_none());
+    assert!(!snapshot.pixel_recorded);
+    assert!(snapshot.pixel_source.is_none());
+    assert!(matches!(read_variants_checked(&raw), VariantsRead::Absent));
+}
+
+#[test]
+fn clearing_a_develop_suppresses_legacy_files_without_deleting_them() {
+    let (store, legacy) = TempStore::with_legacy("clear-legacy");
+    let raw = photo(store.root(), "clear-legacy.dng");
+    let stem = autoshade::pipeline::stem(&raw);
+    let legacy_recipe = legacy.join(format!("{stem}.recipe.json"));
+    let legacy_xmp = legacy.join(format!("{stem}.xmp"));
+    let recipe = serde_json::to_vec(&valid_recipe()).unwrap();
+    let xmp = b"<x:xmpmeta/>";
+    std::fs::write(&legacy_recipe, &recipe).unwrap();
+    std::fs::write(&legacy_xmp, xmp).unwrap();
+
+    let outcome = clear_develop(&raw).unwrap();
+
+    assert!(outcome.removed);
+    assert!(!has_develop(&raw));
+    assert_eq!(std::fs::read(legacy_recipe).unwrap(), recipe);
+    assert_eq!(std::fs::read(legacy_xmp).unwrap(), xmp);
+}
+
+#[test]
+fn clearing_an_empty_develop_is_an_idempotent_noop() {
+    let store = TempStore::new("clear-idempotent");
+    let raw = photo(store.root(), "clear-empty.dng");
+
+    assert!(!clear_develop(&raw).unwrap().removed);
+    assert!(!clear_develop(&raw).unwrap().removed);
+}
+
+#[test]
+fn a_clear_outranks_an_older_lightroom_sidecar_but_not_a_later_edit() {
+    use std::time::{Duration as StdDuration, SystemTime};
+
+    let store = TempStore::new("clear-lightroom-order");
+    let raw = photo(store.root(), "clear-order.arw");
+    let sidecar = raw.with_extension("xmp");
+    let lightroom = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        contrast: 30.0,
+        ..EditRecipe::default()
+    });
+    std::fs::write(&sidecar, &lightroom).unwrap();
+    let now = SystemTime::now();
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&sidecar)
+        .unwrap()
+        .set_modified(now - StdDuration::from_secs(7200))
+        .unwrap();
+
+    let outcome = clear_develop(&raw).unwrap();
+    assert!(outcome.marker_warning.is_none());
+    assert!(matches!(lightroom_sidecar(&raw), LrSidecar::None));
+
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&sidecar)
+        .unwrap()
+        .set_modified(now + StdDuration::from_secs(7200))
+        .unwrap();
+    assert!(matches!(
+        lightroom_sidecar(&raw),
+        LrSidecar::Only(text) if text == lightroom
+    ));
 }
 
 #[test]

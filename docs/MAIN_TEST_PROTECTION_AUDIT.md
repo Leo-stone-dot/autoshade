@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：536 cases，约 1,343 个断言宏，33 个显式 ignore。
+- 当前工作树：543 cases，约 1,369 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，115 条 `rewritten`、11 条
-`lint`、2,155 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，121 条 `rewritten`、11 条
+`lint`、2,149 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1129,7 +1129,7 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 
 #### Store 子模块的已闭合文件结果
 
-`src/store/tests.rs` 本批逐断言闭合 8 条：
+`src/store/tests.rs` 截至本批逐断言闭合 16 条：
 
 | main case | 当前执行者 | 保留的产品契约 |
 | --- | --- | --- |
@@ -1143,6 +1143,30 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `unknown_store_kinds_are_refused_without_rewriting_the_newer_record` | unknown pixel/variant cases | 两类 future kind均 unresolved且原 bytes不重写 |
 | `a_develop_commit_lands_all_four_or_nothing` | first-generation / member-actions / unresolved-variant cases | 四成员同代落盘、下一代 write/clear/keep、stage清理、拒绝时全不落 |
 | `read_text_capped_enforces_its_limit` | `a_store_read_past_its_byte_cap_is_refused` | at-cap通过，over-cap InvalidData命名limit，NotFound透传，坏UTF-8拒绝 |
+| `an_empty_master_claim_is_refused_not_restored` | `an_empty_recorded_master_is_refused_without_falling_back_to_the_source` | 空 master不可读但 record仍存在，render-source公开入口拒绝静默回退 |
+| `detach_rasters_frees_a_loaded_version_from_its_snapshot` | `a_detached_snapshot_raster_survives_deleting_its_source` | recipe改指独立同字节 raster，删除原 snapshot后仍可读 |
+| `a_gallery_import_leaves_a_cleared_develop_alone` | `a_gallery_import_leaves_an_explicitly_cleared_develop_absent` | clear后的批量导入为0，central recipe不复活，legacy输入不被消费 |
+| `orphan_bak_is_restored_on_read` | orphan restore + live-wins + unusable-record cases | orphan恢复、live owner胜出、absent与recorded-but-unusable可区分 |
+| `a_cleared_develop_outranks_the_stale_copied_projection` | `a_clear_outranks_an_older_lightroom_sidecar_but_not_a_later_edit` | 旧sidecar不复活，clear之后的新Lightroom编辑仍胜出 |
+| `clear_develop_leaves_no_resurrection_route` | clear live/backups + recovery + legacy suppression + idempotence cases | 当前develop与恢复路线清除、版本保留、legacy按照片抑制、重复clear无删除 |
+
+`clear_develop_leaves_no_resurrection_route` 有一组 main 断言不能原样保留：
+旧 case 要求物理删除 stem-only legacy recipe/XMP；当前产品契约改为写入按照片
+tombstone、让这些共享 bytes 对该照片不可见但不删除。直接删除可能同时删除另一目录中
+同 stem 照片仍需迁移的唯一旧数据。因此这两条断言归为“已被当前公开行为取代”，不是
+缺失测试；当前 case 同时断言 `has_develop == false` 与 legacy bytes 原样保留。
+
+本批新增 case 的逐断言组映射：
+
+| main 断言组 | 当前执行者 | 失败所代表的产品故障 |
+| --- | --- | --- |
+| 空 master读取为None，但record仍计为存在 | empty recorded-master case | 导出接受空文件，或把已损坏retouch误当成从未保存而静默回退 |
+| detach后路径不同、bytes相同、源删后副本仍在 | detached snapshot-raster case | 加载版本仍引用快照所有物，删版本后当前编辑丢mask |
+| clear后gallery import为0、central缺失、legacy输入仍在 | cleared gallery-import case | 用户明确清除后，批量导入把旧编辑复活或消费旧证据 |
+| orphan恢复并消费；live不被旧copy覆盖；unusable record不等于absent | orphan/live/unknown-pixel/empty-snapshot cases | 崩溃后的最新保存丢失、并发新保存被覆盖，或坏master静默降级 |
+| 旧Lightroom sidecar输给clear，后写sidecar胜出 | clear/Lightroom ordering case | Reset+Save立即复活旧编辑，或之后的真实Lightroom编辑永远无法恢复 |
+| live成员消失、version保留、恢复后仍为空、重复clear报告no-op | clear result/recovery/idempotence cases | 清除半成品复活、误删历史版本，或UI谎报删除了不存在的develop |
+| legacy文件对该照片不可见但原bytes保留 | legacy suppression case | 同stem照片共享的旧数据被误删，或被清除照片仍读取旧数据 |
 
 新增 mutation 证据：
 
@@ -1156,13 +1180,24 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 - XMP write no-op、member Clear no-op、绕过 unresolved-strip gate时，commit cases分别在
   XMP缺失、pixels仍存在、错误变 `Ok` 处红。
 - capped reader把 `>` 改成 `>=` 时，正好8-byte输入被错误拒绝并红。
+- detach成功后不更新recipe path时，case在“仍指向snapshot”处红。
+- 跳过0-byte master gate时，empty-master case在公开读取返回Some处红；把
+  `has_pixel_source`错误收窄成“必须可读”时，unknown-kind case在record存在断言处红。
+- gallery import忽略clear tombstone时，迁移数由0变1并红。
+- Lightroom排序忽略clear时间时旧sidecar复活并红；反过来让clear永远胜出时，
+  post-clear新编辑无法恢复并红。
+- clear不删除retired variants成员时，下一次公开recovery恢复strip并红。
+- clear漏写legacy抑制时 `has_develop`仍为true；改回物理删除legacy bytes时，
+  保留共享旧数据的断言红。
+- `ClearOutcome.removed`无条件报true时，空develop幂等case红。
 - lock bypass的 thread/process mutation证据已登记于
   `docs/BEHAVIOR_PROTECTION.md`。
 
 以下相邻 main cases继续 `open`，因为仍有断言未执行：组合式
-`orphan_bak_is_restored_on_read`、完整 `clear_develop_leaves_no_resurrection_route`、
-`a_half_applied_commit_finishes_instead_of_tearing`，以及需要真实 crash marker/subprocess
-fault injection 的 version-delete恢复。不能用本批的局部相似行为提前勾销。
+`a_half_applied_commit_finishes_instead_of_tearing`、
+`a_pending_clear_outranks_the_sidecar_beside_the_photo`，以及需要真实 crash
+marker/subprocess fault injection 的 version-delete恢复。不能用本批的局部相似行为
+提前勾销。
 
 ### 零强度 developed denoise 是无损 no-op
 
@@ -1215,7 +1250,7 @@ typed notes；当前 case 依次在三条对应断言处失败。三次均已恢
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
-| `tests/store_behavior.rs` | 48 source / 46 macOS | key identity、atomic commit、locks、recovery、ownership | Store | Windows key aliases、crash fault injection |
+| `tests/store_behavior.rs` | 55 source / 53 macOS | key identity、atomic commit、locks、recovery、clear/legacy ordering、ownership | Store | Windows key aliases、crash fault injection |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
 | `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
