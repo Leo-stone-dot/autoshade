@@ -2234,6 +2234,41 @@ fn partial_mask_value_refuses_default_and_subtract_components() {
     }
 }
 
+#[test]
+fn lightroom_roundness_values_are_carried_without_rescaling() {
+    for (spelling, expected) in [("-30", -30.0), ("+45", 45.0), ("1", 1.0), ("0.25", 0.25)] {
+        let document =
+            lightroom_radial_value_document("0", "1").replace(r#"crs:Roundness="0""#, &format!(r#"crs:Roundness="{spelling}""#));
+        let restored = autoshade::xmp::xmp_to_recipe(&document);
+
+        assert_eq!(restored.masks.len(), 1);
+        assert!(autoshade::xmp::import_losses(&document).is_empty());
+        let MaskGeometry::Radial { roundness, .. } = restored.masks[0].mask else {
+            panic!("Roundness={spelling} keeps a radial");
+        };
+        assert_eq!(roundness, expected);
+
+        let rewritten = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&restored));
+        let MaskGeometry::Radial {
+            roundness: reread,
+            ..
+        } = autoshade::xmp::xmp_to_recipe(&rewritten).masks[0].mask
+        else {
+            panic!("Roundness={spelling} survives the writer");
+        };
+        assert_eq!(reread, expected);
+    }
+}
+
+#[test]
+fn roundness_past_lightroom_range_refuses_the_radial() {
+    let document =
+        lightroom_radial_value_document("0", "1").replace(r#"crs:Roundness="0""#, r#"crs:Roundness="101""#);
+
+    assert!(autoshade::xmp::xmp_to_recipe(&document).masks.is_empty());
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 1);
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
