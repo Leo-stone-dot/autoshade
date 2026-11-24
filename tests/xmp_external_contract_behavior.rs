@@ -2205,11 +2205,15 @@ fn lightroom_radial_value_document(blend: &str, value: &str) -> String {
 }
 
 fn lightroom_radial_component(blend: &str, value: &str) -> String {
+    lightroom_radial_component_at(blend, value, "0")
+}
+
+fn lightroom_radial_component_at(blend: &str, value: &str, angle: &str) -> String {
     format!(
         r#"<rdf:li crs:What="Mask/CircularGradient" crs:MaskActive="true"
  crs:MaskBlendMode="{blend}" crs:MaskInverted="false" crs:MaskValue="{value}"
  crs:Top="0.1" crs:Left="0.2" crs:Bottom="0.8" crs:Right="0.9"
- crs:Feather="100" crs:Roundness="0" crs:Flipped="true" crs:Angle="0"/>"#
+ crs:Feather="100" crs:Roundness="0" crs:Flipped="true" crs:Angle="{angle}"/>"#
     )
 }
 
@@ -2260,6 +2264,37 @@ fn lightroom_component_stack_uses_the_first_add_as_base_and_keeps_every_shape() 
             .iter()
             .any(|loss| loss.reason == MaskImportReason::MultiComponent));
     }
+}
+
+#[test]
+fn stacked_radial_rotation_is_disclosed_without_false_composition_losses() {
+    for components in [
+        vec![
+            lightroom_linear_component("0", "1"),
+            lightroom_radial_component_at("0", "1", "37.412506"),
+        ],
+        vec![
+            lightroom_radial_component_at("0", "1", "37.412506"),
+            lightroom_linear_component("0", "1"),
+        ],
+    ] {
+        let document = lightroom_component_stack_document(&components);
+        let reasons = autoshade::xmp::import_losses(&document)
+            .into_iter()
+            .map(|loss| loss.reason)
+            .collect::<Vec<_>>();
+
+        assert!(reasons.contains(&MaskImportReason::Rotation(37)));
+        assert!(!reasons.contains(&MaskImportReason::MultiComponent));
+    }
+
+    let subtract = lightroom_component_stack_document(&[
+        lightroom_radial_component("0", "1"),
+        lightroom_linear_component("1", "0"),
+    ]);
+    assert!(!autoshade::xmp::import_losses(&subtract)
+        .iter()
+        .any(|loss| loss.reason == MaskImportReason::BlendMode));
 }
 
 fn lightroom_tinted_radial_document(saturation: &str) -> String {
