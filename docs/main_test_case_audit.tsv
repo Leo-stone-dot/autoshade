@@ -2060,7 +2060,7 @@ src/xmp/payload_tests.rs	611	a_zone_role_comes_back_from_the_name_when_no_intent
 src/xmp/payload_tests.rs	657	the_real_lightroom_rewrites_read_as_measured	41	default	open		Awaiting assertion-by-assertion review.
 src/xmp/payload_tests.rs	798	an_inversion_keeps_its_authored_home_through_a_rewrite_and_follows_a_lightroom_flip	8	default	open		Awaiting assertion-by-assertion review.
 src/xmp/payload_tests.rs	859	a_shared_raster_that_cannot_be_embedded_is_a_loss_for_every_mask_that_names_it	3	default	open		Awaiting assertion-by-assertion review.
-src/xmp/payload_tests.rs	894	a_recipe_that_inflates_past_the_ceiling_is_refused_as_too_large_not_as_corrupt	7	default	open		Awaiting assertion-by-assertion review.
+src/xmp/payload_tests.rs	894	a_recipe_that_inflates_past_the_ceiling_is_refused_as_too_large_not_as_corrupt	7	default	rewritten	tests/xmp_behavior.rs::an_inflated_recipe_over_the_ceiling_is_too_large_not_corrupt	A valid-CRC 17 MiB inflated payload is refused and disclosed as too large, never as a checksum error, while the public reader preserves the CRS exposure fallback.
 src/xmp/payload_tests.rs	930	a_claimed_name_whose_write_fails_is_released_not_left_half_written	2	default	open		Awaiting assertion-by-assertion review.
 src/xmp/payload_tests.rs	951	the_payload_carries_depth_protect_and_layer_paths_bare_and_refuses_a_share	4	default	open		Awaiting assertion-by-assertion review.
 src/xmp/payload_tests.rs	1026	our_own_sidecar_over_a_lightroom_base_reads_back_as_the_develop_it_carries	9	default	open		Awaiting assertion-by-assertion review.

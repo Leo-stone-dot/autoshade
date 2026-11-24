@@ -915,6 +915,50 @@ fn an_oversized_payload_raster_is_left_out_and_named_as_a_loss() {
 }
 
 #[test]
+fn an_inflated_recipe_over_the_ceiling_is_too_large_not_corrupt() {
+    use base64::Engine as _;
+    use std::io::Write as _;
+
+    let original = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        exposure_ev: 0.5,
+        ..EditRecipe::default()
+    });
+    let oversized = vec![b' '; 17 * 1024 * 1024];
+    let mut encoder =
+        flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
+    encoder.write_all(&oversized).unwrap();
+    let packed = base64::engine::general_purpose::STANDARD
+        .encode(encoder.finish().unwrap());
+    let recipe = xmp_attribute_values(&original, "asr:Recipe")[0];
+    let crc = xmp_attribute_values(&original, "asr:RecipeCrc32")[0];
+    let tampered = original
+        .replacen(
+            &format!("asr:Recipe=\"{recipe}\""),
+            &format!("asr:Recipe=\"{packed}\""),
+            1,
+        )
+        .replacen(
+            &format!("asr:RecipeCrc32=\"{crc}\""),
+            &format!("asr:RecipeCrc32=\"{:08x}\"", crc32fast::hash(&oversized)),
+            1,
+        );
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::pixels_only(&collector);
+
+    let restored = autoshade::xmp::xmp_to_recipe_with_diag(&tampered, &diag);
+    let lines = collector.take();
+    let disclosure = lines
+        .iter()
+        .map(|line| line.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(disclosure.contains("too large"), "{disclosure}");
+    assert!(!disclosure.contains("checksum"), "{disclosure}");
+    assert_eq!(restored.exposure_ev, 0.5);
+}
+
+#[test]
 fn a_corrupt_payload_is_disclosed_and_the_crs_projection_still_opens() {
     let recipe = EditRecipe {
         exposure_ev: 0.5,
