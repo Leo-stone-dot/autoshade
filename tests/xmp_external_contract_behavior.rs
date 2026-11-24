@@ -2352,6 +2352,14 @@ fn nonzero_corrected_depth_is_named_without_dropping_the_mask() {
     );
 }
 
+fn xmp_element_block<'a>(document: &'a str, name: &str) -> &'a str {
+    let open = format!("<{name}>");
+    let close = format!("</{name}>");
+    let start = document.find(&open).unwrap();
+    let end = document.find(&close).unwrap() + close.len();
+    &document[start..end]
+}
+
 #[test]
 fn untouched_lossy_mask_block_survives_recipe_persistence_and_merge() {
     let document = lightroom_radial_value_document("0", "1").replace(
@@ -2366,10 +2374,7 @@ fn untouched_lossy_mask_block_survives_recipe_persistence_and_merge() {
     let reloaded: EditRecipe = serde_json::from_str(&json).unwrap();
     assert_eq!(reloaded.masks, imported.masks);
 
-    let start = document.find("<crs:MaskGroupBasedCorrections>").unwrap();
-    let close = "</crs:MaskGroupBasedCorrections>";
-    let end = document.find(close).unwrap() + close.len();
-    let original = &document[start..end];
+    let original = xmp_element_block(&document, "crs:MaskGroupBasedCorrections");
     let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &reloaded).unwrap();
 
     assert!(merged.doc.contains(original));
@@ -2382,6 +2387,34 @@ fn untouched_lossy_mask_block_survives_recipe_persistence_and_merge() {
             .count(),
         1
     );
+}
+
+#[test]
+fn clean_lightroom_mask_block_survives_a_legacy_maskless_recipe() {
+    let document = lightroom_radial_value_document("0", "1");
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(imported.masks.len(), 1);
+    assert!(autoshade::xmp::import_losses(&document).is_empty());
+
+    let mut value = serde_json::to_value(&imported).unwrap();
+    let object = value.as_object_mut().unwrap();
+    object.remove("schema_era");
+    object.remove("masks");
+    let legacy: EditRecipe = serde_json::from_value(value).unwrap();
+    assert_eq!((legacy.schema_era, legacy.masks.len()), (0, 0));
+
+    let original = xmp_element_block(&document, "crs:MaskGroupBasedCorrections");
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &legacy).unwrap();
+
+    assert!(merged.doc.contains(original));
+    assert_eq!(
+        merged
+            .doc
+            .matches("<crs:MaskGroupBasedCorrections>")
+            .count(),
+        1
+    );
+    assert!(merged.notes.is_empty());
 }
 
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
