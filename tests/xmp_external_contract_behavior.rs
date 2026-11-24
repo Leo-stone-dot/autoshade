@@ -1838,6 +1838,58 @@ fn construct_heavy_xmp_finishes_preserving_merge_within_the_resource_budget() {
     }
 }
 
+fn creative_look_document() -> &'static str {
+    r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+0.20">
+ <crs:Look><rdf:Description crs:Name="Adobe Landscape">
+  <crs:Parameters><rdf:Description>
+   <crs:Clarity2012>+50</crs:Clarity2012>
+   <crs:Vibrance>+35</crs:Vibrance>
+   <crs:ToneCurvePV2012><rdf:Seq>
+    <rdf:li>0, 30</rdf:li><rdf:li>255, 255</rdf:li>
+   </rdf:Seq></crs:ToneCurvePV2012>
+  </rdf:Description></crs:Parameters>
+ </rdf:Description></crs:Look>
+</rdf:Description>"#
+}
+
+#[test]
+fn creative_look_parameters_do_not_become_global_user_edits() {
+    let document = creative_look_document();
+    let restored = autoshade::xmp::xmp_to_recipe(document);
+    let corrupt =
+        document.replace("<crs:Clarity2012>+50</crs:Clarity2012>", "<crs:Clarity2012>--</crs:Clarity2012>");
+
+    assert_eq!(restored.exposure_ev, 0.20);
+    assert_eq!((restored.clarity, restored.vibrance), (0.0, 0.0));
+    assert!(restored.tone_curve.is_empty());
+    assert!(autoshade::xmp::unparsable_crs_numbers(&corrupt).is_empty());
+}
+
+#[test]
+fn top_level_clarity_imports_in_attribute_and_element_forms_beside_a_creative_look() {
+    for own in [
+        r#"crs:Exposure2012="+0.20" crs:Clarity2012="+12""#,
+        r#"crs:Exposure2012="+0.20">
+ <crs:Clarity2012>+12</crs:Clarity2012"#,
+    ] {
+        let document =
+            creative_look_document().replace(r#"crs:Exposure2012="+0.20""#, own);
+
+        assert_eq!(autoshade::xmp::xmp_to_recipe(&document).clarity, 12.0);
+    }
+}
+
+#[test]
+fn an_unclosed_description_falls_back_without_losing_top_level_attributes() {
+    let document = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+0.50">"#;
+
+    assert_eq!(autoshade::xmp::xmp_to_recipe(document).exposure_ev, 0.50);
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
