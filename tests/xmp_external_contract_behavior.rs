@@ -1906,6 +1906,25 @@ fn creative_look_parameters_do_not_become_global_user_edits() {
 }
 
 #[test]
+fn crossed_look_close_does_not_promote_nested_edits_or_block_merge() {
+    let document = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+0.35" crs:HasSettings="True">
+ <crs:Look><rdf:Description>
+  <crs:Clarity2012>+50</crs:Clarity2012>
+ </rdf:Description></crs:Foo>
+</rdf:Description>"#;
+
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+
+    assert_eq!(imported.exposure_ev, 0.35);
+    assert_eq!(imported.clarity, 0.0);
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(document, &EditRecipe::default()).is_some()
+    );
+}
+
+#[test]
 fn top_level_clarity_imports_in_attribute_and_element_forms_beside_a_creative_look() {
     for own in [
         r#"crs:Exposure2012="+0.20" crs:Clarity2012="+12""#,
