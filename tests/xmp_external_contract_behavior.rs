@@ -946,6 +946,38 @@ fn one_object_acr(blob: &[u8]) -> (Vec<u8>, String) {
     (acr, token)
 }
 
+fn many_object_acr(objects: &[Vec<u8>]) -> (Vec<u8>, Vec<String>) {
+    let directory_end = 20 + 32 * objects.len();
+    let mut body = Vec::new();
+    let mut entries = Vec::new();
+    let mut tokens = Vec::new();
+    for object in objects {
+        while !(directory_end + body.len()).is_multiple_of(4) {
+            body.push(0);
+        }
+        let key = md5::compute(object).0;
+        entries.push((key, object.len() as u64, (directory_end + body.len()) as u64));
+        tokens.push(key.iter().map(|byte| format!("{byte:02x}")).collect());
+        body.extend_from_slice(object);
+    }
+    while !(directory_end + body.len()).is_multiple_of(4) {
+        body.push(0);
+    }
+    let mut acr = Vec::new();
+    acr.extend_from_slice(b"ACR\0");
+    acr.extend_from_slice(&1u32.to_le_bytes());
+    acr.extend_from_slice(b"ARW\0");
+    acr.extend_from_slice(&(objects.len() as u32).to_le_bytes());
+    acr.extend_from_slice(&0u32.to_le_bytes());
+    for (key, len, offset) in entries {
+        acr.extend_from_slice(&key);
+        acr.extend_from_slice(&len.to_le_bytes());
+        acr.extend_from_slice(&offset.to_le_bytes());
+    }
+    acr.extend_from_slice(&body);
+    (acr, tokens)
+}
+
 fn brush_object(stream: &[u8]) -> Vec<u8> {
     let mut object = Vec::with_capacity(16 + stream.len());
     for word in [4u32, 1, 64_000, stream.len() as u32] {
@@ -1166,4 +1198,73 @@ fn mask_brush_token_count_limit_covers_non_dab_state_tokens() {
     assert!(lines.iter().any(|line| {
         line.contains("PayloadInvalid") && line.contains("token count exceeds")
     }));
+}
+
+#[test]
+fn one_bad_mask_brush_table_does_not_take_down_an_independent_table() {
+    let objects = vec![
+        valid_brush_object(),
+        brush_object(MASK_BRUSH_UNKNOWN_OPCODE),
+    ];
+    let (acr, tokens) = many_object_acr(&objects);
+    let tree = support::TempTree::new("brush-table-independent");
+    let photo = tree.path().join("photo.dng");
+    std::fs::write(&photo, b"synthetic photo").unwrap();
+    std::fs::write(photo.with_extension("acr"), acr).unwrap();
+    let inline = r#"<rdf:li><rdf:Description crs:What="Mask/Paint"
+ crs:MaskActive="true" crs:MaskBlendMode="0" crs:MaskInverted="false"
+ crs:MaskSyncID="1111111111111111111111111111111C" crs:MaskValue="1"
+ crs:Radius="0.5" crs:Flow="1" crs:CenterWeight="0">
+ <crs:Dabs><rdf:Seq><rdf:li>d 0.25 0.75</rdf:li></rdf:Seq></crs:Dabs>
+</rdf:Description></rdf:li>"#;
+    let correction = |name: &str, token: &str, expected: usize, body: &str| {
+        format!(
+            r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
+<crs:CorrectionMasks><rdf:Seq>
+ <rdf:li><rdf:Description crs:What="Mask/Aggregate" crs:MaskActive="true"
+  crs:MaskName="{name}" crs:MaskBlendMode="0" crs:MaskInverted="false"
+  crs:MaskValue="1" crs:MaskBrushTable="{token}"
+  crs:MaskBrushUncompressedBytes="{expected}">
+  <crs:Masks><rdf:Seq>{body}</rdf:Seq></crs:Masks>
+ </rdf:Description></rdf:li>
+</rdf:Seq></crs:CorrectionMasks>
+</rdf:Description></rdf:li>"#
+        )
+    };
+    let xmp = format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+<crs:MaskGroupBasedCorrections><rdf:Seq>{}{}</rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#,
+        correction("Good", &tokens[0], 101, ""),
+        correction("Bad", &tokens[1], 83, inline),
+    );
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::about(&collector, &photo);
+
+    let recipe = autoshade::xmp::xmp_to_recipe_with_diag(&xmp, &diag);
+    let lines = collector.take();
+
+    assert_eq!(recipe.masks.len(), 2, "{recipe:?}\n{lines:?}");
+    let MaskGeometry::Brush {
+        strokes: good, ..
+    } = &recipe.masks[0].mask
+    else {
+        panic!("good table imports as a brush");
+    };
+    let MaskGeometry::Brush {
+        strokes: survivor,
+        ..
+    } = &recipe.masks[1].mask
+    else {
+        panic!("bad table correction keeps its inline brush");
+    };
+    assert_eq!(good.len(), 1);
+    assert_eq!(survivor.len(), 1);
+    assert_eq!(
+        survivor[0].sync_id,
+        "1111111111111111111111111111111C"
+    );
+    assert!(lines
+        .iter()
+        .any(|line| line.text.contains("PayloadUnsupported")));
 }
