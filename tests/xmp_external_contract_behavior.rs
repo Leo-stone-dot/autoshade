@@ -3458,6 +3458,157 @@ fn orientation_contract_photo_frame_restores_geometry_and_clears_false_losses() 
         .is_none_or(|note| !note.contains("could not be placed")));
 }
 
+fn orientation_merge_local_base() -> &'static str {
+    r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <rdf:Description
+  xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+  xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+  tiff:Orientation="8" tiff:ImageWidth="9504" tiff:ImageLength="6336"
+  crs:Exposure2012="+0.25" crs:HasSettings="True"/>
+</rdf:RDF></x:xmpmeta>"#
+}
+
+fn orientation_merge_ancestor_base() -> &'static str {
+    r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:tiff="http://ns.adobe.com/tiff/1.0/">
+ <rdf:Description
+  xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+  tiff:Orientation="8" tiff:ImageWidth="9504" tiff:ImageLength="6336"
+  crs:Exposure2012="+0.25" crs:HasSettings="True"/>
+</rdf:RDF></x:xmpmeta>"#
+}
+
+#[test]
+fn orientation_merge_updates_only_when_the_turn_changes() {
+    let recipe = EditRecipe {
+        exposure_ev: 0.5,
+        ..EditRecipe::default()
+    };
+    let merge = |orientation| {
+        autoshade::xmp::merge_recipe_into_xmp_in_frame(
+            orientation_merge_local_base(),
+            &recipe,
+            autoshade::xmp::FrameAspect::from_size_turned(
+                9504.0,
+                6336.0,
+                orientation,
+            ),
+        )
+        .unwrap()
+        .doc
+    };
+
+    let unchanged = merge(rawler::Orientation::Rotate270);
+    assert_eq!(unchanged.matches("tiff:Orientation=").count(), 1);
+    assert_eq!(xmp_attribute(&unchanged, "tiff:Orientation"), "8");
+
+    let changed = merge(rawler::Orientation::Normal);
+    assert_eq!(changed.matches("tiff:Orientation=").count(), 1);
+    assert_eq!(xmp_attribute(&changed, "tiff:Orientation"), "1");
+    assert_eq!(xmp_attribute(&changed, "tiff:ImageWidth"), "9504");
+    assert_eq!(xmp_attribute(&changed, "tiff:ImageLength"), "6336");
+
+    let blind = autoshade::xmp::merge_recipe_into_xmp(
+        orientation_merge_local_base(),
+        &recipe,
+    )
+    .unwrap()
+    .doc;
+    assert_eq!(xmp_attribute(&blind, "tiff:Orientation"), "8");
+}
+
+#[test]
+fn orientation_merge_discloses_an_unobservable_frame_change() {
+    let base = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <rdf:Description xmlns:tiff="http://ns.adobe.com/tiff/1.0/">
+  <tiff:ImageWidth>9504</tiff:ImageWidth>
+  <tiff:ImageLength>6336</tiff:ImageLength>
+ </rdf:Description>
+ <rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+  crs:Exposure2012="+0.25" crs:HasSettings="True"/>
+</rdf:RDF></x:xmpmeta>"#;
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp_in_frame(
+        base,
+        &EditRecipe {
+            exposure_ev: 0.5,
+            ..EditRecipe::default()
+        },
+        autoshade::xmp::FrameAspect::from_size_turned(
+            9504.0,
+            6336.0,
+            rawler::Orientation::Rotate90,
+        ),
+    )
+    .unwrap();
+
+    assert!(!merged.doc.contains("tiff:Orientation"));
+    assert!(merged
+        .doc
+        .contains("<tiff:ImageWidth>9504</tiff:ImageWidth>"));
+    assert!(merged.notes.iter().any(|note| {
+        note.contains("where a merge cannot rewrite it")
+            && note.contains("orientation (6) was not written")
+    }));
+}
+
+#[test]
+fn orientation_merge_updates_reader_visible_frames_without_changing_visible_geometry() {
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Radial {
+                top: 0.2,
+                left: 0.25,
+                bottom: 0.8,
+                right: 0.75,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 24.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            exposure_ev: 0.4,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let expected = radial_pixel_ellipse(&recipe.masks[0].mask, 6336.0, 9504.0);
+
+    for base in [
+        orientation_merge_ancestor_base(),
+        orientation_merge_local_base(),
+    ] {
+        let merged = autoshade::xmp::merge_recipe_into_xmp_in_frame(
+            base,
+            &recipe,
+            autoshade::xmp::FrameAspect::from_size_turned(
+                9504.0,
+                6336.0,
+                rawler::Orientation::Rotate90,
+            ),
+        )
+        .unwrap()
+        .doc;
+        assert_eq!(merged.matches("tiff:Orientation=").count(), 1);
+        assert_eq!(xmp_attribute(&merged, "tiff:Orientation"), "6");
+        assert!(merged.contains("xmlns:tiff="));
+
+        let payload_free = without_recipe_payload(merged);
+        let reopened = autoshade::xmp::xmp_to_recipe(&payload_free);
+        let actual =
+            radial_pixel_ellipse(&reopened.masks[0].mask, 6336.0, 9504.0);
+        assert!((expected.0 - actual.0).abs() < 1.0);
+        assert!((expected.1 - actual.1).abs() < 1.0);
+        let tilt_delta = ((expected.2 - actual.2).rem_euclid(180.0))
+            .min((actual.2 - expected.2).rem_euclid(180.0));
+        assert!(tilt_delta < 1e-2);
+    }
+}
+
 #[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {

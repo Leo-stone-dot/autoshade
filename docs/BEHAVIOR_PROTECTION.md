@@ -160,6 +160,9 @@
 - recipe reader 移除 orientation-only 的 photo-frame fallback 时，`orientation_contract_photo_frame_restores_geometry_and_clears_false_losses` 在实际 pixel ellipse 不再等价处变红；恢复后测试通过。
 - `import_losses_for_photo` 移除同一 fallback 时，该 case 在已恢复 geometry 仍被错误报告 Rotation loss 处变红；恢复后测试通过。
 - `crop_import_note_for_photo` 移除同一 fallback 时，该 case 在已放置 crop 仍显示 “could not be placed” 假警告处变红；恢复后测试通过。
+- orientation merge 的 disagreement arm 错误返回 Keep 时，`orientation_merge_updates_only_when_the_turn_changes` 在已移动照片仍写 Orientation=8 而非 1 处变红；恢复后测试通过。
+- orientation merge 强制忽略 reader scope 时，`orientation_merge_discloses_an_unobservable_frame_change` 在把 Orientation 写进 reader 不采用的 Description 处变红；恢复后测试通过。
+- reader-visible orientation correction 固定写 1 时，`orientation_merge_updates_reader_visible_frames_without_changing_visible_geometry` 在 Rotate90 应写 6 处变红；恢复后测试通过。删除 ancestor 下冗余 local `xmlns:tiff` 时该公开 case 仍绿，证明旧精确 tag 断言只锁实现布局，不迁移。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
