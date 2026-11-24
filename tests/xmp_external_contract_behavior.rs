@@ -1,6 +1,7 @@
 use autoshade::recipe::{
-    AdobeLensProfile, BrushStroke, ColorGrade, Crop, CurvePoint, EditRecipe, Hsl, LensProfile,
-    LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, MaskWarpSource, RangeMask,
+    AdobeLensProfile, BrushStroke, ColorGrade, CreativeLook, Crop, CurvePoint, EditRecipe, Hsl,
+    LensProfile, LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, MaskWarpSource,
+    RangeMask,
 };
 use autoshade::xmp::{LensProfileSetup, MaskImportLoss, MaskImportReason, MaskLossReason};
 
@@ -846,6 +847,40 @@ fn element_form_passthrough_reads_only_the_top_level_description() {
     let nested_only = autoshade::xmp::xmp_to_recipe(nested_only);
     assert!(nested_only.camera_profile.is_empty());
     assert!(nested_only.passthrough.is_empty());
+}
+
+#[test]
+fn passthrough_and_string_profile_values_are_never_numeric_parse_errors() {
+    let document = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:CameraProfile="Adobe Standard"
+ crs:UprightFocalLength35mm="104.944461871"
+ crs:UprightVersion="151388160" crs:Contrast2012="+22"
+ crs:HasSettings="True"/>"#;
+    assert!(autoshade::xmp::unparsable_crs_numbers(document).is_empty());
+
+    let invalid = document.replace(
+        r#"crs:Contrast2012="+22""#,
+        r#"crs:Contrast2012="+220""#,
+    );
+    assert_eq!(
+        autoshade::xmp::unparsable_crs_numbers(&invalid),
+        vec!["Contrast2012"]
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+    assert_eq!(
+        imported
+            .passthrough
+            .get("UprightFocalLength35mm")
+            .map(String::as_str),
+        Some("104.944461871")
+    );
+    assert_eq!(
+        imported
+            .passthrough
+            .get("UprightVersion")
+            .map(String::as_str),
+        Some("151388160")
+    );
 }
 
 #[test]
@@ -2422,6 +2457,100 @@ fn monochrome_creative_look_and_user_switch_each_render_grayscale() {
         ..EditRecipe::default()
     }
     .renders_grayscale());
+}
+
+#[test]
+fn creative_look_writes_fresh_adds_to_lookless_merge_and_preserves_existing_base() {
+    let identity = vec![
+        CurvePoint {
+            input: 0,
+            output: 0,
+        },
+        CurvePoint {
+            input: 255,
+            output: 255,
+        },
+    ];
+    let look = CreativeLook {
+        name: "A Look".to_string(),
+        amount: 1.0,
+        base_profile: "Adobe Standard".to_string(),
+        table: "00000000000000000000000000000001".to_string(),
+        tone_curve: vec![
+            CurvePoint {
+                input: 0,
+                output: 0,
+            },
+            CurvePoint {
+                input: 40,
+                output: 35,
+            },
+            CurvePoint {
+                input: 224,
+                output: 230,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ],
+        red_curve: identity.clone(),
+        green_curve: identity.clone(),
+        blue_curve: identity,
+        ..CreativeLook::default()
+    };
+    let recipe = EditRecipe {
+        camera_profile: "Adobe Standard".to_string(),
+        look: Some(look.clone()),
+        ..EditRecipe::default()
+    };
+
+    let fresh = autoshade::xmp::recipe_to_xmp(&recipe);
+    assert_eq!(fresh.matches("<crs:Look>").count(), 1);
+    let reopened = autoshade::xmp::xmp_to_recipe(&fresh);
+    let reopened_look = reopened.look.as_ref().unwrap();
+    assert_eq!(
+        (
+            reopened_look.name.as_str(),
+            reopened_look.amount,
+            reopened_look.base_profile.as_str(),
+            reopened_look.table.as_str(),
+        ),
+        (
+            look.name.as_str(),
+            look.amount,
+            look.base_profile.as_str(),
+            look.table.as_str(),
+        )
+    );
+    assert_eq!(reopened_look.tone_curve, look.tone_curve);
+    assert_eq!(reopened_look.red_curve, look.red_curve);
+    assert_eq!(reopened_look.green_curve, look.green_curve);
+    assert_eq!(reopened_look.blue_curve, look.blue_curve);
+    assert_eq!(reopened.camera_profile, "Adobe Standard");
+
+    let lookless = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:ProcessVersion="15.4" crs:Exposure2012="+0.50"/>"#;
+    let added = autoshade::xmp::merge_recipe_into_xmp(lookless, &recipe).unwrap();
+    assert_eq!(added.doc.matches("<crs:Look>").count(), 1);
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&added.doc)
+            .look
+            .map(|value| value.table),
+        Some(look.table.clone())
+    );
+
+    let preserved =
+        autoshade::xmp::merge_recipe_into_xmp(full_creative_look_document(), &recipe).unwrap();
+    assert_eq!(preserved.doc.matches("<crs:Look>").count(), 1);
+    assert!(preserved.doc.contains(r#"crs:Name="Adobe Landscape""#));
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&preserved.doc)
+            .look
+            .map(|value| value.name),
+        Some(look.name)
+    );
+    assert!(!autoshade::xmp::recipe_to_xmp(&EditRecipe::default()).contains("<crs:Look>"));
 }
 
 #[test]
