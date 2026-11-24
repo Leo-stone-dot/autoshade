@@ -2160,6 +2160,80 @@ fn base_only_nondefault_gradient_imports_shape_with_a_blend_mode_note() {
     );
 }
 
+fn lightroom_radial_value_document(blend: &str, value: &str) -> String {
+    format!(
+        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Radial 1"
+   crs:CorrectionAmount="1" crs:LocalContrast2012="0.43">
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li crs:What="Mask/CircularGradient" crs:MaskActive="true"
+     crs:MaskBlendMode="{blend}" crs:MaskInverted="false" crs:MaskValue="{value}"
+     crs:Top="0.114928" crs:Left="0.590368" crs:Bottom="0.802847"
+     crs:Right="0.921381" crs:Feather="100" crs:Roundness="0"
+     crs:Flipped="true" crs:Angle="0"/>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description></rdf:RDF></x:xmpmeta>"#
+    )
+}
+
+#[test]
+fn lightroom_subtract_pair_keeps_radial_geometry_with_a_typed_note() {
+    let document = lightroom_radial_value_document("1", "0");
+    let restored = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(restored.masks.len(), 1);
+    let MaskGeometry::Radial {
+        top, left, ..
+    } = restored.masks[0].mask
+    else {
+        panic!("subtract pair keeps its radial");
+    };
+
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 0);
+    assert_eq!(
+        autoshade::xmp::import_losses(&document)
+            .iter()
+            .map(|loss| (loss.name.as_str(), loss.reason))
+            .collect::<Vec<_>>(),
+        [("Radial 1", MaskImportReason::BlendMode)]
+    );
+    assert!((top as f64 - 0.114928).abs() < 1e-7);
+    assert!((left as f64 - 0.590368).abs() < 1e-7);
+}
+
+#[test]
+fn subtract_mask_value_zero_does_not_mute_the_adjustment() {
+    let restored =
+        autoshade::xmp::xmp_to_recipe(&lightroom_radial_value_document("1", "0"));
+
+    assert_eq!(
+        (restored.masks[0].amount, restored.masks[0].contrast),
+        (1.0, 43.0)
+    );
+}
+
+#[test]
+fn default_zero_mask_value_refuses_a_muted_component() {
+    let document = lightroom_radial_value_document("0", "0");
+
+    assert!(autoshade::xmp::xmp_to_recipe(&document).masks.is_empty());
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 1);
+}
+
+#[test]
+fn partial_mask_value_refuses_default_and_subtract_components() {
+    for blend in ["0", "1"] {
+        let document = lightroom_radial_value_document(blend, "0.662178");
+
+        assert!(autoshade::xmp::xmp_to_recipe(&document).masks.is_empty());
+        assert_eq!(autoshade::xmp::unsupported_corrections(&document), 1);
+    }
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
