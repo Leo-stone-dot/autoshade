@@ -3173,6 +3173,201 @@ fn portrait_framed_document_declares_and_roundtrips_visible_geometry() {
     }
 }
 
+fn orientation_contract_document(orientation: Option<rawler::Orientation>) -> String {
+    let orientation = orientation.map_or_else(String::new, |value| {
+        format!(r#" tiff:Orientation="{}""#, value.to_u16())
+    });
+    format!(
+        r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ xmlns:tiff="http://ns.adobe.com/tiff/1.0/"{orientation}
+ crs:Exposure2012="+0.25"/>"#
+    )
+}
+
+fn synthetic_orientation_photo(
+    tree: &support::TempTree,
+    name: &str,
+    orientation: rawler::Orientation,
+) -> std::path::PathBuf {
+    let photo = tree.path().join(format!("{name}.dng"));
+    std::fs::write(
+        &photo,
+        support::synthetic_dng(16, 8, orientation, None, false),
+    )
+    .unwrap();
+    photo
+}
+
+fn orientation_only_radial_document() -> &'static str {
+    r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ xmlns:tiff="http://ns.adobe.com/tiff/1.0/" tiff:Orientation="8">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Mask 8"
+   crs:CorrectionAmount="1" crs:LocalExposure2012="0.1">
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li crs:What="Mask/CircularGradient" crs:MaskActive="true"
+     crs:MaskName="Radial Gradient 1" crs:MaskBlendMode="0"
+     crs:MaskInverted="false" crs:MaskSyncID="0000000000000000000000000000000B"
+     crs:MaskValue="1" crs:Top="0.1" crs:Left="0.2"
+     crs:Bottom="0.3" crs:Right="0.6" crs:Feather="100"
+     crs:Roundness="0" crs:Flipped="true" crs:Angle="0"
+     crs:Midpoint="50" crs:Version="2"/>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#
+}
+
+#[test]
+fn orientation_contract_missing_declaration_keeps_zero_user_turn() {
+    let tree = support::TempTree::new("orientation-missing");
+    let photo = synthetic_orientation_photo(
+        &tree,
+        "portrait",
+        rawler::Orientation::Rotate270,
+    );
+
+    let imported = autoshade::xmp::xmp_to_recipe_for_photo(
+        &orientation_contract_document(None),
+        &photo,
+    );
+
+    assert_eq!(imported.exposure_ev, 0.25);
+    assert_eq!(imported.quarter_turns, 0);
+}
+
+#[test]
+fn orientation_contract_declared_frame_composes_against_photo_exif() {
+    let tree = support::TempTree::new("orientation-compose");
+    let portrait = synthetic_orientation_photo(
+        &tree,
+        "portrait",
+        rawler::Orientation::Rotate270,
+    );
+    let turned = autoshade::xmp::xmp_to_recipe_for_photo(
+        &orientation_contract_document(Some(rawler::Orientation::Normal)),
+        &portrait,
+    );
+    assert_eq!(turned.quarter_turns, 1);
+    assert_eq!(
+        autoshade::render::compose_orientation(
+            rawler::Orientation::Rotate270,
+            turned.quarter_turns,
+        ),
+        rawler::Orientation::Normal
+    );
+
+    for (index, orientation) in [
+        rawler::Orientation::Normal,
+        rawler::Orientation::Rotate90,
+        rawler::Orientation::Rotate180,
+        rawler::Orientation::Rotate270,
+        rawler::Orientation::Transpose,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let photo =
+            synthetic_orientation_photo(&tree, &format!("matching-{index}"), orientation);
+        let imported = autoshade::xmp::xmp_to_recipe_for_photo(
+            &orientation_contract_document(Some(orientation)),
+            &photo,
+        );
+        assert_eq!(imported.quarter_turns, 0, "{orientation:?}");
+    }
+}
+
+#[test]
+fn orientation_contract_handedness_change_is_refused_and_disclosed() {
+    let tree = support::TempTree::new("orientation-refused");
+    let photo =
+        synthetic_orientation_photo(&tree, "normal", rawler::Orientation::Normal);
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::about(&collector, &photo);
+
+    let imported = autoshade::xmp::xmp_to_recipe_clamped_with_diag(
+        &orientation_contract_document(Some(
+            rawler::Orientation::HorizontalFlip,
+        )),
+        &diag,
+    )
+    .0;
+    let lines = collector.take();
+
+    assert_eq!(imported.quarter_turns, 0);
+    assert!(lines
+        .iter()
+        .any(|line| line.text.contains("mirrors the frame")
+            && line.text.contains("orientation was refused")));
+}
+
+#[test]
+fn orientation_contract_matching_mirrors_use_two_quarter_turns() {
+    let tree = support::TempTree::new("orientation-mirrors");
+    let photo = synthetic_orientation_photo(
+        &tree,
+        "mirrored",
+        rawler::Orientation::HorizontalFlip,
+    );
+
+    let imported = autoshade::xmp::xmp_to_recipe_for_photo(
+        &orientation_contract_document(Some(
+            rawler::Orientation::VerticalFlip,
+        )),
+        &photo,
+    );
+
+    assert_eq!(imported.quarter_turns, 2);
+    assert_eq!(
+        autoshade::render::compose_orientation(
+            rawler::Orientation::HorizontalFlip,
+            imported.quarter_turns,
+        ),
+        rawler::Orientation::VerticalFlip
+    );
+}
+
+#[test]
+fn orientation_contract_orientation_only_sidecar_places_and_roundtrips_mask() {
+    let document = orientation_only_radial_document();
+    assert!(!document.contains("tiff:ImageWidth"));
+    assert!(!document.contains("tiff:ImageLength"));
+
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+    let MaskGeometry::Radial {
+        top,
+        left,
+        bottom,
+        right,
+        ..
+    } = imported.masks[0].mask
+    else {
+        panic!("orientation-only radial must import")
+    };
+    assert!((left - 0.1).abs() < 1e-6 && (right - 0.3).abs() < 1e-6);
+    assert!((top - 0.4).abs() < 1e-6 && (bottom - 0.8).abs() < 1e-6);
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp_in_frame(
+        document,
+        &imported,
+        autoshade::xmp::FrameAspect::from_size_turned(
+            9504.0,
+            6336.0,
+            rawler::Orientation::Rotate270,
+        ),
+    )
+    .unwrap()
+    .doc;
+    assert_eq!(merged.matches("tiff:Orientation=").count(), 1);
+    assert_eq!(xmp_attribute(&merged, "tiff:Orientation"), "8");
+    assert!((xmp_attribute(&merged, "crs:Left").parse::<f32>().unwrap() - 0.2).abs() < 1e-6);
+
+    let reopened = autoshade::xmp::xmp_to_recipe(&merged);
+    assert_eq!(reopened.masks[0].mask, imported.masks[0].mask);
+}
+
 #[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
