@@ -2204,6 +2204,64 @@ fn lightroom_radial_value_document(blend: &str, value: &str) -> String {
     )
 }
 
+fn lightroom_radial_component(blend: &str, value: &str) -> String {
+    format!(
+        r#"<rdf:li crs:What="Mask/CircularGradient" crs:MaskActive="true"
+ crs:MaskBlendMode="{blend}" crs:MaskInverted="false" crs:MaskValue="{value}"
+ crs:Top="0.1" crs:Left="0.2" crs:Bottom="0.8" crs:Right="0.9"
+ crs:Feather="100" crs:Roundness="0" crs:Flipped="true" crs:Angle="0"/>"#
+    )
+}
+
+fn lightroom_linear_component(blend: &str, value: &str) -> String {
+    format!(
+        r#"<rdf:li crs:What="Mask/Gradient" crs:MaskActive="true"
+ crs:MaskBlendMode="{blend}" crs:MaskInverted="false" crs:MaskValue="{value}"
+ crs:ZeroX="0.5" crs:ZeroY="0.8" crs:FullX="0.5" crs:FullY="0.2"/>"#
+    )
+}
+
+fn lightroom_component_stack_document(components: &[String]) -> String {
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Stacked 1">
+   <crs:CorrectionMasks><rdf:Seq>{}</rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#,
+        components.concat()
+    )
+}
+
+#[test]
+fn lightroom_component_stack_uses_the_first_add_as_base_and_keeps_every_shape() {
+    let radial = || lightroom_radial_component("0", "1");
+    let linear = || lightroom_linear_component("0", "1");
+    let subtract_radial = || lightroom_radial_component("1", "0");
+    let subtract_linear = || lightroom_linear_component("1", "0");
+    for (components, radial_base) in [
+        (vec![radial(), radial(), linear()], true),
+        (vec![linear(), radial()], false),
+        (vec![radial(), subtract_linear()], true),
+        (vec![subtract_linear(), radial()], true),
+        (vec![subtract_linear(), subtract_radial()], false),
+    ] {
+        let document = lightroom_component_stack_document(&components);
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+        assert_eq!(imported.masks.len(), 1);
+        assert_eq!(
+            matches!(imported.masks[0].mask, MaskGeometry::Radial { .. }),
+            radial_base
+        );
+        assert_eq!(imported.masks[0].components.len(), components.len() - 1);
+        assert!(!autoshade::xmp::import_losses(&document)
+            .iter()
+            .any(|loss| loss.reason == MaskImportReason::MultiComponent));
+    }
+}
+
 fn lightroom_tinted_radial_document(saturation: &str) -> String {
     lightroom_radial_value_document("0", "1").replace(
         r#"crs:CorrectionAmount="1""#,
