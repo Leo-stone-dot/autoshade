@@ -2648,6 +2648,38 @@ fn tilted_crop_keeps_six_decimal_angle_and_edges_through_document_round_trip() {
 }
 
 #[test]
+fn frameless_tilted_crop_is_disclosed_for_foreign_xmp_and_lossless_for_ours() {
+    let crop_attributes = r#"crs:HasCrop="True" crs:CropLeft="0.05"
+ crs:CropTop="0" crs:CropRight="0.95" crs:CropBottom="1"
+ crs:CropAngle="-1.5""#;
+    let foreign = format!(
+        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" {crop_attributes}/>
+</rdf:RDF></x:xmpmeta>"#
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(&foreign);
+    assert!(imported.crop.is_none());
+    assert!((imported.straighten_deg - 1.5).abs() < 1e-6);
+    assert!(autoshade::xmp::crop_import_note(&foreign)
+        .is_some_and(|note| note.contains("could not be placed")));
+
+    let mine = EditRecipe {
+        crop: Some(Crop {
+            left: 0.05,
+            top: 0.0,
+            right: 0.95,
+            bottom: 1.0,
+        }),
+        straighten_deg: 1.5,
+        ..EditRecipe::default()
+    };
+    let mine_xmp =
+        without_recipe_payload(autoshade::xmp::recipe_to_xmp(&mine));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&mine_xmp).crop, mine.crop);
+    assert!(autoshade::xmp::crop_import_note(&mine_xmp).is_none());
+}
+
+#[test]
 fn attribute_control_characters_use_references_and_round_trip() {
     let value = "a\tb\nc\rd";
     let recipe = EditRecipe {
