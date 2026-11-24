@@ -163,6 +163,10 @@
 - orientation merge 的 disagreement arm 错误返回 Keep 时，`orientation_merge_updates_only_when_the_turn_changes` 在已移动照片仍写 Orientation=8 而非 1 处变红；恢复后测试通过。
 - orientation merge 强制忽略 reader scope 时，`orientation_merge_discloses_an_unobservable_frame_change` 在把 Orientation 写进 reader 不采用的 Description 处变红；恢复后测试通过。
 - reader-visible orientation correction 固定写 1 时，`orientation_merge_updates_reader_visible_frames_without_changing_visible_geometry` 在 Rotate90 应写 6 处变红；恢复后测试通过。删除 ancestor 下冗余 local `xmlns:tiff` 时该公开 case 仍绿，证明旧精确 tag 断言只锁实现布局，不迁移。
+- brush correction 确定 base 后截断后续 components 时，`inline_brush_component_imports_beside_its_parametric_base_with_disclosure` 在 brush component 从 1 变 0 处变红；恢复后测试通过。
+- Aggregate 从 base 候选移除时，`inline_brush_only_correction_uses_its_group_as_the_base` 在 brush-only correction 从 1 mask 变 0 处变红；恢复后测试通过。
+- brush writer 不生成 Aggregate XML 时，`inline_brush_group_is_a_payload_free_crs_fixed_point_in_both_slots` 在公开写出路径失败；恢复后测试通过。
+- brush parser 只收集已知 Paint、静默忽略未知 nested shape 时，`inline_brush_nested_paints_are_owned_once_and_unknown_nesting_is_refused` 在 smuggled Gradient 被错误接受处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

@@ -3689,6 +3689,174 @@ fn real_orientation_census_has_no_photo_aware_rotation_or_crop_losses() {
     );
 }
 
+fn measured_brush_paint(sync_id: &str, value: &str, dabs: &[&str]) -> String {
+    let items = dabs
+        .iter()
+        .map(|token| format!("<rdf:li>{token}</rdf:li>"))
+        .collect::<String>();
+    format!(
+        r#"<rdf:li><rdf:Description crs:What="Mask/Paint" crs:MaskActive="true"
+ crs:MaskBlendMode="0" crs:MaskInverted="false" crs:MaskSyncID="{sync_id}"
+ crs:MaskValue="{value}" crs:Radius="0.582157" crs:Flow="1"
+ crs:CenterWeight="0"><crs:Dabs><rdf:Seq>{items}</rdf:Seq></crs:Dabs>
+</rdf:Description></rdf:li>"#
+    )
+}
+
+fn measured_inline_brush_group(extra_child: &str) -> String {
+    let first = measured_brush_paint(
+        "FA7459A9F5626F4881D7B730C3093F95",
+        "0.439815",
+        &[
+            "r 0.581835",
+            "d 0.000684 0.940004",
+            "r 0.581172",
+            "d 0.113862 0.987261",
+            "r 0.580873",
+            "d 0.229292 1.011389",
+            "r 0.581205",
+            "d 0.112441 1.007149",
+        ],
+    );
+    let second = measured_brush_paint(
+        "1111111111111111111111111111111A",
+        "1",
+        &["f 1", "h 1", "d 0.500000 0.500000"],
+    );
+    format!(
+        r#"<rdf:li><rdf:Description crs:What="Mask/Aggregate"
+ crs:MaskActive="true" crs:MaskName="Brush 1" crs:MaskBlendMode="0"
+ crs:MaskInverted="false" crs:MaskSyncID="0000000000000000000000000000000D"
+ crs:MaskValue="1"><crs:Masks><rdf:Seq>{extra_child}{first}{second}</rdf:Seq></crs:Masks>
+</rdf:Description></rdf:li>"#
+    )
+}
+
+#[test]
+fn inline_brush_component_imports_beside_its_parametric_base_with_disclosure() {
+    let document = lightroom_component_stack_document(&[
+        lightroom_linear_component("0", "1"),
+        measured_inline_brush_group(""),
+    ]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(imported.masks.len(), 1);
+    assert!(matches!(imported.masks[0].mask, MaskGeometry::Linear { .. }));
+    assert_eq!(imported.masks[0].components.len(), 1);
+    assert_eq!(imported.masks[0].components[0].mode, MaskCombine::Add);
+    let MaskGeometry::Brush {
+        name,
+        blend_mode,
+        value,
+        inverted,
+        strokes,
+    } = &imported.masks[0].components[0].geometry
+    else {
+        panic!("brush group remains a component")
+    };
+    assert_eq!(
+        (name.as_str(), *blend_mode, *value, *inverted),
+        ("Brush 1", 0, 1.0, false)
+    );
+    assert_eq!(strokes.len(), 2);
+    assert!((strokes[0].value - 0.439815).abs() < 1e-6);
+    assert!((strokes[0].radius - 0.582157).abs() < 1e-6);
+    assert_eq!(
+        strokes[0].dabs,
+        "r 0.581835\nd 0.000684 0.940004\nr 0.581172\n\
+         d 0.113862 0.987261\nr 0.580873\nd 0.229292 1.011389\n\
+         r 0.581205\nd 0.112441 1.007149"
+    );
+    assert_eq!(strokes[1].dabs, "f 1\nh 1\nd 0.500000 0.500000");
+    let losses = autoshade::xmp::import_losses(&document);
+    assert!(losses
+        .iter()
+        .any(|loss| loss.reason == MaskImportReason::BrushRendered));
+    assert!(!losses.iter().any(|loss| loss.reason.is_drop()));
+}
+
+#[test]
+fn inline_brush_only_correction_uses_its_group_as_the_base() {
+    let document =
+        lightroom_component_stack_document(&[measured_inline_brush_group("")]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(imported.masks.len(), 1);
+    assert!(matches!(imported.masks[0].mask, MaskGeometry::Brush { .. }));
+    assert!(imported.masks[0].components.is_empty());
+    assert!(!imported.masks[0].inverted);
+}
+
+#[test]
+fn inline_brush_group_is_a_payload_free_crs_fixed_point_in_both_slots() {
+    for components in [
+        vec![measured_inline_brush_group("")],
+        vec![
+            lightroom_linear_component("0", "1"),
+            measured_inline_brush_group(""),
+        ],
+    ] {
+        let imported = autoshade::xmp::xmp_to_recipe(
+            &lightroom_component_stack_document(&components),
+        );
+        let written = autoshade::xmp::recipe_to_xmp(&imported);
+        for token in [
+            "<rdf:li>r 0.581835</rdf:li>",
+            "<rdf:li>d 0.000684 0.940004</rdf:li>",
+            "<rdf:li>f 1</rdf:li>",
+            "<rdf:li>h 1</rdf:li>",
+        ] {
+            assert!(written.contains(token), "{token}");
+        }
+        for attribute in [
+            r#"crs:What="Mask/Aggregate""#,
+            r#"crs:MaskName="Brush 1""#,
+            r#"crs:MaskValue="0.439815""#,
+            r#"crs:Radius="0.582157""#,
+            r#"crs:Flow="1""#,
+            r#"crs:CenterWeight="0""#,
+        ] {
+            assert!(written.contains(attribute), "{attribute}");
+        }
+
+        let reopened =
+            autoshade::xmp::xmp_to_recipe(&without_recipe_payload(written.clone()));
+        assert_eq!(
+            without_recipe_payload(written),
+            without_recipe_payload(autoshade::xmp::recipe_to_xmp(&reopened))
+        );
+        let losses = autoshade::xmp::mask_export_losses(&imported);
+        assert!(losses
+            .iter()
+            .any(|loss| loss.reason == MaskLossReason::BrushRendered));
+        assert!(!losses
+            .iter()
+            .any(|loss| loss.reason == MaskLossReason::ComponentsFlattened));
+    }
+}
+
+#[test]
+fn inline_brush_nested_paints_are_owned_once_and_unknown_nesting_is_refused() {
+    let document =
+        lightroom_component_stack_document(&[measured_inline_brush_group("")]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let MaskGeometry::Brush { strokes, .. } = &imported.masks[0].mask else {
+        panic!("brush group imports")
+    };
+    assert_eq!(strokes.len(), 2);
+
+    let smuggled = document.replacen(
+        "<crs:Masks>",
+        r#"<crs:Masks><crs:Decoy>
+ <rdf:li crs:What="Mask/Gradient" crs:ZeroX="0" crs:ZeroY="0"
+  crs:FullX="1" crs:FullY="1"/>
+</crs:Decoy>"#,
+        1,
+    );
+    assert!(autoshade::xmp::xmp_to_recipe(&smuggled).masks.is_empty());
+    assert_eq!(autoshade::xmp::unsupported_corrections(&smuggled), 1);
+}
+
 #[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
