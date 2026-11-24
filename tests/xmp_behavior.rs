@@ -1758,6 +1758,7 @@ fn a_photo_less_xmp_read_disables_every_unanchored_raster_reference() {
 
 #[test]
 fn a_photo_less_merge_preserves_an_untouched_bare_raster_import() {
+    let _env = support::ScopedEnv::new();
     let recipe = EditRecipe {
         exposure_ev: 0.3,
         masks: vec![
