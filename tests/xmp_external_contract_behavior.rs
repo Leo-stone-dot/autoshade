@@ -1890,6 +1890,37 @@ fn an_unclosed_description_falls_back_without_losing_top_level_attributes() {
     assert_eq!(autoshade::xmp::xmp_to_recipe(document).exposure_ev, 0.50);
 }
 
+#[test]
+fn straighten_without_crop_uses_a_full_frame_carrier_and_round_trips_without_crop() {
+    let recipe = EditRecipe {
+        straighten_deg: 2.5,
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+    let restored = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert!(document.contains(r#"crs:HasCrop="True""#));
+    assert!(document.contains(r#"crs:CropAngle="-2.500000""#));
+    assert!(restored.crop.is_none());
+    assert_eq!(restored.straighten_deg, 2.5);
+}
+
+#[test]
+fn forbidden_xml_controls_are_removed_from_public_mask_names() {
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            name: "sky\u{0}\u{7}".to_string(),
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+    let restored = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert!(!document.contains('\u{0}') && !document.contains('\u{7}'));
+    assert_eq!(restored.masks[0].name, "sky");
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
