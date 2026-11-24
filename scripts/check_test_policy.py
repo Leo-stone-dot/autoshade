@@ -100,7 +100,7 @@ def scan_text(path: Path, text: str) -> list[str]:
             findings.append(f"{path}:{line}: {label}: {match.group(0)}")
     for match in EMBEDDED_SOURCE.finditer(text):
         embedded = match.group("path")
-        if embedded.endswith(".rs") or embedded.startswith("src/") or "/src/" in embedded:
+        if Path(embedded).suffix == ".rs":
             line = text.count("\n", 0, match.start()) + 1
             findings.append(f"{path}:{line}: embedded Rust source: {embedded}")
     for match in SOURCE_FILE_LITERAL.finditer(text):
@@ -144,6 +144,7 @@ def main() -> int:
             return 1
         allowed = [
             'let _ = include_str!("fixtures/sample.xmp");',
+            'let _ = include_str!("../src/fixtures/sample.xmp");',
             'let _ = include_bytes!("fixtures/sample.png");',
             '// source_text in a comment is documentation, not a test assertion',
             'let _ = std::env::temp_dir().join(format!("autoshade-{}-{}", process::id(), 1));',

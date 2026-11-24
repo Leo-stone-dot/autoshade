@@ -145,6 +145,12 @@
 - ellipse 半径不从宽度单位换算为短边单位时，`lightroom_retouch_ellipse_becomes_a_scaled_heal_spot` 在 300×200 frame 的半径从 0.075 缩成 0.05 处变红；恢复后测试通过。
 - 缺失 `crs:Feather` 时回退到 0 而不是 0.4 时，`lightroom_retouch_missing_feather_uses_a_safe_default` 在公开 heal plan 的硬边 feather 处变红；恢复后测试通过。
 - 非空 brush 不进入 `retouch_spots` 时，`lightroom_retouch_brush_becomes_an_executable_heal_plan` 在 recipe 仍保留 stroke、但 heal plan 为空处变红；恢复后测试通过。
+- HDR mode writer 写 `True` 而非 Lightroom 的 `1`，或 reader 把 absent/`True` 当开启时，`hdr_mode_uses_lightrooms_numeric_switch_and_strict_reader` 分别在公开 wire spelling 与严格 off 断言处变红；恢复后测试通过。
+- HDR headroom writer 把 +1.50 降成 `+2` 时，`hdr_headroom_round_trips_as_a_signed_two_place_decimal` 在公开属性精度处变红；恢复后测试通过。
+- HDR reader 忽略 `HDRMaxValue` 时，合成 headroom case 与 `lightrooms_hdr_sidecar_imports_its_mode_headroom_and_neutral_sdr_controls` 分别在 1.5 和真实 fixture 的 2.30 处变红；恢复后测试通过。
+- SDR writer 跳过 `SDRContrast` 时，`hdr_sdr_rendition_controls_round_trip_as_signed_integers` 在缺失公开属性处变红；恢复后测试通过。
+- amount carry 不再包含 `LuminanceNoiseReductionContrast` 时，`noise_reduction_amount_carries_its_zero_contrast_companion` 在 50 amount 下缺少 Contrast=0 处变红；恢复后测试通过。
+- amount carry 错误包含非零默认的 `SharpenDetail` 时，`sharpening_amount_carries_only_its_zero_default_mask_companion` 在出现虚构 Detail=0 处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

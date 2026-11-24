@@ -2877,6 +2877,116 @@ fn lightroom_retouch_brush_becomes_an_executable_heal_plan() {
 }
 
 #[test]
+fn hdr_mode_uses_lightrooms_numeric_switch_and_strict_reader() {
+    let on = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        hdr_edit: true,
+        ..EditRecipe::default()
+    }));
+    assert_eq!(xmp_attribute(&on, "crs:HDREditMode"), "1");
+    assert!(autoshade::xmp::xmp_to_recipe(&on).hdr_edit);
+
+    let off = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&EditRecipe::default()));
+    assert!(!off.contains("crs:HDREditMode="));
+    assert!(!autoshade::xmp::xmp_to_recipe(&off).hdr_edit);
+    for spelling in ["0", "True", "true", ""] {
+        let document = off.replacen(
+            "crs:Version=",
+            &format!(r#"crs:HDREditMode="{spelling}" crs:Version="#),
+            1,
+        );
+        assert!(
+            !autoshade::xmp::xmp_to_recipe(&document).hdr_edit,
+            "{spelling:?} must not enable HDR mode"
+        );
+    }
+}
+
+#[test]
+fn hdr_headroom_round_trips_as_a_signed_two_place_decimal() {
+    let document = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        hdr_max_ev: 1.5,
+        ..EditRecipe::default()
+    }));
+
+    assert_eq!(xmp_attribute(&document, "crs:HDRMaxValue"), "+1.50");
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&document).hdr_max_ev, 1.5);
+}
+
+#[test]
+fn hdr_sdr_rendition_controls_round_trip_as_signed_integers() {
+    let recipe = EditRecipe {
+        sdr_blend: -30.0,
+        sdr_brightness: 40.0,
+        sdr_contrast: 15.0,
+        sdr_highlights: -50.0,
+        sdr_shadows: 25.0,
+        sdr_whites: -20.0,
+        sdr_clarity: 10.0,
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+
+    for (key, want) in [
+        ("crs:SDRBlend", "-30"),
+        ("crs:SDRBrightness", "+40"),
+        ("crs:SDRContrast", "+15"),
+        ("crs:SDRHighlights", "-50"),
+        ("crs:SDRShadows", "+25"),
+        ("crs:SDRWhites", "-20"),
+        ("crs:SDRClarity", "+10"),
+    ] {
+        assert_eq!(xmp_attribute(&document, key), want, "{key}");
+    }
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&document).sdr_controls(),
+        recipe.sdr_controls()
+    );
+}
+
+#[test]
+fn lightrooms_hdr_sidecar_imports_its_mode_headroom_and_neutral_sdr_controls() {
+    let document = include_str!("../src/fixtures/hdr-on-lightroom-9.4.xmp");
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+
+    assert!(!document.contains("xmlns:asr"));
+    assert!(imported.hdr_edit);
+    assert_eq!(imported.hdr_max_ev, 2.30);
+    assert_eq!(imported.sdr_controls(), [0.0; 7]);
+}
+
+#[test]
+fn noise_reduction_amount_carries_its_zero_contrast_companion() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        noise_reduction: 50.0,
+        nr_detail: 50.0,
+        nr_contrast: 0.0,
+        color_nr: 100.0,
+        color_nr_detail: 50.0,
+        color_nr_smooth: 50.0,
+        ..EditRecipe::default()
+    });
+
+    assert_eq!(xmp_attribute(&document, "crs:LuminanceSmoothing"), "50");
+    assert_eq!(
+        xmp_attribute(&document, "crs:LuminanceNoiseReductionContrast"),
+        "0"
+    );
+}
+
+#[test]
+fn sharpening_amount_carries_only_its_zero_default_mask_companion() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        sharpening: 45.0,
+        ..EditRecipe::default()
+    });
+
+    assert_eq!(xmp_attribute(&document, "crs:Sharpness"), "45");
+    assert_eq!(xmp_attribute(&document, "crs:SharpenEdgeMasking"), "0");
+    assert!(!document.contains("crs:SharpenDetail="));
+    assert!(!document.contains("crs:SharpenRadius="));
+}
+
+#[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
         crop: Some(Crop {

@@ -2041,6 +2041,46 @@ spot；缺失feather使用0.4安全默认；brush保留实测dab并生成非空g
 分别误分类firefly、接受半个donor、漏掉短边尺度、把默认feather清零、跳过brush执行时，
 对应case各自变红；mutation均已恢复，`src/`无diff。
 
+### HDR attributes use Lightroom's public wire contract
+
+- Main case：`hdr_edit_mode_and_its_sdr_rendition_round_trip_in_lightrooms_spellings`
+- 当前执行者：
+  `hdr_mode_uses_lightrooms_numeric_switch_and_strict_reader`、
+  `hdr_headroom_round_trips_as_a_signed_two_place_decimal`、
+  `hdr_sdr_rendition_controls_round_trip_as_signed_integers`
+- 状态：`rewritten`
+
+三个payload-free case分别验收numeric-only mode（仅`"1"`开启）、signed two-place
+headroom和七个signed-integer SDR controls。writer改写为`True`、headroom降为整数、漏写
+`SDRContrast`时对应case独立红；reader把“非0”都当开启时，absent mode也错误开启并红。
+mutation均已恢复，`src/`无diff。
+
+### Lightroom's measured HDR sidecar imports without our payload
+
+- Main case：`lightrooms_own_hdr_sidecar_reads_as_the_mode_and_headroom_it_states`
+- 当前执行者：
+  `lightrooms_hdr_sidecar_imports_its_mode_headroom_and_neutral_sdr_controls`
+- 状态：`rewritten`
+
+仓库内8,165-byte Lightroom 9.4 XMP fixture不含AutoShade payload，经公开reader得到HDR
+mode on、+2.30 headroom和七个0 SDR controls。临时让headroom reader返回0后，真实bytes
+case红；mutation已恢复，`src/`无diff。
+
+### Detail companions follow their amount without inventing nonzero defaults
+
+- Main case：`the_detail_companions_ride_on_their_amount_the_way_lightroom_writes_them`
+- 当前执行者：
+  `noise_reduction_amount_carries_its_zero_contrast_companion`、
+  `sharpening_amount_carries_only_its_zero_default_mask_companion`、
+  `detail_and_manual_ca_controls_use_lightroom_spellings_and_round_trip`、
+  `neutral_detail_controls_stay_absent_except_engine_color_nr_zero`
+- 状态：`rewritten`
+
+Luminance amount 50携带Contrast=0；Sharpening amount 45携带Masking=0，但不发明
+Detail=0或Radius=0。已有公开case覆盖非零companions的Lightroom拼写/round-trip与全中性
+absence。移除NR carry时zero contrast缺失；把SharpenDetail也加入amount carry时错误的
+Detail=0出现；两条case分别红。mutation均已恢复，`src/`无diff。
+
 ### Local Hue uses the measured 180 wire scale
 
 - Main case：`local_hue_rides_the_measured_180_scale`
@@ -2961,7 +3001,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 176 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 182 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
