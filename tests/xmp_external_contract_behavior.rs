@@ -2590,7 +2590,16 @@ fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
 
     assert!(left > right);
     let restored = autoshade::xmp::xmp_to_recipe(&document);
-    assert!(restored.crop.is_some());
+    let restored_crop = restored.crop.unwrap();
+    let original_crop = recipe.crop.unwrap();
+    for (actual, expected) in [
+        (restored_crop.left, original_crop.left),
+        (restored_crop.top, original_crop.top),
+        (restored_crop.right, original_crop.right),
+        (restored_crop.bottom, original_crop.bottom),
+    ] {
+        assert!((actual - expected).abs() < 1e-5);
+    }
     assert!((restored.straighten_deg + 35.0).abs() < 1e-4);
     assert!(autoshade::xmp::unparsable_crs_numbers(&document).is_empty());
 

@@ -33,8 +33,8 @@ case 最终必须归入以下一种状态：
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，341 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、2 条 `drop`、3 条 `external-gate`、1,933 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，342 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、2 条 `drop`、3 条 `external-gate`、1,932 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1950,6 +1950,16 @@ positive-fold guard时case分别红；mutation均已恢复，`src/`无diff。
 两个声明frame的Lightroom probes通过测试侧独立2×2矩阵解析，得到实测major/minor axes、
 区分性ratio与screen tilt。临时对signed half-axes取abs时probe #8 major axis偏离并红；
 测试不调用生产私有SVD helper，mutation已恢复，`src/`无diff。
+
+### Inverted crop corners remain legal under tilt
+
+- Main case：`an_inverted_crop_arrangement_is_read_rather_than_discarded`
+- 当前执行者：`rotated_left_over_right_crop_is_imported_without_false_disclosure`
+- 状态：`rewritten`
+
+构造的Left>Right tilted crop逐边读回原crop、保留-35°且无diagnostic；同一corners把angle
+压成0后被拒并披露。临时恢复pre-R27全局ordering guard后合法crop被丢弃，case红；
+mutation已恢复，`src/`无diff。
 
 ### Local Hue uses the measured 180 wire scale
 
