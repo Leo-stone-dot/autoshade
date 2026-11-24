@@ -3158,6 +3158,49 @@ fn lightroom_legacy_globals_document() -> &'static str {
 }
 
 #[test]
+fn texture_positive_negative_and_zero_values_round_trip_through_xmp() {
+    for (texture, spelling) in [
+        (26.0, r#"crs:Texture="+26""#),
+        (-40.0, r#"crs:Texture="-40""#),
+        (0.0, r#"crs:Texture="0""#),
+    ] {
+        let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            texture,
+            ..EditRecipe::default()
+        });
+
+        assert!(document.contains(spelling), "{texture}");
+        assert_eq!(autoshade::xmp::xmp_to_recipe(&document).texture, texture);
+    }
+
+    let lightroom = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" crs:Texture="+26"/>"#;
+    assert_eq!(autoshade::xmp::xmp_to_recipe(lightroom).texture, 26.0);
+}
+
+#[test]
+fn texture_merge_replaces_one_owned_key_and_preserves_foreign_globals() {
+    let lightroom = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Texture="+20" crs:PointColor="0" crs:HasSettings="True"/>"#;
+    let edited = autoshade::xmp::merge_recipe_into_xmp(
+        lightroom,
+        &EditRecipe {
+            texture: -8.0,
+            ..EditRecipe::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(edited.doc.matches("crs:Texture=").count(), 1);
+    assert!(edited.doc.contains(r#"crs:Texture="-8""#));
+    assert!(edited.doc.contains(r#"crs:PointColor="0""#));
+
+    let cleared =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom, &EditRecipe::default()).unwrap();
+    assert_eq!(cleared.doc.matches("crs:Texture=").count(), 1);
+    assert!(cleared.doc.contains(r#"crs:Texture="0""#));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&cleared.doc).texture, 0.0);
+}
+
+#[test]
 fn legacy_recipe_missing_modern_fields_preserves_lightroom_globals() {
     let legacy: EditRecipe = serde_json::from_str(r#"{"exposure_ev":0.35}"#).unwrap();
     assert_eq!((legacy.schema_era, legacy.texture, legacy.grain), (0, 0.0, 0.0));
