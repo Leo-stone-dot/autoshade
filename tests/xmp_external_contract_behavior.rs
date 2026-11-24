@@ -2628,6 +2628,76 @@ fn lightroom_v150_globals_document() -> &'static str {
  crs:HasSettings="True"/>"#
 }
 
+const PARAMETRIC_LIGHTROOM_SPELLINGS: [&str; 7] = [
+    r#"crs:ParametricShadows="-10""#,
+    r#"crs:ParametricDarks="+20""#,
+    r#"crs:ParametricLights="-30""#,
+    r#"crs:ParametricHighlights="+40""#,
+    r#"crs:ParametricShadowSplit="20""#,
+    r#"crs:ParametricMidtoneSplit="55""#,
+    r#"crs:ParametricHighlightSplit="85""#,
+];
+
+#[test]
+fn lightroom_parametric_curve_merges_once_and_reopens_unchanged() {
+    let imported = autoshade::xmp::xmp_to_recipe(lightroom_v150_globals_document());
+    assert_eq!(
+        imported.parametric_regions(),
+        Some([-10.0, 20.0, -30.0, 40.0])
+    );
+    assert_eq!(imported.parametric_splits(), [20.0, 55.0, 85.0]);
+
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom_v150_globals_document(), &imported)
+            .unwrap();
+    for spelling in PARAMETRIC_LIGHTROOM_SPELLINGS {
+        assert!(merged.doc.contains(spelling), "{spelling}");
+        let key = &spelling[..spelling.find('=').unwrap() + 1];
+        assert_eq!(merged.doc.matches(key).count(), 1, "{key}");
+    }
+    let reopened = autoshade::xmp::xmp_to_recipe(&merged.doc);
+    assert_eq!(
+        (
+            reopened.parametric_regions(),
+            reopened.parametric_splits(),
+        ),
+        (
+            imported.parametric_regions(),
+            imported.parametric_splits(),
+        )
+    );
+}
+
+#[test]
+fn moving_only_a_parametric_split_exports_the_whole_curve_block() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        param_midtone_split: 60.0,
+        ..EditRecipe::default()
+    });
+
+    for key in [
+        "ParametricShadows",
+        "ParametricDarks",
+        "ParametricLights",
+        "ParametricHighlights",
+        "ParametricShadowSplit",
+        "ParametricMidtoneSplit",
+        "ParametricHighlightSplit",
+    ] {
+        assert_eq!(document.matches(&format!("crs:{key}=")).count(), 1, "{key}");
+    }
+    assert!(document.contains(r#"crs:ParametricMidtoneSplit="60""#));
+    assert!(document.contains(r#"crs:ParametricDarks="0""#));
+}
+
+#[test]
+fn neutral_recipe_does_not_invent_a_parametric_curve() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+
+    assert!(!document.contains("crs:Parametric"));
+    assert!(autoshade::xmp::xmp_to_recipe(&document).is_noop());
+}
+
 #[test]
 fn v1_4_recipe_only_replaces_globals_from_its_own_era() {
     let legacy: EditRecipe =
@@ -2688,6 +2758,32 @@ fn v1_4_recipe_only_replaces_globals_from_its_own_era() {
     ] {
         assert!(merged.doc.contains(spelling), "{spelling}");
     }
+}
+
+#[test]
+fn edited_v1_4_parametric_region_rewrites_the_whole_curve_once() {
+    let legacy: EditRecipe = serde_json::from_str(
+        r#"{"schema_era":1,"exposure_ev":0.35,"texture":0.0,"param_lights":30.0}"#,
+    )
+    .unwrap();
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom_v150_globals_document(), &legacy)
+            .unwrap();
+
+    for key in [
+        "ParametricShadows",
+        "ParametricDarks",
+        "ParametricLights",
+        "ParametricHighlights",
+        "ParametricShadowSplit",
+        "ParametricMidtoneSplit",
+        "ParametricHighlightSplit",
+    ] {
+        assert_eq!(merged.doc.matches(&format!("crs:{key}=")).count(), 1, "{key}");
+    }
+    assert!(merged.doc.contains(r#"crs:ParametricLights="+30""#));
+    assert!(merged.doc.contains(r#"crs:ParametricDarks="0""#));
+    assert!(merged.doc.contains(r#"crs:Texture="0""#));
 }
 
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
