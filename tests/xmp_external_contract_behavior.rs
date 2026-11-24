@@ -1287,6 +1287,184 @@ fn one_bad_mask_brush_table_does_not_take_down_an_independent_table() {
         .any(|line| line.text.contains("PayloadUnsupported")));
 }
 
+#[test]
+fn global_projection_contains_representable_controls_and_names_bitmap_losses() {
+    let recipe = EditRecipe {
+        exposure_ev: -0.8,
+        temperature_k: Some(9000.0),
+        tint: 10.0,
+        saturation: 30.0,
+        tone_curve: vec![
+            CurvePoint {
+                input: 0,
+                output: 0,
+            },
+            CurvePoint {
+                input: 128,
+                output: 112,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ],
+        masks: vec![LocalAdjustment {
+            name: "legacy sky".to_string(),
+            mask: MaskGeometry::Bitmap {
+                path: "missing-atmosphere-sky.png".to_string(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    let (xmp, losses) = autoshade::xmp::recipe_to_xmp_with_losses(&recipe);
+    let native = without_recipe_payload(xmp);
+    let projected = autoshade::xmp::xmp_to_recipe(&native);
+
+    for expected in [
+        r#"crs:Exposure2012="-0.80""#,
+        r#"crs:Temperature="9000""#,
+        r#"crs:Tint="+10""#,
+        r#"crs:Saturation="+30""#,
+        "crs:ToneCurvePV2012",
+    ] {
+        assert!(native.contains(expected), "{expected}");
+    }
+    assert!(!native.contains("ToneCurvePV2012Red"));
+    assert!(!native.contains("MaskGroupBasedCorrections"));
+    assert_eq!(
+        losses
+            .iter()
+            .filter(|loss| loss.reason == MaskLossReason::Bitmap)
+            .count(),
+        1
+    );
+    assert_eq!(
+        losses
+            .iter()
+            .filter(|loss| loss.reason == MaskLossReason::RasterNotEmbedded)
+            .count(),
+        1
+    );
+    assert_eq!(projected.exposure_ev, -0.8);
+    assert_eq!(projected.temperature_k, Some(9000.0));
+    assert_eq!(projected.tint, 10.0);
+    assert_eq!(projected.saturation, 30.0);
+    assert_eq!(projected.tone_curve, recipe.tone_curve);
+    assert!(projected.masks.is_empty());
+}
+
+#[test]
+fn export_losses_name_only_non_neutral_unrepresentable_globals() {
+    assert!(autoshade::xmp::global_export_losses(&EditRecipe::default()).is_empty());
+    let with_base = EditRecipe {
+        base_curve: vec![[0.0, 0.0], [0.5, 0.55], [1.0, 1.0]],
+        ..EditRecipe::default()
+    };
+    assert_eq!(
+        autoshade::xmp::global_export_losses(&with_base),
+        vec!["base_curve"]
+    );
+    let with_lens = EditRecipe {
+        lens_profile: LensProfile {
+            vignette_on: true,
+            vignette: vec![1.0, 0.1],
+            ..LensProfile::default()
+        },
+        ..with_base
+    };
+    assert_eq!(
+        autoshade::xmp::global_export_losses(&with_lens),
+        vec!["base_curve", "lens_profile"]
+    );
+    assert!(autoshade::xmp::global_export_losses(&EditRecipe {
+        exposure_ev: 1.5,
+        ..EditRecipe::default()
+    })
+    .is_empty());
+}
+
+#[test]
+fn imported_unmodelled_globals_exclude_owned_keys_and_attribute_values() {
+    let document = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+1.00" crs:Texture="+30"
+ crs:CurveRefineSaturation="100" crs:PerspectiveUpright="1"
+ crs:CameraProfile="Adobe Standard"
+ crs:CameraProfileDigest="synthetic-digest"
+ crs:RawFileName="crs:NotAnAttribute=1.ARW"/>"#;
+
+    let found = autoshade::xmp::unmodelled_global_crs(document);
+
+    assert!(found.contains(&"CurveRefineSaturation".to_string()));
+    assert!(found.contains(&"CameraProfileDigest".to_string()));
+    for modelled in [
+        "Exposure2012",
+        "Texture",
+        "PerspectiveUpright",
+        "CameraProfile",
+        "NotAnAttribute",
+    ] {
+        assert!(!found.contains(&modelled.to_string()), "{modelled}");
+    }
+    assert!(autoshade::xmp::unmodelled_global_crs("").is_empty());
+    assert!(autoshade::xmp::unmodelled_global_crs("<not xml").is_empty());
+}
+
+#[test]
+fn unmodelled_global_disclosure_reads_attribute_and_property_element_forms() {
+    let element = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:Exposure2012>+1.00</crs:Exposure2012>
+ <crs:Texture>+30</crs:Texture>
+ <crs:PointColor>0</crs:PointColor>
+ <crs:UprightTransform>1.0000000</crs:UprightTransform>
+</rdf:Description>"#;
+    let mixed = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+1.00" crs:PointColor="0">
+ <crs:UprightTransform>1.0000000</crs:UprightTransform>
+</rdf:Description>"#;
+    let nested = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:PointColor>0</crs:PointColor>
+ <crs:Look><rdf:Description><crs:Parameters><rdf:Description>
+  <crs:LookClarity2012>+50</crs:LookClarity2012>
+ </rdf:Description></crs:Parameters></rdf:Description></crs:Look>
+ <crs:MaskGroupBasedCorrections><rdf:Seq><rdf:li>
+  <rdf:Description crs:LocalExposure2012="0.5" crs:LocalTexture="20"/>
+ </rdf:li></rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#;
+
+    assert_eq!(
+        autoshade::xmp::unmodelled_global_crs(element),
+        vec!["PointColor", "UprightTransform"]
+    );
+    assert_eq!(
+        autoshade::xmp::unmodelled_global_crs(mixed),
+        vec!["PointColor", "UprightTransform"]
+    );
+    assert_eq!(
+        autoshade::xmp::unmodelled_global_crs(nested),
+        vec!["Look", "PointColor"]
+    );
+}
+
+#[test]
+fn unmodelled_global_names_survive_all_xml_whitespace_before_equals() {
+    let document = "<rdf:Description \
+        xmlns:crs=\"http://ns.adobe.com/camera-raw-settings/1.0/\" \
+        crs:Exposure2012 = \"+1.00\" \
+        crs:CurveRefineSaturation\t=\t\"100\"\n\
+        crs:CameraProfileDigest\r\n=\n\"synthetic-digest\"/>";
+
+    assert_eq!(
+        autoshade::xmp::unmodelled_global_crs(document),
+        vec!["CameraProfileDigest", "CurveRefineSaturation"]
+    );
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
