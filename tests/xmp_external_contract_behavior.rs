@@ -1960,6 +1960,130 @@ fn bitmap_masks_are_omitted_without_hiding_native_masks_or_leaving_empty_shells(
 }
 
 #[test]
+fn mask_export_loss_matrix_names_each_omission_and_matches_the_projection() {
+    let radial = |angle| MaskGeometry::Radial {
+        top: 0.3,
+        left: 0.35,
+        bottom: 0.7,
+        right: 0.65,
+        feather: 0.5,
+        roundness: 0.0,
+        flipped: false,
+        angle,
+        midpoint: 50.0,
+        mask_version: 2,
+    };
+    let native_component = MaskComponent {
+        geometry: MaskGeometry::Linear {
+            zero_x: 0.1,
+            zero_y: 0.1,
+            full_x: 0.9,
+            full_y: 0.9,
+        },
+        mode: MaskCombine::Subtract,
+        inverted: false,
+    };
+    let recipe = EditRecipe {
+        masks: vec![
+            LocalAdjustment {
+                name: "sky".to_string(),
+                mask: MaskGeometry::Bitmap {
+                    path: "out/sky.png".to_string(),
+                },
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                name: "parked".to_string(),
+                mask: radial(30.0),
+                enabled: false,
+                color_gains: Some([1.4, 1.0, 0.6]),
+                components: vec![native_component.clone()],
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                name: "combo".to_string(),
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.2,
+                    zero_y: 0.2,
+                    full_x: 0.8,
+                    full_y: 0.8,
+                },
+                components: vec![
+                    native_component,
+                    MaskComponent {
+                        geometry: MaskGeometry::Bitmap {
+                            path: "out/component.png".to_string(),
+                        },
+                        mode: MaskCombine::Intersect,
+                        inverted: false,
+                    },
+                ],
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                name: "gold".to_string(),
+                mask: radial(-12.0),
+                color_gains: Some([3.0, 1.0, 0.2]),
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                name: "clean".to_string(),
+                mask: radial(0.0),
+                color_gains: Some([1.0, 1.0, 1.0]),
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                mask: MaskGeometry::Bitmap {
+                    path: "out/x.png".to_string(),
+                },
+                ..LocalAdjustment::default()
+            },
+        ],
+        ..EditRecipe::default()
+    };
+
+    let mut losses = autoshade::xmp::mask_export_losses(&recipe)
+        .into_iter()
+        .map(|loss| (loss.name, loss.reason))
+        .collect::<Vec<_>>();
+    losses.sort();
+    let mut expected = vec![
+        ("sky".to_string(), MaskLossReason::Bitmap),
+        ("parked".to_string(), MaskLossReason::Disabled),
+        ("combo".to_string(), MaskLossReason::ComponentsFlattened),
+        ("gold".to_string(), MaskLossReason::Rotation(-12)),
+        ("gold".to_string(), MaskLossReason::Recolour),
+        ("AutoShade 6".to_string(), MaskLossReason::Bitmap),
+    ];
+    expected.sort();
+    assert_eq!(losses, expected);
+
+    let prose =
+        autoshade::xmp::describe_mask_losses(&autoshade::xmp::mask_export_losses(&recipe))
+            .unwrap();
+    for expected in [
+        "2 bitmap mask(s) skipped (sky, AutoShade 6)",
+        "1 muted mask(s) skipped (parked)",
+        "1 bitmap component(s) omitted (combo)",
+        "1 radial rotation dropped (gold)",
+        "1 recolour gains past the reach of Temp/Tint (gold)",
+    ] {
+        assert!(prose.contains(expected), "{expected}");
+    }
+
+    let (document, _) = autoshade::xmp::recipe_to_xmp_with_losses(&recipe);
+    assert_eq!(document.matches(r#"crs:What="Correction""#).count(), 3);
+    assert!(!document.contains("sky.png"));
+    assert!(!document.contains("component.png"));
+    assert!(autoshade::xmp::mask_export_losses(&EditRecipe {
+        masks: vec![recipe.masks[4].clone()],
+        ..EditRecipe::default()
+    })
+    .is_empty());
+    assert!(autoshade::xmp::describe_mask_losses(&[]).is_none());
+}
+
+#[test]
 fn export_losses_name_only_non_neutral_unrepresentable_globals() {
     assert!(autoshade::xmp::global_export_losses(&EditRecipe::default()).is_empty());
     let with_base = EditRecipe {
