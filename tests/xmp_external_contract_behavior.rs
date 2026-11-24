@@ -2606,6 +2606,40 @@ fn local_and_global_curve_spelling_and_order_match_lightroom() {
 }
 
 #[test]
+fn channel_curve_without_composite_exports_identity_and_round_trips() {
+    let recipe = EditRecipe {
+        blue_curve: vec![
+            CurvePoint {
+                input: 0,
+                output: 0,
+            },
+            CurvePoint {
+                input: 128,
+                output: 150,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ],
+        ..EditRecipe::default()
+    };
+    let document = autoshade::xmp::recipe_to_xmp(&recipe);
+
+    let composite = document.find("<crs:ToneCurvePV2012>").unwrap();
+    let blue = document.find("<crs:ToneCurvePV2012Blue>").unwrap();
+    assert!(composite < blue);
+    assert!(document.contains(
+        "<rdf:li>0, 0</rdf:li>\n     <rdf:li>255, 255</rdf:li>"
+    ));
+    let reopened = autoshade::xmp::xmp_to_recipe(&document);
+    assert!(reopened.tone_curve.is_empty());
+    assert_eq!(reopened.blue_curve, recipe.blue_curve);
+    assert!(!autoshade::xmp::recipe_to_xmp(&EditRecipe::default())
+        .contains("<crs:ToneCurvePV2012>"));
+}
+
+#[test]
 fn local_curve_export_stays_sparse_for_curved_and_plain_masks() {
     let curved = autoshade::xmp::recipe_to_xmp(&EditRecipe {
         masks: vec![LocalAdjustment {
