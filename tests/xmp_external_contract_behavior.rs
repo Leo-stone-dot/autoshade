@@ -2509,6 +2509,29 @@ fn edited_clean_mask_replacement_names_the_corrections_it_replaced() {
     );
 }
 
+#[test]
+fn edited_lossy_mask_replaces_the_original_block_with_disclosure() {
+    let document = lightroom_radial_value_document("0", "1").replace(
+        r#"crs:Angle="0""#,
+        r#"crs:Angle="37.412506" crs:Midpoint="50" crs:Version="2""#,
+    );
+    let mut edited = autoshade::xmp::xmp_to_recipe(&document);
+    edited.masks[0].exposure_ev = 1.25;
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &edited).unwrap();
+
+    assert!(!merged.doc.contains(r#"crs:Angle="37.412506""#));
+    assert_eq!(merged.notes.len(), 1);
+    assert!(
+        merged.notes[0].contains("1 thing(s)")
+            && merged.notes[0].contains("1 edited mask(s)")
+    );
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&merged.doc).masks[0].exposure_ev,
+        1.25
+    );
+}
+
 fn lightroom_legacy_globals_document() -> &'static str {
     r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
  crs:Exposure2012="+0.35" crs:Texture="-20"
