@@ -3349,6 +3349,95 @@ fn radial_frame_affine_keeps_the_stored_center_and_exposes_warp_residual() {
     assert!((2571.0 - center.0).hypot(5060.0 - center.1) > 80.0);
 }
 
+fn radial_pixel_ellipse(
+    geometry: &MaskGeometry,
+    width: f64,
+    height: f64,
+) -> (f64, f64, f64) {
+    let MaskGeometry::Radial {
+        top,
+        left,
+        bottom,
+        right,
+        angle,
+        ..
+    } = geometry
+    else {
+        panic!("radial geometry")
+    };
+    let rx = ((*right as f64 - *left as f64) * 0.5).abs() * width;
+    let ry = ((*bottom as f64 - *top as f64) * 0.5).abs() * height;
+    let (sin, cos) = (*angle as f64).to_radians().sin_cos();
+    let matrix = [
+        cos * rx,
+        -sin * ry * width / height,
+        sin * rx * height / width,
+        cos * ry,
+    ];
+    let aa = matrix[0] * matrix[0] + matrix[1] * matrix[1];
+    let ab = matrix[0] * matrix[2] + matrix[1] * matrix[3];
+    let bb = matrix[2] * matrix[2] + matrix[3] * matrix[3];
+    let discriminant = ((aa - bb) * (aa - bb) + 4.0 * ab * ab).sqrt();
+    let major = ((aa + bb + discriminant) * 0.5).sqrt();
+    let minor = ((aa + bb - discriminant) * 0.5).max(0.0).sqrt();
+    let tilt = (0.5 * (2.0 * ab).atan2(aa - bb)).to_degrees();
+    (major, minor, tilt)
+}
+
+#[test]
+fn rotated_lightroom_radials_decode_to_measured_pixel_ellipses() {
+    let width = 9504.0;
+    let height = 6336.0;
+    for (
+        document,
+        expected_major,
+        expected_minor,
+        expected_ratio,
+        expected_tilt,
+    ) in [
+        (
+            framed_lightroom_radial_document(
+                "-0.045582",
+                "-0.056408",
+                "0.9708",
+                "1.062771",
+                "24.348422",
+            ),
+            6172.8,
+            740.8,
+            8.332,
+            24.348422,
+        ),
+        (
+            framed_lightroom_radial_document(
+                "-0.088191",
+                "0.520214",
+                "1.113528",
+                "0.494492",
+                "29.513785",
+            ),
+            3373.2,
+            1769.1,
+            0.524,
+            -60.486,
+        ),
+    ] {
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        let (major, minor, tilt) =
+            radial_pixel_ellipse(&imported.masks[0].mask, width, height);
+
+        assert!((major - expected_major).abs() < 0.5, "{major}");
+        assert!((minor - expected_minor).abs() < 0.5, "{minor}");
+        let ratio = if expected_ratio > 1.0 {
+            major / minor
+        } else {
+            minor / major
+        };
+        assert!((ratio - expected_ratio).abs() < 0.01, "{ratio}");
+        assert!((tilt - expected_tilt).abs() < 0.02, "{tilt}");
+    }
+}
+
 fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
     format!(
         r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
