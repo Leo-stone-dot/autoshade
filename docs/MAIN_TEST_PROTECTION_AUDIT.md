@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：616 cases，约 1,741 个断言宏，33 个显式 ignore。
+- 当前工作树：622 cases，约 1,760 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，181 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,086 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，186 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,081 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -618,6 +618,118 @@ Mutation 证据：
 
 三次 mutation 均已恢复，`src/xmp/payload.rs` 与
 `src/xmp/read_corrections.rs` 无 diff。
+
+### Payload inversion reconciliation
+
+- Main case：
+  `src/xmp/payload_tests.rs::an_inversion_keeps_its_authored_home_through_a_rewrite_and_follows_a_lightroom_flip`
+- 当前 cases：
+  `tests/xmp_behavior.rs::an_untouched_external_rewrite_preserves_the_authored_inversion_home`
+  与 `an_external_inversion_edit_overrides_the_payload_in_the_native_home`
+- 状态：`rewritten`
+- Gate：默认
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| untouched rewrite 仍有两个 masks | untouched case 分别用单 AI、单 Radial，均精确断言一个结果 | 保留“不丢、不复制”；删除 fixture 聚合数量 |
+| 两种 geometry 都保留 authored `(whole=true, own=false)` | untouched case 遍历公开 AI/Radial recipe pair | 保留 |
+| untouched mask 整体等于 payload | inversion/exposure 由本组执行；role/name 由 role fallback/intent cases；其余 payload/geometry 由 complete-develop 与 native composition cases | 拆分，避免一个无边界 struct 断言锁住无关字段 |
+| Lightroom 把 net 从 true 改 false 后两种 mask 均不再 inverted | external-edit case 的 `net_inverted()` | 保留 |
+| 上述 flip 不改变各自 exposure | external-edit case 的公开局部曝光断言 | 保留 |
+| 从 false 改 true 后两种 mask 均 net-inverted | external-edit case 的两个 expected native pairs | 保留 |
+| AI 的外部 true 落在 `(whole=false, own=true)` | external-edit case 的 AI arm | 保留公开可编辑状态 |
+| Radial 的外部 true 落在 `(whole=true, own=false)` | external-edit case 的 Radial arm | 保留公开可编辑状态 |
+
+Mutation 证据：
+
+- reconciliation 对未改写文档强制采用 native pair 时，AI 从 `(true,false)` 漂成
+  `(false,true)`，untouched case 红。
+- reconciliation 对所有文档强制采用 payload pair 时，外部移除 inversion 后仍
+  net-inverted，external-edit case 红。
+- reconciliation 复制输出 mask 列表时，untouched case 在公开数量 `2 != 1` 处红。
+- inversion reconciliation 顺带把局部曝光清零时，external-edit case 在
+  `0.0 != -0.5` 处红。
+
+四次 mutation 均已恢复，`src/xmp/payload.rs` 无 diff。
+
+### Additional raster paths in XMP payloads
+
+- Main case：
+  `src/xmp/payload_tests.rs::the_payload_carries_depth_protect_and_layer_paths_bare_and_refuses_a_share`
+- 当前执行者：
+  `tests/xmp_behavior.rs::xmp_payload_carries_additional_rasters_by_filename_only`、
+  `tests/store_behavior.rs::unsafe_raster_references_are_disabled_across_every_recipe_raster_kind`
+  与
+  `tests/xmp_behavior.rs::a_photo_less_xmp_read_disables_every_unanchored_raster_reference`
+- 状态：`rewritten`
+- Gate：默认
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| depth/protect/layer 在 payload 中都只有 bare filename | 新 XMP case 解码公开 sidecar 的 `asr:Recipe` artifact，比较三条公开 recipe path | sidecar 泄露本机目录且无法在另一台机器重锚 |
+| network depth path 恢复为 inert sentinel | unsafe store case + photo-less XMP case | 导入共享路径后访问任意网络文件 |
+| device protect path 恢复为 inert sentinel | 同上 | 导入 sidecar 后打开设备路径 |
+| escaping pixel-layer path 恢复为 inert sentinel | 同上 | `..` 引用逃出 develop 目录 |
+
+Mutation 证据：
+
+- payload portability 退回只遍历 mask raster 时，新 XMP case 解出的三个路径全部为
+  临时目录绝对路径，filename tuple 断言红。
+- 既有 store mutation 中，`raster_paths_mut` 退回只遍历 mask 时 additional raster
+  refusal case 红；containment 无条件 join 时 `../../outside.png` layer 不再落
+  sentinel；这些证据同时执行恢复侧三条拒绝断言。
+
+mutation 已恢复，`src/xmp/payload.rs` 无 diff。
+
+### Merged Lightroom base and Written record
+
+- Main cases：
+  `our_own_sidecar_over_a_lightroom_base_reads_back_as_the_develop_it_carries`、
+  `a_lightroom_edit_to_a_key_the_base_carried_still_wins` 与
+  `a_written_record_that_does_not_verify_is_disclosed_and_dropped`
+- 当前 cases：
+  `tests/xmp_behavior.rs::a_merged_lightroom_base_reopens_as_the_develop_autoshade_wrote`、
+  `external_profile_and_lens_switch_edits_override_the_written_payload` 与
+  `a_corrupt_written_record_is_disclosed_while_the_payload_recipe_still_opens`
+- 状态：3 条 `rewritten`
+- Gate：默认
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| merge 保留 CameraProfile、Look、LensProfileEnable | merged-base case 直接检查公开 XMP artifact | 保留 |
+| XMP 精确含 `asr:Written` | merged-base 的重开结果和 `written_lens_profile` | 改写为该记录必须实现的公开行为，不锁 attribute 布局 |
+| payload notes 为空 | merged-base 的公开 `Collector` 为空 | 保留“合法 sidecar 不误报” |
+| 私有 `Payload.written` 存在且不递归含 payload | 无 | 删除内部表示；成功重开与文件大小上限由公开行为验收 |
+| base profile/Look 不成为 edit，完整 develop 相等 | merged-base 的公开 `EditRecipe` 相等 | 保留 |
+| `written_lens_profile` 返回 develop 的 profile | merged-base 的公开查询 | 保留 |
+| write-read-render 像素相等 | 无独立 case | 删除冗余：一次针对同一故障的合成 preview mutation 仍绿；recipe 已精确相等时同一确定 renderer 的自比较不增加保护 |
+| Lightroom 改 CameraProfile 后新值胜出 | external-edit case | 保留 |
+| Lightroom 改 lens switch 后 payload profile 不再适用 | external-edit case 的 `None` | 保留 |
+| checksum 错误令私有 `written` 为 None | corrupt-record case 的公开 warning + recipe 仍打开 | 改写；不断言私有状态 |
+| checksum 错误进入 notes | corrupt-record case 的公开 diagnostic 文案 | 保留 |
+
+Mutation 证据：
+
+- `written_document` 忽略真实 merge 记录、退回 bare projection 时，base 的 Adobe
+  profile/Look 被误导入，merged-base case 的完整 recipe 断言红。
+- 同一 mutation 下曾尝试的像素 parity case仍绿，因此该新 case被删除，没有拿
+  vacuous 绿灯计作保护。
+- reconciliation 对 `camera_profile` 永远采用 payload 时，Adobe Portrait 外部编辑
+  被读回空 profile，external-edit case 红。
+- `written_lens_profile` 无条件返回 payload profile 时，外部 switch edit 得到
+  `Some(...)` 而非 `None`，external-edit case 红。
+- reader 接受任意已声明 Written CRC 时，corrupt-record case 缺少 checksum
+  disclosure 并红。
+- reader 把每个合法 Written 都判为 checksum error 时，merged-base case 的
+  `Collector::is_empty` 断言红。
+
+全部 mutation 均已恢复，`src/xmp/payload.rs` 无 diff。
 
 ## GUI 已裁决
 
@@ -1498,7 +1610,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
-| `tests/xmp_behavior.rs` | 23 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、role fallback/intent、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
+| `tests/xmp_behavior.rs` | 29 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、role fallback/intent、inversion reconciliation、portable raster paths、Lightroom base reconciliation、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

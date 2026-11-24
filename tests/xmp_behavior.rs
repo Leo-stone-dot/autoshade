@@ -1,10 +1,28 @@
 use autoshade::recipe::{
     BrushStroke, ColourField, EditRecipe, LocalAdjustment, MaskCombine, MaskComponent,
-    MaskGeometry, MaskRole,
+    LensProfile, MaskGeometry, MaskRole,
 };
 use autoshade::render::{LensBlur, PixelLayer};
 
 mod support;
+
+const LIGHTROOM_BASE: &str = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description rdf:about=""
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:ProcessVersion="15.4" crs:LensProfileEnable="0" crs:HasSettings="True"
+ crs:CameraProfile="Adobe Standard">
+ <crs:Look><rdf:Description crs:Name="Adobe Color" crs:Amount="1"
+  crs:UUID="B952C231111CD8E0ECCF14B86BAA7077">
+  <crs:Parameters><rdf:Description crs:CameraProfile="Adobe Standard"
+   crs:LookTable="E1095149FDB39D7A057BAB208837E2E1">
+   <crs:ToneCurvePV2012><rdf:Seq>
+    <rdf:li>0, 0</rdf:li><rdf:li>40, 35</rdf:li><rdf:li>127, 127</rdf:li>
+    <rdf:li>224, 230</rdf:li><rdf:li>255, 255</rdf:li>
+   </rdf:Seq></crs:ToneCurvePV2012>
+  </rdf:Description></crs:Parameters>
+ </rdf:Description></crs:Look>
+</rdf:Description></rdf:RDF></x:xmpmeta>"#;
 
 fn without_autoshade_attributes(mut xmp: String) -> String {
     while let Some(start) = xmp.find(" ash:") {
@@ -30,6 +48,33 @@ fn without_payload(xmp: String) -> String {
         without_attribute(xmp, "asr:Recipe"),
         "asr:RecipeCrc32",
     )
+}
+
+fn without_mask_intent(xmp: String) -> String {
+    without_autoshade_attributes(xmp)
+        .replace(" xmlns:ash=\"https://autoshade.dev/ns/mask/1.0/\"", "")
+}
+
+fn replace_single_native_inversion(xmp: &str, from: bool, to: bool) -> String {
+    let old = format!("crs:MaskInverted=\"{from}\"");
+    assert_eq!(xmp.matches(&old).count(), 1, "fixture has one base mask");
+    xmp.replacen(&old, &format!("crs:MaskInverted=\"{to}\""), 1)
+}
+
+fn unbacked_sky_geometry() -> MaskGeometry {
+    MaskGeometry::AiMask {
+        name: "Sky 1".to_string(),
+        subtype: 2,
+        ref_x: 0.5,
+        ref_y: 0.25,
+        blend_mode: 0,
+        value: 1.0,
+        inverted: false,
+        mask_version: 1,
+        provenance: Vec::new(),
+        gesture: Vec::new(),
+        raster: None,
+    }
 }
 
 fn xmp_attribute_values<'a>(xmp: &'a str, name: &str) -> Vec<&'a str> {
@@ -851,6 +896,246 @@ fn explicit_role_intent_overrides_zone_name_fallback() {
 
     assert_eq!(restored.masks[0].role, MaskRole::Custom);
     assert_eq!(restored.masks[1].role, MaskRole::ZoneSky);
+}
+
+#[test]
+fn an_untouched_external_rewrite_preserves_the_authored_inversion_home() {
+    for geometry in [
+        unbacked_sky_geometry(),
+        MaskGeometry::Radial {
+            top: 0.2,
+            left: 0.2,
+            bottom: 0.8,
+            right: 0.8,
+            feather: 0.5,
+            roundness: 0.0,
+            flipped: false,
+            angle: 0.0,
+            midpoint: 50.0,
+            mask_version: 2,
+        },
+    ] {
+        let original = LocalAdjustment {
+            name: "authored inversion".to_string(),
+            mask: geometry,
+            inverted: true,
+            exposure_ev: -0.5,
+            ..LocalAdjustment::default()
+        };
+        let xmp = without_mask_intent(autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            masks: vec![original.clone()],
+            ..EditRecipe::default()
+        }));
+
+        let restored = autoshade::xmp::xmp_to_recipe(&xmp);
+
+        assert_eq!(restored.masks.len(), 1);
+        assert_eq!(
+            (
+                restored.masks[0].inverted,
+                restored.masks[0].mask.own_inverted(),
+            ),
+            (true, false)
+        );
+        assert_eq!(restored.masks[0].exposure_ev, original.exposure_ev);
+    }
+}
+
+#[test]
+fn an_external_inversion_edit_overrides_the_payload_in_the_native_home() {
+    let geometries = [
+        unbacked_sky_geometry(),
+        MaskGeometry::Radial {
+            top: 0.2,
+            left: 0.2,
+            bottom: 0.8,
+            right: 0.8,
+            feather: 0.5,
+            roundness: 0.0,
+            flipped: false,
+            angle: 0.0,
+            midpoint: 50.0,
+            mask_version: 2,
+        },
+    ];
+    for (index, geometry) in geometries.into_iter().enumerate() {
+        let document = |inverted| {
+            without_mask_intent(autoshade::xmp::recipe_to_xmp(&EditRecipe {
+                masks: vec![LocalAdjustment {
+                    name: "edited inversion".to_string(),
+                    mask: geometry.clone(),
+                    inverted,
+                    exposure_ev: -0.5,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            }))
+        };
+
+        let removed = autoshade::xmp::xmp_to_recipe(&replace_single_native_inversion(
+            &document(true),
+            true,
+            false,
+        ));
+        assert!(!removed.masks[0].net_inverted());
+        assert_eq!(removed.masks[0].exposure_ev, -0.5);
+
+        let added = autoshade::xmp::xmp_to_recipe(&replace_single_native_inversion(
+            &document(false),
+            false,
+            true,
+        ));
+        let expected_home = if index == 0 {
+            (false, true)
+        } else {
+            (true, false)
+        };
+        assert_eq!(
+            (added.masks[0].inverted, added.masks[0].mask.own_inverted()),
+            expected_home
+        );
+        assert_eq!(added.masks[0].exposure_ev, -0.5);
+    }
+}
+
+#[test]
+fn xmp_payload_carries_additional_rasters_by_filename_only() {
+    use base64::Engine as _;
+    use std::io::Read as _;
+
+    let tree = support::TempTree::new("xmp-additional-raster-paths");
+    let source = tree.path().join("private-source-directory");
+    std::fs::create_dir(&source).unwrap();
+    for name in ["depth.png", "protect.png", "layer.png"] {
+        std::fs::write(source.join(name), name.as_bytes()).unwrap();
+    }
+    let recipe = EditRecipe {
+        lens_blur: Some(LensBlur {
+            depth_map: source.join("depth.png").to_string_lossy().into_owned(),
+            protect: Some(
+                source
+                    .join("protect.png")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+            ..LensBlur::default()
+        }),
+        pixel_layers: vec![PixelLayer {
+            path: source.join("layer.png").to_string_lossy().into_owned(),
+            ..PixelLayer::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    let xmp = autoshade::xmp::recipe_to_xmp(&recipe);
+    let packed = base64::engine::general_purpose::STANDARD
+        .decode(xmp_attribute_values(&xmp, "asr:Recipe")[0])
+        .unwrap();
+    let mut json = Vec::new();
+    flate2::read::ZlibDecoder::new(packed.as_slice())
+        .read_to_end(&mut json)
+        .unwrap();
+    let carried: EditRecipe = serde_json::from_slice(&json).unwrap();
+    let blur = carried.lens_blur.unwrap();
+
+    assert_eq!(
+        (
+            blur.depth_map.as_str(),
+            blur.protect.as_deref(),
+            carried.pixel_layers[0].path.as_str(),
+        ),
+        ("depth.png", Some("protect.png"), "layer.png")
+    );
+}
+
+fn merged_base_recipe() -> EditRecipe {
+    EditRecipe {
+        exposure_ev: 0.35,
+        contrast: 12.0,
+        saturation: -8.0,
+        lens_profile: LensProfile {
+            vignette_on: true,
+            distortion_on: true,
+            ca_on: true,
+            ..LensProfile::default()
+        },
+        ..EditRecipe::default()
+    }
+}
+
+#[test]
+fn a_merged_lightroom_base_reopens_as_the_develop_autoshade_wrote() {
+    let recipe = merged_base_recipe();
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(LIGHTROOM_BASE, &recipe)
+        .unwrap()
+        .doc;
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::pixels_only(&collector);
+    let restored = autoshade::xmp::xmp_to_recipe_with_diag(&merged, &diag);
+
+    assert!(merged.contains(r#"crs:CameraProfile="Adobe Standard""#));
+    assert!(merged.contains("<crs:Look>"));
+    assert!(merged.contains(r#"crs:LensProfileEnable="0""#));
+    assert!(collector.is_empty());
+    assert_eq!(restored, recipe);
+    assert_eq!(
+        autoshade::xmp::written_lens_profile(&merged),
+        Some(recipe.lens_profile)
+    );
+}
+
+#[test]
+fn external_profile_and_lens_switch_edits_override_the_written_payload() {
+    let recipe = merged_base_recipe();
+    let merged = autoshade::xmp::merge_recipe_into_xmp(LIGHTROOM_BASE, &recipe)
+        .unwrap()
+        .doc;
+    let profile_edit = merged.replacen(
+        r#"crs:CameraProfile="Adobe Standard""#,
+        r#"crs:CameraProfile="Adobe Portrait""#,
+        1,
+    );
+    let lens_edit = merged.replacen(
+        r#"crs:LensProfileEnable="0""#,
+        r#"crs:LensProfileEnable="1""#,
+        1,
+    );
+
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&profile_edit).camera_profile,
+        "Adobe Portrait"
+    );
+    assert_eq!(autoshade::xmp::written_lens_profile(&lens_edit), None);
+}
+
+#[test]
+fn a_corrupt_written_record_is_disclosed_while_the_payload_recipe_still_opens() {
+    let recipe = merged_base_recipe();
+    let merged = autoshade::xmp::merge_recipe_into_xmp(LIGHTROOM_BASE, &recipe)
+        .unwrap()
+        .doc;
+    let key = "asr:WrittenCrc32=\"";
+    let start = merged.find(key).unwrap() + key.len();
+    let mut tampered = merged.clone();
+    let checksum = start..start + 8;
+    let replacement = if &merged[checksum.clone()] == "00000000" {
+        "00000001"
+    } else {
+        "00000000"
+    };
+    tampered.replace_range(checksum, replacement);
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::pixels_only(&collector);
+
+    let restored = autoshade::xmp::xmp_to_recipe_with_diag(&tampered, &diag);
+    let lines = collector.take();
+
+    assert_eq!(restored.exposure_ev, recipe.exposure_ev);
+    assert!(lines.iter().any(|line| {
+        line.text.contains("record of the document AutoShade wrote")
+            && line.text.contains("checksum")
+    }));
 }
 
 #[test]
