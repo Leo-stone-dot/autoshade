@@ -27,7 +27,7 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：705 cases，约 2,100 个断言宏，39 个显式 ignore。
+- 当前工作树：706 cases，约 2,103 个断言宏，39 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
@@ -1295,19 +1295,20 @@ writer写matching pair时，artifact从`(false,true)`退化为`(false,false)`。
 临时让`lr_net_inverted`忽略engine flip时，`(true,false)`输出从`(true,false)`反转成
 `(false,true)`；case红，mutation已恢复，`src/`无diff。
 
-### Default Lightroom gradient disclosure
+### Lightroom gradient blend disclosure
 
 - Main case：`a_lightroom_gradient_with_blend_mode_zero_imports_losslessly`
-- 当前执行者：`plain_lightroom_gradient_imports_without_false_loss`
+- 当前执行者：`plain_lightroom_gradient_imports_without_false_loss`、
+  `base_only_nondefault_gradient_imports_shape_with_a_blend_mode_note`
 - 状态：`rewritten`
 
 Adobe-authored默认gradient通过公开reader导入一个mask，unsupported count为0，且不产生
 import loss。临时把默认`MaskBlendMode=0`也分类成`BlendMode`时，geometry仍导入但
 disclosure出现假警报，case红；mutation已恢复。
 
-main中对synthetic `mode=1,value=1`必须产生`BlendMode` note的断言不再保留：当前
-composition模型已支持mode 0/1，继续要求loss会锁死旧能力边界；真实Lightroom
-`mode=1,value=0` subtract pair由下一条main case单独审计。
+nondefault `mode=1,value=1`被迫作为唯一base时，shape仍导入且unsupported count保持0，
+同时公开loss精确命名`BlendMode`。临时取消base-only disclosure时loss列表变空，第二条
+case红。真实Lightroom `mode=1,value=0` subtract pair由下一条main case单独审计。
 
 ## GUI 已裁决
 
@@ -2201,7 +2202,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 72 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/composition disclosure、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation loss/inversion payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 73 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/composition disclosure、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation loss/inversion payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
