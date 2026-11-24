@@ -33,8 +33,8 @@ case 最终必须归入以下一种状态：
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，282 条 `rewritten`、1 条
-`lint`、2 条 `drop`、3 条 `external-gate`、1,993 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，283 条 `rewritten`、1 条
+`lint`、2 条 `drop`、3 条 `external-gate`、1,992 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1424,9 +1424,21 @@ replacement notes从1变0，case红；mutation已恢复，`src/`无diff。
 - 状态：`rewritten`
 
 最小legacy JSON只声明旧Exposure，没有`schema_era`或现代controls。merge保留Lightroom
-原有Texture、Detail、PostCrop、Grain与Defringe bytes，不把serde defaults解释成用户
-清零。临时停止生成era-derived unspoken keys时，首先删除`Texture=-20`，case红；
-mutation已恢复，`src/`无diff。
+原有Texture、全部Detail、manual CA、auto CA、PostCrop、Grain与Defringe共27个R25
+attributes，不把serde defaults解释成用户清零。临时停止生成era-derived unspoken
+keys时，首先删除`Texture=-20`，case红；mutation已恢复，`src/`无diff。
+
+### R25 era membership through public merge behavior
+
+- Main case：`the_era_gate_is_the_twenty_seven_keys_r25_added`
+- 当前执行者：`legacy_recipe_missing_modern_fields_preserves_lightroom_globals`
+- 状态：`rewritten`
+
+main原case固定私有`era_attr_keys`、`owned_attr_keys`与helper返回数量；这些实现形状不再
+断言。公开merge case改为逐项保留R25全部27个非默认XMP attributes。临时用旧控制
+`contrast`等长替换`auto_lateral_ca`后固定数组仍通过编译，但merge无声删除
+`crs:AutoLateralCA="1"`，case红；mutation已恢复，`src/`无diff。空profile与lens
+identity的条件行为由公开profile merge/strength cases验收，不再借私有集合间接证明。
 
 ### Current-era global ownership
 

@@ -2437,12 +2437,19 @@ fn edited_clean_mask_replacement_names_the_corrections_it_replaced() {
 fn lightroom_legacy_globals_document() -> &'static str {
     r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
  crs:Exposure2012="+0.35" crs:Texture="-20"
- crs:SharpenRadius="+1.0" crs:SharpenDetail="25"
- crs:PostCropVignetteAmount="-17" crs:PostCropVignetteMidpoint="50"
+ crs:SharpenRadius="+1.0" crs:SharpenDetail="25" crs:SharpenEdgeMasking="13"
+ crs:LuminanceNoiseReductionDetail="45" crs:LuminanceNoiseReductionContrast="17"
+ crs:ColorNoiseReduction="25" crs:ColorNoiseReductionDetail="47"
+ crs:ColorNoiseReductionSmoothness="53"
+ crs:ChromaticAberrationR="7" crs:ChromaticAberrationB="-8"
+ crs:AutoLateralCA="1"
  crs:GrainAmount="30" crs:GrainSize="25" crs:GrainFrequency="50"
  crs:DefringePurpleAmount="3" crs:DefringePurpleHueLo="30"
  crs:DefringePurpleHueHi="70" crs:DefringeGreenAmount="0"
  crs:DefringeGreenHueLo="40" crs:DefringeGreenHueHi="60"
+ crs:PostCropVignetteAmount="-17" crs:PostCropVignetteMidpoint="50"
+ crs:PostCropVignetteFeather="61" crs:PostCropVignetteRoundness="-11"
+ crs:PostCropVignetteStyle="2" crs:PostCropVignetteHighlightContrast="22"
  crs:HasSettings="True"/>"#
 }
 
@@ -2459,11 +2466,29 @@ fn legacy_recipe_missing_modern_fields_preserves_lightroom_globals() {
         r#"crs:Texture="-20""#,
         r#"crs:SharpenRadius="+1.0""#,
         r#"crs:SharpenDetail="25""#,
+        r#"crs:SharpenEdgeMasking="13""#,
+        r#"crs:LuminanceNoiseReductionDetail="45""#,
+        r#"crs:LuminanceNoiseReductionContrast="17""#,
+        r#"crs:ColorNoiseReduction="25""#,
+        r#"crs:ColorNoiseReductionDetail="47""#,
+        r#"crs:ColorNoiseReductionSmoothness="53""#,
+        r#"crs:ChromaticAberrationR="7""#,
+        r#"crs:ChromaticAberrationB="-8""#,
+        r#"crs:AutoLateralCA="1""#,
         r#"crs:PostCropVignetteAmount="-17""#,
+        r#"crs:PostCropVignetteMidpoint="50""#,
+        r#"crs:PostCropVignetteFeather="61""#,
+        r#"crs:PostCropVignetteRoundness="-11""#,
+        r#"crs:PostCropVignetteStyle="2""#,
+        r#"crs:PostCropVignetteHighlightContrast="22""#,
         r#"crs:GrainAmount="30""#,
         r#"crs:GrainSize="25""#,
         r#"crs:GrainFrequency="50""#,
         r#"crs:DefringePurpleAmount="3""#,
+        r#"crs:DefringePurpleHueLo="30""#,
+        r#"crs:DefringePurpleHueHi="70""#,
+        r#"crs:DefringeGreenAmount="0""#,
+        r#"crs:DefringeGreenHueLo="40""#,
         r#"crs:DefringeGreenHueHi="60""#,
     ] {
         assert!(merged.doc.contains(spelling), "{spelling}");
