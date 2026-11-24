@@ -2825,6 +2825,163 @@ fn false_black_and_white_switch_imports_as_color() {
     assert!(!autoshade::xmp::xmp_to_recipe(&document).convert_to_grayscale);
 }
 
+const LIGHTROOM_POINT_COLOR_SWATCH: &str =
+    "1.312043, 0.473663, 0.739782, -1.000000, -1.000000, -1.000000, 0.500000, \
+     0.000000, 0.330000, 0.670000, 1.000000, 0.000000, 0.290000, 0.650000, 1.000000, \
+     0.150000, 0.700000, 1.000000, 1.000000";
+
+fn lightroom_point_color_placeholder() -> String {
+    ["-1.000000"; 19].join(", ")
+}
+
+fn lightroom_point_colors_document(items: &[&str]) -> String {
+    let items: String = items
+        .iter()
+        .map(|item| format!("<rdf:li>{item}</rdf:li>"))
+        .collect();
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+0.35" crs:HasSettings="True">
+ <crs:PointColors><rdf:Seq>{items}</rdf:Seq></crs:PointColors>
+</rdf:Description>"#
+    )
+}
+
+#[test]
+fn lightroom_no_swatch_placeholder_stays_one_untouched_element() {
+    let placeholder = lightroom_point_color_placeholder();
+    let document = lightroom_point_colors_document(&[placeholder.as_str()]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert!(imported.point_colors.is_empty());
+    assert!(autoshade::xmp::unparsable_crs_numbers(&document).is_empty());
+    assert!(autoshade::xmp::unmodelled_global_crs(&document).is_empty());
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &imported).unwrap();
+    assert_eq!(merged.doc.matches("<crs:PointColors>").count(), 1);
+    assert!(merged.doc.contains(&placeholder));
+}
+
+#[test]
+fn lightroom_point_color_merges_once_and_reopens_number_for_number() {
+    let document = lightroom_point_colors_document(&[LIGHTROOM_POINT_COLOR_SWATCH]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(imported.point_colors.len(), 1);
+    let point = &imported.point_colors[0];
+    assert_eq!(
+        (point.src_hue, point.src_sat, point.src_lum),
+        (1.312043, 0.473663, 0.739782)
+    );
+    assert_eq!(
+        (
+            point.hue_shift,
+            point.sat_scale,
+            point.lum_scale,
+            point.range_amount,
+        ),
+        (-1.0, -1.0, -1.0, 0.5)
+    );
+    assert_eq!(point.hue_range, [0.0, 0.33, 0.67, 1.0]);
+    assert_eq!(point.sat_range, [0.0, 0.29, 0.65, 1.0]);
+    assert_eq!(point.lum_range, [0.15, 0.7, 1.0, 1.0]);
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &imported).unwrap();
+    assert_eq!(merged.doc.matches("<crs:PointColors>").count(), 1);
+    assert!(merged.doc.contains(&format!(
+        "<rdf:li>{LIGHTROOM_POINT_COLOR_SWATCH}</rdf:li>"
+    )));
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&merged.doc).point_colors,
+        imported.point_colors
+    );
+}
+
+#[test]
+fn point_colors_export_between_global_curves_and_mask_corrections() {
+    let point = autoshade::xmp::xmp_to_recipe(&lightroom_point_colors_document(&[
+        LIGHTROOM_POINT_COLOR_SWATCH,
+    ]))
+    .point_colors
+    .remove(0);
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        tone_curve: vec![
+            CurvePoint {
+                input: 0,
+                output: 0,
+            },
+            CurvePoint {
+                input: 128,
+                output: 140,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ],
+        point_colors: vec![point],
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Linear {
+                zero_x: 0.0,
+                zero_y: 0.0,
+                full_x: 0.0,
+                full_y: 1.0,
+            },
+            enabled: true,
+            amount: 1.0,
+            exposure_ev: 0.5,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    });
+
+    let curve = document.find("</crs:ToneCurvePV2012>").unwrap();
+    let points = document.find("<crs:PointColors>").unwrap();
+    let masks = document.find("<crs:MaskGroupBasedCorrections>").unwrap();
+    assert!(curve < points && points < masks);
+}
+
+#[test]
+fn current_recipe_can_clear_lightroom_point_colors() {
+    let document = lightroom_point_colors_document(&[LIGHTROOM_POINT_COLOR_SWATCH]);
+    let mut current = autoshade::xmp::xmp_to_recipe(&document);
+    current.point_colors.clear();
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &current).unwrap();
+
+    assert!(!merged.doc.contains("<crs:PointColors>"));
+}
+
+#[test]
+fn v1_4_recipe_preserves_point_colors_it_never_represented() {
+    let document = lightroom_point_colors_document(&[LIGHTROOM_POINT_COLOR_SWATCH]);
+    let legacy: EditRecipe =
+        serde_json::from_str(r#"{"schema_era":1,"exposure_ev":0.35}"#).unwrap();
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &legacy).unwrap();
+
+    assert_eq!(merged.doc.matches("<crs:PointColors>").count(), 1);
+    assert!(merged.doc.contains(&format!(
+        "<rdf:li>{LIGHTROOM_POINT_COLOR_SWATCH}</rdf:li>"
+    )));
+}
+
+#[test]
+fn real_point_color_replaces_the_lightroom_placeholder_once() {
+    let placeholder = lightroom_point_color_placeholder();
+    let base = lightroom_point_colors_document(&[placeholder.as_str()]);
+    let point = autoshade::xmp::xmp_to_recipe(&lightroom_point_colors_document(&[
+        LIGHTROOM_POINT_COLOR_SWATCH,
+    ]));
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&base, &point).unwrap();
+
+    assert_eq!(merged.doc.matches("<crs:PointColors>").count(), 1);
+    assert!(!merged.doc.contains(&placeholder));
+    assert!(merged.doc.contains(&format!(
+        "<rdf:li>{LIGHTROOM_POINT_COLOR_SWATCH}</rdf:li>"
+    )));
+    assert!(merged.notes.is_empty());
+}
+
 #[test]
 fn v1_4_recipe_only_replaces_globals_from_its_own_era() {
     let legacy: EditRecipe =
