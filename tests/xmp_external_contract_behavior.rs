@@ -2434,6 +2434,42 @@ fn edited_clean_mask_replacement_names_the_corrections_it_replaced() {
     );
 }
 
+fn lightroom_legacy_globals_document() -> &'static str {
+    r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+0.35" crs:Texture="-20"
+ crs:SharpenRadius="+1.0" crs:SharpenDetail="25"
+ crs:PostCropVignetteAmount="-17" crs:PostCropVignetteMidpoint="50"
+ crs:GrainAmount="30" crs:GrainSize="25" crs:GrainFrequency="50"
+ crs:DefringePurpleAmount="3" crs:DefringePurpleHueLo="30"
+ crs:DefringePurpleHueHi="70" crs:DefringeGreenAmount="0"
+ crs:DefringeGreenHueLo="40" crs:DefringeGreenHueHi="60"
+ crs:HasSettings="True"/>"#
+}
+
+#[test]
+fn legacy_recipe_missing_modern_fields_preserves_lightroom_globals() {
+    let legacy: EditRecipe = serde_json::from_str(r#"{"exposure_ev":0.35}"#).unwrap();
+    assert_eq!((legacy.schema_era, legacy.texture, legacy.grain), (0, 0.0, 0.0));
+
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom_legacy_globals_document(), &legacy)
+            .unwrap();
+
+    for spelling in [
+        r#"crs:Texture="-20""#,
+        r#"crs:SharpenRadius="+1.0""#,
+        r#"crs:SharpenDetail="25""#,
+        r#"crs:PostCropVignetteAmount="-17""#,
+        r#"crs:GrainAmount="30""#,
+        r#"crs:GrainSize="25""#,
+        r#"crs:GrainFrequency="50""#,
+        r#"crs:DefringePurpleAmount="3""#,
+        r#"crs:DefringeGreenHueHi="60""#,
+    ] {
+        assert!(merged.doc.contains(spelling), "{spelling}");
+    }
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
