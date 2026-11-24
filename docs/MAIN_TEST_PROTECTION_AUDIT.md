@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：614 cases，约 1,731 个断言宏，33 个显式 ignore。
+- 当前工作树：616 cases，约 1,741 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，180 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,087 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，181 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,086 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -587,6 +587,37 @@ Mutation 证据：
   asr1 payload”仍待幂等 merge 审计。
 - Mutation：让公开 merge wrapper 直接返回 `None`，case 在合法文档被拒绝处失败；
   恢复后通过。
+
+### Zone role name fallback and intent precedence
+
+- Main case：`src/xmp/payload_tests.rs::a_zone_role_comes_back_from_the_name_when_no_intent_survives`
+- 当前 cases：
+  `tests/xmp_behavior.rs::zone_roles_fall_back_from_measured_names_only_without_intent` 与
+  `explicit_role_intent_overrides_zone_name_fallback`
+- 状态：`rewritten`
+- Gate：默认
+
+逐断言映射：
+
+| main 断言 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| payload 不存在 | no-intent case 直接构造不含 payload/intent 的 Lightroom-shaped XMP | fixture premise；不调用私有 `payload::find` |
+| `sky · band 2/3` 为 `ZoneSky` | no-intent case 的公开 `xmp_to_recipe` 结果 | 保留 |
+| `grad` 为 `Custom` 且名称仍在 | no-intent case 的 role/name 断言 | 保留 |
+| `Sky 1` 为 `Custom` 且名称仍在 | no-intent case 的 role/name 断言 | 保留；Lightroom 默认名不是 AutoShade zone |
+| 两个 `sky` 都变为空名 `ZoneSky` | no-intent case 的单个 `sky` 同时断言空名和 `ZoneSky` | 保留转换；删除同一规则在 fixture 中重复两次的 cardinality |
+| intent 存在时四个 Custom 仍为 Custom | intent case 用会被名称误判的 `sky + Custom` | 保留冲突方向；删除无冲突成员的聚合计数 |
+| intent 存在时两个 ZoneSky 仍为 ZoneSky | intent case 用名称本会判 Custom 的 `Sky 1 + ZoneSky` | 保留反向冲突；删除重复数量 |
+
+Mutation 证据：
+
+- 禁用裸 `sky` 的名称回退时，no-intent case 得到 `Custom` 而非 `ZoneSky`。
+- 把所有未知名称清空时，no-intent case 在 `grad` 的公开 name 断言处失败。
+- reader 忽略 `ash:Role`、只采用名称推断时，intent case 首先把明确的 `Custom`
+  错读为 `ZoneSky`；反向 fixture 同时保护明确 `ZoneSky` 不被名称降级。
+
+三次 mutation 均已恢复，`src/xmp/payload.rs` 与
+`src/xmp/read_corrections.rs` 无 diff。
 
 ## GUI 已裁决
 
@@ -1467,7 +1498,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
-| `tests/xmp_behavior.rs` | 21 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、roles、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
+| `tests/xmp_behavior.rs` | 23 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、role fallback/intent、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

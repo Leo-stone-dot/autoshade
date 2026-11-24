@@ -801,6 +801,59 @@ crs:Right="0.75" crs:Feather="50" crs:Roundness="0" crs:Flipped="false" crs:Angl
 }
 
 #[test]
+fn zone_roles_fall_back_from_measured_names_only_without_intent() {
+    let read = |name: &str| {
+        let xmp = format!(
+            r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+<crs:MaskGroupBasedCorrections><rdf:Seq><rdf:li><rdf:Description crs:What="Correction"
+crs:CorrectionName="{name}" crs:CorrectionAmount="1" crs:CorrectionActive="true">
+<crs:CorrectionMasks><rdf:Seq><rdf:li><rdf:Description crs:What="Mask/Image"
+crs:MaskActive="true" crs:MaskName="Sky 1" crs:MaskBlendMode="0"
+crs:MaskInverted="false" crs:MaskValue="1" crs:MaskVersion="1"
+crs:MaskSubType="2" crs:ReferencePoint="0.5 0.25"/></rdf:li></rdf:Seq>
+</crs:CorrectionMasks></rdf:Description></rdf:li></rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#
+        );
+        autoshade::xmp::xmp_to_recipe(&xmp).masks.remove(0)
+    };
+
+    let unnamed = read("sky");
+    assert_eq!(unnamed.role, MaskRole::ZoneSky);
+    assert!(unnamed.name.is_empty());
+    let band = read("sky · band 2/3");
+    assert_eq!(band.role, MaskRole::ZoneSky);
+    assert_eq!(band.name, "sky · band 2/3");
+    let grad = read("grad");
+    assert_eq!(grad.role, MaskRole::Custom);
+    assert_eq!(grad.name, "grad");
+    let lightroom_sky = read("Sky 1");
+    assert_eq!(lightroom_sky.role, MaskRole::Custom);
+    assert_eq!(lightroom_sky.name, "Sky 1");
+}
+
+#[test]
+fn explicit_role_intent_overrides_zone_name_fallback() {
+    let mask = |name: &str, role| LocalAdjustment {
+        name: name.to_string(),
+        role,
+        mask: MaskGeometry::select_sky(0.5, 0.25, false, String::new()),
+        ..LocalAdjustment::default()
+    };
+    let xmp = without_payload(autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        masks: vec![
+            mask("sky", MaskRole::Custom),
+            mask("Sky 1", MaskRole::ZoneSky),
+        ],
+        ..EditRecipe::default()
+    }));
+
+    let restored = autoshade::xmp::xmp_to_recipe(&xmp);
+
+    assert_eq!(restored.masks[0].role, MaskRole::Custom);
+    assert_eq!(restored.masks[1].role, MaskRole::ZoneSky);
+}
+
+#[test]
 fn a_photo_less_xmp_read_disables_every_unanchored_raster_reference() {
     let bitmap = |path: &str| LocalAdjustment {
         mask: MaskGeometry::Bitmap {
