@@ -716,6 +716,139 @@ fn upright_passthrough_values_round_trip_verbatim_in_adobe_order() {
 }
 
 #[test]
+fn empty_passthrough_map_writes_no_upright_keys_and_legacy_json_defaults_empty() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+    for key in [
+        "UprightVersion",
+        "UprightCenterMode",
+        "UprightCenterNormX",
+        "UprightCenterNormY",
+        "UprightFocalMode",
+        "UprightFocalLength35mm",
+    ] {
+        assert!(!document.contains(&format!("crs:{key}=")), "{key}");
+    }
+
+    let legacy: EditRecipe =
+        serde_json::from_str(r#"{"version":2,"exposure_ev":0.25}"#).unwrap();
+    assert!(legacy.passthrough.is_empty());
+    assert_eq!(legacy.exposure_ev, 0.25);
+}
+
+#[test]
+fn transform_merge_distinguishes_blind_legacy_seen_edited_and_silent_recipes() {
+    let lightroom = lightroom_upright_passthrough_document();
+
+    let blind = autoshade::xmp::merge_recipe_into_xmp(
+        lightroom,
+        &EditRecipe {
+            exposure_ev: 0.25,
+            ..EditRecipe::default()
+        },
+    )
+    .unwrap();
+    assert!(blind
+        .doc
+        .contains(r#"crs:UprightCenterNormX="0.422764964""#));
+    assert!(blind
+        .doc
+        .contains(r#"crs:UprightFocalLength35mm="104.944461871""#));
+    assert!(blind
+        .doc
+        .contains(r#"crs:CameraProfile="Adobe Standard""#));
+    assert_eq!(blind.doc.matches("crs:CameraProfile=").count(), 1);
+    assert!(blind.doc.contains(r#"crs:Exposure2012="0.25""#));
+    assert!(!blind
+        .doc
+        .contains(r#"crs:PerspectiveVertical="-35""#));
+
+    let era1 = autoshade::xmp::merge_recipe_into_xmp(
+        lightroom,
+        &EditRecipe {
+            exposure_ev: 0.25,
+            schema_era: 1,
+            ..EditRecipe::default()
+        },
+    )
+    .unwrap();
+    assert!(era1
+        .doc
+        .contains(r#"crs:PerspectiveVertical="-35""#));
+    assert!(era1.doc.contains(r#"crs:PerspectiveRotate="+0.9""#));
+    assert!(era1
+        .doc
+        .contains(r#"crs:CameraProfile="Adobe Standard""#));
+    assert!(era1.doc.contains(r#"crs:Exposure2012="0.25""#));
+
+    let imported = autoshade::xmp::xmp_to_recipe(lightroom);
+    let seen = autoshade::xmp::merge_recipe_into_xmp(
+        lightroom,
+        &EditRecipe {
+            exposure_ev: 0.25,
+            ..imported.clone()
+        },
+    )
+    .unwrap();
+    assert_eq!(seen.doc.matches("crs:CameraProfile=").count(), 1);
+    assert_eq!(
+        seen.doc.matches("crs:PerspectiveVertical=").count(),
+        1
+    );
+    assert!(seen
+        .doc
+        .contains(r#"crs:PerspectiveVertical="-35""#));
+    assert_eq!(seen.doc.matches("crs:PerspectiveScale=").count(), 0);
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&seen.doc).perspective_scale, 100.0);
+
+    let mut edited = imported.clone();
+    edited.camera_profile = "Adobe Landscape".to_string();
+    let edited = autoshade::xmp::merge_recipe_into_xmp(lightroom, &edited).unwrap();
+    assert_eq!(edited.doc.matches("crs:CameraProfile=").count(), 1);
+    assert!(edited
+        .doc
+        .contains(r#"crs:CameraProfile="Adobe Landscape""#));
+    assert!(!edited.doc.contains(r#"crs:CameraProfile="Adobe Standard""#));
+
+    let mut silent = imported;
+    silent.camera_profile.clear();
+    let silent = autoshade::xmp::merge_recipe_into_xmp(lightroom, &silent).unwrap();
+    assert!(silent
+        .doc
+        .contains(r#"crs:CameraProfile="Adobe Standard""#));
+}
+
+#[test]
+fn element_form_passthrough_reads_only_the_top_level_description() {
+    let document = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:CameraProfile>Adobe Standard</crs:CameraProfile>
+ <crs:UprightFocalLength35mm>104.944461871</crs:UprightFocalLength35mm>
+ <crs:Look><rdf:Description><crs:Parameters><rdf:Description>
+  <crs:CameraProfile>Camera Landscape</crs:CameraProfile>
+  <crs:UprightFocalLength35mm>999</crs:UprightFocalLength35mm>
+ </rdf:Description></crs:Parameters></rdf:Description></crs:Look>
+</rdf:Description>"#;
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+    assert_eq!(imported.camera_profile, "Adobe Standard");
+    assert_eq!(
+        imported
+            .passthrough
+            .get("UprightFocalLength35mm")
+            .map(String::as_str),
+        Some("104.944461871")
+    );
+
+    let nested_only = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:Look><rdf:Description><crs:Parameters><rdf:Description>
+  <crs:CameraProfile>Camera Landscape</crs:CameraProfile>
+  <crs:UprightFocalLength35mm>999</crs:UprightFocalLength35mm>
+ </rdf:Description></crs:Parameters></rdf:Description></crs:Look>
+</rdf:Description>"#;
+    let nested_only = autoshade::xmp::xmp_to_recipe(nested_only);
+    assert!(nested_only.camera_profile.is_empty());
+    assert!(nested_only.passthrough.is_empty());
+}
+
+#[test]
 fn numeric_and_lowercase_lens_profile_switch_spellings_are_read() {
     for (value, expected) in [("0", false), ("1", true), ("true", true)] {
         let document =
