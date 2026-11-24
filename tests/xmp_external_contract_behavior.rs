@@ -3237,6 +3237,57 @@ fn radial_corner_encoding_round_trips_both_lightroom_arrangements() {
     }
 }
 
+#[test]
+fn radial_decode_refuses_only_degenerate_folds_and_names_the_drop() {
+    let impossible =
+        framed_lightroom_radial_document("0.5", "0.5", "0.5", "0.5", "-29.513785");
+    assert!(autoshade::xmp::xmp_to_recipe(&impossible)
+        .masks
+        .is_empty());
+    assert_eq!(autoshade::xmp::unsupported_corrections(&impossible), 1);
+    assert_eq!(
+        autoshade::xmp::import_losses(&impossible),
+        vec![MaskImportLoss {
+            name: "Stacked 1".to_string(),
+            reason: MaskImportReason::OutOfModel,
+        }]
+    );
+
+    let flat = |angle: &str| {
+        framed_lightroom_radial_document("0.3", "0.5", "0.7", "0.5", angle)
+    };
+    assert!(autoshade::xmp::xmp_to_recipe(&flat("0"))
+        .masks
+        .is_empty());
+    assert_eq!(autoshade::xmp::unsupported_corrections(&flat("0")), 1);
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&flat("-29.513785"))
+            .masks
+            .len(),
+        1
+    );
+
+    for angle in ["-29.513785", "29.513785"] {
+        let document =
+            framed_lightroom_radial_document("-0.088191", "0.520214", "1.113528", "0.494492", angle);
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        assert_eq!(imported.masks.len(), 1, "{angle}");
+        assert_eq!(autoshade::xmp::unsupported_corrections(&document), 0);
+        let MaskGeometry::Radial {
+            top,
+            left,
+            bottom,
+            right,
+            ..
+        } = imported.masks[0].mask
+        else {
+            panic!("radial imports")
+        };
+        assert!((right - left).abs() > 0.05, "{angle}: {left}..{right}");
+        assert!((bottom - top).abs() > 0.05, "{angle}: {top}..{bottom}");
+    }
+}
+
 fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
     format!(
         r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
