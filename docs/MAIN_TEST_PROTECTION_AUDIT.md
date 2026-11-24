@@ -1951,6 +1951,28 @@ positive-fold guard时case分别红；mutation均已恢复，`src/`无diff。
 区分性ratio与screen tilt。临时对signed half-axes取abs时probe #8 major axis偏离并红；
 测试不调用生产私有SVD helper，mutation已恢复，`src/`无diff。
 
+### Measured Lightroom crops reproduce delivered dimensions
+
+- Main case：`the_seven_measured_lightroom_crops_reproduce_their_exported_dimensions`
+- 当前执行者：`measured_lightroom_crops_produce_their_exported_dimensions`
+- 状态：`rewritten`
+
+七组实测Lightroom crop block通过公开XMP reader进入recipe，再由公开render geometry计算
+其可交付尺寸；均匹配对应的实际导出尺寸。旧case中“naive/opposite-sign公式不匹配”的
+实现对照不复制；符号方向由相邻精度round-trip case独立保护。临时把rotated-corner
+decode退化为axis-aligned extents后，P11从实测8302×6277漂到8316.49×6258.26，
+case红；mutation已恢复，`src/`无diff。
+
+### Measured Lightroom crop corners survive public round-trip
+
+- Main case：`the_crop_corner_encoding_round_trips_what_lightroom_wrote`
+- 当前执行者：`measured_lightroom_crop_corners_survive_import_and_export`
+- 状态：`rewritten`
+
+同七组crop block经公开reader与framed writer后，四个corners只允许落在各样本已测得的
+clamp loss内，`CropAngle`保持原精度。临时把writer的`p*cos-q*sin`改成加号后，P11
+`CropLeft`从0.119389漂到0.120917，case红；mutation已恢复，`src/`无diff。
+
 ### Inverted crop corners remain legal under tilt
 
 - Main case：`an_inverted_crop_arrangement_is_read_rather_than_discarded`
@@ -1981,6 +2003,16 @@ case分别红；mutation均已恢复，`src/`无diff。
 `crop_import_note`披露无法放置；AutoShade自己写出的同类文档去掉私有payload后仍精确
 读回crop且没有loss note。临时让两种provenance都走`verbatim()`后，外部文档静默获得
 crop，case在公开`crop.is_none()`断言处红；mutation已恢复，`src/`无diff。
+
+### Crop overshoot disclosure uses the straightened axis
+
+- Main case：`the_crop_overshoot_note_counts_pixels_of_the_straightened_frame`
+- 当前执行者：`crop_overshoot_is_trimmed_and_disclosed_in_straightened_axis_pixels`
+- 状态：`rewritten`
+
+公开framed writer构造的crop越过straighten后底边10%；payload-free reader把bottom裁到
+1.0，公开note报告176 px。临时把overshoot fraction乘以源宽后，文案变成264 px并使
+case红；mutation已恢复，`src/`无diff。
 
 ### Local Hue uses the measured 180 wire scale
 
@@ -2902,7 +2934,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 167 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 170 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

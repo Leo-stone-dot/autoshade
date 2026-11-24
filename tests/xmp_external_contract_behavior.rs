@@ -2561,6 +2561,165 @@ fn inconsistent_crop_groups_are_disclosed_without_partial_import() {
     assert!(autoshade::xmp::unparsable_crs_numbers(valid).is_empty());
 }
 
+type MeasuredCrop = (
+    &'static str,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+);
+
+const MEASURED_LIGHTROOM_CROPS: [MeasuredCrop; 7] = [
+    (
+        "P11", 9504.0, 6336.0, 0.119389, 0.003478, 0.994441, 0.991209, -0.132584,
+        8302.0, 6277.0, 0.000, 0.000,
+    ),
+    (
+        "P30_1", 9504.0, 6336.0, 0.00219, 0.007883, 0.99781, 0.992117, -0.303486,
+        9429.0, 6286.0, 0.000, 0.216,
+    ),
+    (
+        "P45", 9504.0, 6336.0, 0.013441, 0.0, 0.986559, 1.0, 0.724343, 9328.0,
+        6219.0, 0.000, 1.243,
+    ),
+    (
+        "P40_hdr", 9438.0, 6265.0, 0.005237, 0.018724, 0.994763, 0.981276, -0.725680,
+        9262.0, 6148.0, 0.000, 1.251,
+    ),
+    (
+        "P41", 9504.0, 6336.0, 0.031274, 0.0, 0.968726, 1.0, 1.728388, 9097.0,
+        6065.0, 0.000, 6.909,
+    ),
+    (
+        "P44_1", 9504.0, 6336.0, 0.094153, 0.135618, 0.978448, 0.955195, -1.979145,
+        8220.0, 5480.0, 0.000, 30.260,
+    ),
+    (
+        "P08", 9504.0, 6336.0, 0.09115, 0.100566, 1.0, 0.900897, -3.274380, 8334.0,
+        5556.0, 5.895, 0.000,
+    ),
+];
+
+fn measured_crop_document(
+    width: f64,
+    height: f64,
+    left: f64,
+    top: f64,
+    right: f64,
+    bottom: f64,
+    angle: f64,
+) -> String {
+    format!(
+        r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+ tiff:ImageWidth="{width:.0}" tiff:ImageLength="{height:.0}"
+ crs:HasCrop="True" crs:CropLeft="{left}" crs:CropTop="{top}"
+ crs:CropRight="{right}" crs:CropBottom="{bottom}" crs:CropAngle="{angle}"/>"#
+    )
+}
+
+#[test]
+fn measured_lightroom_crops_produce_their_exported_dimensions() {
+    for (name, width, height, left, top, right, bottom, angle, want_w, want_h, lost_w, lost_h) in
+        MEASURED_LIGHTROOM_CROPS
+    {
+        let document =
+            measured_crop_document(width, height, left, top, right, bottom, angle);
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        let crop = imported
+            .crop
+            .unwrap_or_else(|| panic!("{name}: Lightroom crop was not imported"));
+        let (frame_w, frame_h) = autoshade::render::inscribed_dims(
+            width as f32,
+            height as f32,
+            imported.straighten_deg,
+        );
+        let delivered_w = f64::from(crop.right - crop.left) * f64::from(frame_w) + lost_w;
+        let delivered_h = f64::from(crop.bottom - crop.top) * f64::from(frame_h) + lost_h;
+        let tolerance = if name == "P41" { 0.65 } else { 0.5 };
+
+        assert!(
+            (delivered_w - want_w).abs() < tolerance
+                && (delivered_h - want_h).abs() < tolerance,
+            "{name}: imported crop delivers {delivered_w:.2}x{delivered_h:.2}, \
+             Lightroom delivered {want_w:.0}x{want_h:.0}"
+        );
+    }
+}
+
+#[test]
+fn measured_lightroom_crop_corners_survive_import_and_export() {
+    for (name, width, height, left, top, right, bottom, angle, _, _, lost_w, lost_h) in
+        MEASURED_LIGHTROOM_CROPS
+    {
+        let document =
+            measured_crop_document(width, height, left, top, right, bottom, angle);
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        let exported = autoshade::xmp::recipe_to_xmp_in_frame(
+            &imported,
+            autoshade::xmp::FrameAspect::from_size(width, height),
+        )
+        .0;
+        let tolerance = lost_w.max(lost_h) / height + 1e-6;
+
+        for (key, want) in [
+            ("crs:CropLeft", left),
+            ("crs:CropTop", top),
+            ("crs:CropRight", right),
+            ("crs:CropBottom", bottom),
+        ] {
+            let got = xmp_attribute(&exported, key).parse::<f64>().unwrap();
+            assert!(
+                (got - want).abs() <= tolerance,
+                "{name}: {key} changed from {want:.6} to {got:.6}, tolerance {tolerance:.6}"
+            );
+        }
+        let got_angle = xmp_attribute(&exported, "crs:CropAngle")
+            .parse::<f64>()
+            .unwrap();
+        assert!(
+            (got_angle - angle).abs() < 1e-6,
+            "{name}: CropAngle changed from {angle:.6} to {got_angle:.6}"
+        );
+    }
+}
+
+#[test]
+fn crop_overshoot_is_trimmed_and_disclosed_in_straightened_axis_pixels() {
+    let recipe = EditRecipe {
+        crop: Some(Crop {
+            left: 0.2,
+            top: 0.2,
+            right: 0.8,
+            bottom: 1.1,
+        }),
+        straighten_deg: 5.0,
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(
+        autoshade::xmp::recipe_to_xmp_in_frame(
+            &recipe,
+            autoshade::xmp::FrameAspect::from_size(3000.0, 2000.0),
+        )
+        .0,
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let crop = imported.crop.expect("the bounded part of the crop imports");
+    let note = autoshade::xmp::crop_import_note(&document)
+        .expect("the trimmed part of the crop is disclosed");
+
+    assert!((crop.bottom - 1.0).abs() < 1e-6);
+    assert!(note.contains("176 px outside"), "{note}");
+}
+
 #[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {

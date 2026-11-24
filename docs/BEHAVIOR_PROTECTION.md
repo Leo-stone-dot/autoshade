@@ -136,6 +136,9 @@
 - `PointColor::set_range` 改成只保存 slider 数值、不重建窗口时，`changing_a_point_colour_range_rebuilds_all_three_windows` 在 hue/sat/lum 窗口变化断言处变红；恢复后测试通过。
 - `panel_heading` 把标题从 heading 改成 small 时，`the_panel_title_renders_larger_than_group_captions_with_a_short_rule` 在字号层级断言处变红；恢复后测试通过。
 - `panel_heading` 把短规则线长度改成 0 时，同一 case 在 rendered line-segment 断言处变红；恢复后测试通过。
+- crop rotated-corner reader 退化为 axis-aligned extents 时，`measured_lightroom_crops_produce_their_exported_dimensions` 在 P11 的交付尺寸从实测 8302×6277 漂到 8316.49×6258.26 处变红；恢复后测试通过。
+- crop writer 把 `p*cos-q*sin` 的减号改成加号时，`measured_lightroom_crop_corners_survive_import_and_export` 在 P11 `CropLeft` 从 0.119389 漂到 0.120917 处变红；恢复后测试通过。
+- crop overshoot 披露把 fraction 乘以源宽时，`crop_overshoot_is_trimmed_and_disclosed_in_straightened_axis_pixels` 在用户可见文案从 176 px 变成 264 px 处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
