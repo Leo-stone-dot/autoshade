@@ -2269,6 +2269,29 @@ fn roundness_past_lightroom_range_refuses_the_radial() {
     assert_eq!(autoshade::xmp::unsupported_corrections(&document), 1);
 }
 
+#[test]
+fn nonzero_inert_local_keeps_the_mask_and_names_the_unmodelled_slider() {
+    let document = lightroom_radial_value_document("0", "1").replace(
+        r#"crs:LocalContrast2012="0.43""#,
+        r#"crs:LocalContrast2012="0.43" crs:LocalDefringe="0.3""#,
+    );
+    let restored = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(restored.masks.len(), 1);
+    assert_eq!(restored.masks[0].contrast, 43.0);
+    assert_eq!(
+        autoshade::xmp::import_losses(&document)
+            .iter()
+            .map(|loss| (loss.name.as_str(), loss.reason))
+            .collect::<Vec<_>>(),
+        [(
+            "Radial 1",
+            MaskImportReason::InertLocal("LocalDefringe"),
+        )]
+    );
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 0);
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
