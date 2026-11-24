@@ -3313,6 +3313,42 @@ fn unreadable_radial_angle_is_disclosed_even_with_a_known_frame() {
     );
 }
 
+#[test]
+fn radial_frame_affine_keeps_the_stored_center_and_exposes_warp_residual() {
+    let width = 9504.0;
+    let height = 6336.0;
+    let document = framed_lightroom_radial_document(
+        "0.597862",
+        "0.009087",
+        "0.981315",
+        "0.546133",
+        "0",
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let MaskGeometry::Radial {
+        top,
+        left,
+        bottom,
+        right,
+        ..
+    } = imported.masks[0].mask
+    else {
+        panic!("radial imports")
+    };
+    let center = (
+        (left as f64 + right as f64) * 0.5 * width,
+        (top as f64 + bottom as f64) * 0.5 * height,
+    );
+    let stored = (
+        (0.009087 + 0.546133) * 0.5 * width,
+        (0.597862 + 0.981315) * 0.5 * height,
+    );
+
+    assert!((center.0 - stored.0).abs() < 0.01);
+    assert!((center.1 - stored.1).abs() < 0.01);
+    assert!((2571.0 - center.0).hypot(5060.0 - center.1) > 80.0);
+}
+
 fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
     format!(
         r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
