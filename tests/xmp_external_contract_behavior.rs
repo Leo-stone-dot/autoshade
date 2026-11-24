@@ -1955,6 +1955,78 @@ fn forbidden_xml_controls_are_removed_from_public_mask_names() {
     assert_eq!(restored.masks[0].name, "sky");
 }
 
+fn rotated_radial_recipe(angle: f32) -> EditRecipe {
+    EditRecipe {
+        masks: vec![LocalAdjustment {
+            name: "tilted".to_string(),
+            mask: MaskGeometry::Radial {
+                top: 0.3,
+                left: 0.35,
+                bottom: 0.7,
+                right: 0.65,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    }
+}
+
+#[test]
+fn export_rotation_loss_carries_a_signed_rounded_angle_or_plain_fallback() {
+    for (angle, expected) in [(37.412506, 37), (-12.0, -12), (0.4, 0)] {
+        let losses = autoshade::xmp::mask_export_losses(&rotated_radial_recipe(angle));
+
+        assert_eq!(
+            losses
+                .iter()
+                .map(|loss| (loss.name.as_str(), loss.reason))
+                .collect::<Vec<_>>(),
+            [("tilted", MaskLossReason::Rotation(expected))]
+        );
+    }
+}
+
+fn frameless_radial_document(angle: &str) -> String {
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+<crs:MaskGroupBasedCorrections><rdf:Seq>
+ <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Radial 1">
+  <crs:CorrectionMasks><rdf:Seq>
+   <rdf:li crs:What="Mask/CircularGradient" crs:Top="0.3" crs:Left="0.35"
+    crs:Bottom="0.7" crs:Right="0.65" crs:Feather="50" crs:Roundness="0"
+    crs:Flipped="false" crs:Angle="{angle}"/>
+  </rdf:Seq></crs:CorrectionMasks>
+ </rdf:Description></rdf:li>
+</rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#
+    )
+}
+
+#[test]
+fn import_rotation_loss_carries_a_signed_angle_and_distinguishes_unrotated() {
+    for (angle, expected) in [
+        ("-43.945287", Some(MaskImportReason::Rotation(-44))),
+        ("oblique", Some(MaskImportReason::Rotation(0))),
+        ("0", None),
+    ] {
+        let losses = autoshade::xmp::import_losses(&frameless_radial_document(angle));
+
+        assert_eq!(
+            losses
+                .iter()
+                .map(|loss| (loss.name.as_str(), loss.reason))
+                .collect::<Vec<_>>(),
+            expected.map_or_else(Vec::new, |reason| vec![("Radial 1", reason)])
+        );
+    }
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
