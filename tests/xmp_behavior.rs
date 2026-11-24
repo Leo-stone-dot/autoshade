@@ -915,6 +915,33 @@ fn an_oversized_payload_raster_is_left_out_and_named_as_a_loss() {
 }
 
 #[test]
+fn a_shared_unembeddable_raster_is_a_loss_for_every_mask_that_names_it() {
+    let tree = support::TempTree::new("xmp-shared-raster-loss");
+    let missing = tree.path().join("missing.png");
+    let bitmap = |name: &str| LocalAdjustment {
+        name: name.to_string(),
+        mask: MaskGeometry::Bitmap {
+            path: missing.to_string_lossy().into_owned(),
+        },
+        ..LocalAdjustment::default()
+    };
+    let recipe = EditRecipe {
+        masks: vec![bitmap("sky"), bitmap("sky · band 1/3")],
+        ..EditRecipe::default()
+    };
+
+    let (xmp, losses) = autoshade::xmp::recipe_to_xmp_with_losses(&recipe);
+    let lost = losses
+        .iter()
+        .filter(|loss| loss.reason == autoshade::xmp::MaskLossReason::RasterNotEmbedded)
+        .map(|loss| loss.name.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(lost, ["sky", "sky · band 1/3"]);
+    assert!(!xmp.contains("<asr:Rasters>"));
+}
+
+#[test]
 fn an_inflated_recipe_over_the_ceiling_is_too_large_not_corrupt() {
     use base64::Engine as _;
     use std::io::Write as _;
