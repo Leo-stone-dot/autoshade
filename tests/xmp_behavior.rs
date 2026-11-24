@@ -841,6 +841,50 @@ fn a_photo_less_xmp_read_disables_every_unanchored_raster_reference() {
 }
 
 #[test]
+fn a_photo_less_merge_preserves_an_untouched_bare_raster_import() {
+    let recipe = EditRecipe {
+        exposure_ev: 0.3,
+        masks: vec![
+            LocalAdjustment {
+                mask: MaskGeometry::Radial {
+                    top: 0.25,
+                    left: 0.25,
+                    bottom: 0.75,
+                    right: 0.75,
+                    feather: 0.5,
+                    roundness: 0.0,
+                    flipped: false,
+                    angle: 0.0,
+                    midpoint: 50.0,
+                    mask_version: 2,
+                },
+                exposure_ev: 0.4,
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                mask: MaskGeometry::Bitmap {
+                    path: "subject.png".to_string(),
+                },
+                exposure_ev: 0.6,
+                ..LocalAdjustment::default()
+            },
+        ],
+        ..EditRecipe::default()
+    };
+    let base = autoshade::xmp::recipe_to_xmp(&recipe);
+    let imported = autoshade::xmp::xmp_to_recipe(&base);
+    assert_eq!(imported.masks.len(), 2);
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&base, &imported).unwrap();
+
+    assert!(!merged
+        .notes
+        .iter()
+        .any(|note| note.contains("merge base's mask block")));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&merged.doc).masks.len(), 2);
+}
+
+#[test]
 fn a_corrupt_payload_is_disclosed_and_the_crs_projection_still_opens() {
     let recipe = EditRecipe {
         exposure_ev: 0.5,
