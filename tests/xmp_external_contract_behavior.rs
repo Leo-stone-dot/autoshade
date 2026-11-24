@@ -1654,6 +1654,124 @@ fn flat_namespace_declaration_flood_refuses_publicly() {
         .contains("more xmlns declarations"));
 }
 
+fn xmp_attribute<'a>(xmp: &'a str, name: &str) -> &'a str {
+    let marker = format!("{name}=\"");
+    let value = xmp.find(&marker).unwrap() + marker.len();
+    let end = value + xmp[value..].find('"').unwrap();
+    &xmp[value..end]
+}
+
+#[test]
+fn whitespace_spelled_curve_items_are_public_curve_points() {
+    let document = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:ToneCurvePV2012><rdf:Seq>
+  <rdf:li >128, 64</rdf:li >
+  <rdf:li>255, 255</rdf:li>
+ </rdf:Seq></crs:ToneCurvePV2012>
+</rdf:Description>"#;
+
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(document).tone_curve,
+        vec![
+            CurvePoint {
+                input: 128,
+                output: 64,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ]
+    );
+}
+
+#[test]
+fn inconsistent_crop_groups_are_disclosed_without_partial_import() {
+    let missing = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:HasCrop="True" crs:CropLeft="0.1" crs:CropTop="0.1" crs:CropRight="0.9"/>"#;
+    let inverted = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:HasCrop="True" crs:CropLeft="0.8" crs:CropTop="0.1"
+ crs:CropRight="0.2" crs:CropBottom="0.9"/>"#;
+    let valid = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:HasCrop="True" crs:CropLeft="0.1" crs:CropTop="0.1"
+ crs:CropRight="0.9" crs:CropBottom="0.9"/>"#;
+
+    for invalid in [missing, inverted] {
+        assert!(autoshade::xmp::xmp_to_recipe(invalid).crop.is_none());
+        assert!(autoshade::xmp::unparsable_crs_numbers(invalid)
+            .iter()
+            .any(|key| key.starts_with("Crop")));
+    }
+    assert!(autoshade::xmp::xmp_to_recipe(valid).crop.is_some());
+    assert!(autoshade::xmp::unparsable_crs_numbers(valid).is_empty());
+}
+
+#[test]
+fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
+    let recipe = EditRecipe {
+        crop: Some(Crop {
+            left: 0.30,
+            top: 0.10,
+            right: 0.62,
+            bottom: 0.90,
+        }),
+        straighten_deg: -35.0,
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(
+        autoshade::xmp::recipe_to_xmp_in_frame(
+            &recipe,
+            autoshade::xmp::FrameAspect::from_size(9504.0, 6336.0),
+        )
+        .0,
+    );
+    let left = xmp_attribute(&document, "crs:CropLeft")
+        .parse::<f32>()
+        .unwrap();
+    let right = xmp_attribute(&document, "crs:CropRight")
+        .parse::<f32>()
+        .unwrap();
+    let angle = xmp_attribute(&document, "crs:CropAngle").to_string();
+
+    assert!(left > right);
+    let restored = autoshade::xmp::xmp_to_recipe(&document);
+    assert!(restored.crop.is_some());
+    assert!((restored.straighten_deg + 35.0).abs() < 1e-4);
+    assert!(autoshade::xmp::unparsable_crs_numbers(&document).is_empty());
+
+    let flat = document.replacen(
+        &format!(r#"crs:CropAngle="{angle}""#),
+        r#"crs:CropAngle="0""#,
+        1,
+    );
+    assert!(autoshade::xmp::xmp_to_recipe(&flat).crop.is_none());
+    assert!(autoshade::xmp::unparsable_crs_numbers(&flat)
+        .iter()
+        .any(|key| key.starts_with("Crop")));
+}
+
+#[test]
+fn attribute_control_characters_use_references_and_round_trip() {
+    let value = "a\tb\nc\rd";
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            name: value.to_string(),
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    let xmp = autoshade::xmp::recipe_to_xmp(&recipe);
+    let restored = autoshade::xmp::xmp_to_recipe(&xmp);
+
+    assert!(xmp.contains("a&#9;b&#10;c&#13;d"));
+    assert_eq!(restored.masks[0].name, value);
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
