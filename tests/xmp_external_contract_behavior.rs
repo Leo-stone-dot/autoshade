@@ -3126,6 +3126,29 @@ fn radial_midpoint_and_version_round_trip_without_range_component_collision() {
     assert_eq!(mask_version, 2);
 }
 
+#[test]
+fn out_of_frame_radial_corners_import_and_export_without_clamping() {
+    let document = lightroom_radial_value_document("0", "1")
+        .replace(r#"crs:Top="0.114928""#, r#"crs:Top="-0.153271""#)
+        .replace(r#"crs:Bottom="0.802847""#, r#"crs:Bottom="1.802847""#);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let MaskGeometry::Radial { top, bottom, .. } = imported.masks[0].mask else {
+        panic!("radial imports")
+    };
+
+    assert!((top as f64 - -0.153271).abs() < 1e-7);
+    assert!((bottom as f64 - 1.802847).abs() < 1e-7);
+
+    let exported =
+        without_recipe_payload(autoshade::xmp::recipe_to_xmp(&imported));
+    assert!(exported.contains(r#"crs:Top="-0.153271""#));
+    assert!(exported.contains(r#"crs:Bottom="1.802847""#));
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&exported).masks[0].mask,
+        imported.masks[0].mask
+    );
+}
+
 fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
     format!(
         r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
