@@ -2982,6 +2982,76 @@ fn real_point_color_replaces_the_lightroom_placeholder_once() {
     assert!(merged.notes.is_empty());
 }
 
+fn unreadable_point_color_documents() -> Vec<String> {
+    let eighteen = LIGHTROOM_POINT_COLOR_SWATCH.rsplit_once(", ").unwrap().0;
+    let twenty = format!("{LIGHTROOM_POINT_COLOR_SWATCH}, 0.000000");
+    let saturation_above_one =
+        LIGHTROOM_POINT_COLOR_SWATCH.replacen("0.473663", "1.473663", 1);
+    let backwards_window =
+        LIGHTROOM_POINT_COLOR_SWATCH.replacen("0.290000, 0.650000", "0.650000, 0.290000", 1);
+    let too_many = vec![
+        LIGHTROOM_POINT_COLOR_SWATCH;
+        autoshade::recipe::MAX_POINT_COLORS + 1
+    ];
+    vec![
+        lightroom_point_colors_document(&[eighteen]),
+        lightroom_point_colors_document(&[twenty.as_str()]),
+        lightroom_point_colors_document(&[saturation_above_one.as_str()]),
+        lightroom_point_colors_document(&[backwards_window.as_str()]),
+        lightroom_point_colors_document(&[LIGHTROOM_POINT_COLOR_SWATCH, "not, a, number"]),
+        lightroom_point_colors_document(&too_many),
+    ]
+}
+
+fn point_colors_element(document: &str) -> &str {
+    let start = document.find("<crs:PointColors>").unwrap();
+    let end = document.find("</crs:PointColors>").unwrap() + "</crs:PointColors>".len();
+    &document[start..end]
+}
+
+#[test]
+fn unreadable_point_color_records_are_refused_and_named() {
+    for document in unreadable_point_color_documents() {
+        assert_eq!(
+            autoshade::xmp::unparsable_crs_numbers(&document),
+            vec!["PointColors"]
+        );
+        assert!(autoshade::xmp::xmp_to_recipe(&document)
+            .point_colors
+            .is_empty());
+    }
+}
+
+#[test]
+fn unreadable_point_color_block_is_preserved_without_a_replacement() {
+    for document in unreadable_point_color_documents() {
+        let original = point_colors_element(&document);
+        let recipe = autoshade::xmp::xmp_to_recipe(&document);
+
+        let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &recipe).unwrap();
+
+        assert!(merged.doc.contains(original));
+        assert!(merged.notes.is_empty());
+    }
+}
+
+#[test]
+fn unreadable_point_color_block_is_replaced_with_disclosure() {
+    let replacement = autoshade::xmp::xmp_to_recipe(&lightroom_point_colors_document(&[
+        LIGHTROOM_POINT_COLOR_SWATCH,
+    ]));
+    for document in unreadable_point_color_documents() {
+        let original = point_colors_element(&document);
+
+        let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &replacement).unwrap();
+
+        assert_eq!(merged.doc.matches("<crs:PointColors>").count(), 1);
+        assert!(!merged.doc.contains(original));
+        assert_eq!(merged.notes.len(), 1);
+        assert!(merged.notes[0].contains("point colours could not be read"));
+    }
+}
+
 #[test]
 fn v1_4_recipe_only_replaces_globals_from_its_own_era() {
     let legacy: EditRecipe =
