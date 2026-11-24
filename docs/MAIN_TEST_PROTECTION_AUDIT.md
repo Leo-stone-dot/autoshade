@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：663 cases，约 1,956 个断言宏，37 个显式 ignore。
+- 当前工作树：665 cases，约 1,960 个断言宏，37 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，233 条 `rewritten`、13 条
-`lint`、2 条 `drop`、1 条 `external-gate`、2,032 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，235 条 `rewritten`、13 条
+`lint`、2 条 `drop`、1 条 `external-gate`、2,030 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1030,6 +1030,11 @@ mutation 已恢复，`src/xmp/brush_table.rs`无diff。
 改成`WrongClass`时，四条case全部在各自分类断言处红，另三类不受影响；mutation已恢复，
 `src/xmp/read_masks.rs`无diff。
 
+payload token层的下一对synthetic fixture分别携带unknown binary `h` opcode和完整record
+后的trailing bytes；public reader不制造mask，并分别披露`PayloadUnsupported`与
+`PayloadInvalid`。把两者的public分类名统一改成`WrongClass`时恰好两条case红，其他七类
+保持绿；mutation已恢复。
+
 ## GUI 已裁决
 
 ### 拖放照片进入编辑画布
@@ -1922,7 +1927,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 30 | global/local round-trip、foreign WB/XML、attribute forms、mask merge、namespace scope、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、MaskBrushTable refusals | XMP public format/compatibility | real Lightroom fixture gate remains separate |
+| `tests/xmp_external_contract_behavior.rs` | 32 | global/local round-trip、foreign WB/XML、attribute forms、mask merge、namespace scope、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、MaskBrushTable refusals | XMP public format/compatibility | real Lightroom fixture gate remains separate |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

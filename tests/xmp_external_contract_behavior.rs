@@ -963,6 +963,20 @@ fn valid_brush_object() -> Vec<u8> {
     brush_object(&compressed)
 }
 
+const MASK_BRUSH_UNKNOWN_OPCODE: &[u8] = &[
+    0x1B, 0x52, 0x00, 0xF8, 0x07, 0x61, 0x73, 0x13, 0xE9, 0x1A, 0xA2, 0xCD, 0x52,
+    0xE5, 0xBC, 0x45, 0xD0, 0x05, 0x99, 0x7A, 0xA4, 0x03, 0x01, 0x80, 0x40, 0xA0,
+    0x3C, 0x0C, 0x3E, 0xDD, 0x2B, 0xBD, 0x64, 0x08, 0xE4,
+];
+
+const MASK_BRUSH_TRAILING_PAYLOAD: &[u8] = &[
+    0x1B, 0x57, 0x00, 0xF8, 0x9F, 0x07, 0x76, 0x0C, 0x99, 0x22, 0x68, 0xF8, 0x02,
+    0xE9, 0xA5, 0x10, 0x26, 0xF7, 0x24, 0xE1, 0x08, 0xDB, 0x12, 0x4C, 0x23, 0xA8,
+    0x84, 0xA0, 0x93, 0xE0, 0x81, 0xBA, 0x12, 0x66, 0x61, 0x03, 0x4E, 0x38, 0x0D,
+    0x18, 0x37, 0x5A, 0x66, 0xBF, 0x1C, 0x20, 0xC1, 0x40, 0x03, 0xB5, 0x8C, 0xFB,
+    0xE9, 0xD1, 0x02, 0x81, 0xBC, 0x35, 0x01,
+];
+
 #[test]
 fn missing_mask_brush_companion_is_disclosed_as_unavailable() {
     let (recipe, lines) = brush_table_refusal(
@@ -1054,4 +1068,30 @@ fn wrong_mask_brush_output_size_is_disclosed_as_length_mismatch() {
 
     assert!(recipe.masks.is_empty());
     assert!(lines.iter().any(|line| line.contains("LengthMismatch")));
+}
+
+#[test]
+fn unknown_mask_brush_opcode_is_disclosed_as_payload_unsupported() {
+    let (acr, token) =
+        one_object_acr(&brush_object(MASK_BRUSH_UNKNOWN_OPCODE));
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-opcode", Some(&acr), &token, 83);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines
+        .iter()
+        .any(|line| line.contains("PayloadUnsupported")));
+}
+
+#[test]
+fn trailing_mask_brush_bytes_are_disclosed_as_payload_invalid() {
+    let (acr, token) =
+        one_object_acr(&brush_object(MASK_BRUSH_TRAILING_PAYLOAD));
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-trailing", Some(&acr), &token, 88);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| line.contains("PayloadInvalid")));
 }
