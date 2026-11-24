@@ -2139,6 +2139,40 @@ fn every_mask_export_reason_reaches_grouped_public_disclosure() {
 }
 
 #[test]
+fn one_mask_naming_the_same_missing_raster_twice_reports_one_loss() {
+    let tree = support::TempTree::new("xmp-one-mask-one-raster-loss");
+    let missing = tree.path().join("gone-raster.png");
+    let path = missing.to_string_lossy().into_owned();
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            name: "shared".to_string(),
+            mask: MaskGeometry::Bitmap { path: path.clone() },
+            components: vec![MaskComponent {
+                geometry: MaskGeometry::Bitmap { path },
+                mode: MaskCombine::Add,
+                inverted: false,
+            }],
+            exposure_ev: 0.3,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    let (_, losses) = autoshade::xmp::recipe_to_xmp_with_losses(&recipe);
+
+    assert_eq!(
+        losses
+            .iter()
+            .filter(|loss| loss.reason == MaskLossReason::RasterNotEmbedded)
+            .count(),
+        1
+    );
+    assert!(losses.iter().any(|loss| {
+        loss.name == "shared" && loss.reason == MaskLossReason::RasterNotEmbedded
+    }));
+}
+
+#[test]
 fn export_losses_name_only_non_neutral_unrepresentable_globals() {
     assert!(autoshade::xmp::global_export_losses(&EditRecipe::default()).is_empty());
     let with_base = EditRecipe {
