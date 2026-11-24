@@ -3593,6 +3593,49 @@ fn default_defringe_block_is_complete_and_imports_as_noop() {
     .is_noop());
 }
 
+#[test]
+fn modelled_detail_and_defringe_keys_leave_unknown_global_disclosure() {
+    let document = lightroom_legacy_globals_document().replace(
+        r#"crs:HasSettings="True""#,
+        r#"crs:PointColor="0" crs:HasSettings="True""#,
+    );
+    let unknown = autoshade::xmp::unmodelled_global_crs(&document);
+
+    for modelled in [
+        "SharpenRadius",
+        "SharpenDetail",
+        "SharpenEdgeMasking",
+        "LuminanceNoiseReductionDetail",
+        "LuminanceNoiseReductionContrast",
+        "ColorNoiseReduction",
+        "ColorNoiseReductionDetail",
+        "ColorNoiseReductionSmoothness",
+        "AutoLateralCA",
+        "ChromaticAberrationR",
+        "ChromaticAberrationB",
+        "DefringePurpleAmount",
+        "DefringePurpleHueLo",
+        "DefringePurpleHueHi",
+        "DefringeGreenAmount",
+        "DefringeGreenHueLo",
+        "DefringeGreenHueHi",
+    ] {
+        assert!(!unknown.contains(&modelled.to_string()), "{modelled}");
+    }
+    assert!(unknown.contains(&"PointColor".to_string()));
+
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(
+        (
+            imported.sharpen_radius,
+            imported.color_nr,
+            imported.defringe_purple,
+        ),
+        (1.0, 25.0, 3.0)
+    );
+    assert!(imported.auto_lateral_ca);
+}
+
 fn lightroom_v150_globals_document() -> &'static str {
     r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
  crs:Exposure2012="+0.35" crs:Texture="-20"
