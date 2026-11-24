@@ -157,6 +157,9 @@
 - orientation helper 忽略照片 EXIF、用 `(declared, declared)` 计算时，公开 composition、handedness refusal、matching-mirrors 三条 case 分别在 1→0 turn、缺失拒绝披露和 2→0 turns 处变红；恢复后测试通过。
 - sidecar 未声明 orientation 却被强制增加一次 user turn 时，`orientation_contract_missing_declaration_keeps_zero_user_turn` 在公开 recipe 的 quarter_turns=1 处变红；恢复后测试通过。
 - reader 只在宽高齐全时转 geometry 时，`orientation_contract_orientation_only_sidecar_places_and_roundtrips_mask` 在无矩形 sidecar 的 mask 仍停留于 sensor 坐标处变红；恢复后测试通过。
+- recipe reader 移除 orientation-only 的 photo-frame fallback 时，`orientation_contract_photo_frame_restores_geometry_and_clears_false_losses` 在实际 pixel ellipse 不再等价处变红；恢复后测试通过。
+- `import_losses_for_photo` 移除同一 fallback 时，该 case 在已恢复 geometry 仍被错误报告 Rotation loss 处变红；恢复后测试通过。
+- `crop_import_note_for_photo` 移除同一 fallback 时，该 case 在已放置 crop 仍显示 “could not be placed” 假警告处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

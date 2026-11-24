@@ -3369,6 +3369,96 @@ fn orientation_contract_orientation_only_sidecar_places_and_roundtrips_mask() {
 }
 
 #[test]
+fn orientation_contract_photo_frame_restores_geometry_and_clears_false_losses() {
+    let tree = support::TempTree::new("orientation-photo-frame");
+    let photo = synthetic_orientation_photo(
+        &tree,
+        "portrait",
+        rawler::Orientation::Rotate270,
+    );
+    let recipe = EditRecipe {
+        crop: Some(Crop {
+            left: 0.1,
+            top: 0.1,
+            right: 0.9,
+            bottom: 0.9,
+        }),
+        straighten_deg: 3.0,
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Radial {
+                top: 0.3,
+                left: 0.2,
+                bottom: 0.5,
+                right: 0.8,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 37.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            exposure_ev: 0.5,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let framed = without_recipe_payload(
+        autoshade::xmp::recipe_to_xmp_in_frame(
+            &recipe,
+            autoshade::xmp::FrameAspect::from_size_turned(
+                16.0,
+                8.0,
+                rawler::Orientation::Rotate270,
+            ),
+        )
+        .0,
+    )
+    .replace("x:xmptk=\"AutoShade 2\"", "x:xmptk=\"Adobe XMP Core\"");
+    let document = framed
+        .lines()
+        .filter(|line| {
+            !line.contains("tiff:ImageWidth=") && !line.contains("tiff:ImageLength=")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_eq!(xmp_attribute(&document, "tiff:Orientation"), "8");
+    assert!(!document.contains("tiff:ImageWidth"));
+
+    let photo_aware = autoshade::xmp::xmp_to_recipe_for_photo(&document, &photo);
+    let expected_ellipse = radial_pixel_ellipse(&recipe.masks[0].mask, 8.0, 16.0);
+    let actual_ellipse = radial_pixel_ellipse(&photo_aware.masks[0].mask, 8.0, 16.0);
+    assert!((expected_ellipse.0 - actual_ellipse.0).abs() < 0.02);
+    assert!((expected_ellipse.1 - actual_ellipse.1).abs() < 0.02);
+    let tilt_delta = ((expected_ellipse.2 - actual_ellipse.2).rem_euclid(180.0))
+        .min((actual_ellipse.2 - expected_ellipse.2).rem_euclid(180.0));
+    assert!(tilt_delta < 0.5);
+    let crop = photo_aware
+        .crop
+        .expect("photo-aware reader places the tilted crop");
+    assert!((crop.left - 0.1).abs() < 0.02);
+    assert!((crop.right - 0.9).abs() < 0.02);
+
+    let MaskGeometry::Radial {
+        angle: document_only_angle,
+        ..
+    } = autoshade::xmp::xmp_to_recipe(&document).masks[0].mask
+    else {
+        panic!("document-only radial remains readable without rotation")
+    };
+    assert_eq!(document_only_angle, 0.0);
+    assert!(autoshade::xmp::import_losses(&document)
+        .iter()
+        .any(|loss| matches!(loss.reason, MaskImportReason::Rotation(_))));
+    assert!(!autoshade::xmp::import_losses_for_photo(&document, &photo)
+        .iter()
+        .any(|loss| matches!(loss.reason, MaskImportReason::Rotation(_))));
+    assert!(autoshade::xmp::crop_import_note(&document)
+        .is_some_and(|note| note.contains("could not be placed")));
+    assert!(autoshade::xmp::crop_import_note_for_photo(&document, &photo)
+        .is_none_or(|note| !note.contains("could not be placed")));
+}
+
+#[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
         crop: Some(Crop {
