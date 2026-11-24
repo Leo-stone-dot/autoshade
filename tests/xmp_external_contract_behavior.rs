@@ -3493,6 +3493,106 @@ fn edited_legacy_defringe_rewrites_the_whole_block_once() {
     assert!(merged.doc.contains(r#"crs:DefringePurpleAmount="5""#));
 }
 
+#[test]
+fn defringe_attribute_and_element_forms_round_trip() {
+    let recipe = EditRecipe {
+        defringe_purple: 3.0,
+        defringe_purple_lo: 39.0,
+        defringe_purple_hi: 79.0,
+        ..EditRecipe::default()
+    };
+    let attribute_xmp = autoshade::xmp::recipe_to_xmp(&recipe);
+    assert!(attribute_xmp.contains(r#"crs:DefringePurpleAmount="3""#));
+    assert!(!attribute_xmp.contains(r#"DefringePurpleAmount="+3""#));
+    let reopened = autoshade::xmp::xmp_to_recipe(&attribute_xmp);
+    assert_eq!(
+        (
+            reopened.defringe_purple,
+            reopened.defringe_purple_lo,
+            reopened.defringe_purple_hi,
+        ),
+        (3.0, 39.0, 79.0)
+    );
+
+    let element_xmp = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:DefringeGreenAmount>5</crs:DefringeGreenAmount>
+ <crs:DefringeGreenHueHi>66</crs:DefringeGreenHueHi>
+ <crs:DefringeGreenHueLo>44</crs:DefringeGreenHueLo>
+ <crs:DefringePurpleAmount>7</crs:DefringePurpleAmount>
+</rdf:Description>"#;
+    let element = autoshade::xmp::xmp_to_recipe(element_xmp);
+    assert_eq!(
+        (
+            element.defringe_green,
+            element.defringe_green_lo,
+            element.defringe_green_hi,
+            element.defringe_purple,
+        ),
+        (5.0, 44.0, 66.0, 7.0)
+    );
+    assert_eq!(
+        (element.defringe_purple_lo, element.defringe_purple_hi),
+        (30.0, 70.0)
+    );
+}
+
+#[test]
+fn nondefault_defringe_hue_window_survives_save() {
+    let lightroom = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:DefringePurpleAmount="3" crs:DefringePurpleHueLo="39"
+ crs:DefringePurpleHueHi="79"/>"#;
+    let imported = autoshade::xmp::xmp_to_recipe(lightroom);
+    assert_eq!(
+        (imported.defringe_purple_lo, imported.defringe_purple_hi),
+        (39.0, 79.0)
+    );
+
+    let document = autoshade::xmp::recipe_to_xmp(&imported);
+    let reopened = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(
+        (
+            reopened.defringe_purple,
+            reopened.defringe_purple_lo,
+            reopened.defringe_purple_hi,
+        ),
+        (3.0, 39.0, 79.0)
+    );
+    assert_eq!(
+        (reopened.defringe_green_lo, reopened.defringe_green_hi),
+        (40.0, 60.0)
+    );
+    assert!(document.contains(r#"crs:DefringeGreenHueLo="40""#));
+}
+
+#[test]
+fn default_defringe_block_is_complete_and_imports_as_noop() {
+    let neutral = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+    for spelling in [
+        r#"crs:DefringePurpleAmount="0""#,
+        r#"crs:DefringePurpleHueLo="30""#,
+        r#"crs:DefringePurpleHueHi="70""#,
+        r#"crs:DefringeGreenAmount="0""#,
+        r#"crs:DefringeGreenHueLo="40""#,
+        r#"crs:DefringeGreenHueHi="60""#,
+    ] {
+        assert!(neutral.contains(spelling), "{spelling}");
+    }
+    let real = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:DefringePurpleAmount="0" crs:DefringePurpleHueLo="30"
+ crs:DefringePurpleHueHi="70" crs:DefringeGreenAmount="0"
+ crs:DefringeGreenHueLo="40" crs:DefringeGreenHueHi="60"/>"#;
+    assert!(autoshade::xmp::xmp_to_recipe(real).is_noop());
+    assert!(autoshade::xmp::xmp_to_recipe(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"/>"#
+    )
+    .is_noop());
+    assert!(!autoshade::xmp::xmp_to_recipe(&real.replace(
+        r#"crs:DefringePurpleAmount="0""#,
+        r#"crs:DefringePurpleAmount="3""#
+    ))
+    .is_noop());
+}
+
 fn lightroom_v150_globals_document() -> &'static str {
     r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
  crs:Exposure2012="+0.35" crs:Texture="-20"
