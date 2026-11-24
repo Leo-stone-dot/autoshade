@@ -670,3 +670,125 @@ fn external_ai_mask_rewrites_its_intent_with_fresh_identity_and_disclosure() {
         .iter()
         .any(|loss| loss.reason == MaskLossReason::AiMaskRecomputed));
 }
+
+fn external_ai_correction(subtype: u32, extra: &str, quote: char) -> String {
+    let attr = |name: &str, value: &str| format!("crs:{name}={quote}{value}{quote}");
+    let subtype_and_reference = format!(
+        "{} {}",
+        attr("MaskSubType", &subtype.to_string()),
+        attr("ReferencePoint", "0.605469 0.281525")
+    );
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+<crs:MaskGroupBasedCorrections><rdf:Seq>
+ <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="AI">
+  <crs:CorrectionMasks><rdf:Seq>
+   <rdf:li><rdf:Description {} {} {} {} {} {} {} {} {extra}/></rdf:li>
+  </rdf:Seq></crs:CorrectionMasks>
+ </rdf:Description></rdf:li>
+</rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#,
+        attr("What", "Mask/Image"),
+        attr("MaskActive", "true"),
+        attr("MaskName", "Sky 1"),
+        attr("MaskBlendMode", "0"),
+        attr("MaskInverted", "false"),
+        attr("MaskValue", "1"),
+        attr("MaskVersion", "1"),
+        subtype_and_reference,
+    )
+}
+
+#[test]
+fn ai_masks_outside_the_measured_attribute_vocabulary_are_refused_and_named() {
+    let valid = external_ai_correction(2, "", '"');
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&valid).masks.len(), 1);
+
+    for invalid in [
+        external_ai_correction(2, r#"crs:SomethingNobodyMeasured="1""#, '"'),
+        external_ai_correction(7, "", '"'),
+    ] {
+        assert!(autoshade::xmp::xmp_to_recipe(&invalid).masks.is_empty());
+        assert!(autoshade::xmp::import_losses(&invalid)
+            .iter()
+            .any(|loss| loss.reason.is_drop()));
+    }
+}
+
+fn correction_scope_fixture(component_extra: &str, stray: &str) -> String {
+    format!(
+        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="AutoShade 2">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionAmount="1"
+   crs:CorrectionActive="true" crs:CorrectionName="Mask 1"
+   crs:LocalContrast2012="0.2">
+   {stray}
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li crs:What="Mask/Gradient" crs:MaskActive="true"
+     crs:MaskBlendMode="0" crs:MaskInverted="false" crs:MaskValue="1"
+     crs:ZeroX="0.5" crs:ZeroY="0.8" crs:FullX="0.5" crs:FullY="0.2"
+     {component_extra}/>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description></rdf:RDF></x:xmpmeta>"#
+    )
+}
+
+#[test]
+fn nested_component_slider_names_cannot_answer_for_the_correction() {
+    let document =
+        correction_scope_fixture(r#"crs:LocalExposure2012="9""#, "");
+
+    let restored = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(restored.masks.len(), 1);
+    assert_eq!(restored.masks[0].exposure_ev, 0.0);
+    assert_eq!(restored.masks[0].contrast, 20.0);
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 0);
+}
+
+#[test]
+fn a_range_mask_belongs_only_to_the_correction_component_list() {
+    let range = r#"<rdf:li crs:What="Mask/RangeMask" crs:MaskActive="true"
+ crs:MaskBlendMode="1" crs:MaskValue="0" crs:MaskInverted="true"
+ crs:LumRange="0 0.2 0.8 1"/>"#;
+    let outside = correction_scope_fixture("", range);
+    let inside = correction_scope_fixture("", "").replace(
+        "</rdf:Seq></crs:CorrectionMasks>",
+        &format!("{range}</rdf:Seq></crs:CorrectionMasks>"),
+    );
+
+    let outside_recipe = autoshade::xmp::xmp_to_recipe(&outside);
+    let inside_recipe = autoshade::xmp::xmp_to_recipe(&inside);
+
+    assert!(outside_recipe.masks[0].range.is_none());
+    assert!(matches!(
+        inside_recipe.masks[0].range,
+        Some(RangeMask::Luminance { .. })
+    ));
+}
+
+#[test]
+fn single_quoted_ai_attributes_carry_provenance_and_still_refuse_unknown_names() {
+    let valid = external_ai_correction(
+        2,
+        "crs:InputDigest='synthetic-input' crs:ModelVersion='234881976'",
+        '\'',
+    );
+    let restored = autoshade::xmp::xmp_to_recipe(&valid);
+    let MaskGeometry::AiMask { provenance, .. } = &restored.masks[0].mask else {
+        panic!("single-quoted AI geometry imports");
+    };
+
+    assert!(provenance.contains(&("InputDigest".to_string(), "synthetic-input".to_string())));
+    assert!(provenance.contains(&("ModelVersion".to_string(), "234881976".to_string())));
+    let rewritten = autoshade::xmp::recipe_to_xmp(&restored);
+    assert!(rewritten.contains(r#"crs:InputDigest="synthetic-input""#));
+    assert!(rewritten.contains(r#"crs:ModelVersion="234881976""#));
+
+    let invalid = external_ai_correction(2, "crs:Bogus='1'", '\'');
+    assert!(autoshade::xmp::xmp_to_recipe(&invalid).masks.is_empty());
+}

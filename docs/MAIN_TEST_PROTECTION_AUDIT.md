@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：650 cases，约 1,925 个断言宏，37 个显式 ignore。
+- 当前工作树：654 cases，约 1,939 个断言宏，37 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，216 条 `rewritten`、13 条
-`lint`、1 条 `drop`、1 条 `external-gate`、2,050 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，221 条 `rewritten`、13 条
+`lint`、1 条 `drop`、1 条 `external-gate`、2,045 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -936,6 +936,37 @@ Mutation 证据：
 
 mutation 已恢复，`src/xmp/read_corrections.rs`与`src/xmp/write.rs`无diff。
 
+### AI mask vocabulary and scope
+
+- Main cases：`ai_masks_and_frame_scope.rs` 的 unknown attribute、subtract pair、
+  nested slider、range ownership、single-quoted attributes 五条
+- 当前新增：`xmp_external_contract_behavior.rs` 的四条 parser cases
+- 复用：`xmp_behavior.rs::edited_ai_component_modes_override_carried_blend_and_keep_plain_add_zero`
+- 状态：5 条 `rewritten`
+
+逐断言归属：
+
+- AI mask只有在subtype属于0/1/2且属性名属于closed vocabulary时导入；未知名称和
+  subtype 7都产生drop loss。
+- native AI composition三态矩阵执行Subtract的`blend=1,value=0`以及round-trip。
+- component上的`LocalExposure2012=9`既不能给correction赋值，也不能使它out-of-model；
+  correction自己的contrast仍导入。
+- 相同RangeMask在CorrectionMasks外为None，在component list内为Luminance。
+- single-quotedAI attributes携带provenance并以canonical double quotes重写；single-quoted
+  unknown attr仍拒绝。
+
+Mutation 证据：
+
+- unknown-attribute arm从`Err`改为忽略时，invalid AI correction错误导入。
+- `correction_own_scope(seg)`退回whole-segment Scope时，nested slider令correction被拒绝，
+  mask count从1变0。仅在parser内部改一个Scope仍绿，不计为证据。
+- range parser追加whole-segment fallback时，component list外的RangeMask被错误附着。
+- attribute lexer退回只认double quote时，single-quoted correction整体消失。
+- Subtract matrix的既有native spelling mutation见Native XMP composition段落。
+
+mutation 已恢复，`src/xmp/read_corrections.rs`、`src/xmp/read_masks.rs`与
+`src/xmp/scan.rs`无diff。
+
 ## GUI 已裁决
 
 ### 拖放照片进入编辑画布
@@ -1828,7 +1859,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 17 | global/local round-trip、foreign WB/XML、attribute forms、mask merge、namespace scope、resource bounds、profile strength、AI component/write-back | XMP public format/compatibility | real Lightroom fixture gate remains separate |
+| `tests/xmp_external_contract_behavior.rs` | 21 | global/local round-trip、foreign WB/XML、attribute forms、mask merge、namespace scope、resource bounds、profile strength、AI component/write-back/vocabulary/scope | XMP public format/compatibility | real Lightroom fixture gate remains separate |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
