@@ -2322,6 +2322,108 @@ fn creative_look_document() -> &'static str {
 </rdf:Description>"#
 }
 
+fn full_creative_look_document() -> &'static str {
+    r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+1.00" crs:Clarity2012="+4"
+ crs:CameraProfile="Adobe Standard">
+ <crs:Look><rdf:Description crs:Name="Adobe Landscape" crs:Amount="1"
+  crs:UUID="6F9C877E84273F4E8271E6B91BEB36A1" crs:SupportsMonochrome="false">
+  <crs:Parameters><rdf:Description crs:Version="18.0" crs:ProcessVersion="15.4"
+   crs:Highlights2012="-12" crs:Shadows2012="+12" crs:Clarity2012="+10"
+   crs:ConvertToGrayscale="False" crs:CameraProfile="Adobe Standard"
+   crs:LookTable="0B3BFB5CFB7DBF7FF175E98F24D316B0">
+   <crs:ToneCurvePV2012><rdf:Seq>
+    <rdf:li>0, 0</rdf:li><rdf:li>64, 60</rdf:li>
+    <rdf:li>128, 128</rdf:li><rdf:li>192, 196</rdf:li>
+    <rdf:li>255, 255</rdf:li>
+   </rdf:Seq></crs:ToneCurvePV2012>
+  </rdf:Description></crs:Parameters>
+ </rdf:Description></crs:Look>
+</rdf:Description>"#
+}
+
+#[test]
+fn creative_look_imports_only_its_baked_half_without_promoting_user_edits() {
+    let imported = autoshade::xmp::xmp_to_recipe(full_creative_look_document());
+    let look = imported.look.as_ref().unwrap();
+
+    assert_eq!(look.name, "Adobe Landscape");
+    assert_eq!(look.amount, 1.0);
+    assert_eq!(look.base_profile, "Adobe Standard");
+    assert_eq!(look.table, "0B3BFB5CFB7DBF7FF175E98F24D316B0");
+    assert!(!look.grayscale);
+    assert_eq!(
+        (look.highlights, look.shadows, look.clarity),
+        (-12.0, 12.0, 10.0)
+    );
+    assert_eq!(look.tone_curve.len(), 5);
+    assert_eq!(
+        look.tone_curve[1],
+        CurvePoint {
+            input: 64,
+            output: 60,
+        }
+    );
+    assert!(look.red_curve.is_empty());
+    assert!(look.blue_curve.is_empty());
+
+    assert_eq!(imported.clarity, 4.0);
+    assert_eq!(imported.highlights, 0.0);
+    assert!(imported.tone_curve.is_empty());
+    assert_eq!(imported.camera_profile, "Adobe Standard");
+    assert_eq!(look.unrendered, vec!["LookTable"]);
+    assert!(!look.is_neutral());
+}
+
+#[test]
+fn neutral_unstated_and_absent_creative_looks_keep_distinct_meanings() {
+    let neutral_document = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:Look><rdf:Description crs:Name="Table only" crs:Amount="1">
+  <crs:Parameters><rdf:Description crs:LookTable="TABLE-ID"/>
+  </crs:Parameters>
+ </rdf:Description></crs:Look>
+</rdf:Description>"#;
+    let neutral = autoshade::xmp::xmp_to_recipe(neutral_document);
+    let neutral_look = neutral.look.as_ref().unwrap();
+    assert!(neutral_look.is_neutral());
+    assert!(neutral.baked_look().is_none());
+    assert_eq!(neutral_look.table, "TABLE-ID");
+
+    let unstated = autoshade::xmp::xmp_to_recipe(
+        &full_creative_look_document().replace(r#" crs:Amount="1""#, ""),
+    );
+    let unstated_look = unstated.look.as_ref().unwrap();
+    assert_eq!(unstated_look.amount, 1.0);
+    assert!(!unstated_look.is_neutral());
+    assert!(unstated.baked_look().is_some());
+
+    let none = autoshade::xmp::xmp_to_recipe(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" crs:Exposure2012="0.00"/>"#,
+    );
+    assert!(none.look.is_none());
+    assert!(!none.renders_grayscale());
+}
+
+#[test]
+fn monochrome_creative_look_and_user_switch_each_render_grayscale() {
+    let monochrome = full_creative_look_document()
+        .replace(
+            r#"crs:ConvertToGrayscale="False""#,
+            r#"crs:ConvertToGrayscale="True""#,
+        )
+        .replace("Adobe Landscape", "Adobe Monochrome");
+    let imported = autoshade::xmp::xmp_to_recipe(&monochrome);
+
+    assert!(imported.look.as_ref().unwrap().grayscale);
+    assert!(!imported.convert_to_grayscale);
+    assert!(imported.renders_grayscale());
+    assert!(EditRecipe {
+        convert_to_grayscale: true,
+        ..EditRecipe::default()
+    }
+    .renders_grayscale());
+}
+
 #[test]
 fn creative_look_parameters_do_not_become_global_user_edits() {
     let document = creative_look_document();
