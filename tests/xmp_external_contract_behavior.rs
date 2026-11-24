@@ -639,6 +639,82 @@ fn lens_profile_switch_document(attribute: &str) -> String {
     )
 }
 
+fn lightroom_upright_passthrough_document() -> &'static str {
+    r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+1.00"
+ crs:PerspectiveUpright="0" crs:PerspectiveVertical="-35"
+ crs:PerspectiveHorizontal="0" crs:PerspectiveRotate="+0.9"
+ crs:PerspectiveScale="100" crs:PerspectiveAspect="0"
+ crs:PerspectiveX="0.00" crs:PerspectiveY="0.00"
+ crs:UprightVersion="151388160" crs:UprightCenterMode="0"
+ crs:UprightCenterNormX="0.422764964"
+ crs:UprightCenterNormY="0.46112117"
+ crs:UprightFocalMode="0"
+ crs:UprightFocalLength35mm="104.944461871"
+ crs:CameraProfile="Adobe Standard"
+ crs:CameraProfileDigest="2D1D4700365C3E2831EEAE0D1A8F9CDF"
+ crs:HasSettings="True"/>"#
+}
+
+#[test]
+fn upright_passthrough_values_round_trip_verbatim_in_adobe_order() {
+    let imported =
+        autoshade::xmp::xmp_to_recipe(lightroom_upright_passthrough_document());
+    assert_eq!(imported.passthrough.len(), 6);
+    for (key, value) in [
+        ("UprightVersion", "151388160"),
+        ("UprightCenterNormX", "0.422764964"),
+        ("UprightCenterNormY", "0.46112117"),
+        ("UprightFocalLength35mm", "104.944461871"),
+    ] {
+        assert_eq!(
+            imported.passthrough.get(key).map(String::as_str),
+            Some(value),
+            "{key}"
+        );
+    }
+    assert_eq!(imported.camera_profile, "Adobe Standard");
+    for owned in [
+        "CameraProfile",
+        "PerspectiveVertical",
+        "PerspectiveRotate",
+        "PerspectiveX",
+        "CameraProfileDigest",
+    ] {
+        assert!(!imported.passthrough.contains_key(owned), "{owned}");
+    }
+    assert_eq!(imported.perspective_vertical, -35.0);
+    assert_eq!(imported.perspective_rotate, 0.9);
+    assert!(autoshade::xmp::unmodelled_global_crs(
+        lightroom_upright_passthrough_document()
+    )
+    .contains(&"CameraProfileDigest".to_string()));
+
+    let document = autoshade::xmp::recipe_to_xmp(&imported);
+    assert!(document.contains(r#"crs:UprightFocalLength35mm="104.944461871""#));
+    assert!(document.contains(r#"crs:CameraProfile="Adobe Standard""#));
+    assert!(document.contains(r#"crs:PerspectiveRotate="+0.9""#));
+    assert!(document.contains(r#"crs:PerspectiveVertical="-35""#));
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&document).passthrough,
+        imported.passthrough
+    );
+    let upright_version = document.find("crs:UprightVersion=").unwrap();
+    let focal = document.find("crs:UprightFocalLength35mm=").unwrap();
+    let profile = document.find("crs:CameraProfile=").unwrap();
+    assert!(upright_version < focal && focal < profile);
+
+    let escaped = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        camera_profile: "Sky & Sea <v2>".to_string(),
+        ..EditRecipe::default()
+    });
+    assert!(escaped.contains("Sky &amp; Sea &lt;v2&gt;"));
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&escaped).camera_profile,
+        "Sky & Sea <v2>"
+    );
+}
+
 #[test]
 fn numeric_and_lowercase_lens_profile_switch_spellings_are_read() {
     for (value, expected) in [("0", false), ("1", true), ("true", true)] {
