@@ -1376,3 +1376,134 @@ fn unchanged_table_mask_merge_keeps_table_attributes_without_duplicate_paints() 
         .contains(r#"crs:MaskBrushUncompressedBytes="185""#));
     assert_eq!(merged.doc.matches(r#"crs:What="Mask/Paint""#).count(), 0);
 }
+
+fn inline_paint(sync_id: &str, dabs: &[&str], extra: &str) -> String {
+    let items = dabs
+        .iter()
+        .map(|dab| format!("<rdf:li>{dab}</rdf:li>"))
+        .collect::<String>();
+    format!(
+        r#"<rdf:li><rdf:Description crs:What="Mask/Paint" crs:MaskActive="true"
+ crs:MaskBlendMode="0" crs:MaskInverted="false" crs:MaskSyncID="{sync_id}"
+ crs:MaskValue="1" crs:Radius="0.5" crs:Flow="1" crs:CenterWeight="0" {extra}>
+ <crs:Dabs><rdf:Seq>{items}</rdf:Seq></crs:Dabs>
+</rdf:Description></rdf:li>"#
+    )
+}
+
+#[test]
+fn table_import_preserves_residual_aggregate_and_ai_gesture_paints() {
+    let object = brush_object(MASK_BRUSH_GOOD_B);
+    let (acr, token) = one_object_acr(&object);
+    let tree = support::TempTree::new("brush-table-survivors");
+    let photo = tree.path().join("photo.dng");
+    std::fs::write(&photo, b"synthetic photo").unwrap();
+    std::fs::write(photo.with_extension("acr"), acr).unwrap();
+    let aggregate_paint = inline_paint(
+        "1111111111111111111111111111111A",
+        &["d 0.5 0.5"],
+        "",
+    );
+    let gesture_paint = inline_paint(
+        "1111111111111111111111111111111B",
+        &["h 1.0000", "d 0.25 0.75"],
+        r#"crs:BrushGestureInterpretation="0""#,
+    );
+    let corrections = format!(
+        r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Brushes">
+<crs:CorrectionMasks><rdf:Seq>
+ <rdf:li crs:What="Mask/Aggregate" crs:MaskActive="true"
+  crs:MaskName="Binary" crs:MaskBlendMode="0" crs:MaskInverted="false"
+  crs:MaskValue="1" crs:MaskBrushTable="{token}"
+  crs:MaskBrushUncompressedBytes="87"/>
+ <rdf:li><rdf:Description crs:What="Mask/Aggregate" crs:MaskActive="true"
+  crs:MaskName="Inline" crs:MaskBlendMode="0" crs:MaskInverted="false"
+  crs:MaskValue="1"><crs:Masks><rdf:Seq>{aggregate_paint}</rdf:Seq></crs:Masks>
+ </rdf:Description></rdf:li>
+</rdf:Seq></crs:CorrectionMasks>
+</rdf:Description></rdf:li>
+<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Gesture">
+<crs:CorrectionMasks><rdf:Seq>
+ <rdf:li><rdf:Description crs:What="Mask/Image" crs:MaskActive="true"
+  crs:MaskName="Subject" crs:MaskBlendMode="0" crs:MaskInverted="false"
+  crs:MaskValue="1" crs:MaskVersion="1" crs:MaskSubType="0"
+  crs:ReferencePoint="0.5 0.5"><crs:Gesture><rdf:Seq>{gesture_paint}</rdf:Seq></crs:Gesture>
+ </rdf:Description></rdf:li>
+</rdf:Seq></crs:CorrectionMasks>
+</rdf:Description></rdf:li>"#
+    );
+    let xmp = table_document(&corrections);
+
+    let recipe = autoshade::xmp::xmp_to_recipe_for_photo(&xmp, &photo);
+
+    assert_eq!(recipe.masks.len(), 2);
+    assert_eq!(recipe.masks[0].components.len(), 1);
+    let MaskGeometry::AiMask { gesture, .. } = &recipe.masks[1].mask else {
+        panic!("the second correction remains an AI mask");
+    };
+    assert_eq!(gesture.len(), 1);
+    assert!(gesture[0].dabs.starts_with("h 1.0000\n"));
+    let merged = autoshade::xmp::merge_recipe_into_xmp_in_frame_for_photo(
+        &xmp,
+        &recipe,
+        None,
+        Some(&photo),
+    )
+    .unwrap();
+    assert!(merged
+        .doc
+        .contains(r#"crs:BrushGestureInterpretation="0""#));
+}
+
+#[test]
+#[ignore = "requires the external P04 rewritten MaskBrushTable XMP/ARW/ACR fixture"]
+fn real_mask_brush_sample_matches_stage_three_ground_truth() {
+    let root = std::env::var_os("AUTOSHADE_MB_SAMPLE_ROOT")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_MB_SAMPLE_ROOT to the P04 rewritten fixture directory");
+    let xmp = std::fs::read_to_string(root.join("P04-rewritten-brushtable.xmp")).unwrap();
+    let photo = root.join("P04-rewritten.arw");
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::about(&collector, &photo);
+
+    let recipe = autoshade::xmp::xmp_to_recipe_with_diag(&xmp, &diag);
+    assert!(collector.is_empty());
+    let tables = recipe
+        .masks
+        .iter()
+        .flat_map(|mask| {
+            std::iter::once(&mask.mask)
+                .chain(mask.components.iter().map(|component| &component.geometry))
+        })
+        .filter_map(|geometry| match geometry {
+            MaskGeometry::Brush { strokes, .. } if matches!(strokes.len(), 54 | 4 | 18) => {
+                Some(strokes)
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        tables.iter().map(|table| table.len()).collect::<Vec<_>>(),
+        [54, 4, 18]
+    );
+    let d_count = tables
+        .iter()
+        .flat_map(|table| table.iter())
+        .map(|stroke| {
+            stroke
+                .dabs
+                .lines()
+                .filter(|token| token.starts_with("d "))
+                .count()
+        })
+        .sum::<usize>();
+    assert_eq!(d_count, 3_043);
+    assert_eq!(
+        (tables[1][0].value * 1_000_000.0).round() as u32,
+        51_402
+    );
+    assert_eq!(
+        tables[1][0].dabs.lines().next(),
+        Some("d 0.404621 0.692602")
+    );
+}
