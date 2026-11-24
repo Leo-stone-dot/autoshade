@@ -894,6 +894,7 @@ fn brush_table_refusal(
     tag: &str,
     companion: Option<&[u8]>,
     token: &str,
+    advertised: usize,
 ) -> (EditRecipe, Vec<String>) {
     let tree = support::TempTree::new(tag);
     let photo = tree.path().join("photo.dng");
@@ -908,7 +909,7 @@ fn brush_table_refusal(
   <crs:CorrectionMasks><rdf:Seq>
    <rdf:li><rdf:Description crs:What="Mask/Aggregate" crs:MaskActive="true"
     crs:MaskName="brush group" crs:MaskBlendMode="0" crs:MaskValue="1"
-    crs:MaskBrushTable="{token}" crs:MaskBrushUncompressedBytes="1"/>
+    crs:MaskBrushTable="{token}" crs:MaskBrushUncompressedBytes="{advertised}"/>
    </rdf:li>
   </rdf:Seq></crs:CorrectionMasks>
  </rdf:Description></rdf:li>
@@ -945,12 +946,30 @@ fn one_object_acr(blob: &[u8]) -> (Vec<u8>, String) {
     (acr, token)
 }
 
+fn brush_object(stream: &[u8]) -> Vec<u8> {
+    let mut object = Vec::with_capacity(16 + stream.len());
+    for word in [4u32, 1, 64_000, stream.len() as u32] {
+        object.extend_from_slice(&word.to_le_bytes());
+    }
+    object.extend_from_slice(stream);
+    object
+}
+
+fn valid_brush_object() -> Vec<u8> {
+    use base64::Engine as _;
+    let compressed = base64::engine::general_purpose::STANDARD
+        .decode("H2QAAGTw5t4FGQ3w9izCvnCADyiQiAPMKQesrbW2JFDJz3DwGLZDucVzKPwAkJ1BPK8hplyqumm7cZqXdetOUBlwfBgMrwL+4eBHgNqstxj8NwFsd2wG")
+        .unwrap();
+    brush_object(&compressed)
+}
+
 #[test]
 fn missing_mask_brush_companion_is_disclosed_as_unavailable() {
     let (recipe, lines) = brush_table_refusal(
         "brush-table-missing",
         None,
         "00000000000000000000000000000000",
+        1,
     );
 
     assert!(recipe.masks.is_empty());
@@ -965,6 +984,7 @@ fn malformed_mask_brush_companion_is_disclosed_as_container_invalid() {
         "brush-table-malformed",
         Some(b"not an ACR container"),
         "00000000000000000000000000000000",
+        1,
     );
 
     assert!(recipe.masks.is_empty());
@@ -980,8 +1000,58 @@ fn absent_mask_brush_key_is_disclosed_as_reference_mismatch() {
         "00000000000000000000000000000000"
     };
     let (recipe, lines) =
-        brush_table_refusal("brush-table-reference", Some(&acr), missing);
+        brush_table_refusal("brush-table-reference", Some(&acr), missing, 1);
 
     assert!(recipe.masks.is_empty());
     assert!(lines.iter().any(|line| line.contains("ReferenceMismatch")));
+}
+
+#[test]
+fn changed_mask_brush_blob_is_disclosed_as_digest_mismatch() {
+    let object = valid_brush_object();
+    let (mut acr, token) = one_object_acr(&object);
+    acr[52 + object.len() - 1] ^= 1;
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-digest", Some(&acr), &token, 101);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| line.contains("DigestMismatch")));
+}
+
+#[test]
+fn unknown_mask_brush_envelope_is_disclosed_as_encoding_unsupported() {
+    let mut object = valid_brush_object();
+    object[0..4].copy_from_slice(&5u32.to_le_bytes());
+    let (acr, token) = one_object_acr(&object);
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-envelope", Some(&acr), &token, 101);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines
+        .iter()
+        .any(|line| line.contains("EncodingUnsupported")));
+}
+
+#[test]
+fn invalid_mask_brush_brotli_is_disclosed_as_corrupt() {
+    let (acr, token) = one_object_acr(&brush_object(&[0xFF]));
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-brotli", Some(&acr), &token, 1);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| line.contains("Corrupt")));
+}
+
+#[test]
+fn wrong_mask_brush_output_size_is_disclosed_as_length_mismatch() {
+    let (acr, token) = one_object_acr(&valid_brush_object());
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-length", Some(&acr), &token, 102);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| line.contains("LengthMismatch")));
 }
