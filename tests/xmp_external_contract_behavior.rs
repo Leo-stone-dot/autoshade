@@ -2615,6 +2615,39 @@ fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
 }
 
 #[test]
+fn tilted_crop_keeps_six_decimal_angle_and_edges_through_document_round_trip() {
+    let document = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+ tiff:ImageWidth="9504" tiff:ImageLength="6336"
+ crs:HasCrop="True" crs:CropLeft="0.09115" crs:CropTop="0.100566"
+ crs:CropRight="1" crs:CropBottom="0.900897"
+ crs:CropAngle="-3.274380"/>"#;
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+    assert!((imported.straighten_deg - 3.27438).abs() < 1e-5);
+    let crop = imported.crop.unwrap();
+
+    let exported = without_recipe_payload(
+        autoshade::xmp::recipe_to_xmp_in_frame(
+            &imported,
+            autoshade::xmp::FrameAspect::from_size(9504.0, 6336.0),
+        )
+        .0,
+    );
+    assert!(exported.contains(r#"crs:CropAngle="-3.274380""#));
+    let reopened = autoshade::xmp::xmp_to_recipe(&exported);
+    let reopened_crop = reopened.crop.unwrap();
+    for (actual, expected) in [
+        (reopened_crop.left, crop.left),
+        (reopened_crop.top, crop.top),
+        (reopened_crop.right, crop.right),
+        (reopened_crop.bottom, crop.bottom),
+    ] {
+        assert!((actual - expected).abs() < 1e-5);
+    }
+}
+
+#[test]
 fn attribute_control_characters_use_references_and_round_trip() {
     let value = "a\tb\nc\rd";
     let recipe = EditRecipe {
