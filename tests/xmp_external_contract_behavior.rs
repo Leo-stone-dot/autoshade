@@ -2084,6 +2084,40 @@ fn lightroom_radial_inversion_uses_one_bit_and_rewrites_its_complement() {
     }
 }
 
+#[test]
+fn engine_radial_flip_and_inversion_export_as_one_lightroom_net_bit() {
+    for (flipped, inverted) in [(true, false), (false, true), (true, true), (false, false)] {
+        let mut recipe = rotated_radial_recipe(0.0);
+        let MaskGeometry::Radial {
+            flipped: recipe_flipped,
+            ..
+        } = &mut recipe.masks[0].mask
+        else {
+            panic!("fixture is radial");
+        };
+        *recipe_flipped = flipped;
+        recipe.masks[0].inverted = inverted;
+        let net = flipped ^ inverted;
+
+        let output = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+        assert_eq!(
+            (
+                xmp_public_value(&output, "crs:MaskInverted"),
+                xmp_public_value(&output, "crs:Flipped"),
+            ),
+            (
+                Some(if net { "true" } else { "false" }),
+                Some(if net { "false" } else { "true" }),
+            ),
+            "flipped={flipped} inverted={inverted}"
+        );
+        assert_eq!(
+            autoshade::xmp::xmp_to_recipe(&output).masks[0].net_inverted(),
+            net
+        );
+    }
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
