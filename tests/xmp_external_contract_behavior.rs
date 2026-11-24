@@ -2027,6 +2027,63 @@ fn import_rotation_loss_carries_a_signed_angle_and_distinguishes_unrotated() {
     }
 }
 
+fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+<crs:MaskGroupBasedCorrections><rdf:Seq>
+ <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Radial 1">
+  <crs:CorrectionMasks><rdf:Seq>
+   <rdf:li crs:What="Mask/CircularGradient" crs:MaskActive="true"
+    crs:MaskBlendMode="0" crs:MaskValue="1" crs:MaskInverted="{inverted}"
+    crs:Top="0.3" crs:Left="0.35" crs:Bottom="0.7" crs:Right="0.65"
+    crs:Feather="50" crs:Roundness="0" crs:Flipped="{flipped}" crs:Angle="0"/>
+  </rdf:Seq></crs:CorrectionMasks>
+ </rdf:Description></rdf:li>
+</rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#
+    )
+}
+
+#[test]
+fn lightroom_radial_inversion_uses_one_bit_and_rewrites_its_complement() {
+    for (flipped, inverted) in [(true, false), (false, true), (true, true), (false, false)] {
+        let input = lightroom_radial_inversion_document(flipped, inverted);
+        let restored = autoshade::xmp::xmp_to_recipe(&input);
+        let MaskGeometry::Radial {
+            flipped: geometry_flipped,
+            ..
+        } = restored.masks[0].mask
+        else {
+            panic!("Lightroom radial imports as a radial");
+        };
+
+        assert_eq!(
+            (
+                geometry_flipped,
+                restored.masks[0].inverted,
+                restored.masks[0].net_inverted(),
+            ),
+            (false, inverted, inverted),
+            "Flipped={flipped} MaskInverted={inverted}"
+        );
+
+        let output = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&restored));
+        let expected_net = if inverted { "true" } else { "false" };
+        let expected_complement = if inverted { "false" } else { "true" };
+        assert_eq!(
+            (
+                xmp_public_value(&output, "crs:MaskInverted"),
+                xmp_public_value(&output, "crs:Flipped"),
+            ),
+            (Some(expected_net), Some(expected_complement))
+        );
+        assert_eq!(
+            autoshade::xmp::xmp_to_recipe(&output).masks[0].net_inverted(),
+            inverted
+        );
+    }
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
