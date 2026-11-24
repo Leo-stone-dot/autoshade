@@ -2159,6 +2159,26 @@ loss及用户文案中清除两类假损失。main锁定`angle≈37`的carrier�
 等价。分别移除recipe、import-loss、crop-note三处photo-frame fallback时，对应几何或
 披露断言独立红；mutation均已恢复，`src/`无diff。
 
+### Real orientation census gate
+
+- Main case：`the_census_has_no_false_rotation_loss_beside_a_readable_raw`
+- 当前执行者：
+  `real_orientation_census_has_no_photo_aware_rotation_or_crop_losses`
+- 状态：`external-gate`
+
+显式ignored gate递归要求`AUTOSHADE_CENSUS_ROOT`、至少一个orientation-only XMP和至少
+一个可读ARW/DNG配对，再逐文件拒绝photo-aware Rotation loss与unplaced-crop文案。
+未配置变量时显式运行会失败，不再像main一样return通过：
+
+```bash
+AUTOSHADE_CENSUS_ROOT=/approved/corpus \
+  cargo test --test xmp_external_contract_behavior \
+  real_orientation_census_has_no_photo_aware_rotation_or_crop_losses -- --ignored --exact
+```
+
+当前机器没有授权corpus，因此不宣称该gate已绿；同一fallback行为已由synthetic-DNG
+默认case及三个独立mutation保护。
+
 ### Orientation merge updates exactly when the turn moves
 
 - Main case：`a_merge_corrects_the_declared_orientation_only_when_the_turn_moved`
@@ -3106,7 +3126,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 194 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 195 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation-census external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04/orientation census gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

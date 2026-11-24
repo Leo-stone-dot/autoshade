@@ -3610,6 +3610,86 @@ fn orientation_merge_updates_reader_visible_frames_without_changing_visible_geom
 }
 
 #[test]
+#[ignore = "requires AUTOSHADE_CENSUS_ROOT with the operator-approved external XMP/RAW corpus"]
+fn real_orientation_census_has_no_photo_aware_rotation_or_crop_losses() {
+    let root = std::env::var_os("AUTOSHADE_CENSUS_ROOT")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_CENSUS_ROOT to run the external orientation census");
+    assert!(root.is_dir(), "{} is not a directory", root.display());
+
+    let mut pending = vec![root];
+    let mut sidecars = Vec::new();
+    while let Some(directory) = pending.pop() {
+        let entries = std::fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("{}: {error}", directory.display()));
+        for entry in entries {
+            let path = entry
+                .unwrap_or_else(|error| panic!("{}: {error}", directory.display()))
+                .path();
+            if path.is_dir() {
+                pending.push(path);
+            } else if path
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("xmp"))
+            {
+                sidecars.push(path);
+            }
+        }
+    }
+    sidecars.sort();
+    assert!(!sidecars.is_empty(), "the census contains no XMP sidecars");
+
+    let mut orientation_only = 0usize;
+    let mut readable_pairs = 0usize;
+    for sidecar in sidecars {
+        let document = std::fs::read_to_string(&sidecar)
+            .unwrap_or_else(|error| panic!("{}: {error}", sidecar.display()));
+        if xmp_public_value(&document, "tiff:Orientation").is_none()
+            || (xmp_public_value(&document, "tiff:ImageWidth").is_some()
+                && xmp_public_value(&document, "tiff:ImageLength").is_some())
+        {
+            continue;
+        }
+        orientation_only += 1;
+
+        let Some(photo) = ["arw", "ARW", "dng", "DNG"]
+            .into_iter()
+            .map(|extension| sidecar.with_extension(extension))
+            .find(|path| path.is_file())
+        else {
+            continue;
+        };
+        if autoshade::decode::source_frame(&photo).is_err() {
+            continue;
+        }
+        readable_pairs += 1;
+
+        assert!(
+            !autoshade::xmp::import_losses_for_photo(&document, &photo)
+                .iter()
+                .any(|loss| matches!(loss.reason, MaskImportReason::Rotation(_))),
+            "{} reports a false photo-aware rotation loss",
+            sidecar.display()
+        );
+        assert!(
+            autoshade::xmp::crop_import_note_for_photo(&document, &photo)
+                .is_none_or(|note| !note.contains("could not be placed")),
+            "{} reports a false photo-aware crop placement loss",
+            sidecar.display()
+        );
+    }
+
+    assert!(
+        orientation_only > 0,
+        "the census contains no orientation-only sidecars"
+    );
+    assert!(
+        readable_pairs > 0,
+        "the census contains no orientation-only sidecar beside a readable ARW/DNG"
+    );
+}
+
+#[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
         crop: Some(Crop {
