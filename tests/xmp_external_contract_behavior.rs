@@ -1,8 +1,17 @@
 use autoshade::recipe::{
     AdobeLensProfile, ColorGrade, Crop, CurvePoint, EditRecipe, Hsl, LensProfile,
-    LocalAdjustment, MaskGeometry, RangeMask,
+    LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, RangeMask,
 };
-use autoshade::xmp::{LensProfileSetup, MaskImportReason};
+use autoshade::xmp::{LensProfileSetup, MaskImportReason, MaskLossReason};
+
+fn without_autoshade_mask_intent(mut xmp: String) -> String {
+    while let Some(start) = xmp.find(" ash:") {
+        let value = start + xmp[start..].find("=\"").unwrap() + 2;
+        let end = value + xmp[value..].find('"').unwrap() + 1;
+        xmp.replace_range(start..end, "");
+    }
+    xmp.replace(" xmlns:ash=\"https://autoshade.dev/ns/mask/1.0/\"", "")
+}
 
 #[test]
 fn global_develop_controls_round_trip_through_our_xmp() {
@@ -549,4 +558,115 @@ fn readable_mask_corrections_import_with_named_losses_and_survive_preserving_mer
     }));
     assert!(merged.doc.contains("Mask/Brush"));
     assert!(merged.doc.contains(r#"crs:Angle="12""#));
+}
+
+#[test]
+fn external_ai_component_imports_beside_its_parametric_base() {
+    let original = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Linear {
+                zero_x: 0.5,
+                zero_y: 0.8,
+                full_x: 0.5,
+                full_y: 0.2,
+            },
+            components: vec![MaskComponent {
+                geometry: MaskGeometry::AiMask {
+                    name: "Sky 1".to_string(),
+                    subtype: 2,
+                    ref_x: 0.605469,
+                    ref_y: 0.281525,
+                    blend_mode: 0,
+                    value: 1.0,
+                    inverted: false,
+                    mask_version: 1,
+                    provenance: vec![
+                        ("InputDigest".to_string(), "synthetic-input".to_string()),
+                        ("ModelVersion".to_string(), "234881976".to_string()),
+                    ],
+                    gesture: Vec::new(),
+                    raster: None,
+                },
+                mode: MaskCombine::Add,
+                inverted: false,
+            }],
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let projected = autoshade::xmp::recipe_to_xmp(&original);
+    let external = without_autoshade_mask_intent(projected.replacen(
+        "asr:Payload=\"1\"",
+        "asr:Payload=\"future\"",
+        1,
+    ));
+
+    let restored = autoshade::xmp::xmp_to_recipe(&external);
+    let losses = autoshade::xmp::import_losses(&external);
+
+    assert_eq!(restored.masks.len(), 1);
+    assert!(matches!(
+        restored.masks[0].mask,
+        MaskGeometry::Linear { .. }
+    ));
+    assert_eq!(restored.masks[0].components.len(), 1);
+    assert_eq!(restored.masks[0].components[0].mode, MaskCombine::Add);
+    let MaskGeometry::AiMask {
+        subtype,
+        ref_x,
+        ref_y,
+        provenance,
+        raster,
+        ..
+    } = &restored.masks[0].components[0].geometry
+    else {
+        panic!("the AI component remains an AI component");
+    };
+    assert_eq!((*subtype, *ref_x, *ref_y), (2, 0.605469, 0.281525));
+    assert!(provenance.contains(&("InputDigest".to_string(), "synthetic-input".to_string())));
+    assert!(raster.is_none());
+    assert!(losses
+        .iter()
+        .any(|loss| loss.reason == MaskImportReason::AiMaskRecomputed));
+}
+
+#[test]
+fn external_ai_mask_rewrites_its_intent_with_fresh_identity_and_disclosure() {
+    let external = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="sky">
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li><rdf:Description crs:What="Mask/Image" crs:MaskActive="true"
+     crs:MaskName="Sky 1" crs:MaskBlendMode="0" crs:MaskInverted="false"
+     crs:MaskSyncID="legacy-sync-id" crs:MaskValue="1" crs:MaskVersion="1"
+     crs:MaskSubType="2" crs:ReferencePoint="0.605469 0.281525"
+     crs:InputDigest="synthetic-input" crs:MaskDigest="synthetic-mask"
+     crs:WholeImageArea="0/1,0/1,1920/1,2880/1"
+     crs:ModelVersion="234881976"/>
+    </rdf:li>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#;
+
+    let imported = autoshade::xmp::xmp_to_recipe(external);
+    let rewritten = autoshade::xmp::recipe_to_xmp(&imported);
+    let losses = autoshade::xmp::mask_export_losses(&imported);
+
+    for expected in [
+        r#"crs:What="Mask/Image""#,
+        r#"crs:MaskSubType="2""#,
+        r#"crs:ReferencePoint="0.605469 0.281525""#,
+        r#"crs:MaskVersion="1""#,
+        r#"crs:InputDigest="synthetic-input""#,
+        r#"crs:MaskDigest="synthetic-mask""#,
+        r#"crs:ModelVersion="234881976""#,
+    ] {
+        assert!(rewritten.contains(expected), "{expected}");
+    }
+    assert!(!rewritten.contains("legacy-sync-id"));
+    assert!(losses
+        .iter()
+        .any(|loss| loss.reason == MaskLossReason::AiMaskRecomputed));
 }

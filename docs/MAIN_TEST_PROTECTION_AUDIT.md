@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：648 cases，约 1,914 个断言宏，37 个显式 ignore。
+- 当前工作树：650 cases，约 1,925 个断言宏，37 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，211 条 `rewritten`、13 条
-`lint`、1 条 `drop`、1 条 `external-gate`、2,055 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，216 条 `rewritten`、13 条
+`lint`、1 条 `drop`、1 条 `external-gate`、2,050 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -901,6 +901,40 @@ Mutation 证据：
 上述 mutation 均已恢复，`src/xmp/read.rs`、`src/xmp/merge.rs`、
 `src/xmp/crs_source.rs`、`src/xmp/scan.rs`、`src/xmp/xml.rs`、
 `src/xmp/read_masks.rs` 与 `src/recipe.rs` 无 diff。
+
+### AI mask import and write-back
+
+- Main cases：`ai_masks_and_frame_scope.rs` 前五条 AI import/base/gesture/write-back/zone
+- 当前新增：
+  `tests/xmp_external_contract_behavior.rs::external_ai_component_imports_beside_its_parametric_base`
+  与 `external_ai_mask_rewrites_its_intent_with_fresh_identity_and_disclosure`
+- 复用：
+  `tests/domain_behavior.rs::an_external_ai_mask_preserves_its_reference_provenance_and_gesture`、
+  XMP role/inversion cases，以及显式慢 gate
+  `fit_workflow::a_fitted_zone_survives_xmp_as_the_same_delivered_pixels`
+- 状态：5 条 `rewritten`
+
+逐断言归属：
+
+- Linear + AI 的外部 correction 保留Linear base，AI按Add component进入，subtype、
+  reference point、provenance与`raster=None`精确可见，并产生`AiMaskRecomputed`。
+- AI-only correction由现有payload-disabled public case验收为base；gesture count/dabs、
+  model/origin provenance均由同一case执行。
+- external AI重写重新发出Mask/Image、subtype/reference/version和provenance，不复用
+  foreign SyncID，并通过公开loss channel披露alpha re-derivation。
+- Select Sky zone的role、whole/geometry inversion home与net inversion由默认XMP cases
+  执行；zone的真实像素交付由fit battery执行，不把内部fit attachment当测试入口。
+
+Mutation 证据：
+
+- classifier把`Mask/Image`重新标成geometry unusable时，Linear correction整体消失，
+  component case在`0 != 1`处红。
+- writer取消AI base routing时，rewritten artifact不再含`Mask/Image`，write-back
+  case红。
+- role name fallback、payload inversion home、native composition和fit delivered-pixel
+  的既有mutation证据见前述对应段落。
+
+mutation 已恢复，`src/xmp/read_corrections.rs`与`src/xmp/write.rs`无diff。
 
 ## GUI 已裁决
 
@@ -1794,7 +1828,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 15 | global/local round-trip、foreign WB/XML、attribute forms、mask merge、namespace scope、resource bounds、profile strength | XMP public format/compatibility | real Lightroom fixture gate remains separate |
+| `tests/xmp_external_contract_behavior.rs` | 17 | global/local round-trip、foreign WB/XML、attribute forms、mask merge、namespace scope、resource bounds、profile strength、AI component/write-back | XMP public format/compatibility | real Lightroom fixture gate remains separate |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
