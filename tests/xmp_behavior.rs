@@ -231,6 +231,97 @@ fn component_inversion_is_sparse_and_legacy_json_stays_compatible() {
 }
 
 #[test]
+fn stale_radial_inversion_metadata_cannot_reverse_a_linear_mask() {
+    let original = LocalAdjustment {
+        mask: MaskGeometry::Linear {
+            zero_x: 0.25,
+            zero_y: 0.0,
+            full_x: 0.75,
+            full_y: 1.0,
+        },
+        inverted: true,
+        ..LocalAdjustment::default()
+    };
+    let xmp = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        masks: vec![original.clone()],
+        ..EditRecipe::default()
+    })
+    .replace("ash:Inverted=\"true\"", "ash:Inverted=\"false\"")
+    .replace("ash:BaseInverted=\"false\"", "ash:BaseInverted=\"true\"");
+
+    let restored = autoshade::xmp::xmp_to_recipe(&xmp);
+    let reference = image::DynamicImage::new_rgb8(127, 73);
+
+    assert_eq!(restored.masks[0].mask, original.mask);
+    assert_eq!(restored.masks[0].inverted, original.inverted);
+    assert_eq!(
+        autoshade::render::mask_coverage(
+            &restored.masks[0],
+            &reference,
+            autoshade::render::MaskFrame::AsRendered,
+        ),
+        autoshade::render::mask_coverage(
+            &original,
+            &reference,
+            autoshade::render::MaskFrame::AsRendered,
+        )
+    );
+}
+
+#[test]
+fn rotated_radial_components_use_the_frame_or_disclose_rotation_loss() {
+    let radial = MaskGeometry::Radial {
+        top: 0.25,
+        left: 0.15,
+        bottom: 0.75,
+        right: 0.85,
+        feather: 0.5,
+        roundness: 0.0,
+        flipped: false,
+        angle: 24.0,
+        midpoint: 50.0,
+        mask_version: 2,
+    };
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Linear {
+                zero_x: 0.25,
+                zero_y: 0.25,
+                full_x: 0.75,
+                full_y: 0.75,
+            },
+            components: vec![MaskComponent {
+                geometry: radial,
+                mode: MaskCombine::Intersect,
+                inverted: false,
+            }],
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    let (_, losses) = autoshade::xmp::recipe_to_xmp_with_losses(&recipe);
+    assert!(matches!(
+        losses.as_slice(),
+        [autoshade::xmp::MaskLoss {
+            reason: autoshade::xmp::MaskLossReason::Rotation(24),
+            ..
+        }]
+    ));
+
+    let (xmp, framed_losses) = autoshade::xmp::recipe_to_xmp_in_frame(
+        &recipe,
+        autoshade::xmp::FrameAspect::from_size(600.0, 400.0),
+    );
+    assert!(framed_losses.is_empty());
+    let restored = autoshade::xmp::xmp_to_recipe(&xmp);
+    let MaskGeometry::Radial { angle, .. } = restored.masks[0].components[0].geometry else {
+        panic!("the component remains radial")
+    };
+    assert!((angle - 24.0).abs() < 1e-4);
+}
+
+#[test]
 fn native_xmp_preserves_mixed_component_order_in_both_whole_inversions() {
     let reference = image::DynamicImage::new_rgb8(127, 73);
     let radial = |flipped| MaskGeometry::Radial {
