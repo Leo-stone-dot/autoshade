@@ -1880,6 +1880,8 @@ fn creative_look_document() -> &'static str {
   <crs:Parameters><rdf:Description>
    <crs:Clarity2012>+50</crs:Clarity2012>
    <crs:Vibrance>+35</crs:Vibrance>
+   <crs:ConvertToGrayscale>True</crs:ConvertToGrayscale>
+   <crs:BlueHue>+50</crs:BlueHue>
    <crs:ToneCurvePV2012><rdf:Seq>
     <rdf:li>0, 30</rdf:li><rdf:li>255, 255</rdf:li>
    </rdf:Seq></crs:ToneCurvePV2012>
@@ -1897,6 +1899,8 @@ fn creative_look_parameters_do_not_become_global_user_edits() {
 
     assert_eq!(restored.exposure_ev, 0.20);
     assert_eq!((restored.clarity, restored.vibrance), (0.0, 0.0));
+    assert!(!restored.convert_to_grayscale);
+    assert_eq!(restored.cal_blue_hue, 0.0);
     assert!(restored.tone_curve.is_empty());
     assert!(autoshade::xmp::unparsable_crs_numbers(&corrupt).is_empty());
 }
@@ -2638,6 +2642,27 @@ const PARAMETRIC_LIGHTROOM_SPELLINGS: [&str; 7] = [
     r#"crs:ParametricHighlightSplit="85""#,
 ];
 
+const CALIBRATION_LIGHTROOM_SPELLINGS: [&str; 7] = [
+    r#"crs:ShadowTint="+1""#,
+    r#"crs:RedHue="+2""#,
+    r#"crs:RedSaturation="+3""#,
+    r#"crs:GreenHue="+4""#,
+    r#"crs:GreenSaturation="+5""#,
+    r#"crs:BlueHue="+6""#,
+    r#"crs:BlueSaturation="+7""#,
+];
+
+const GRAY_MIXER_LIGHTROOM_SPELLINGS: [&str; 8] = [
+    r#"crs:GrayMixerRed="+11""#,
+    r#"crs:GrayMixerOrange="+12""#,
+    r#"crs:GrayMixerYellow="+13""#,
+    r#"crs:GrayMixerGreen="+14""#,
+    r#"crs:GrayMixerAqua="+15""#,
+    r#"crs:GrayMixerBlue="+16""#,
+    r#"crs:GrayMixerPurple="+17""#,
+    r#"crs:GrayMixerMagenta="+18""#,
+];
+
 #[test]
 fn lightroom_parametric_curve_merges_once_and_reopens_unchanged() {
     let imported = autoshade::xmp::xmp_to_recipe(lightroom_v150_globals_document());
@@ -2696,6 +2721,108 @@ fn neutral_recipe_does_not_invent_a_parametric_curve() {
 
     assert!(!document.contains("crs:Parametric"));
     assert!(autoshade::xmp::xmp_to_recipe(&document).is_noop());
+}
+
+#[test]
+fn lightroom_calibration_and_black_and_white_merge_once_and_reopen_unchanged() {
+    let imported = autoshade::xmp::xmp_to_recipe(lightroom_v150_globals_document());
+    assert_eq!(
+        imported.calibration(),
+        Some([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+    );
+    assert!(imported.convert_to_grayscale);
+    assert_eq!(
+        imported.gray_mixer(),
+        [11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0]
+    );
+
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom_v150_globals_document(), &imported)
+            .unwrap();
+    for spelling in CALIBRATION_LIGHTROOM_SPELLINGS
+        .into_iter()
+        .chain(GRAY_MIXER_LIGHTROOM_SPELLINGS)
+        .chain([r#"crs:ConvertToGrayscale="True""#])
+    {
+        assert!(merged.doc.contains(spelling), "{spelling}");
+        let key = &spelling[..spelling.find('=').unwrap() + 1];
+        assert_eq!(merged.doc.matches(key).count(), 1, "{key}");
+    }
+    let reopened = autoshade::xmp::xmp_to_recipe(&merged.doc);
+    assert_eq!(
+        (
+            reopened.calibration(),
+            reopened.convert_to_grayscale,
+            reopened.gray_mixer(),
+        ),
+        (
+            imported.calibration(),
+            imported.convert_to_grayscale,
+            imported.gray_mixer(),
+        )
+    );
+}
+
+#[test]
+fn one_calibration_edit_exports_the_whole_block_without_black_and_white() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        cal_green_sat: 37.0,
+        ..EditRecipe::default()
+    });
+
+    for key in [
+        "ShadowTint",
+        "RedHue",
+        "RedSaturation",
+        "GreenHue",
+        "GreenSaturation",
+        "BlueHue",
+        "BlueSaturation",
+    ] {
+        assert_eq!(document.matches(&format!("crs:{key}=")).count(), 1, "{key}");
+    }
+    assert!(document.contains(r#"crs:GreenSaturation="+37""#));
+    assert!(document.contains(r#"crs:ShadowTint="0""#));
+    assert!(!document.contains("crs:GrayMixer"));
+    assert!(!document.contains("crs:ConvertToGrayscale"));
+}
+
+#[test]
+fn black_and_white_switch_exports_the_whole_neutral_mixer_without_calibration() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        convert_to_grayscale: true,
+        ..EditRecipe::default()
+    });
+
+    assert!(document.contains(r#"crs:ConvertToGrayscale="True""#));
+    for band in [
+        "Red", "Orange", "Yellow", "Green", "Aqua", "Blue", "Purple", "Magenta",
+    ] {
+        assert_eq!(
+            document.matches(&format!("crs:GrayMixer{band}=")).count(),
+            1,
+            "{band}"
+        );
+        assert!(document.contains(&format!(r#"crs:GrayMixer{band}="0""#)));
+    }
+    assert!(!document.contains("crs:ShadowTint"));
+}
+
+#[test]
+fn neutral_recipe_does_not_invent_calibration_or_black_and_white() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+
+    assert!(!document.contains("crs:ShadowTint"));
+    assert!(!document.contains("crs:GrayMixer"));
+    assert!(!document.contains("crs:ConvertToGrayscale"));
+}
+
+#[test]
+fn false_black_and_white_switch_imports_as_color() {
+    let document =
+        lightroom_v150_globals_document().replace(r#"crs:ConvertToGrayscale="True""#, r#"crs:ConvertToGrayscale="False""#);
+
+    assert!(!autoshade::xmp::xmp_to_recipe(&document).convert_to_grayscale);
 }
 
 #[test]
