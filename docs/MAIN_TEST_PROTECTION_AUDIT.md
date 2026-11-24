@@ -2014,6 +2014,33 @@ crop，case在公开`crop.is_none()`断言处红；mutation已恢复，`src/`无
 1.0，公开note报告176 px。临时把overshoot fraction乘以源宽后，文案变成264 px并使
 case红；mutation已恢复，`src/`无diff。
 
+### Retouch areas remain outside local-adjustment accounting
+
+- Main case：`a_retouch_area_is_not_counted_as_a_local_adjustment`
+- 当前执行者：`lightroom_retouch_areas_stay_out_of_local_adjustment_counts`
+- 状态：`rewritten`
+
+真实形状的RetouchAreas ellipse在一个local correction旁导入为一个retouch；公开recipe仍
+只有一个mask，unsupported correction与import loss均为0。临时让公开reader不接入
+RetouchAreas后retouch静默消失，case红；mutation已恢复，`src/`无diff。
+
+### Lightroom spot removal keeps fill, geometry and execution
+
+- Main case：`lightrooms_spot_removal_reads_back_with_its_fill_and_its_shape`
+- 当前执行者：
+  `lightroom_retouch_fill_modes_keep_their_known_origins`、
+  `lightroom_retouch_donors_require_both_coordinates`、
+  `lightroom_retouch_ellipse_becomes_a_scaled_heal_spot`、
+  `lightroom_retouch_missing_feather_uses_a_safe_default`、
+  `lightroom_retouch_brush_becomes_an_executable_heal_plan`
+- 状态：`rewritten`
+
+原14断言按公开产品主张拆为五条：三种实测fill保留origin且未知fill不冒充已知语义；
+donor必须两坐标齐全并转换为heal-plan offset；ellipse在300×200 frame成为半径0.075的
+spot；缺失feather使用0.4安全默认；brush保留实测dab并生成非空generative heal plan。
+分别误分类firefly、接受半个donor、漏掉短边尺度、把默认feather清零、跳过brush执行时，
+对应case各自变红；mutation均已恢复，`src/`无diff。
+
 ### Local Hue uses the measured 180 wire scale
 
 - Main case：`local_hue_rides_the_measured_180_scale`
@@ -2934,7 +2961,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 170 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 176 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

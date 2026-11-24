@@ -2720,6 +2720,162 @@ fn crop_overshoot_is_trimmed_and_disclosed_in_straightened_axis_pixels() {
     assert!(note.contains("176 px outside"), "{note}");
 }
 
+fn lightroom_retouch_ellipse(x: &str, y: &str) -> String {
+    format!(
+        r#"<crs:Masks><rdf:Seq><rdf:li crs:What="Mask/Ellipse"
+ crs:MaskActive="true" crs:MaskBlendMode="0" crs:MaskInverted="false"
+ crs:MaskValue="1" crs:X="{x}" crs:Y="{y}" crs:SizeX="0.05"
+ crs:SizeY="0.05" crs:Alpha="0" crs:CenterValue="1"
+ crs:PerimeterValue="0"/></rdf:Seq></crs:Masks>"#
+    )
+}
+
+fn lightroom_retouch_paint() -> &'static str {
+    r#"<crs:Masks><rdf:Seq><rdf:Description crs:What="Mask/Paint"
+ crs:MaskActive="true" crs:MaskBlendMode="0" crs:MaskInverted="false"
+ crs:MaskSyncID="0000000000000000000000000000000A" crs:MaskValue="1"
+ crs:Radius="0.08" crs:Flow="1" crs:CenterWeight="0.5">
+ <crs:Dabs><rdf:Seq><rdf:li>d 0.700000 0.300000</rdf:li></rdf:Seq></crs:Dabs>
+</rdf:Description></rdf:Seq></crs:Masks>"#
+}
+
+fn lightroom_retouch_area(attributes: &str, body: &str) -> String {
+    format!(
+        r#"<rdf:li><rdf:Description {attributes}>{body}</rdf:Description></rdf:li>"#
+    )
+}
+
+fn lightroom_retouch_document(areas: &[String]) -> String {
+    lightroom_radial_value_document("0", "1").replacen(
+        "<crs:MaskGroupBasedCorrections>",
+        &format!(
+            "<crs:RetouchAreas><rdf:Seq>{}</rdf:Seq></crs:RetouchAreas>\n\
+             <crs:MaskGroupBasedCorrections>",
+            areas.join("")
+        ),
+        1,
+    )
+}
+
+#[test]
+fn lightroom_retouch_areas_stay_out_of_local_adjustment_counts() {
+    let document = lightroom_retouch_document(&[lightroom_retouch_area(
+        r#"crs:SpotType="heal" crs:Feather="0.5""#,
+        &lightroom_retouch_ellipse("0.15", "0.15"),
+    )]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(imported.masks.len(), 1);
+    assert_eq!(imported.retouch.len(), 1);
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 0);
+    assert!(autoshade::xmp::import_losses(&document).is_empty());
+}
+
+#[test]
+fn lightroom_retouch_fill_modes_keep_their_known_origins() {
+    use autoshade::retouch::SpotOrigin;
+
+    let ellipse = lightroom_retouch_ellipse("0.4", "0.6");
+    let document = lightroom_retouch_document(&[
+        lightroom_retouch_area(r#"crs:SpotType="heal""#, &ellipse),
+        lightroom_retouch_area(r#"crs:SpotType="heal_patchmatch""#, &ellipse),
+        lightroom_retouch_area(
+            r#"crs:SpotType="heal_patchmatch" crs:fill_method="firefly""#,
+            &ellipse,
+        ),
+        lightroom_retouch_area(r#"crs:SpotType="some_future_adobe_fill""#, &ellipse),
+    ]);
+    let origins = autoshade::xmp::xmp_to_recipe(&document)
+        .retouch
+        .into_iter()
+        .map(|area| area.origin)
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        origins,
+        vec![
+            SpotOrigin::LightroomHeal,
+            SpotOrigin::LightroomContentAware,
+            SpotOrigin::LightroomGenerative,
+        ]
+    );
+}
+
+#[test]
+fn lightroom_retouch_donors_require_both_coordinates() {
+    let document = lightroom_retouch_document(&[
+        lightroom_retouch_area(
+            r#"crs:SpotType="heal" crs:SourceX="0.6" crs:OffsetY="0.4""#,
+            &lightroom_retouch_ellipse("0.25", "0.5"),
+        ),
+        lightroom_retouch_area(
+            r#"crs:SpotType="heal" crs:SourceX="0.6""#,
+            &lightroom_retouch_ellipse("0.7", "0.7"),
+        ),
+    ]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let spots = autoshade::render::retouch_spots(&imported, 1000, 500);
+
+    assert_eq!(imported.retouch[0].donor, Some([0.6, 0.4]));
+    assert_eq!(imported.retouch[1].donor, None);
+    let source = spots[0].source.expect("the complete donor reaches the heal plan");
+    assert!((source[0] - 0.35).abs() < 1e-6);
+    assert!((source[1] + 0.1).abs() < 1e-6);
+    assert_eq!(spots[1].source, None);
+}
+
+#[test]
+fn lightroom_retouch_ellipse_becomes_a_scaled_heal_spot() {
+    let document = lightroom_retouch_document(&[lightroom_retouch_area(
+        r#"crs:SpotType="heal" crs:Feather="0.5""#,
+        &lightroom_retouch_ellipse("0.25", "0.5"),
+    )]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let spots = autoshade::render::retouch_spots(&imported, 300, 200);
+
+    assert_eq!(spots.len(), 1);
+    assert!((spots[0].cx - 0.25).abs() < 1e-6);
+    assert!((spots[0].cy - 0.5).abs() < 1e-6);
+    assert!((spots[0].radius - 0.075).abs() < 1e-6);
+    assert!((spots[0].feather - 0.5).abs() < 1e-6);
+}
+
+#[test]
+fn lightroom_retouch_missing_feather_uses_a_safe_default() {
+    let document = lightroom_retouch_document(&[lightroom_retouch_area(
+        r#"crs:SpotType="heal_patchmatch""#,
+        &lightroom_retouch_ellipse("0.4", "0.6"),
+    )]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let spots = autoshade::render::retouch_spots(&imported, 300, 200);
+
+    assert_eq!(spots.len(), 1);
+    assert!((spots[0].feather - 0.4).abs() < 1e-6);
+}
+
+#[test]
+fn lightroom_retouch_brush_becomes_an_executable_heal_plan() {
+    use autoshade::retouch::{RetouchShape, SpotOrigin};
+
+    let document = lightroom_retouch_document(&[lightroom_retouch_area(
+        r#"crs:SpotType="heal_patchmatch" crs:fill_method="firefly""#,
+        lightroom_retouch_paint(),
+    )]);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let RetouchShape::Brush(strokes) = &imported.retouch[0].shape else {
+        panic!("Lightroom paint retouch must remain a brush")
+    };
+    let spots = autoshade::render::retouch_spots(&imported, 100, 100);
+
+    assert_eq!(strokes.len(), 1);
+    assert!((strokes[0].radius - 0.08).abs() < 1e-6);
+    assert_eq!(strokes[0].dabs, "d 0.700000 0.300000");
+    assert!(!spots.is_empty());
+    assert!(spots
+        .iter()
+        .all(|spot| spot.origin == SpotOrigin::LightroomGenerative));
+}
+
 #[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {

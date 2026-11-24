@@ -139,6 +139,12 @@
 - crop rotated-corner reader 退化为 axis-aligned extents 时，`measured_lightroom_crops_produce_their_exported_dimensions` 在 P11 的交付尺寸从实测 8302×6277 漂到 8316.49×6258.26 处变红；恢复后测试通过。
 - crop writer 把 `p*cos-q*sin` 的减号改成加号时，`measured_lightroom_crop_corners_survive_import_and_export` 在 P11 `CropLeft` 从 0.119389 漂到 0.120917 处变红；恢复后测试通过。
 - crop overshoot 披露把 fraction 乘以源宽时，`crop_overshoot_is_trimmed_and_disclosed_in_straightened_axis_pixels` 在用户可见文案从 176 px 变成 264 px 处变红；恢复后测试通过。
+- 公开 XMP reader 不接入 `RetouchAreas` 时，`lightroom_retouch_areas_stay_out_of_local_adjustment_counts` 在 retouch 从 1 个变成 0 个处变红；恢复后测试通过。
+- 把 `heal_patchmatch + firefly` 误分为普通 content-aware 时，`lightroom_retouch_fill_modes_keep_their_known_origins` 在第三个 origin 错误处变红；恢复后测试通过。
+- 接受只有 `SourceX` 的半个 donor 并补 y=0 时，`lightroom_retouch_donors_require_both_coordinates` 在残缺区域得到 `Some([0.6, 0.0])` 处变红；恢复后测试通过。
+- ellipse 半径不从宽度单位换算为短边单位时，`lightroom_retouch_ellipse_becomes_a_scaled_heal_spot` 在 300×200 frame 的半径从 0.075 缩成 0.05 处变红；恢复后测试通过。
+- 缺失 `crs:Feather` 时回退到 0 而不是 0.4 时，`lightroom_retouch_missing_feather_uses_a_safe_default` 在公开 heal plan 的硬边 feather 处变红；恢复后测试通过。
+- 非空 brush 不进入 `retouch_spots` 时，`lightroom_retouch_brush_becomes_an_executable_heal_plan` 在 recipe 仍保留 stroke、但 heal plan 为空处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
