@@ -831,6 +831,85 @@ fn native_composition_matrix_preserves_editor_intent_and_crs_coverage() {
 }
 
 #[test]
+fn xmp_export_preserves_spellable_masks_and_names_each_omitted_bitmap() {
+    let native = LocalAdjustment {
+        name: "native".to_string(),
+        role: MaskRole::ZoneSky,
+        inverted: true,
+        mask: MaskGeometry::Linear {
+            zero_x: 0.2,
+            zero_y: 0.25,
+            full_x: 0.8,
+            full_y: 0.75,
+        },
+        components: vec![MaskComponent {
+            geometry: MaskGeometry::Radial {
+                top: 0.25,
+                left: 0.25,
+                bottom: 0.75,
+                right: 0.75,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 0.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            mode: MaskCombine::Intersect,
+            inverted: false,
+        }],
+        ..LocalAdjustment::default()
+    };
+    let bitmap = |name: &str, enabled| LocalAdjustment {
+        name: name.to_string(),
+        enabled,
+        mask: MaskGeometry::Bitmap {
+            path: format!("{name}.png"),
+        },
+        ..LocalAdjustment::default()
+    };
+    let recipe = EditRecipe {
+        masks: vec![native.clone(), bitmap("tile", true), bitmap("muted", false)],
+        ..EditRecipe::default()
+    };
+
+    let (xmp, losses) = autoshade::xmp::recipe_to_xmp_in_frame(
+        &recipe,
+        autoshade::xmp::FrameAspect::from_size(600.0, 400.0),
+    );
+    let restored = autoshade::xmp::xmp_to_recipe(&xmp);
+
+    assert_eq!(restored.masks.len(), 3);
+    assert_eq!(restored.masks[0], native);
+    assert_eq!(
+        restored
+            .masks
+            .iter()
+            .map(|mask| mask.name.as_str())
+            .collect::<Vec<_>>(),
+        ["native", "tile", "muted"]
+    );
+    assert!(losses.iter().any(|loss| {
+        loss.name == "tile" && loss.reason == autoshade::xmp::MaskLossReason::Bitmap
+    }));
+    assert!(losses.iter().any(|loss| {
+        loss.name == "muted" && loss.reason == autoshade::xmp::MaskLossReason::Disabled
+    }));
+    assert!(!losses.iter().any(|loss| {
+        loss.name == "muted" && loss.reason == autoshade::xmp::MaskLossReason::Bitmap
+    }));
+    assert!(!losses.iter().any(|loss| {
+        loss.name == "native"
+            && matches!(
+                loss.reason,
+                autoshade::xmp::MaskLossReason::Bitmap
+                    | autoshade::xmp::MaskLossReason::ComponentsFlattened
+                    | autoshade::xmp::MaskLossReason::Rotation(_)
+            )
+    }));
+}
+
+#[test]
 fn a_census_shaped_sky_intersect_radial_imports_as_intersect() {
     let xmp = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
 <crs:MaskGroupBasedCorrections><rdf:Seq><rdf:li><rdf:Description crs:What="Correction"

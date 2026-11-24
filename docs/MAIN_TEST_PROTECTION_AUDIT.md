@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：632 cases，约 1,844 个断言宏，37 个显式 ignore。
+- 当前工作树：648 cases，约 1,914 个断言宏，37 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，191 条 `rewritten`、13 条
-`lint`、1 条 `drop`、1 条 `external-gate`、2,075 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，211 条 `rewritten`、13 条
+`lint`、1 条 `drop`、1 条 `external-gate`、2,055 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -839,6 +839,68 @@ Mutation 证据：
   `tile-r3c3-2.png`，fixture与父 case依次红。
 
 全部 mutation 均已恢复，`src/xmp/read.rs` 与 `src/xmp/payload.rs` 无 diff。
+
+### XMP round trips and attribute forms
+
+- Main file：`src/xmp/tests/round_trips_and_attribute_forms.rs`，19 条 cases
+- 当前执行者：`tests/xmp_external_contract_behavior.rs` 的 15 条公开 cases，加上
+  `tests/xmp_behavior.rs` 的 payload/composition/bitmap cases
+- 状态：19 条 `rewritten`
+- Gate：默认
+
+逐 case 归属：
+
+| main case | 当前行为执行者 |
+| --- | --- |
+| globals round trip / own As Shot tint | full global round-trip + foreign-WB case |
+| parametric mask geometry/local controls/inversion | full local round-trip + native composition/inversion cases |
+| bitmap only through payload | bitmap disclosure/payload case + photo-less inert-path case |
+| foreign As Shot / identity curve | foreign-WB case |
+| hostile XML values | hostile-text artifact/round-trip case |
+| comments and whitespace | comment/attribute-whitespace import+merge case |
+| readable corrections / preserve block | named mask import-loss case |
+| recipe masks outrank foreign block | foreign-block preserve/replace case |
+| attribute curve read/replace | attribute-form curve case |
+| attribute mask group | same foreign-block case using `rdf:parseType` spelling |
+| whitespace close tag | trailing-space public reader case |
+| unreadable attribute curve | malformed-curve disclosure case |
+| foreign camera-raw prefixes | public namespace refusal/diagnostic case |
+| ancestor namespace | ancestor element-form merge case |
+| ratings-only insert | same case's ratings arm |
+| bounded XMP/numeric groups | scalar/group/resource-boundary case |
+| named profile strength / unnamed foreign strength | two lens-profile strength cases |
+
+关键断言映射：
+
+- global fixture 精确覆盖 HSL、Color Grade、detail、crop、composite/channel curves、
+  rationale/confidence；local fixture精确覆盖 range、amount、inversion和全部local sliders。
+- foreign As Shot不导入相机 WB，Custom导入；identity master curve归空。
+- XML attribute/text escaping、comment skipping、attribute whitespace、ancestor namespace、
+  property-element close whitespace都通过公开 reader/merge验收。
+- attribute-form曲线可读且只替换一次；越界或未闭合曲线不部分导入并具名披露。
+- foreign mask block在recipe未改时逐字保留，recipe带新mask时替换且产生一条可见note。
+- alias/rebind namespace拒绝merge并命名错误；ratings-only sidecar走insert且保留rating。
+- 16 MiB+ 输入在 reader/merge/diagnostic 三门一致拒绝；标量clamp，compound group整组拒绝。
+- lens strength只有在setup+name同时存在时按文件值生效；writer只有能命名真实profile时
+  才把非100 strength交给Lightroom，否则具名loss。
+
+Mutation 证据：
+
+- foreign As Shot强制按Custom读取时，5150/+10错误成为用户编辑。
+- master curve reader强制返回空时，attribute-form curve case越界失败。
+- merge强制不preserve mask block时，无mask recipe删除用户Brush。
+- namespace conflict merge gate旁路时，foreign alias被错误接受。
+- oversize diagnostic gate旁路时，16 MiB+ 文档不再报告资源上限。
+- reader无条件信任lens strength时，缺setup/name的50不再按Lightroom绘制为100。
+- comment scanner不跳过 `<!--...-->` 时，伪Description劫持merge。
+- attribute quote不escape时，公开 XMP不再含 `&quot;sky&quot;`。
+- writer从不命名Adobe profile时，非100 strength没有LensDefaults/name。
+- refusal counter强制为0时，公开 unsupported count与loss workflow红。
+- close-tag matcher退回精确字符串时，`</crs:Exposure2012 >`读成0。
+
+上述 mutation 均已恢复，`src/xmp/read.rs`、`src/xmp/merge.rs`、
+`src/xmp/crs_source.rs`、`src/xmp/scan.rs`、`src/xmp/xml.rs`、
+`src/xmp/read_masks.rs` 与 `src/recipe.rs` 无 diff。
 
 ## GUI 已裁决
 
@@ -1705,6 +1767,18 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 外部导入case直接红。
 其余 composition cases 继续逐项审计，不由这一条自动勾销。
 
+`r35_export_truth_for_a_scratch_recipe_names_every_remaining_loss` 不再保留为依赖工作树
+路径的 ignored lane。默认 case
+`xmp_export_preserves_spellable_masks_and_names_each_omitted_bitmap` 用合成 recipe 验收：
+
+- spellable mask 的 role、whole inversion、component order/mode/inversion 精确读回；
+- payload 仍恢复三条完整 masks，不再复刻 main 时代“只返回 CRS mask”的中间态；
+- enabled bitmap 得到唯一具名 `Bitmap` loss，disabled bitmap只得到 `Disabled`；
+- native mask 不被误报 Bitmap/flatten/rotation。
+
+删除 enabled bitmap 的 loss emission 时，recipe 因 payload 仍完整，但 `tile` disclosure
+消失，case 在具名 loss 断言处红；mutation 已恢复，`src/xmp/write.rs` 无 diff。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -1719,7 +1793,8 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
-| `tests/xmp_behavior.rs` | 39 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
+| `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
+| `tests/xmp_external_contract_behavior.rs` | 15 | global/local round-trip、foreign WB/XML、attribute forms、mask merge、namespace scope、resource bounds、profile strength | XMP public format/compatibility | real Lightroom fixture gate remains separate |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
