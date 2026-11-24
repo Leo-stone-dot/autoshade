@@ -2499,6 +2499,27 @@ fn edited_legacy_key_leaves_the_era_gate_without_releasing_its_neighbors() {
     assert!(merged.doc.contains(r#"crs:GrainAmount="30""#));
 }
 
+#[test]
+fn edited_legacy_defringe_rewrites_the_whole_block_once() {
+    let legacy: EditRecipe =
+        serde_json::from_str(r#"{"exposure_ev":0.35,"defringe_purple":5.0}"#).unwrap();
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom_legacy_globals_document(), &legacy)
+            .unwrap();
+
+    for key in [
+        "DefringePurpleAmount",
+        "DefringePurpleHueLo",
+        "DefringePurpleHueHi",
+        "DefringeGreenAmount",
+        "DefringeGreenHueLo",
+        "DefringeGreenHueHi",
+    ] {
+        assert_eq!(merged.doc.matches(&format!("crs:{key}=")).count(), 1, "{key}");
+    }
+    assert!(merged.doc.contains(r#"crs:DefringePurpleAmount="5""#));
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
