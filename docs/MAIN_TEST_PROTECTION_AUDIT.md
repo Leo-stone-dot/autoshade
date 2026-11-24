@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：602 cases，约 1,620 个断言宏，33 个显式 ignore。
+- 当前工作树：604 cases，约 1,638 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，168 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,099 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，170 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,097 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1412,10 +1412,11 @@ gate前不能用单一现存文件冒充该优先级已执行。
   `mixed_component_order_and_whole_inversion_survive_native_export`、
   `component_inversion_is_sparse_and_legacy_components_keep_their_bytes`、
   `stale_radial_inversion_metadata_cannot_reverse_a_linear_feather` 与
-  `component_radial_rotation_uses_the_base_projection_and_loss_gate`
+  `component_radial_rotation_uses_the_base_projection_and_loss_gate`，以及 namespace/portrait
+  role 两条
 - 当前 cases：`tests/xmp_behavior.rs::native_xmp_spells_every_combine_mode_and_component_inversion`
   与 `native_xmp_preserves_mixed_component_order_in_both_whole_inversions`
-- 状态：5 条 `rewritten`
+- 状态：7 条 `rewritten`
 - Gate：默认
 
 第一条对三种 mode × 两种 component inversion 逐一读取交付 XML 最后一个 mask 的
@@ -1431,6 +1432,8 @@ coverage。额外对非 whole-inverted 文件断言两个 `MaskBlendMode="1"`，
 移除 sparse serde gate时 legacy JSON 断言红。
 Stale radial metadata被无条件应用到linear时，公开 inversion断言红；component radial
 忽略可用frame时，framed export错误产生Rotation loss并红。
+Root namespace declaration被忽略时ZoneSky读成Custom；未知role错误降级为Face时
+portrait case红。
 其余 composition cases 继续逐项审计，不由这一条自动勾销。
 
 ## 当前公开引擎基线
@@ -1447,7 +1450,7 @@ Stale radial metadata被无条件应用到linear时，公开 inversion断言红�
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
-| `tests/xmp_behavior.rs` | 9 | payload/namespace round-trip、native combine/mixed composition、sparse/stale inversion、radial rotation loss、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
+| `tests/xmp_behavior.rs` | 11 | payload/namespace round-trip、native composition、sparse/stale inversion、roles、radial loss、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

@@ -11,6 +11,16 @@ fn without_autoshade_attributes(mut xmp: String) -> String {
     xmp
 }
 
+fn without_attribute(mut xmp: String, name: &str) -> String {
+    let marker = format!(" {name}=\"");
+    while let Some(start) = xmp.find(&marker) {
+        let value = start + marker.len();
+        let end = value + xmp[value..].find('"').unwrap() + 1;
+        xmp.replace_range(start..end, "");
+    }
+    xmp
+}
+
 fn xmp_attribute_values<'a>(xmp: &'a str, name: &str) -> Vec<&'a str> {
     let marker = format!("{name}=\"");
     let mut values = Vec::new();
@@ -319,6 +329,122 @@ fn rotated_radial_components_use_the_frame_or_disclose_rotation_loss() {
         panic!("the component remains radial")
     };
     assert!((angle - 24.0).abs() < 1e-4);
+}
+
+#[test]
+fn editor_intent_survives_when_the_namespace_binding_moves_to_the_root() {
+    let original = LocalAdjustment {
+        mask: MaskGeometry::Linear {
+            zero_x: 0.25,
+            zero_y: 0.25,
+            full_x: 0.75,
+            full_y: 0.75,
+        },
+        inverted: true,
+        role: MaskRole::ZoneSky,
+        components: vec![MaskComponent {
+            geometry: MaskGeometry::Radial {
+                top: 0.25,
+                left: 0.25,
+                bottom: 0.75,
+                right: 0.75,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 0.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            mode: MaskCombine::Subtract,
+            inverted: false,
+        }],
+        ..LocalAdjustment::default()
+    };
+    let document = without_attribute(
+        autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            masks: vec![original.clone()],
+            ..EditRecipe::default()
+        }),
+        "asr:Recipe",
+    );
+    let declaration = " xmlns:ash=\"https://autoshade.dev/ns/mask/1.0/\"";
+    let stripped = document.replace(declaration, "");
+    let root = stripped.find("<rdf:Description").unwrap();
+    let hoisted = format!(
+        "{}<rdf:Description{}{}",
+        &stripped[..root],
+        declaration,
+        &stripped[root + "<rdf:Description".len()..]
+    );
+    let restored = autoshade::xmp::xmp_to_recipe(&hoisted);
+    let reference = image::DynamicImage::new_rgb8(96, 64);
+
+    assert_eq!(restored.masks[0].role, MaskRole::ZoneSky);
+    assert!(restored.masks[0].inverted);
+    assert_eq!(restored.masks[0].components, original.components);
+    assert_eq!(
+        autoshade::render::mask_coverage(
+            &restored.masks[0],
+            &reference,
+            autoshade::render::MaskFrame::AsRendered,
+        ),
+        autoshade::render::mask_coverage(
+            &original,
+            &reference,
+            autoshade::render::MaskFrame::AsRendered,
+        )
+    );
+
+    let unbound = autoshade::xmp::xmp_to_recipe(&stripped);
+    assert_eq!(unbound.masks[0].role, MaskRole::Custom);
+    let shadowed = hoisted.replacen(
+        " ash:Role=",
+        " xmlns:ash=\"https://example.invalid/other/\" ash:Role=",
+        1,
+    );
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&shadowed).masks[0].role,
+        MaskRole::Custom
+    );
+}
+
+#[test]
+fn portrait_roles_round_trip_and_unknown_roles_degrade_to_custom() {
+    for role in [
+        MaskRole::Face,
+        MaskRole::Eyes,
+        MaskRole::Skin,
+        MaskRole::Background,
+    ] {
+        let document = without_attribute(
+            autoshade::xmp::recipe_to_xmp(&EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: MaskGeometry::Linear {
+                        zero_x: 0.25,
+                        zero_y: 0.25,
+                        full_x: 0.75,
+                        full_y: 0.75,
+                    },
+                    role,
+                    exposure_ev: 0.25,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            }),
+            "asr:Recipe",
+        );
+
+        assert!(document.contains(&format!("ash:Role=\"{}\"", role.tag())));
+        assert_eq!(autoshade::xmp::xmp_to_recipe(&document).masks[0].role, role);
+        let newer = document.replace(
+            &format!("ash:Role=\"{}\"", role.tag()),
+            "ash:Role=\"hair\"",
+        );
+        assert_eq!(
+            autoshade::xmp::xmp_to_recipe(&newer).masks[0].role,
+            MaskRole::Custom
+        );
+    }
 }
 
 #[test]
