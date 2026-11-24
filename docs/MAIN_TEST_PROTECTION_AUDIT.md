@@ -33,8 +33,8 @@ case 最终必须归入以下一种状态：
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，224 条 `rewritten`、13 条
-`lint`、1 条 `drop`、1 条 `external-gate`、2,042 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，225 条 `rewritten`、13 条
+`lint`、2 条 `drop`、1 条 `external-gate`、2,040 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -975,8 +975,11 @@ mutation 已恢复，`src/xmp/read_corrections.rs`、`src/xmp/read_masks.rs`与
   `rotated_mask_frame_fields_come_from_one_complete_description_in_both_spellings`
   与 `rotated_mask_frame_falls_back_across_incomplete_descriptions`
 - 状态：3 条 `rewritten`
-- 仍open：`the_declared_frame_comes_from_one_description`含一个bare-fragment断言；
-  `the_frame_scope_falls_back_to_a_bare_fragment`完全直测私有`FrameAspect::from_xmp`
+- `the_declared_frame_comes_from_one_description` 的完整Description断言由公开geometry
+  case执行；同case附带的bare-fragment断言不保留。
+- `the_frame_scope_falls_back_to_a_bare_fragment`标为`drop`：它的两条断言只直测私有
+  `FrameAspect::from_xmp`。实际尝试把相同tiff fragments与真实mask block交给公共
+  `xmp_to_recipe`，结果为0 masks，证明它不是公开输入契约；没有为测试开放API。
 
 测试不公开或直调私有 frame parser。它由 public writer生成24° radial + 9504×6336
 artifact、去除payload，再通过 public reader比较最终`MaskGeometry::Radial`：
