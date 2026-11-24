@@ -2486,6 +2486,19 @@ fn current_recipe_owns_modern_globals_it_explicitly_clears() {
     assert_eq!(autoshade::xmp::xmp_to_recipe(&merged.doc).texture, 0.0);
 }
 
+#[test]
+fn edited_legacy_key_leaves_the_era_gate_without_releasing_its_neighbors() {
+    let legacy: EditRecipe =
+        serde_json::from_str(r#"{"exposure_ev":0.35,"texture":20.0}"#).unwrap();
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom_legacy_globals_document(), &legacy)
+            .unwrap();
+
+    assert!(merged.doc.contains(r#"crs:Texture="+20""#));
+    assert_eq!(merged.doc.matches("crs:Texture=").count(), 1);
+    assert!(merged.doc.contains(r#"crs:GrainAmount="30""#));
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
