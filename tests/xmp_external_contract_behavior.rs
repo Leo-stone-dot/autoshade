@@ -145,6 +145,106 @@ fn local_develop_controls_round_trip_through_our_xmp() {
 }
 
 #[test]
+fn local_mask_xmp_uses_lightroom_scales_and_omits_an_empty_block() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        masks: vec![
+            LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.5,
+                    zero_y: 0.35,
+                    full_x: 0.5,
+                    full_y: 0.0,
+                },
+                exposure_ev: -0.4,
+                highlights: -50.0,
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                mask: MaskGeometry::Radial {
+                    top: 0.3,
+                    left: 0.35,
+                    bottom: 0.7,
+                    right: 0.65,
+                    feather: 0.5,
+                    roundness: 0.0,
+                    flipped: false,
+                    angle: 0.0,
+                    midpoint: 50.0,
+                    mask_version: 2,
+                },
+                shadows: 20.0,
+                inverted: true,
+                ..LocalAdjustment::default()
+            },
+        ],
+        ..EditRecipe::default()
+    });
+
+    for spelling in [
+        "<crs:MaskGroupBasedCorrections>",
+        r#"crs:What="Mask/Gradient""#,
+        r#"crs:What="Mask/CircularGradient""#,
+        r#"crs:LocalExposure2012="-0.1""#,
+        r#"crs:LocalHighlights2012="-0.5""#,
+        r#"crs:LocalShadows2012="0.2""#,
+        r#"crs:MaskInverted="true""#,
+        r#"crs:ZeroX="0.5""#,
+        r#"crs:Feather="50""#,
+    ] {
+        assert!(document.contains(spelling), "{spelling}");
+    }
+    assert!(!autoshade::xmp::recipe_to_xmp(&EditRecipe::default())
+        .contains("MaskGroupBasedCorrections"));
+}
+
+#[test]
+fn radial_feather_import_accepts_lightroom_and_legacy_scales() {
+    for (spelling, expected) in [("72", 0.72), ("0.4", 0.4)] {
+        let component =
+            lightroom_radial_component("0", "1").replace(r#"crs:Feather="100""#, &format!(r#"crs:Feather="{spelling}""#));
+        let imported = autoshade::xmp::xmp_to_recipe(
+            &lightroom_component_stack_document(&[component])
+        );
+        let MaskGeometry::Radial { feather, .. } = imported.masks[0].mask else {
+            panic!("radial imports")
+        };
+
+        assert!((feather - expected).abs() < 1e-6, "{spelling}: {feather}");
+    }
+}
+
+#[test]
+fn manual_vignette_exports_amount_and_midpoint_only_when_set() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        lens_vignette: 35.0,
+        lens_vignette_mid: 60.0,
+        ..EditRecipe::default()
+    });
+    assert!(document.contains(r#"crs:VignetteAmount="+35""#));
+    assert!(document.contains(r#"crs:VignetteMidpoint="60""#));
+
+    let neutral = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+    assert!(!neutral.contains("crs:VignetteAmount"));
+    assert!(!neutral.contains("crs:VignetteMidpoint"));
+}
+
+#[test]
+fn manual_distortion_exports_signed_values_and_omits_zero() {
+    for (amount, spelling) in [
+        (-24.0, r#"crs:LensManualDistortionAmount="-24""#),
+        (80.0, r#"crs:LensManualDistortionAmount="+80""#),
+    ] {
+        assert!(autoshade::xmp::recipe_to_xmp(&EditRecipe {
+            lens_distortion: amount,
+            ..EditRecipe::default()
+        })
+        .contains(spelling));
+    }
+    assert!(!autoshade::xmp::recipe_to_xmp(&EditRecipe::default())
+        .contains("LensManualDistortionAmount"));
+}
+
+#[test]
 fn foreign_as_shot_wb_is_neutral_but_custom_wb_imports() {
     let as_shot = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
