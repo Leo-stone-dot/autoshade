@@ -2181,6 +2181,58 @@ fn lightroom_radial_value_document(blend: &str, value: &str) -> String {
     )
 }
 
+fn lightroom_tinted_radial_document(saturation: &str) -> String {
+    lightroom_radial_value_document("0", "1").replace(
+        r#"crs:CorrectionAmount="1""#,
+        &format!(
+            r#"crs:CorrectionAmount="1" crs:LocalToningHue="231" crs:LocalToningSaturation="{saturation}""#
+        ),
+    )
+}
+
+#[test]
+fn supported_mask_tint_imports_exports_and_round_trips_without_loss() {
+    let document = lightroom_tinted_radial_document("0.73");
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(imported.masks.len(), 1);
+    assert_eq!(
+        (
+            imported.masks[0].toning_hue,
+            imported.masks[0].toning_amount,
+        ),
+        (231.0, 73.0)
+    );
+    assert!(autoshade::xmp::import_losses(&document).is_empty());
+
+    let exported = autoshade::xmp::recipe_to_xmp(&imported);
+    assert!(exported.contains(r#"crs:LocalToningHue="231""#));
+    assert!(exported.contains(r#"crs:LocalToningSaturation="0.73""#));
+    let reopened = autoshade::xmp::xmp_to_recipe(&exported);
+    assert_eq!(
+        (
+            reopened.masks[0].toning_hue,
+            reopened.masks[0].toning_amount,
+        ),
+        (231.0, 73.0)
+    );
+}
+
+#[test]
+fn mask_tint_strength_outside_the_swatch_range_is_refused() {
+    let document = lightroom_tinted_radial_document("1.5");
+
+    assert!(autoshade::xmp::xmp_to_recipe(&document).masks.is_empty());
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 1);
+    assert_eq!(
+        autoshade::xmp::import_losses(&document)
+            .iter()
+            .map(|loss| (loss.name.as_str(), loss.reason))
+            .collect::<Vec<_>>(),
+        [("Radial 1", MaskImportReason::OutOfModel)]
+    );
+}
+
 #[test]
 fn lightroom_subtract_pair_keeps_radial_geometry_with_a_typed_note() {
     let document = lightroom_radial_value_document("1", "0");
