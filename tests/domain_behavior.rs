@@ -762,6 +762,22 @@ fn an_hdr_rendition_compresses_a_highlight_without_lifting_black() {
 
 #[test]
 fn a_fully_rendered_global_recipe_has_no_render_gap_disclosures() {
+    assert!(autoshade::xmp::global_render_gaps(&EditRecipe::default()).is_empty());
+    let neutral_defringe = autoshade::xmp::xmp_to_recipe(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:DefringePurpleAmount="0" crs:DefringePurpleHueLo="30"
+ crs:DefringePurpleHueHi="70" crs:DefringeGreenAmount="0"
+ crs:DefringeGreenHueLo="40" crs:DefringeGreenHueHi="60"/>"#,
+    );
+    assert!(autoshade::xmp::global_render_gaps(&neutral_defringe).is_empty());
+    assert!(autoshade::xmp::global_render_gaps(&EditRecipe {
+        passthrough: [("UprightVersion".to_string(), "151388160".to_string())]
+            .into_iter()
+            .collect(),
+        ..EditRecipe::default()
+    })
+    .is_empty());
+
     let recipe = EditRecipe {
         exposure_ev: 0.5,
         texture: 20.0,

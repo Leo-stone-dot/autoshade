@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：785 cases，约 2,477 个断言宏，39 个显式 ignore。
+- 当前工作树：785 cases，约 2,480 个断言宏，39 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，327 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、2 条 `drop`、3 条 `external-gate`、1,947 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，328 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、2 条 `drop`、3 条 `external-gate`、1,946 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1835,6 +1835,17 @@ post-crop/grain字段保持Lightroom拼写、sparse neutral keys与完整读回�
 公开`frame_and_finish`现在分别证明vignette与grain都会改变finished pixels。临时漏写
 GrainFrequency、禁用Vignette、禁用Grain时两个cases分别红；mutation均已恢复，
 `src/`无diff。
+
+### Current rendered controls produce no render-gap warning
+
+- Main case：`the_render_gaps_name_what_lightroom_renders_and_this_engine_does_not`
+- 当前执行者：`tests/domain_behavior.rs::a_fully_rendered_global_recipe_has_no_render_gap_disclosures`
+- 状态：`rewritten`
+
+default recipe、真实neutral de-fringe block、非默认exposure/Texture/post-crop/grain以及
+非空pass-through均不产生公开render-gap warning。临时把真实grain或pass-through错标为
+`CarriedOnly`时case分别红。main的私有synthetic `Control`和精确registry tier枚举属于
+实现/架构形状，不再复制；mutation均已恢复，`src/`无diff。
 
 ## GUI 已裁决
 
