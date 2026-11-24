@@ -1044,6 +1044,29 @@ payload-free CRS projection：私有payload CRC与incoming sync identity不是�
 拒绝；mutation改成只收集已知Paint、静默忽略其他nested shape时错误导入并红。所有
 mutation均已恢复，`src/`无diff。
 
+### Brush correction scope and measured-encoding refusals
+
+- Main cases：
+  `a_shape_nested_beside_the_component_list_is_never_the_corrections_base`、
+  `a_shape_nested_inside_a_brush_group_is_refused_not_promoted`、
+  `a_later_components_attribute_cannot_answer_for_the_base_shape`、
+  `a_brush_group_outside_the_measured_encoding_is_refused_not_guessed`
+- 当前执行者：
+  `inline_brush_correction_ignores_shapes_outside_its_component_list`、
+  `inline_brush_nested_paints_are_owned_once_and_unknown_nesting_is_refused`、
+  `inline_brush_component_attributes_cannot_invert_the_base_shape`、
+  `inline_brush_unknown_encoding_is_refused_and_named`
+- 状态：4 条均为 `rewritten`
+
+公开reader只从CorrectionMasks选择base：profile Look中的default Gradient不能取代真实
+subtract Radial；Aggregate内未知nested Gradient必须拒绝。linear base缺失inversion时，
+后置Aggregate的true bit只属于component。八种超出实测Paint/Aggregate encoding的输入
+均不制造mask，unsupported=1并具名OutOfModel。
+
+whole-correction base scan选中Look shape并使公开reader发生offset underflow；恢复unbounded
+base slice让后置inversion污染linear；接受未知`q` token让非法group导入。三条case分别
+红；nested-shape refusal沿用上一批已证明的mutation。所有修改均恢复，`src/`无diff。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3152,7 +3175,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 199 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation-census external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04/orientation census gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 202 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation-census external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04/orientation census gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

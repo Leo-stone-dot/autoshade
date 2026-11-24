@@ -167,6 +167,9 @@
 - Aggregate 从 base 候选移除时，`inline_brush_only_correction_uses_its_group_as_the_base` 在 brush-only correction 从 1 mask 变 0 处变红；恢复后测试通过。
 - brush writer 不生成 Aggregate XML 时，`inline_brush_group_is_a_payload_free_crs_fixed_point_in_both_slots` 在公开写出路径失败；恢复后测试通过。
 - brush parser 只收集已知 Paint、静默忽略未知 nested shape 时，`inline_brush_nested_paints_are_owned_once_and_unknown_nesting_is_refused` 在 smuggled Gradient 被错误接受处变红；恢复后测试通过。
+- base selector 扫描整个 correction 时，`inline_brush_correction_ignores_shapes_outside_its_component_list` 选中 profile Look 的 Gradient，并在公开 import 发生 offset underflow；恢复后测试通过。
+- base geometry 恢复为延伸到 correction 末尾的 unbounded slice 时，`inline_brush_component_attributes_cannot_invert_the_base_shape` 在后置 Aggregate 的 true bit 错误反转 linear base 处变红；恢复后测试通过。
+- dab grammar 错误接受未知 `q` token 时，`inline_brush_unknown_encoding_is_refused_and_named` 在非法 Aggregate 被导入处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

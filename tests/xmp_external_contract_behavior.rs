@@ -3858,6 +3858,100 @@ fn inline_brush_nested_paints_are_owned_once_and_unknown_nesting_is_refused() {
 }
 
 #[test]
+fn inline_brush_correction_ignores_shapes_outside_its_component_list() {
+    let look = r#"<crs:Look><rdf:Description><crs:Parameters><rdf:Description>
+ <rdf:li crs:What="Mask/Gradient" crs:MaskActive="true"
+  crs:MaskBlendMode="0" crs:MaskInverted="false" crs:MaskValue="1"
+  crs:ZeroX="0.9" crs:ZeroY="0.9" crs:FullX="0.1" crs:FullY="0.1"/>
+</rdf:Description></crs:Parameters></rdf:Description></crs:Look>"#;
+    let document = lightroom_component_stack_document(&[
+        lightroom_radial_component("1", "1"),
+    ])
+    .replacen("<crs:CorrectionMasks>", &format!("{look}<crs:CorrectionMasks>"), 1);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(imported.masks.len(), 1);
+    assert!(matches!(imported.masks[0].mask, MaskGeometry::Radial { .. }));
+}
+
+#[test]
+fn inline_brush_component_attributes_cannot_invert_the_base_shape() {
+    let linear =
+        lightroom_linear_component("0", "1").replace(r#" crs:MaskInverted="false""#, "");
+    let inverted_group = measured_inline_brush_group("").replacen(
+        r#"crs:MaskInverted="false""#,
+        r#"crs:MaskInverted="true""#,
+        1,
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(
+        &lightroom_component_stack_document(&[linear, inverted_group]),
+    );
+
+    assert_eq!(imported.masks.len(), 1);
+    assert!(!imported.masks[0].inverted);
+    let MaskGeometry::Brush { inverted, .. } =
+        &imported.masks[0].components[0].geometry
+    else {
+        panic!("brush remains the component")
+    };
+    assert!(*inverted);
+}
+
+#[test]
+fn inline_brush_unknown_encoding_is_refused_and_named() {
+    let control =
+        lightroom_component_stack_document(&[measured_inline_brush_group("")]);
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&control).masks.len(), 1);
+
+    let empty_group = lightroom_component_stack_document(&[r#"<rdf:li>
+<rdf:Description crs:What="Mask/Aggregate" crs:MaskActive="true"
+ crs:MaskName="Brush 1" crs:MaskBlendMode="0" crs:MaskInverted="false"
+ crs:MaskValue="1"><crs:Masks><rdf:Seq></rdf:Seq></crs:Masks>
+</rdf:Description></rdf:li>"#
+        .to_string()]);
+    let invalid = [
+        control.replacen(
+            r#"crs:What="Mask/Paint" crs:MaskActive="true"
+ crs:MaskBlendMode="0""#,
+            r#"crs:What="Mask/Paint" crs:MaskActive="true"
+ crs:MaskBlendMode="1""#,
+            1,
+        ),
+        control.replacen(
+            r#"crs:MaskInverted="false" crs:MaskSyncID="FA7459A9F5626F4881D7B730C3093F95""#,
+            r#"crs:MaskInverted="true" crs:MaskSyncID="FA7459A9F5626F4881D7B730C3093F95""#,
+            1,
+        ),
+        control.replacen(r#" crs:Flow="1""#, "", 1),
+        control.replacen(
+            "<rdf:li>r 0.581835</rdf:li>",
+            "<rdf:li>q 0.581835</rdf:li>",
+            1,
+        ),
+        control.replacen(
+            "<rdf:li>r 0.581835</rdf:li>",
+            "<rdf:li>r 0.5 0.6</rdf:li>",
+            1,
+        ),
+        control.replacen(
+            "<rdf:li>d 0.000684 0.940004</rdf:li>",
+            "<rdf:li>d 0.000684 nine</rdf:li>",
+            1,
+        ),
+        control.replacen("<crs:Dabs>", "<crs:NotDabs>", 1),
+        empty_group,
+    ];
+
+    for document in invalid {
+        assert!(autoshade::xmp::xmp_to_recipe(&document).masks.is_empty());
+        assert_eq!(autoshade::xmp::unsupported_corrections(&document), 1);
+        assert!(autoshade::xmp::import_losses(&document)
+            .iter()
+            .any(|loss| loss.reason == MaskImportReason::OutOfModel));
+    }
+}
+
+#[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
         crop: Some(Crop {
