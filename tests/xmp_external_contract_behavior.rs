@@ -2417,6 +2417,23 @@ fn clean_lightroom_mask_block_survives_a_legacy_maskless_recipe() {
     assert!(merged.notes.is_empty());
 }
 
+#[test]
+fn edited_clean_mask_replacement_names_the_corrections_it_replaced() {
+    let document = lightroom_radial_value_document("0", "1");
+    assert!(autoshade::xmp::import_losses(&document).is_empty());
+    let mut edited = autoshade::xmp::xmp_to_recipe(&document);
+    edited.masks[0].exposure_ev = 1.25;
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &edited).unwrap();
+
+    assert_eq!(merged.notes.len(), 1);
+    assert!(
+        merged.notes[0].contains("1 correction(s)")
+            && !merged.notes[0].contains("0 thing(s)")
+            && merged.notes[0].contains("1 edited mask(s)")
+    );
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
