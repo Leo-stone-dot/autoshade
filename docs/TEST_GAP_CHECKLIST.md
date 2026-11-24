@@ -297,6 +297,24 @@ HTTP、CLI、文件结果或可见 GUI 进入。
 rustc 或 Clippy 有真实执行者时才能勾选。自建源码正则 gate 已删除，因此下列项目重新
 打开：
 
+`docs/main_test_case_audit.tsv` 是状态真源；下面是人读视图。12 条中任一仍为 `open`
+时，最终不带 `--allow-open` 的 `check_main_test_audit.py` 必须失败。
+
+| 待完成约束 | 当前状态 | 完成所需证据 |
+| --- | --- | --- |
+| paint-buffer mutation 必须通知 overlay refresh | open | 可见刷新行为，或不可绕过的 paint mutation API |
+| every RAW door measures plane first | open | 每个公开 decode door 的 plane-ceiling refusal，或 budget token 类型 |
+| RAW develop charges ceiling before decompress | open | 真实 decompression 前拒绝的资源行为，或不可绕过的 charged decoder |
+| renderer/recipe/XMP 不依赖 analyzer | open | Rust module/type visibility 使反向依赖编译失败 |
+| generative slot 只覆盖本地阶段并在 composite 重取 | open | 并发/资源行为，或阶段化 RAII permit |
+| heal 在 allocation phase 前持有 slot | open | heal 资源上限行为，或 allocation capability |
+| server heavy handlers 共享 full-resolution slot | open | 同时请求的公开 HTTP 并发上限 |
+| linear ramp 保持一个语义来源 | open | Render/Fit Zoned 输出等价性，或共享类型实现；不验收文件/函数数量 |
+| pipeline/serve/GUI open paths 交付相同 base look | open | 三条公开入口的 delivered pixels/recipe parity |
+| Store persisted reads 都受 byte cap | open | 各公开 Store read door 的 oversized refusal，或只暴露 bounded reader |
+| version metadata 保持 non-generational lifecycle | open | adoption/recovery/clear/commit 的公开文件结果或类型分层 |
+| Store root/platform adoption contract | open | macOS 与 non-macOS 的公开 root/adoption 行为 |
+
 - [ ] `every_paint_buffer_mutation_uses_the_presence_notification_door`：补可见 overlay
   refresh 行为，或把通知做成不可绕过的 mutation API。
 - [ ] `the_gui_only_offers_controls_the_engine_renders`：需要 typed control registry，
