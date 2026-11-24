@@ -1661,6 +1661,40 @@ fn xmp_attribute<'a>(xmp: &'a str, name: &str) -> &'a str {
     &xmp[value..end]
 }
 
+fn xmp_public_value<'a>(xmp: &'a str, name: &str) -> Option<&'a str> {
+    let marker = format!("{name}=\"");
+    if let Some(start) = xmp.find(&marker) {
+        let value = start + marker.len();
+        let end = value + xmp[value..].find('"')?;
+        return Some(&xmp[value..end]);
+    }
+    let open = format!("<{name}>");
+    let value = xmp.find(&open)? + open.len();
+    let close = format!("</{name}>");
+    let end = value + xmp[value..].find(&close)?;
+    Some(&xmp[value..end])
+}
+
+fn declared_public_frame(xmp: &str) -> Option<autoshade::xmp::FrameAspect> {
+    let number = |name: &str| xmp_public_value(xmp, name)?.parse::<f64>().ok();
+    let orientation = match number("tiff:Orientation").unwrap_or(1.0) as u8 {
+        1 => rawler::Orientation::Normal,
+        2 => rawler::Orientation::HorizontalFlip,
+        3 => rawler::Orientation::Rotate180,
+        4 => rawler::Orientation::VerticalFlip,
+        5 => rawler::Orientation::Transpose,
+        6 => rawler::Orientation::Rotate90,
+        7 => rawler::Orientation::Transverse,
+        8 => rawler::Orientation::Rotate270,
+        _ => return None,
+    };
+    autoshade::xmp::FrameAspect::from_size_turned(
+        number("tiff:ImageWidth")?,
+        number("tiff:ImageLength")?,
+        orientation,
+    )
+}
+
 #[test]
 fn whitespace_spelled_curve_items_are_public_curve_points() {
     let document = r#"<rdf:Description
@@ -2087,6 +2121,79 @@ fn table_import_preserves_residual_aggregate_and_ai_gesture_paints() {
     assert!(merged
         .doc
         .contains(r#"crs:BrushGestureInterpretation="0""#));
+}
+
+#[test]
+#[ignore = "requires the external controlled Lightroom radial probe sidecars"]
+fn real_lightroom_radials_round_trip_declared_geometry() {
+    let root = std::env::var_os("AUTOSHADE_LR_PROBE_FIXTURES")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_LR_PROBE_FIXTURES to the controlled Lightroom probe directory");
+    assert!(root.is_dir(), "{} is not a fixture directory", root.display());
+
+    let mut pending = vec![root];
+    let mut files = Vec::new();
+    while let Some(directory) = pending.pop() {
+        let entries = std::fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("{}: {error}", directory.display()));
+        for entry in entries {
+            let path = entry
+                .unwrap_or_else(|error| panic!("{}: {error}", directory.display()))
+                .path();
+            if path.is_dir() {
+                pending.push(path);
+            } else if path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("xmp")) {
+                files.push(path);
+            }
+        }
+    }
+    files.sort();
+
+    let mut checked = 0usize;
+    for path in files {
+        let input = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+        if !input.contains("Mask/CircularGradient") {
+            continue;
+        }
+        let frame = declared_public_frame(&input)
+            .unwrap_or_else(|| panic!("{}: missing or invalid declared frame", path.display()));
+        let recipe = autoshade::xmp::xmp_to_recipe(&input);
+        assert!(!recipe.masks.is_empty(), "{}: radial did not import", path.display());
+        let output = autoshade::xmp::recipe_to_xmp_in_frame(&recipe, Some(frame)).0;
+
+        for key in ["Top", "Left", "Bottom", "Right"] {
+            let name = format!("crs:{key}");
+            assert_eq!(
+                xmp_public_value(&output, &name),
+                xmp_public_value(&input, &name),
+                "{}: {name}",
+                path.display()
+            );
+        }
+        if let Some(want) = xmp_public_value(&input, "crs:Angle") {
+            let got = xmp_public_value(&output, "crs:Angle")
+                .unwrap_or_else(|| panic!("{}: output lost crs:Angle", path.display()));
+            let (want, got): (f64, f64) = (want.parse().unwrap(), got.parse().unwrap());
+            assert!((want - got).abs() < 1e-4, "{}: angle {got} vs {want}", path.display());
+        }
+        for key in ["HasCrop", "CropTop", "CropLeft", "CropBottom", "CropRight", "CropAngle"] {
+            let name = format!("crs:{key}");
+            assert_eq!(
+                xmp_public_value(&output, &name),
+                xmp_public_value(&input, &name),
+                "{}: {name}",
+                path.display()
+            );
+        }
+        for key in ["tiff:ImageWidth", "tiff:ImageLength", "tiff:Orientation"] {
+            let input_value = xmp_public_value(&input, key).and_then(|v| v.parse::<f64>().ok());
+            let output_value = xmp_public_value(&output, key).and_then(|v| v.parse::<f64>().ok());
+            assert_eq!(output_value, input_value, "{}: {key}", path.display());
+        }
+        checked += 1;
+    }
+    assert!(checked > 0, "fixture directory held no radial sidecar");
 }
 
 #[test]
