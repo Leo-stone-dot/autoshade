@@ -2,7 +2,7 @@ use autoshade::recipe::{
     AdobeLensProfile, ColorGrade, Crop, CurvePoint, EditRecipe, Hsl, LensProfile,
     LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, RangeMask,
 };
-use autoshade::xmp::{LensProfileSetup, MaskImportReason, MaskLossReason};
+use autoshade::xmp::{LensProfileSetup, MaskImportLoss, MaskImportReason, MaskLossReason};
 
 mod support;
 
@@ -2295,6 +2295,88 @@ fn stacked_radial_rotation_is_disclosed_without_false_composition_losses() {
     assert!(!autoshade::xmp::import_losses(&subtract)
         .iter()
         .any(|loss| loss.reason == MaskImportReason::BlendMode));
+}
+
+#[test]
+fn every_import_loss_reason_reaches_grouped_public_disclosure() {
+    let losses = vec![
+        MaskImportLoss {
+            name: "unrepresentable".to_string(),
+            reason: MaskImportReason::Unrepresentable,
+        },
+        MaskImportLoss {
+            name: "out-of-model".to_string(),
+            reason: MaskImportReason::OutOfModel,
+        },
+        MaskImportLoss {
+            name: "rotation-a".to_string(),
+            reason: MaskImportReason::Rotation(37),
+        },
+        MaskImportLoss {
+            name: "rotation-b".to_string(),
+            reason: MaskImportReason::Rotation(-44),
+        },
+        MaskImportLoss {
+            name: "blend".to_string(),
+            reason: MaskImportReason::BlendMode,
+        },
+        MaskImportLoss {
+            name: "multi".to_string(),
+            reason: MaskImportReason::MultiComponent,
+        },
+        MaskImportLoss {
+            name: "brush".to_string(),
+            reason: MaskImportReason::BrushRendered,
+        },
+        MaskImportLoss {
+            name: "ai-recomputed".to_string(),
+            reason: MaskImportReason::AiMaskRecomputed,
+        },
+        MaskImportLoss {
+            name: "ai-unresolved".to_string(),
+            reason: MaskImportReason::AiMaskUnresolved,
+        },
+        MaskImportLoss {
+            name: "range".to_string(),
+            reason: MaskImportReason::ForeignRangeMask,
+        },
+        MaskImportLoss {
+            name: "curve".to_string(),
+            reason: MaskImportReason::LocalCurve,
+        },
+        MaskImportLoss {
+            name: "curve-refine".to_string(),
+            reason: MaskImportReason::CurveRefineSaturation,
+        },
+        MaskImportLoss {
+            name: "inert-a".to_string(),
+            reason: MaskImportReason::InertLocal("LocalGrain"),
+        },
+        MaskImportLoss {
+            name: "inert-b".to_string(),
+            reason: MaskImportReason::InertLocal("LocalMoire"),
+        },
+        MaskImportLoss {
+            name: "unknown".to_string(),
+            reason: MaskImportReason::UnknownLocalKey,
+        },
+    ];
+
+    let line = autoshade::xmp::describe_import_losses(3, &losses).unwrap();
+
+    assert!(line.contains("imported 3 Lightroom mask(s)"));
+    for loss in &losses {
+        assert!(line.contains(loss.reason.en()), "{:?}", loss.reason);
+        assert!(line.contains(&loss.name), "{}", loss.name);
+    }
+    assert_eq!(
+        line.matches(MaskImportReason::Rotation(0).en()).count(),
+        1
+    );
+    assert_eq!(
+        line.matches(MaskImportReason::InertLocal("").en()).count(),
+        1
+    );
 }
 
 fn lightroom_tinted_radial_document(saturation: &str) -> String {
