@@ -1916,6 +1916,50 @@ fn global_projection_contains_representable_controls_and_names_bitmap_losses() {
 }
 
 #[test]
+fn bitmap_masks_are_omitted_without_hiding_native_masks_or_leaving_empty_shells() {
+    let native = LocalAdjustment {
+        name: "native".to_string(),
+        mask: MaskGeometry::Linear {
+            zero_x: 0.5,
+            zero_y: 0.35,
+            full_x: 0.5,
+            full_y: 0.0,
+        },
+        exposure_ev: -1.0,
+        ..LocalAdjustment::default()
+    };
+    let bitmap = LocalAdjustment {
+        name: "subject".to_string(),
+        mask: MaskGeometry::Bitmap {
+            path: "out/subject.png".to_string(),
+        },
+        exposure_ev: 0.6,
+        ..LocalAdjustment::default()
+    };
+    let mixed = EditRecipe {
+        masks: vec![native.clone(), bitmap.clone()],
+        ..EditRecipe::default()
+    };
+    let projected =
+        without_recipe_payload(autoshade::xmp::recipe_to_xmp(&mixed));
+
+    assert!(projected.contains(r#"crs:What="Mask/Gradient""#));
+    assert_eq!(projected.matches(r#"crs:What="Correction""#).count(), 1);
+    assert!(!projected.contains("subject.png"));
+    let reopened = autoshade::xmp::xmp_to_recipe(&projected);
+    assert_eq!(reopened.masks.len(), 1);
+    assert_eq!(reopened.masks[0].mask, native.mask);
+
+    let all_bitmap = without_recipe_payload(autoshade::xmp::recipe_to_xmp(
+        &EditRecipe {
+            masks: vec![bitmap],
+            ..EditRecipe::default()
+        },
+    ));
+    assert!(!all_bitmap.contains("<crs:MaskGroupBasedCorrections>"));
+}
+
+#[test]
 fn export_losses_name_only_non_neutral_unrepresentable_globals() {
     assert!(autoshade::xmp::global_export_losses(&EditRecipe::default()).is_empty());
     let with_base = EditRecipe {
