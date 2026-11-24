@@ -3365,6 +3365,42 @@ fn companion_explicit_zero_round_trips_without_inventing_absent_defaults() {
     assert!(!legacy_xmp.contains("crs:SharpenRadius"));
 }
 
+fn lightroom_sharpness_document(value: &str) -> String {
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Sharpness="{value}" crs:SharpenRadius="+1.0"
+ crs:SharpenDetail="25" crs:SharpenEdgeMasking="0" crs:HasSettings="True"/>"#
+    )
+}
+
+#[test]
+fn lightroom_sharpening_amount_is_one_to_one_through_the_150_boundary() {
+    let full = autoshade::xmp::xmp_to_recipe(&lightroom_sharpness_document("150"));
+    assert_eq!(full.sharpening, 150.0);
+    assert!(autoshade::xmp::unparsable_crs_numbers(
+        &lightroom_sharpness_document("150")
+    )
+    .is_empty());
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&lightroom_sharpness_document("40")).sharpening,
+        40.0
+    );
+
+    assert!(autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        sharpening: 60.0,
+        ..EditRecipe::default()
+    })
+    .contains(r#"crs:Sharpness="60""#));
+    let full_xmp = autoshade::xmp::recipe_to_xmp(&full);
+    assert!(full_xmp.contains(r#"crs:Sharpness="150""#));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&full_xmp).sharpening, 150.0);
+    assert!(autoshade::xmp::unparsable_crs_numbers(
+        &lightroom_sharpness_document("151")
+    )
+    .iter()
+    .any(|key| key == "Sharpness"));
+}
+
 #[test]
 fn legacy_recipe_missing_modern_fields_preserves_lightroom_globals() {
     let legacy: EditRecipe = serde_json::from_str(r#"{"exposure_ev":0.35}"#).unwrap();
