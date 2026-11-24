@@ -246,6 +246,99 @@ fn manual_distortion_exports_signed_values_and_omits_zero() {
 }
 
 #[test]
+fn post_crop_and_grain_controls_round_trip_with_sparse_neutral_keys() {
+    let recipe = EditRecipe {
+        post_crop_vignette: -17.0,
+        post_crop_vignette_mid: 50.0,
+        post_crop_vignette_feather: 50.0,
+        post_crop_vignette_round: 0.0,
+        post_crop_vignette_style: 1.0,
+        post_crop_vignette_hl: 0.0,
+        grain: 30.0,
+        grain_size: 25.0,
+        grain_rough: 50.0,
+        ..EditRecipe::default()
+    };
+    let document = autoshade::xmp::recipe_to_xmp(&recipe);
+    for spelling in [
+        r#"crs:PostCropVignetteAmount="-17""#,
+        r#"crs:PostCropVignetteMidpoint="50""#,
+        r#"crs:PostCropVignetteFeather="50""#,
+        r#"crs:PostCropVignetteStyle="1""#,
+        r#"crs:GrainAmount="30""#,
+        r#"crs:GrainSize="25""#,
+        r#"crs:GrainFrequency="50""#,
+    ] {
+        assert!(document.contains(spelling), "{spelling}");
+    }
+    assert!(!document.contains("PostCropVignetteRoundness"));
+    assert!(!document.contains("PostCropVignetteHighlightContrast"));
+
+    let reopened = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(reopened.post_crop_vignette, recipe.post_crop_vignette);
+    assert_eq!(
+        reopened.post_crop_vignette_mid,
+        recipe.post_crop_vignette_mid
+    );
+    assert_eq!(
+        reopened.post_crop_vignette_feather,
+        recipe.post_crop_vignette_feather
+    );
+    assert_eq!(
+        reopened.post_crop_vignette_round,
+        recipe.post_crop_vignette_round
+    );
+    assert_eq!(
+        reopened.post_crop_vignette_style,
+        recipe.post_crop_vignette_style
+    );
+    assert_eq!(reopened.post_crop_vignette_hl, recipe.post_crop_vignette_hl);
+    assert_eq!(reopened.grain, recipe.grain);
+    assert_eq!(reopened.grain_size, recipe.grain_size);
+    assert_eq!(reopened.grain_rough, recipe.grain_rough);
+
+    let neutral = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+    assert!(!neutral.contains("PostCropVignette"));
+    assert!(!neutral.contains("GrainAmount"));
+}
+
+#[test]
+fn post_crop_vignette_and_grain_each_change_finished_pixels() {
+    let image = image::DynamicImage::ImageRgb8(image::RgbImage::from_fn(24, 16, |x, y| {
+        image::Rgb([(x * 9) as u8, (y * 13) as u8, (x + y) as u8])
+    }));
+    let finish = |recipe: &EditRecipe| {
+        autoshade::render::frame_and_finish(
+            image.clone(),
+            recipe,
+            &LensProfile::default(),
+            autoshade::render::FilmScale::NATIVE,
+            autoshade::render::CropPolicy::Keep,
+        )
+        .to_rgb8()
+        .into_raw()
+    };
+    let neutral = finish(&EditRecipe::default());
+    let vignette = finish(
+        &EditRecipe {
+            post_crop_vignette: -40.0,
+            ..EditRecipe::default()
+        },
+    );
+    let grain = finish(
+        &EditRecipe {
+            grain: 30.0,
+            grain_size: 25.0,
+            grain_rough: 50.0,
+            ..EditRecipe::default()
+        },
+    );
+
+    assert_ne!(vignette, neutral);
+    assert_ne!(grain, neutral);
+}
+
+#[test]
 fn foreign_as_shot_wb_is_neutral_but_custom_wb_imports() {
     let as_shot = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
