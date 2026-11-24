@@ -533,6 +533,39 @@ fn foreign_lens_strength_requires_both_profile_setup_and_name() {
     }
 }
 
+fn lens_profile_switch_document(attribute: &str) -> String {
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" {attribute}/>"#
+    )
+}
+
+#[test]
+fn numeric_and_lowercase_lens_profile_switch_spellings_are_read() {
+    for (value, expected) in [("0", false), ("1", true), ("true", true)] {
+        let document =
+            lens_profile_switch_document(&format!(r#"crs:LensProfileEnable="{value}""#));
+
+        assert_eq!(
+            autoshade::xmp::lens_profile_enabled(&document),
+            Some(expected)
+        );
+    }
+}
+
+#[test]
+fn missing_or_similarly_named_lens_profile_key_has_no_switch_opinion() {
+    assert_eq!(
+        autoshade::xmp::lens_profile_enabled(&lens_profile_switch_document("")),
+        None
+    );
+    assert_eq!(
+        autoshade::xmp::lens_profile_enabled(&lens_profile_switch_document(
+            r#"crs:LensProfileName="1""#
+        )),
+        None
+    );
+}
+
 #[test]
 fn readable_mask_corrections_import_with_named_losses_and_survive_preserving_merge() {
     let document = r#"<rdf:Description
