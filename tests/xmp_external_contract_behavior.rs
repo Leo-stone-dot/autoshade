@@ -1580,6 +1580,80 @@ fn foreign_camera_raw_alias_refuses_only_when_used() {
     assert!(autoshade::xmp::unparsable_crs_numbers(used)[0].contains("`zzz:`"));
 }
 
+#[test]
+fn merge_skips_an_unused_foreign_crs_description_and_inserts_canonical_settings() {
+    let document = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <rdf:Description xmlns:crs="urn:other"/>
+</rdf:RDF></x:xmpmeta>"#;
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp(
+        document,
+        &EditRecipe {
+            exposure_ev: 0.5,
+            ..EditRecipe::default()
+        },
+    )
+    .unwrap();
+
+    assert!(merged.doc.contains(r#"xmlns:crs="urn:other""#));
+    assert!(merged
+        .doc
+        .contains(r#"xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/""#));
+    assert_eq!(merged.doc.matches("<rdf:Description").count(), 2);
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&merged.doc).exposure_ev, 0.5);
+}
+
+#[test]
+fn namespace_nesting_past_the_tracking_bound_refuses_publicly() {
+    let mut document = String::new();
+    for _ in 0..1025 {
+        document.push_str("<t xmlns:q=\"urn:x\">");
+    }
+
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(&document, &EditRecipe::default()).is_none()
+    );
+    assert!(autoshade::xmp::unparsable_crs_numbers(&document)[0]
+        .contains("more xmlns declarations"));
+}
+
+#[test]
+fn mismatched_close_cannot_release_a_foreign_binding_early() {
+    let document = r#"<rdf:Description
+ xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <island xmlns:crs="urn:foreign"></bogus>
+ <crs:Exposure2012>+2.0</crs:Exposure2012>
+ </island>
+</rdf:Description>"#;
+
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(document),
+        EditRecipe::default()
+    );
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(document, &EditRecipe::default()).is_none()
+    );
+    assert!(autoshade::xmp::unparsable_crs_numbers(document)[0]
+        .contains("urn:foreign"));
+}
+
+#[test]
+fn flat_namespace_declaration_flood_refuses_publicly() {
+    let mut document = String::from("<t");
+    for index in 0..257 {
+        document.push_str(&format!(r#" xmlns:q{index}="urn:x""#));
+    }
+    document.push('>');
+
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(&document, &EditRecipe::default()).is_none()
+    );
+    assert!(autoshade::xmp::unparsable_crs_numbers(&document)[0]
+        .contains("more xmlns declarations"));
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
