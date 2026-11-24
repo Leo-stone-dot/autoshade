@@ -2238,6 +2238,28 @@ fn lightroom_component_stack_document(components: &[String]) -> String {
     )
 }
 
+fn lightroom_local_curve_element(name: &str, points: &[(u8, u8)]) -> String {
+    let points: String = points
+        .iter()
+        .map(|(input, output)| format!("<rdf:li>{input},{output}</rdf:li>"))
+        .collect();
+    format!("<crs:{name}><rdf:Seq>{points}</rdf:Seq></crs:{name}>")
+}
+
+fn lightroom_local_curve_document(curves: &str) -> String {
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Radial 1">
+   {curves}
+   <crs:CorrectionMasks><rdf:Seq>{}</rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#,
+        lightroom_radial_component("0", "1")
+    )
+}
+
 #[test]
 fn lightroom_component_stack_uses_the_first_add_as_base_and_keeps_every_shape() {
     let radial = || lightroom_radial_component("0", "1");
@@ -2376,6 +2398,158 @@ fn every_import_loss_reason_reaches_grouped_public_disclosure() {
     assert_eq!(
         line.matches(MaskImportReason::InertLocal("").en()).count(),
         1
+    );
+}
+
+#[test]
+fn sparse_lightroom_local_curves_round_trip_without_inventing_channels() {
+    let curves = format!(
+        "{}{}",
+        lightroom_local_curve_element("RedCurve", &[(0, 0), (239, 255)]),
+        lightroom_local_curve_element("GreenCurve", &[(0, 12), (128, 140), (255, 255)])
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(&lightroom_local_curve_document(&curves));
+    assert_eq!(imported.masks.len(), 1);
+    assert_eq!(
+        imported.masks[0].red_curve,
+        vec![
+            CurvePoint {
+                input: 0,
+                output: 0,
+            },
+            CurvePoint {
+                input: 239,
+                output: 255,
+            },
+        ]
+    );
+    assert_eq!(imported.masks[0].green_curve.len(), 3);
+    assert!(imported.masks[0].main_curve.is_empty());
+    assert!(imported.masks[0].blue_curve.is_empty());
+
+    let reopened = autoshade::xmp::xmp_to_recipe(&autoshade::xmp::recipe_to_xmp(&imported));
+    assert_eq!(reopened.masks[0].red_curve, imported.masks[0].red_curve);
+    assert_eq!(
+        reopened.masks[0].green_curve,
+        imported.masks[0].green_curve
+    );
+    assert!(reopened.masks[0].main_curve.is_empty());
+    assert!(reopened.masks[0].blue_curve.is_empty());
+}
+
+#[test]
+fn local_and_global_curve_spelling_and_order_match_lightroom() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        tone_curve: vec![
+            CurvePoint {
+                input: 10,
+                output: 20,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ],
+        masks: vec![LocalAdjustment {
+            amount: 1.0,
+            main_curve: vec![
+                CurvePoint {
+                    input: 32,
+                    output: 48,
+                },
+                CurvePoint {
+                    input: 255,
+                    output: 255,
+                },
+            ],
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    });
+
+    assert!(document.contains("<rdf:li>32,48</rdf:li>"));
+    assert!(!document.contains("<rdf:li>32, 48</rdf:li>"));
+    assert!(document.contains("<rdf:li>10, 20</rdf:li>"));
+    assert!(!document.contains("<rdf:li>10,20</rdf:li>"));
+    assert!(document.contains("<crs:MainCurve>"));
+    let correction = document
+        .split_once(r#"crs:LocalCurveRefineSaturation="100">"#)
+        .unwrap()
+        .1;
+    assert!(
+        correction.find("<crs:MainCurve>").unwrap()
+            < correction.find("<crs:CorrectionMasks>").unwrap()
+    );
+}
+
+#[test]
+fn local_curve_export_stays_sparse_for_curved_and_plain_masks() {
+    let curved = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        masks: vec![LocalAdjustment {
+            amount: 1.0,
+            red_curve: vec![
+                CurvePoint {
+                    input: 0,
+                    output: 0,
+                },
+                CurvePoint {
+                    input: 128,
+                    output: 160,
+                },
+            ],
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    });
+    assert!(curved.contains("<crs:RedCurve>"));
+    for absent in ["MainCurve", "GreenCurve", "BlueCurve"] {
+        assert!(!curved.contains(&format!("<crs:{absent}>")));
+    }
+
+    let plain = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        masks: vec![LocalAdjustment {
+            amount: 1.0,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    });
+    for absent in ["MainCurve", "RedCurve", "GreenCurve", "BlueCurve"] {
+        assert!(!plain.contains(&format!("<crs:{absent}>")));
+    }
+}
+
+#[test]
+fn readable_local_curve_imports_without_false_loss() {
+    let curves =
+        lightroom_local_curve_element("MainCurve", &[(0, 0), (128, 96), (255, 255)]);
+    let document = lightroom_local_curve_document(&curves);
+
+    assert!(autoshade::xmp::import_losses(&document).is_empty());
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 0);
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&document).masks[0]
+            .main_curve
+            .len(),
+        3
+    );
+}
+
+#[test]
+fn unreadable_local_curve_keeps_the_mask_and_names_the_loss() {
+    let curves =
+        lightroom_local_curve_element("BlueCurve", &[(0, 0), (255, 255)])
+            .replace("<rdf:li>255,255</rdf:li>", "<rdf:li>999,-5</rdf:li>");
+    let document = lightroom_local_curve_document(&curves);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(imported.masks.len(), 1);
+    assert!(imported.masks[0].blue_curve.is_empty());
+    assert_eq!(
+        autoshade::xmp::import_losses(&document),
+        vec![MaskImportLoss {
+            name: "Radial 1".to_string(),
+            reason: MaskImportReason::LocalCurve,
+        }]
     );
 }
 
