@@ -1,6 +1,6 @@
 use autoshade::recipe::{
-    AdobeLensProfile, ColorGrade, Crop, CurvePoint, EditRecipe, Hsl, LensProfile,
-    LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, RangeMask,
+    AdobeLensProfile, BrushStroke, ColorGrade, Crop, CurvePoint, EditRecipe, Hsl, LensProfile,
+    LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, MaskWarpSource, RangeMask,
 };
 use autoshade::xmp::{LensProfileSetup, MaskImportLoss, MaskImportReason, MaskLossReason};
 
@@ -563,6 +563,96 @@ fn missing_or_similarly_named_lens_profile_key_has_no_switch_opinion() {
             r#"crs:LensProfileName="1""#
         )),
         None
+    );
+}
+
+#[test]
+fn render_time_mask_warp_never_changes_the_xmp_boundary() {
+    let brush = MaskGeometry::Brush {
+        name: "Brush 1".to_string(),
+        blend_mode: 0,
+        value: 1.0,
+        inverted: false,
+        strokes: vec![BrushStroke {
+            dabs: "d 0.5 0.5".to_string(),
+            radius: 0.3,
+            flow: 0.8,
+            center_weight: 0.1,
+            ..BrushStroke::default()
+        }],
+    };
+    let plain = EditRecipe {
+        masks: vec![
+            LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.1,
+                    zero_y: 0.2,
+                    full_x: 0.9,
+                    full_y: 0.8,
+                },
+                components: vec![
+                    MaskComponent {
+                        geometry: brush,
+                        mode: MaskCombine::Add,
+                        inverted: false,
+                    },
+                    MaskComponent {
+                        geometry: MaskGeometry::Radial {
+                            top: 0.2,
+                            left: 0.2,
+                            bottom: 0.8,
+                            right: 0.8,
+                            feather: 0.5,
+                            roundness: 0.0,
+                            flipped: false,
+                            angle: 0.0,
+                            midpoint: 50.0,
+                            mask_version: 2,
+                        },
+                        mode: MaskCombine::Add,
+                        inverted: false,
+                    },
+                ],
+                ..LocalAdjustment::default()
+            },
+        ],
+        ..EditRecipe::default()
+    };
+    let mut warped = plain.clone();
+    warped.lens_profile = LensProfile {
+        mask_warp: vec![1.05, 1.03, 1.01, 0.99, 0.97],
+        mask_warp_src: MaskWarpSource::Lcp,
+        ..LensProfile::default()
+    };
+    assert!(warped.lens_profile.mask_warp[0] > 1.04);
+    assert!(warped.lens_profile.mask_warp.last().copied().unwrap() < 0.98);
+
+    let plain_xmp = autoshade::xmp::recipe_to_xmp(&plain);
+    let warped_xmp = autoshade::xmp::recipe_to_xmp(&warped);
+    assert_eq!(
+        xmp_element_block(&warped_xmp, "crs:MaskGroupBasedCorrections"),
+        xmp_element_block(&plain_xmp, "crs:MaskGroupBasedCorrections")
+    );
+
+    let reopened =
+        autoshade::xmp::xmp_to_recipe(&without_recipe_payload(warped_xmp));
+    assert_eq!(reopened.masks.len(), plain.masks.len());
+    assert_eq!(reopened.masks[0].mask, plain.masks[0].mask);
+    assert_eq!(
+        reopened.masks[0].components[1].geometry,
+        plain.masks[0].components[1].geometry
+    );
+    let MaskGeometry::Brush { strokes, .. } = &reopened.masks[0].components[0].geometry else {
+        panic!("brush component survives")
+    };
+    assert_eq!(strokes[0].dabs, "d 0.5 0.5");
+    assert_eq!(
+        (
+            strokes[0].radius,
+            strokes[0].flow,
+            strokes[0].center_weight,
+        ),
+        (0.3, 0.8, 0.1)
     );
 }
 
