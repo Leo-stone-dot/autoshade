@@ -3287,6 +3287,85 @@ fn clearing_detail_controls_removes_stale_lightroom_values() {
 }
 
 #[test]
+fn absent_explicit_zero_and_nonzero_sharpening_keep_distinct_meanings() {
+    let absent_xmp = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+    assert!(!absent_xmp.contains("crs:Sharpness="));
+    let absent = autoshade::xmp::xmp_to_recipe(&absent_xmp);
+    assert!(!absent.explicit_zero.iter().any(|name| name == "sharpening"));
+    assert_eq!(
+        (
+            absent.capture_sharpening(true),
+            absent.capture_sharpening(false),
+        ),
+        (40.0, 0.0)
+    );
+
+    let mut zero = EditRecipe::default();
+    zero.set_resolved("sharpening", 0.0);
+    let zero_xmp = autoshade::xmp::recipe_to_xmp(&zero);
+    assert!(zero_xmp.contains(r#"crs:Sharpness="0""#));
+    let reopened_zero = autoshade::xmp::xmp_to_recipe(&zero_xmp);
+    assert_eq!(reopened_zero.explicit_zero, vec!["sharpening"]);
+    assert_eq!(
+        (
+            reopened_zero.capture_sharpening(true),
+            reopened_zero.capture_sharpening(false),
+        ),
+        (0.0, 0.0)
+    );
+
+    let forty = autoshade::xmp::xmp_to_recipe(&autoshade::xmp::recipe_to_xmp(
+        &EditRecipe {
+            sharpening: 40.0,
+            ..EditRecipe::default()
+        },
+    ));
+    assert_eq!(
+        (
+            forty.capture_sharpening(true),
+            forty.capture_sharpening(false),
+        ),
+        (40.0, 40.0)
+    );
+}
+
+#[test]
+fn companion_explicit_zero_round_trips_without_inventing_absent_defaults() {
+    let lightroom = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Sharpness="40" crs:SharpenRadius="+1.0" crs:SharpenDetail="0"
+ crs:LuminanceSmoothing="30" crs:LuminanceNoiseReductionDetail="50"
+ crs:GrainAmount="20" crs:GrainSize="0"/>"#;
+    let imported = autoshade::xmp::xmp_to_recipe(lightroom);
+
+    assert_eq!(
+        imported.explicit_zero,
+        vec!["grain_size", "sharpen_detail"]
+    );
+    assert_eq!(imported.resolved("sharpen_detail"), 0.0);
+    assert_eq!(imported.resolved("nr_detail"), 50.0);
+    assert_eq!(imported.resolved("color_nr_detail"), 50.0);
+
+    let document = autoshade::xmp::recipe_to_xmp(&imported);
+    assert!(document.contains(r#"crs:SharpenDetail="0""#));
+    assert!(document.contains(r#"crs:GrainSize="0""#));
+    assert!(!document.contains("crs:ColorNoiseReductionDetail"));
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&document).explicit_zero,
+        imported.explicit_zero
+    );
+
+    let mut legacy = EditRecipe {
+        schema_era: 0,
+        sharpening: 40.0,
+        ..EditRecipe::default()
+    };
+    legacy.set_resolved("sharpen_detail", 0.0);
+    let legacy_xmp = autoshade::xmp::recipe_to_xmp(&legacy);
+    assert!(legacy_xmp.contains(r#"crs:SharpenDetail="0""#));
+    assert!(!legacy_xmp.contains("crs:SharpenRadius"));
+}
+
+#[test]
 fn legacy_recipe_missing_modern_fields_preserves_lightroom_globals() {
     let legacy: EditRecipe = serde_json::from_str(r#"{"exposure_ev":0.35}"#).unwrap();
     assert_eq!((legacy.schema_era, legacy.texture, legacy.grain), (0, 0.0, 0.0));
