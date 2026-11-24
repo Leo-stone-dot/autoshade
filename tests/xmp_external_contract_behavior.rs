@@ -3288,6 +3288,31 @@ fn radial_decode_refuses_only_degenerate_folds_and_names_the_drop() {
     }
 }
 
+#[test]
+fn unreadable_radial_angle_is_disclosed_even_with_a_known_frame() {
+    let document = framed_lightroom_radial_document(
+        "-0.045582",
+        "-0.056408",
+        "0.9708",
+        "1.062771",
+        "twenty-four",
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(imported.masks.len(), 1);
+    let MaskGeometry::Radial { angle, .. } = imported.masks[0].mask else {
+        panic!("radial imports")
+    };
+    assert_eq!(angle, 0.0);
+    assert_eq!(
+        autoshade::xmp::import_losses(&document),
+        vec![MaskImportLoss {
+            name: "Stacked 1".to_string(),
+            reason: MaskImportReason::Rotation(0),
+        }]
+    );
+}
+
 fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
     format!(
         r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">

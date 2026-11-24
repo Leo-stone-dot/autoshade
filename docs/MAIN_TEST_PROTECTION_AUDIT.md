@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：794 cases，约 2,530 个断言宏，39 个显式 ignore。
+- 当前工作树：795 cases，约 2,533 个断言宏，39 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，337 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、2 条 `drop`、3 条 `external-gate`、1,937 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，338 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、2 条 `drop`、3 条 `external-gate`、1,936 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1931,6 +1931,16 @@ zero-area与zero-width@0° radial被拒、计数并具名`OutOfModel`；同样ze
 与反向corner pair的正负tilt都导入为非hairline shape。临时删除zero guard或恢复旧
 positive-fold guard时case分别红；mutation均已恢复，`src/`无diff。
 
+### Unreadable radial angle is disclosed with a known frame
+
+- Main case：`an_unreadable_angle_is_disclosed_even_when_the_frame_is_known`
+- 当前执行者：`unreadable_radial_angle_is_disclosed_even_with_a_known_frame`
+- 状态：`rewritten`
+
+声明frame的radial即使Angle文本不可解析，geometry仍以angle0导入，并产生唯一具名
+`Rotation(0)`。临时只在frame缺失时披露后loss列表为空，case红；mutation已恢复，
+`src/`无diff。
+
 ### One mask gets one missing-raster verdict
 
 - Main case：`a_mask_naming_one_missing_raster_twice_loses_it_once`
@@ -2831,7 +2841,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 161 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 162 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
