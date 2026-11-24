@@ -13,6 +13,18 @@ fn without_autoshade_mask_intent(mut xmp: String) -> String {
     xmp.replace(" xmlns:ash=\"https://autoshade.dev/ns/mask/1.0/\"", "")
 }
 
+fn without_recipe_payload(mut xmp: String) -> String {
+    for name in ["asr:Recipe", "asr:RecipeCrc32"] {
+        let marker = format!(" {name}=\"");
+        while let Some(start) = xmp.find(&marker) {
+            let value = start + marker.len();
+            let end = value + xmp[value..].find('"').unwrap() + 1;
+            xmp.replace_range(start..end, "");
+        }
+    }
+    xmp
+}
+
 #[test]
 fn global_develop_controls_round_trip_through_our_xmp() {
     let recipe = EditRecipe {
@@ -791,4 +803,87 @@ fn single_quoted_ai_attributes_carry_provenance_and_still_refuse_unknown_names()
 
     let invalid = external_ai_correction(2, "crs:Bogus='1'", '\'');
     assert!(autoshade::xmp::xmp_to_recipe(&invalid).masks.is_empty());
+}
+
+fn rotated_radial_document() -> String {
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Radial {
+                top: 0.2,
+                left: 0.25,
+                bottom: 0.8,
+                right: 0.75,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 24.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    without_recipe_payload(
+        autoshade::xmp::recipe_to_xmp_in_frame(
+            &recipe,
+            autoshade::xmp::FrameAspect::from_size(9504.0, 6336.0),
+        )
+        .0,
+    )
+}
+
+#[test]
+fn rotated_mask_frame_fields_come_from_one_complete_description_in_both_spellings() {
+    let document = rotated_radial_document();
+    let expected = autoshade::xmp::xmp_to_recipe(&document).masks[0]
+        .mask
+        .clone();
+    let decoy = document.replacen(
+        "<rdf:Description",
+        r#"<rdf:Description xmlns:tiff="http://ns.adobe.com/tiff/1.0/" tiff:ImageWidth="6000"/>
+<rdf:Description"#,
+        1,
+    );
+    let mixed = document
+        .replacen("\n    tiff:ImageLength=\"6336\"", "", 1)
+        .replacen(
+            "</rdf:Description>",
+            "<tiff:ImageLength>6336</tiff:ImageLength></rdf:Description>",
+            1,
+        );
+
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&decoy).masks[0].mask,
+        expected
+    );
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&mixed).masks[0].mask,
+        expected
+    );
+}
+
+#[test]
+fn rotated_mask_frame_falls_back_across_incomplete_descriptions() {
+    let document = rotated_radial_document();
+    let expected = autoshade::xmp::xmp_to_recipe(&document).masks[0]
+        .mask
+        .clone();
+    let split = document
+        .replacen("\n    tiff:ImageWidth=\"9504\"", "", 1)
+        .replacen("\n    tiff:ImageLength=\"6336\"", "", 1)
+        .replacen("\n    tiff:Orientation=\"1\"", "", 1)
+        .replacen(
+            "<rdf:Description",
+            r#"<rdf:Description xmlns:tiff="http://ns.adobe.com/tiff/1.0/" tiff:Orientation="1"/>
+<rdf:Description tiff:ImageWidth="9504"/>
+<rdf:Description tiff:ImageLength="6336"/>
+<rdf:Description"#,
+            1,
+        );
+
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&split).masks[0].mask,
+        expected
+    );
 }
