@@ -3201,6 +3201,92 @@ fn texture_merge_replaces_one_owned_key_and_preserves_foreign_globals() {
 }
 
 #[test]
+fn detail_and_manual_ca_controls_use_lightroom_spellings_and_round_trip() {
+    let recipe = EditRecipe {
+        sharpen_radius: 1.0,
+        sharpen_detail: 25.0,
+        sharpen_mask: 12.0,
+        nr_detail: 50.0,
+        nr_contrast: 8.0,
+        color_nr: 25.0,
+        color_nr_detail: 50.0,
+        color_nr_smooth: 50.0,
+        ca_r: 14.0,
+        ca_b: -9.0,
+        auto_lateral_ca: true,
+        ..EditRecipe::default()
+    };
+    let document = autoshade::xmp::recipe_to_xmp(&recipe);
+    for spelling in [
+        r#"crs:SharpenRadius="+1.0""#,
+        r#"crs:SharpenDetail="25""#,
+        r#"crs:SharpenEdgeMasking="12""#,
+        r#"crs:LuminanceNoiseReductionDetail="50""#,
+        r#"crs:LuminanceNoiseReductionContrast="8""#,
+        r#"crs:ColorNoiseReduction="25""#,
+        r#"crs:ColorNoiseReductionDetail="50""#,
+        r#"crs:ColorNoiseReductionSmoothness="50""#,
+        r#"crs:ChromaticAberrationR="14""#,
+        r#"crs:ChromaticAberrationB="-9""#,
+        r#"crs:AutoLateralCA="1""#,
+    ] {
+        assert!(document.contains(spelling), "{spelling}");
+    }
+
+    let reopened = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(reopened.sharpen_radius, recipe.sharpen_radius);
+    assert_eq!(reopened.sharpen_detail, recipe.sharpen_detail);
+    assert_eq!(reopened.sharpen_mask, recipe.sharpen_mask);
+    assert_eq!(reopened.nr_detail, recipe.nr_detail);
+    assert_eq!(reopened.nr_contrast, recipe.nr_contrast);
+    assert_eq!(reopened.color_nr, recipe.color_nr);
+    assert_eq!(reopened.color_nr_detail, recipe.color_nr_detail);
+    assert_eq!(reopened.color_nr_smooth, recipe.color_nr_smooth);
+    assert_eq!(reopened.ca_r, recipe.ca_r);
+    assert_eq!(reopened.ca_b, recipe.ca_b);
+    assert!(reopened.auto_lateral_ca);
+}
+
+#[test]
+fn neutral_detail_controls_stay_absent_except_engine_color_nr_zero() {
+    let document = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+
+    for absent in [
+        "SharpenRadius",
+        "SharpenDetail",
+        "SharpenEdgeMasking",
+        "LuminanceNoiseReductionDetail",
+        "LuminanceNoiseReductionContrast",
+        "ColorNoiseReductionDetail",
+        "ColorNoiseReductionSmoothness",
+        "ChromaticAberrationR",
+        "ChromaticAberrationB",
+        "AutoLateralCA",
+    ] {
+        assert!(!document.contains(&format!("crs:{absent}=")), "{absent}");
+    }
+    assert!(document.contains(r#"crs:ColorNoiseReduction="0""#));
+}
+
+#[test]
+fn clearing_detail_controls_removes_stale_lightroom_values() {
+    let lightroom = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:SharpenRadius="+1.0" crs:ColorNoiseReduction="25"
+ crs:AutoLateralCA="1" crs:HasSettings="True"/>"#;
+
+    let cleared =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom, &EditRecipe::default()).unwrap();
+
+    assert!(!cleared.doc.contains("crs:SharpenRadius"));
+    assert!(!cleared.doc.contains("crs:AutoLateralCA"));
+    assert_eq!(
+        cleared.doc.matches("crs:ColorNoiseReduction=").count(),
+        1
+    );
+    assert!(cleared.doc.contains(r#"crs:ColorNoiseReduction="0""#));
+}
+
+#[test]
 fn legacy_recipe_missing_modern_fields_preserves_lightroom_globals() {
     let legacy: EditRecipe = serde_json::from_str(r#"{"exposure_ev":0.35}"#).unwrap();
     assert_eq!((legacy.schema_era, legacy.texture, legacy.grain), (0, 0.0, 0.0));
