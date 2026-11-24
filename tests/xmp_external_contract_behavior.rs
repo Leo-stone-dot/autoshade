@@ -2470,6 +2470,22 @@ fn legacy_recipe_missing_modern_fields_preserves_lightroom_globals() {
     }
 }
 
+#[test]
+fn current_recipe_owns_modern_globals_it_explicitly_clears() {
+    let mut current = autoshade::xmp::xmp_to_recipe(lightroom_legacy_globals_document());
+    assert_eq!(current.schema_era, autoshade::recipe::SCHEMA_ERA);
+    current.texture = 0.0;
+    current.grain = 0.0;
+
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom_legacy_globals_document(), &current)
+            .unwrap();
+
+    assert!(merged.doc.contains(r#"crs:Texture="0""#));
+    assert!(!merged.doc.contains("crs:GrainAmount="));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&merged.doc).texture, 0.0);
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
