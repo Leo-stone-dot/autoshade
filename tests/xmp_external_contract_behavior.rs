@@ -2314,6 +2314,44 @@ fn unknown_local_and_curve_refine_losses_stack_and_name_the_correction() {
         .any(|loss| loss.reason == MaskImportReason::CurveRefineSaturation));
 }
 
+fn lightroom_bookkeeping_document(corrected_depth: &str, digest_version: &str) -> String {
+    lightroom_radial_value_document("0", "1")
+        .replace(r#"crs:CorrectionName="Radial 1""#, r#"crs:CorrectionName="Sky""#)
+        .replace(
+            r#"crs:LocalContrast2012="0.43""#,
+            &format!(
+                r#"crs:LocalContrast2012="0.43" crs:LocalCorrectedDepth="{corrected_depth}" crs:LocalInputDigest="0000000000000000000000000000002A" crs:LocalInputDigestVersion="{digest_version}""#
+            ),
+        )
+}
+
+#[test]
+fn lightroom_digest_ledger_is_not_reported_as_an_unmodelled_slider() {
+    let neutral = lightroom_bookkeeping_document("0", "1");
+    let another_version = lightroom_bookkeeping_document("0", "2");
+
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&neutral).masks.len(), 1);
+    assert!(autoshade::xmp::import_losses(&neutral).is_empty());
+    assert!(autoshade::xmp::import_losses(&another_version).is_empty());
+}
+
+#[test]
+fn nonzero_corrected_depth_is_named_without_dropping_the_mask() {
+    let document = lightroom_bookkeeping_document("0.5", "1");
+
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&document).masks.len(), 1);
+    assert_eq!(
+        autoshade::xmp::import_losses(&document)
+            .iter()
+            .map(|loss| (loss.name.as_str(), loss.reason))
+            .collect::<Vec<_>>(),
+        [(
+            "Sky",
+            MaskImportReason::InertLocal("LocalCorrectedDepth"),
+        )]
+    );
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
