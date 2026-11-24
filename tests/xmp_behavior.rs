@@ -885,6 +885,36 @@ fn a_photo_less_merge_preserves_an_untouched_bare_raster_import() {
 }
 
 #[test]
+fn an_oversized_payload_raster_is_left_out_and_named_as_a_loss() {
+    let tree = support::TempTree::new("xmp-raster-budget");
+    let huge = tree.path().join("huge.png");
+    std::fs::write(&huge, vec![0x42; 7 * 1024 * 1024]).unwrap();
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            name: "huge".to_string(),
+            mask: MaskGeometry::Bitmap {
+                path: huge.to_string_lossy().into_owned(),
+            },
+            exposure_ev: 0.1,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    let (xmp, losses) = autoshade::xmp::recipe_to_xmp_with_losses(&recipe);
+
+    assert!(losses.iter().any(|loss| {
+        loss.name == "huge"
+            && loss.reason == autoshade::xmp::MaskLossReason::RasterNotEmbedded
+    }));
+    assert!(!xmp.contains("asr:Name=\"huge.png\""));
+    assert!(xmp.len() < 2 * 1024 * 1024);
+    let restored = autoshade::xmp::xmp_to_recipe(&xmp);
+    assert_eq!(restored.masks.len(), 1);
+    assert_eq!(restored.masks[0].name, "huge");
+}
+
+#[test]
 fn a_corrupt_payload_is_disclosed_and_the_crs_projection_still_opens() {
     let recipe = EditRecipe {
         exposure_ev: 0.5,
