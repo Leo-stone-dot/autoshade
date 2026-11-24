@@ -2115,7 +2115,7 @@ src/xmp/tests/brush_groups_and_real_sidecars.rs	652	real_lightroom_radials_carry
 src/xmp/tests/brush_groups_and_real_sidecars.rs	755	real_lightroom_sidecars_import_their_global_effects	14	default	open		Awaiting assertion-by-assertion review.
 src/xmp/tests/brush_groups_and_real_sidecars.rs	901	real_lightroom_sidecars_survive_a_v0_30_recipe	11	default	open		Awaiting assertion-by-assertion review.
 src/xmp/tests/brush_groups_and_real_sidecars.rs	1022	real_lightroom_sidecars_pass_their_transform_blocks_through	12	default	open		Awaiting assertion-by-assertion review.
-src/xmp/tests/crops_hdr_orientation.rs	18	local_hue_rides_the_measured_180_scale	8	default	open		Awaiting assertion-by-assertion review.
+src/xmp/tests/crops_hdr_orientation.rs	18	local_hue_rides_the_measured_180_scale	8	default	rewritten	tests/xmp_external_contract_behavior.rs::local_hue_uses_lightrooms_measured_180_wire_scale	Lightroom 0.277778 maps to UI 50, the full ±1 wire maps through ±180, 1.01 is refused and named, and writer 50 emits 0.2777778 with payload-free readback. Reader q100, old ±100 gate and writer /100 independently failed.
 src/xmp/tests/crops_hdr_orientation.rs	113	the_seven_measured_lightroom_crops_reproduce_their_exported_dimensions	5	default	open		Awaiting assertion-by-assertion review.
 src/xmp/tests/crops_hdr_orientation.rs	173	the_crop_corner_encoding_round_trips_what_lightroom_wrote	3	default	open		Awaiting assertion-by-assertion review.
 src/xmp/tests/crops_hdr_orientation.rs	220	an_inverted_crop_arrangement_is_read_rather_than_discarded	4	default	open		Awaiting assertion-by-assertion review.

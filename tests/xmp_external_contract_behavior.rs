@@ -3984,6 +3984,69 @@ fn lightroom_tinted_radial_document(saturation: &str) -> String {
     )
 }
 
+fn lightroom_local_hue_document(value: &str) -> String {
+    lightroom_radial_value_document("0", "1").replace(
+        r#"crs:LocalContrast2012="0.43""#,
+        &format!(
+            r#"crs:LocalContrast2012="0.43" crs:LocalHue="{value}""#
+        ),
+    )
+}
+
+#[test]
+fn local_hue_uses_lightrooms_measured_180_wire_scale() {
+    let anchor = autoshade::xmp::xmp_to_recipe(&lightroom_local_hue_document("0.277778"));
+    assert_eq!(anchor.masks.len(), 1);
+    assert!((anchor.masks[0].hue - 50.0).abs() < 1e-3);
+
+    for (wire, expected) in [
+        ("0.555556", 100.0),
+        ("-0.555556", -100.0),
+        ("0.7", 126.0),
+        ("1.0", 180.0),
+        ("-1", -180.0),
+    ] {
+        let imported =
+            autoshade::xmp::xmp_to_recipe(&lightroom_local_hue_document(wire));
+        assert_eq!(imported.masks.len(), 1, "{wire}");
+        assert!((imported.masks[0].hue - expected).abs() < 1e-2, "{wire}");
+    }
+
+    let outside = lightroom_local_hue_document("1.01");
+    assert!(autoshade::xmp::xmp_to_recipe(&outside).masks.is_empty());
+    assert_eq!(
+        autoshade::xmp::import_losses(&outside),
+        vec![MaskImportLoss {
+            name: "Radial 1".to_string(),
+            reason: MaskImportReason::OutOfModel,
+        }]
+    );
+
+    let written = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Radial {
+                top: 0.3,
+                left: 0.35,
+                bottom: 0.7,
+                right: 0.65,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 0.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            hue: 50.0,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    });
+    assert!(written.contains(r#"crs:LocalHue="0.2777778""#));
+    let reopened =
+        autoshade::xmp::xmp_to_recipe(&without_recipe_payload(written));
+    assert!((reopened.masks[0].hue - 50.0).abs() < 1e-3);
+}
+
 #[test]
 fn supported_mask_tint_imports_exports_and_round_trips_without_loss() {
     let document = lightroom_tinted_radial_document("0.73");
