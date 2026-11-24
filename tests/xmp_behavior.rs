@@ -3,6 +3,8 @@ use autoshade::recipe::{
     MaskGeometry, MaskRole,
 };
 
+mod support;
+
 fn without_autoshade_attributes(mut xmp: String) -> String {
     while let Some(start) = xmp.find(" ash:") {
         let value = start + xmp[start..].find("=\"").unwrap() + 2;
@@ -663,6 +665,106 @@ fn native_xmp_preserves_mixed_component_order_in_both_whole_inversions() {
                 &reference,
                 autoshade::render::MaskFrame::AsRendered,
             )
+        );
+    }
+}
+
+#[test]
+fn native_composition_matrix_preserves_editor_intent_and_crs_coverage() {
+    let tree = support::TempTree::new("xmp-native-composition");
+    let raster = tree.path().join("sky.png");
+    image::GrayImage::from_fn(96, 64, |x, y| {
+        image::Luma([((x + 2 * y) % 256) as u8])
+    })
+    .save(&raster)
+    .unwrap();
+    let linear = || MaskGeometry::Linear {
+        zero_x: 0.25,
+        zero_y: 0.25,
+        full_x: 0.75,
+        full_y: 0.75,
+    };
+    let radial = |flipped| MaskGeometry::Radial {
+        top: 0.25,
+        left: 0.25,
+        bottom: 0.75,
+        right: 0.75,
+        feather: 0.5,
+        roundness: 0.0,
+        flipped,
+        angle: 0.0,
+        midpoint: 50.0,
+        mask_version: 2,
+    };
+    let ai = MaskGeometry::select_sky(
+        0.5,
+        0.25,
+        false,
+        raster.to_string_lossy().into_owned(),
+    );
+    let reference = image::DynamicImage::new_rgb8(96, 64);
+
+    for (base, geometry, mode, component_inverted, whole_inverted) in [
+        (linear(), radial(false), MaskCombine::Intersect, false, false),
+        (ai.clone(), linear(), MaskCombine::Subtract, false, false),
+        (radial(false), linear(), MaskCombine::Add, false, false),
+        (linear(), radial(true), MaskCombine::Intersect, false, false),
+        (ai.clone(), linear(), MaskCombine::Intersect, true, false),
+        (linear(), radial(false), MaskCombine::Subtract, false, true),
+        (linear(), radial(true), MaskCombine::Add, false, true),
+        (linear(), radial(false), MaskCombine::Intersect, false, true),
+    ] {
+        let original = LocalAdjustment {
+            mask: base,
+            role: MaskRole::ZoneSky,
+            inverted: whole_inverted,
+            components: vec![MaskComponent {
+                geometry,
+                mode,
+                inverted: component_inverted,
+            }],
+            ..LocalAdjustment::default()
+        };
+        let recipe = EditRecipe {
+            masks: vec![original.clone()],
+            ..EditRecipe::default()
+        };
+        let (document, losses) = autoshade::xmp::recipe_to_xmp_in_frame(
+            &recipe,
+            autoshade::xmp::FrameAspect::from_size(96.0, 64.0),
+        );
+        assert!(!losses.iter().any(|loss| matches!(
+            loss.reason,
+            autoshade::xmp::MaskLossReason::ComponentsFlattened
+                | autoshade::xmp::MaskLossReason::Rotation(_)
+        )));
+        let native = without_payload(document);
+        let mut restored = autoshade::xmp::xmp_to_recipe(&native);
+        if let MaskGeometry::AiMask { raster: slot, .. } = &mut restored.masks[0].mask {
+            *slot = Some(raster.to_string_lossy().into_owned());
+        }
+        assert_eq!(restored.masks[0].role, original.role);
+        assert_eq!(restored.masks[0].inverted, original.inverted);
+        assert_eq!(restored.masks[0].components, original.components);
+        assert_eq!(restored.masks[0].mask, original.mask);
+
+        let crs_only = without_autoshade_attributes(native);
+        let mut crs = autoshade::xmp::xmp_to_recipe(&crs_only);
+        if let MaskGeometry::AiMask { raster: slot, .. } = &mut crs.masks[0].mask {
+            *slot = Some(raster.to_string_lossy().into_owned());
+        }
+        assert_eq!(
+            autoshade::render::mask_coverage(
+                &crs.masks[0],
+                &reference,
+                autoshade::render::MaskFrame::AsRendered,
+            ),
+            autoshade::render::mask_coverage(
+                &original,
+                &reference,
+                autoshade::render::MaskFrame::AsRendered,
+            ),
+            "mode={mode:?} component_inverted={component_inverted} whole_inverted={whole_inverted}"
         );
     }
 }
