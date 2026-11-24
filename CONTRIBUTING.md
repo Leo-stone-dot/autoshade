@@ -38,9 +38,9 @@ services.
   mechanically.
 - Architecture constraints (layer dependencies, single doors, forbidden
   APIs) belong to the compiler or to a lint, not to the test suite. The
-  strength order is: types and visibility, then a lint, then a dedicated
-  architecture gate. A constraint with no executor stays unenforced and the
-  gap is recorded in the change description; it is not parked in the tests.
+  strength order is: types and visibility, then Clippy. A constraint with no
+  executor stays unenforced and the gap is recorded in the change description;
+  it is not parked in tests or a source-text scanner.
 
 - **A root cause, not a symptom.** A fix names the mechanism it corrects and
   sweeps every site of the same class in the same change.

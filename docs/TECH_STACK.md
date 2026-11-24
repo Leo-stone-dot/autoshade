@@ -2167,7 +2167,7 @@ than the pre-call state; model weights remain outside the repository.
   AI denoise, so its ordinary 1800 MB planning constant is unchanged.
 - The default and GUI behavior suites exercise headless workflows and public
   engine/file contracts. Architecture constraints remain enforced by clippy,
-  visibility and the architecture gate; the release battery runs the suites,
+  types, visibility and module boundaries; the release battery runs the suites,
   test policy, text/font checks and document claims.
 - The build workflow checks default and GUI feature sets on Ubuntu and macOS.
   The published binary artifacts are the Windows builds, two universal macOS

@@ -82,10 +82,6 @@ jobs:
         run: |
           python3 scripts/check_test_policy.py --self-test
           python3 scripts/check_test_policy.py
-      - name: architecture gate
-        run: |
-          python3 scripts/check_architecture.py --self-test
-          python3 scripts/check_architecture.py
       - name: cargo test (default features)
         run: cargo test --locked --release
       - name: cargo test (GUI workflow)

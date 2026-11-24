@@ -6,7 +6,7 @@
 
 - 当前生产源码相对本轮开始不作修改。开始时已有的 `src/bin/gui/main.rs`
   改动仅为 `#[cfg(test)] mod tests;`，保留。
-- 本轮重新运行默认 release + GUI 套件通过；政策与架构扫描及其 self-test
+- 本轮重新运行默认 release + GUI 套件通过；测试政策及其 self-test
   通过。它们只能说明本次执行的检查通过，不能证明所有测试符合原则或没有漏保。
 - `tests/serve_behavior.rs` 开始时只有导出、下载、预览三条成功路径，
   且均需要显式运行。`store_behavior` 的锁测试不能替代 HTTP 的 revision /

@@ -11,8 +11,8 @@ case 最终必须归入以下一种状态：
 
 - `equivalent`：当前已有公开行为测试逐条执行了旧断言所表达的产品契约。
 - `rewritten`：旧行为有价值，但已改写为公开 API、文件结果、错误或可见 UI 测试。
-- `lint`：旧断言只约束依赖、模块边界、禁用 API 或代码形状，由编译器、clippy
-  或架构 gate 接管。
+- `lint`：旧断言只约束依赖、模块边界或禁用 API，并已有编译器、类型、可见性或
+  Clippy 执行者。
 - `drop`：旧断言只锁定私有字段、helper、调用顺序、源码文本或重构中间态，没有
   独立产品故障语义。
 - `external-gate`：行为有价值，但依赖付费、真实语料、平台或长时间资源，保留明确
@@ -33,8 +33,8 @@ case 最终必须归入以下一种状态：
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，275 条 `rewritten`、13 条
-`lint`、2 条 `drop`、3 条 `external-gate`、1,988 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，275 条 `rewritten`、1 条
+`lint`、2 条 `drop`、3 条 `external-gate`、2,000 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -63,12 +63,13 @@ case 最终必须归入以下一种状态：
 
 这里的数量仅用于证明 inventory 完整，不是质量指标，也不是迁移目标。
 
-### 架构断言的首批归属
+### 架构断言的当前归属
 
-11 个 main case 已在逐 case TSV 中归为 `lint`，执行者分别是
-`check_architecture.py` 的 RAW plane/develop ceiling、Store capped read、
-engine/analyzer boundary、base-look single entry、paint notification、server/generative/heal
-slot、linear-ramp single definition 与 `gui-logic-headless` 规则。
+当前只有 `the_logic_layer_is_headless` 归为 `lint`：执行者是社区 Clippy 的
+`disallowed-types` / `disallowed-methods`，并由 `src/bin/gui/main.rs` 对 `logic` module
+scoped deny。此前依赖自建源码正则脚本的 12 条 main cases 已全部重新标为 `open`；
+调用顺序、函数名、邻近行和文件位置扫描不能证明 Rust 架构，也不能替代资源、刷新、
+并发或文件结果的公开行为。
 
 `src/bin/gui/tests/architecture.rs::the_migrated_panels_stay_behind_the_seam` 没有被伪标
 完成：当前 `panels/` 仍存在直接写 dirty/toast/store 和 `start_*` 的生产路径。它是
@@ -1976,22 +1977,12 @@ Windows Unicode case已迁入但本轮 macOS未执行；最终跨平台 gate前�
 | `deleting_a_version_that_does_not_exist_leaves_no_marker_and_burns_nothing` | missing-version delete/claim case | NotFound保持，列表为空，后续claim仍从v1开始 |
 | `a_killed_version_delete_resumes_and_its_number_stays_burned` | public delete-fault/recovery case | 半删除version立即隐藏，recovery扫完，后续claim从v2且文件存在 |
 
-架构归属：
+重新打开的 Store 架构断言：
 
-| main case | lint执行者 | 覆盖的代码约束 |
+| main case | 当前状态 | 尚缺执行者 |
 | --- | --- | --- |
-| `the_version_meta_sidecar_keeps_the_non_generational_discipline` | `store-advisory-metadata-lifecycle` | advisory文件名固定；只走direct durable write；不得进入adoption exclusion、orphan recovery、clear或commit generation |
-| `the_store_directory_name_and_the_rename_adoption_agree_per_platform` | `store-root-platform-contract` | macOS显示名、其他平台小写名、Application Support父目录、macOS禁用pre-rename adoption |
-
-该 rule 随 `scripts/check_architecture.py --self-test` 运行：坏夹具同时把 metadata 接入
-generational publisher与四个禁止scope，必须报
-`store-advisory-metadata-lifecycle`；好夹具使用 direct publisher 且四个scope不引用
-metadata，必须通过。这里的红灯回答“代码允许怎么写”，所以没有复制 main 的私有
-helper/list断言到行为测试。
-
-`store-root-platform-contract` 的坏夹具分别把两个平台目录名对调、无条件开启 adoption、
-并把 macOS 根移出 `Library/Application Support`；self-test 必须报该 rule。好夹具同时
-满足四项并通过。旧 case 的三个源码 `contains` 断言因此删除，平台配置仍有实际执行者。
+| `the_version_meta_sidecar_keeps_the_non_generational_discipline` | `open` | adoption、recovery、clear、commit 的公开文件结果逐断言映射，或不可绕过的类型设计 |
+| `the_store_directory_name_and_the_rename_adoption_agree_per_platform` | `open` | macOS / non-macOS 的公开 root 与 adoption 行为；不能靠常量/路径源码匹配 |
 
 删除归属：
 
@@ -2332,9 +2323,9 @@ HTTP case 的具体 mutation 与公开失败结果登记在 `docs/HTTP_BEHAVIOR_
 - `#[cfg(test)] TestSeams` 暴露 rect、enabled 状态或替换被测对象内部执行。
 - `cfg(test)` 强制展开面板或改变真实运行行为。
 
-其中架构意图若有价值，必须由现有或新增的编译器、clippy、类型边界或
-`scripts/check_architecture.py` 规则接管；不能因为旧测试读取源码就默认删除其剩余
-产品行为断言。
+其中架构意图若有价值，必须由现有或新增的编译器、Clippy、类型或可见性边界接管；
+无法机械表达的保持 `open` 或代码评审项，不能因为旧测试读取源码就默认删除其剩余
+产品行为断言，也不能再建源码正则扫描器。
 
 ## 待处理顺序
 

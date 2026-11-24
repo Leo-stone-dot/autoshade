@@ -185,7 +185,11 @@ scripts/agent_quality_gate.sh
 
 该门禁先运行 `scripts/check_test_policy.py --self-test`，再扫描配置范围内的测试文件，拒绝已识别的源码嵌入、源码字符串、`assert!(true)`、自写 `SKIP` 行、裸 sleep、测试支持模块之外的环境写入和固定共享临时目录模式。通过仅说明这些模式未被检出，不能证明 premise 有效、断言不锁实现或所有写法均被识别。
 
-随后运行 `scripts/check_architecture.py --self-test` 和正式扫描。它是独立的架构 gate，不伪装成产品行为测试；当前有十二类代码形状规则：RAW door 绕过 plane guard、RAW 解压先于 develop ceiling、store 直读绕过 capped reader、render/recipe/XMP 依赖 analyzer、base-look 绕过单门、paint-buffer 修改绕过通知、server heavy handler 绕过 slot、generative slot 跨模型调用持有、heal 分配前未取得 slot、linear ramp 重复定义或绕过共享入口、GUI 直接设置未注册的 `EditRecipe` 字段，以及 GUI `logic/` 反向依赖 view/runtime。self-test 验证所提供的合成样例，正式扫描遍历生产 Rust 文件；二者均不证明语法匹配穷尽了所有违规写法，更不替代通知结果、内存上限等行为测试。
+架构约束只在 rustc、类型、可见性或 Clippy 有真实执行者时记为已验收。GUI
+`logic/` 的 headless 边界由 `clippy.toml` 的 disallowed types/methods 和 module-scoped
+deny 执行。此前针对 RAW 调用顺序、Store 读取、slot 生命周期、函数入口和文件布局的
+源码正则扫描已删除：它们不能覆盖等价 Rust 写法，也不能证明资源拒绝、刷新或并发等
+产品结果。相关 main cases 已重新打开，等待公开行为测试或不可绕过的类型设计。
 
 此前的 `baked-load-image-reason` 只要求 `load_image` 前出现一条
 `baked-by-construction` 注释。注释可以错误，合理重排也会改变扫描结果，因此它既

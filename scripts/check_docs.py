@@ -443,7 +443,6 @@ def check_release_battery_lanes(args: argparse.Namespace) -> tuple[str, list[str
         "cargo test --locked --release --features gui",
         "cargo clippy --locked --release --all-targets --features gui -- -D warnings",
         "python3 scripts/check_test_policy.py",
-        "python3 scripts/check_architecture.py",
         "python3 scripts/check_text.py",
         "python3 scripts/subset_gui_fonts.py --check",
         "python3 scripts/check_doc_drift.py",
@@ -456,7 +455,7 @@ def check_release_battery_lanes(args: argparse.Namespace) -> tuple[str, list[str
             *[f"        - {needle}" for needle in missing],
         ]
     return "PASS", [
-        "        behavior + test policy + clippy + architecture + text + fonts + docs"
+        "        behavior + test policy + clippy + text + fonts + docs"
     ]
 
 

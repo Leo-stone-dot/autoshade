@@ -8,7 +8,7 @@
 
 **测试验收行为，架构验收代码结构；红灯必须对应产品行为坏了。**
 
-这里的“架构验收”包括编译器、类型、可见性、clippy、独立脚本 gate 和 CI 门禁。不是所有规则都必须写成 clippy。
+这里的“架构验收”由编译器、类型、可见性和 Clippy 执行。无法由这些执行器稳定表达的规则保持未验收，不能用源码文本扫描冒充机械保证。
 
 ## 两类验收
 
@@ -209,9 +209,8 @@ scripts/agent_quality_gate.sh
 1. `cargo test --locked --release --features gui`
 2. `cargo clippy --locked --release --all-targets --features gui -- -D warnings`
 3. `python3 scripts/check_test_policy.py`（含 `--self-test`）
-4. `python3 scripts/check_architecture.py`（含 `--self-test`）
-5. 文本资源、文档漂移和发布声明 gate
-6. `python3 scripts/mutation_gate.py --worktree --jobs 2`
+4. 文本资源、文档漂移和发布声明 gate
+5. `python3 scripts/mutation_gate.py --worktree --jobs 2`
 
 确定、自包含且无需外部服务的本地进程/回环 HTTP 测试进入默认套件，
 使普通测试与默认 mutation 执行同一保护。慢速或有外部依赖的用例使用显式 gate；
@@ -305,6 +304,6 @@ cargo install cargo-mutants --version 27.1.0 --locked
 
 1. 编译器或类型系统拒绝违规写法。
 2. 可见性限制拒绝违规写法。
-3. clippy 或独立 gate 能稳定、机械地判定违规。
+3. rustc、类型、可见性或 Clippy 能稳定、机械地判定违规。
 
 否则该约束不进入自动化验收，必须先改设计或降级为代码评审事项。

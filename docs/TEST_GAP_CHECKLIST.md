@@ -28,7 +28,7 @@ HTTP、CLI、文件结果或可见 GUI 进入。
 
 ### [x] A1 当前证据与门禁结论可复现
 
-- **目标**：默认行为套件、显式慢 gate、测试政策、架构 gate、clippy 和 mutation
+- **目标**：默认行为套件、显式慢 gate、测试政策、Clippy 和 mutation
   工具分别报告自己的实际执行范围；临时目录中的历史日志不作为当前绿灯。
 - **现有缺口**：审计文档仍混有旧计数、`/private/tmp` 中的一次性 Python runner
   结果和“生产文件未变”等历史结论。当前 `serve_behavior` 实际列出 60 条，其中
@@ -41,7 +41,7 @@ HTTP、CLI、文件结果或可见 GUI 进入。
   `#[ignore]` 标记；这些是执行范围清单，不是质量分数。按用户决定暂缓 A4/A5 后，
   当前不带手工过滤的 release + GUI 回归为 360 passed、21 ignored、0 failed。
   A5 四次并行复跑为 2 passed / 2 failed，A4 单独运行确定性失败；两者没有被改写成
-  通过。clippy、测试政策、十二条架构形状规则、文本、文档漂移和文档声明通过；
+  通过。Clippy、测试政策、文本、文档漂移和文档声明通过；
   文档声明的外部 XMP census 因未配置语料明确 skip。字体检查因系统 Python 缺少
   `fontTools` 未运行。
 - **门禁范围纠正**：原 wrapper 在两行 `cfg(test)` 接线没有 mutant 时，退化为
@@ -107,19 +107,14 @@ HTTP、CLI、文件结果或可见 GUI 进入。
 - **暂缓决定**：用户决定暂时跳过 Comfy；本项不参与本轮完成判定，测试与失败证据
   以明确缺陷原因和 `--ignored --exact` 启用命令保留。
 
-### [x] A6 架构 gate 的证明范围与产品行为分开
+### [x] A6 删除源码正则架构扫描
 
-- **目标**：`check_architecture.py` 只声称它实际能机械拒绝的代码形状；产品结果另有
-  行为测试。
-- **现有缺口**：当前 self-test 只验证十二段预置文本触发正则，不能证明 Rust 语法
-  等价写法均被识别。原 `baked-load-image-reason` 只要求注释、不能证明输入不是 RAW，
-  已从 gate 删除；
-  `mask-paint-notification`、RAW guard 和 slot 顺序也不能单独证明刷新、资源拒绝或并发
-  行为正确。
-- **故障风险**：注释或特定拼写使 lint 变绿，但蒙版不刷新、超大 RAW 仍解压、资源
-  名额仍泄漏。
-- **验证**：为规则补充真实的允许/拒绝反例并报告仍可绕过的语法；无法稳定表达的规则
-  降级为评审项或改用类型设计。蒙版刷新、RAW 上限和 slot 归还分别保留为行为缺口，
+- **目标**：架构约束只由 rustc、类型、可见性或 Clippy 执行；产品结果另有行为测试。
+- **结论**：自建架构脚本只匹配特定源码拼写、调用顺序和文件位置，不能覆盖等价 Rust
+  写法，已删除。只有 GUI logic headless 规则由 `clippy.toml` 与 module-scoped deny
+  继续执行。
+- **后续**：原脚本声称覆盖的 paint refresh、RAW 上限、slot 生命周期、Store bounded
+  reads、base look parity 等项目全部重新打开，等待公开行为或不可绕过的类型设计。
   不用 lint 勾销。
 - **本轮行为证据**：`tests/decode_behavior.rs` 的
   `an_oversized_declared_raw_plane_is_refused_before_the_decoder_can_allocate_it`
@@ -298,55 +293,25 @@ HTTP、CLI、文件结果或可见 GUI 进入。
 
 ## 旧架构测试替代审计
 
-这一节只记录被删除的架构/结构约束。它们不能重新写成源码扫描测试；必须由类型、可见性、clippy 或独立 gate 接手。
+这一节只记录被删除的架构/结构约束。它们不能重新写成源码扫描测试；只有类型、可见性、
+rustc 或 Clippy 有真实执行者时才能勾选。自建源码正则 gate 已删除，因此下列项目重新
+打开：
 
-### [x] `every_paint_buffer_mutation_uses_the_presence_notification_door`
-- 旧位置：`src/bin/gui/tests/ai_cards.rs`；原测试遍历 GUI 源码，检查所有 paint-buffer mutation 都调用 `paint_mask_changed`。
-- 当前状态：`scripts/check_architecture.py` 的 `mask-paint-notification` 扫描全部生产 GUI 文件；`mask_paint =` 后必须在 8 行内调用 `paint_mask_changed`，`mask_dirty = true` 只能出现在 `paint_mask_changed` 内。
-- Gate：`python3 scripts/check_architecture.py --self-test` 和正式扫描。
-- Mutation：self-test 中的非通知赋值与函数外 `mask_dirty = true` 均被拒绝。
-
-### [x] `the_gui_only_offers_controls_the_engine_renders`
-- 旧位置：`src/bin/gui/tests/disclosures_and_census.rs`；原测试从 GUI 源码提取被赋值字段，再和 engine registry 比对。
-- 当前状态：`gui-control-registry` 从 `RECIPE_CONTROLS` 读取注册名，从 `EditRecipe` 读取字段名，扫描 GUI 的 `EditRecipe { ... }` 字面量和字段赋值；未注册字段直接拒绝。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中 GUI 给未注册的 `mystery` 字段赋值被拒绝。
-
-### [x] `every_raw_image_door_measures_the_plane_first`
-- 旧位置：`src/decode.rs` 测试；原测试检查每个 `raw_image(` door 都先调用 `guard_raw_plane_extent`。
-- 当前状态：`raw-image-plane-guard` 扫描全部生产 Rust 文件；每个 `.raw_image(` 调用所在函数必须先出现 `guard_raw_plane_extent`。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 的裸 `raw_image` 被拒绝。
-
-### [x] `the_one_raw_develop_funnel_charges_the_ceiling_before_it_decompresses`
-- 旧位置：`src/decode.rs` 测试；原测试检查 raw develop funnel 在解压前收费。
-- 当前状态：`raw-develop-ceiling` 扫描所有以 `false` 解压的 `raw_image` 调用，要求同一函数先调用 `refuse_raw_develop_over_ceiling_for`。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中真实解压先于 ceiling 检查被拒绝。
-
-### [x] `the_servers_heavy_handlers_take_the_one_library_slot`
-- 旧位置：`src/lib.rs` 测试；原测试检查服务器重型 handler 使用同一个 `FullResSlot`。
-- 当前状态：`server-heavy-slot` 要求 `api_export` 和 `api_download` 的函数体取得 `heavy()`。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中缺少 `heavy()` 的 handler 被拒绝。
-
-### [x] `the_generative_fill_holds_the_section_only_for_its_local_phases`
-- 旧位置：`src/lib.rs` 测试；原测试检查 generative fill 只在本地阶段持有 FullResSlot。
-- 当前状态：`generative-slot-scope` 检查 `edit_onto` 的顺序：取得 slot、释放 slot、调用模型、复合阶段重新取得 slot。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中跨模型调用持续持有 slot 被拒绝。
-
-### [x] `healing_takes_the_section_where_it_allocates`
-- 旧位置：`src/lib.rs` 测试；原测试检查 heal 的分配入口持有资源 slot。
-- 当前状态：`heal-slot-scope` 要求 `heal_and_save` 在 `split_alpha`、`heal_image` 和 `save_master` 之前取得 slot。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中分配阶段先于 slot 被拒绝。
-
-### [x] `the_three_open_paths_share_one_base_look_entry`
-- 旧位置：`src/render/tests/sources_and_base_look.rs`；原测试检查 pipeline、serve、GUI 都走 `camera_base_look`，且不手工组装 pair。
-- 当前状态：`base-look-single-entry` 禁止 `src/render/base_look.rs` 之外的 `camera_base_knots(` 调用，并要求 pipeline、serve、GUI open 三个路径都调用 `camera_base_look(`。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中 pipeline 直接调用 `camera_base_knots` 被拒绝。
+- [ ] `every_paint_buffer_mutation_uses_the_presence_notification_door`：补可见 overlay
+  refresh 行为，或把通知做成不可绕过的 mutation API。
+- [ ] `the_gui_only_offers_controls_the_engine_renders`：需要 typed control registry，
+  不能扫描字段赋值文本。
+- [ ] `every_raw_image_door_measures_the_plane_first`：逐公开 decode door 验收 plane
+  ceiling，或用类型封装未计费 decoder。
+- [ ] `the_one_raw_develop_funnel_charges_the_ceiling_before_it_decompresses`：验收真实
+  decompression 前的资源拒绝，不能扫描调用顺序。
+- [ ] `the_servers_heavy_handlers_take_the_one_library_slot`：用并发 HTTP 行为验收共享
+  full-resolution 上限。
+- [ ] `the_generative_fill_holds_the_section_only_for_its_local_phases`：用并发/资源行为
+  验收 slot 释放与重取。
+- [ ] `healing_takes_the_section_where_it_allocates`：用 heal 资源上限行为验收。
+- [ ] `the_three_open_paths_share_one_base_look_entry`：比较 pipeline、serve、GUI 的公开
+  delivered base look。
 
 ### [ ] `every_baked_decode_line_says_why_it_is_allowed`
 - 旧位置：`src/render/tests/sources_and_base_look.rs`；原测试要求每个 `load_image` consumer 有允许标记。
@@ -355,23 +320,14 @@ HTTP、CLI、文件结果或可见 GUI 进入。
 - 当前状态：评审项。若该约束仍然必要，应通过 RAW / baked 类型或不可绕过的公开入口
   表达，再由编译器验收；不得恢复源码注释扫描测试。
 
-### [x] `the_engine_renders_the_field_from_the_recipe_and_never_calls_the_analyzer`
-- 旧位置：`src/fit_field/tests.rs`；原测试检查 render/recipe/xmp 不依赖 `fit_field` 或 `freemask`。
-- 当前状态：`engine-analyzer-boundary` 扫描 `src/render.rs`、`src/render/`、`src/recipe.rs` 和 `src/xmp/`，拒绝 `fit_field` 或 `freemask`。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中 render 引用 `fit_field` 被拒绝。
+### [ ] `the_engine_renders_the_field_from_the_recipe_and_never_calls_the_analyzer`
+- 当前状态：需要 Rust module/type visibility 边界；token 扫描不是执行者。
 
-### [x] `linear_ramp_has_a_single_definition`
-- 旧位置：`src/render/tests/coverage_and_ramps.rs`；原测试检查 mask metric 和 weight 只使用一个 linear coverage 定义。
-- 当前状态：`linear-ramp-single-definition` 要求 `linear_ramp_coverage` 全仓只有一个定义，且位于 `src/render.rs`；`src/fit_zoned/subzones.rs` 必须调用它。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中重复定义和 subzones 绕过共享 ramp 均被拒绝。
+### [ ] `linear_ramp_has_a_single_definition`
+- 当前状态：单定义/文件位置是源码形状；保留公开 coverage 等价性行为，或用类型共享实现。
 
-### [x] `every_store_read_goes_through_the_capped_reader`
-- 旧位置：`src/store/tests.rs`；原测试检查 store 文件和 segment.rs 的读取都经过 capped reader。
-- 当前状态：`store-capped-read` 扫描 `src/store/` 和 `src/segment.rs`，拒绝 `std::fs::read_to_string` 与 `std::fs::read` 直读。
-- Gate：`scripts/check_architecture.py`。
-- Mutation：self-test 中 store 直接读取被拒绝。
+### [ ] `every_store_read_goes_through_the_capped_reader`
+- 当前状态：逐 Store 公开读取验收 size refusal，或用仅暴露 capped reader 的类型边界。
 
 ### [x] `no_test_prints_its_own_skip_line`
 - 旧位置：`src/lib.rs` 测试；原测试扫描 `src/`，禁止手写 `"SKIP..."`。

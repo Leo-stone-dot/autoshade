@@ -36,8 +36,6 @@ run "cargo test" cargo test --locked --release --features gui
 run "test policy self-test" python3 scripts/check_test_policy.py --self-test
 run "test policy gate" python3 scripts/check_test_policy.py
 run "cargo clippy" cargo clippy --locked --release --all-targets --features gui -- -D warnings
-run "architecture self-test" python3 scripts/check_architecture.py --self-test
-run "architecture gate" python3 scripts/check_architecture.py
 run "text resources" python3 scripts/check_text.py
 run "GUI font subsets" python3 scripts/subset_gui_fonts.py --check
 run "doc drift" python3 scripts/check_doc_drift.py

@@ -213,9 +213,8 @@
 > model (§4.9).
 > Behavior tests cover headless GUI workflows and public engine/file contracts;
 > architecture constraints remain enforced by clippy, type visibility, module
-> boundaries and `scripts/check_architecture.py`. The release battery runs the
-> behavior suite, test policy, lint, architecture, text/font checks and the
-> document gates.
+> boundaries. The release battery runs the behavior suite, test policy, Clippy,
+> text/font checks and the document gates.
 > v0.23.3 (round 13): the XMP xmlns conflict gate resolves namespace bindings
 > through an element SCOPE STACK and refuses only where a binding would
 > actually corrupt this document's reading (a nested rebound island nobody

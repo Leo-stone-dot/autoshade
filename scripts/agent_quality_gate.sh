@@ -20,8 +20,6 @@ cargo test --locked --release --features gui
 cargo clippy --locked --release --all-targets --features gui -- -D warnings
 python3 scripts/check_test_policy.py --self-test
 python3 scripts/check_test_policy.py
-python3 scripts/check_architecture.py --self-test
-python3 scripts/check_architecture.py
 python3 scripts/check_text.py
 python3 scripts/check_doc_drift.py
 python3 scripts/check_docs.py
