@@ -1772,6 +1772,72 @@ fn attribute_control_characters_use_references_and_round_trip() {
     assert_eq!(restored.masks[0].name, value);
 }
 
+#[test]
+fn text_constructs_cannot_truncate_the_description_during_merge() {
+    for construct in [
+        "<!-- </rdf:Description> -->",
+        "<![CDATA[ </rdf:Description> ]]>",
+        "<?probe </rdf:Description> ?>",
+    ] {
+        let document = format!(
+            r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">{construct}<crs:ForeignKeep>25</crs:ForeignKeep></rdf:Description>"#
+        );
+        let merged = autoshade::xmp::merge_recipe_into_xmp(
+            &document,
+            &EditRecipe {
+                exposure_ev: 0.25,
+                ..EditRecipe::default()
+            },
+        )
+        .expect("text containing a close marker remains mergeable");
+
+        assert!(merged.doc.contains(construct));
+        assert!(merged.doc.contains("<crs:ForeignKeep>25</crs:ForeignKeep>"));
+        assert_eq!(autoshade::xmp::xmp_to_recipe(&merged.doc).exposure_ev, 0.25);
+    }
+}
+
+#[test]
+fn an_unterminated_text_construct_refuses_a_preserving_merge() {
+    let document = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"><!-- </rdf:Description>"#;
+
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(document, &EditRecipe::default()).is_none()
+    );
+}
+
+#[test]
+fn construct_heavy_xmp_finishes_preserving_merge_within_the_resource_budget() {
+    const BUDGET: std::time::Duration = std::time::Duration::from_secs(5);
+    let head =
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">"#;
+    let comments = format!(
+        "{head}{}<crs:ForeignKeep>25</crs:ForeignKeep></rdf:Description>",
+        "<!--x-->".repeat(80_000)
+    );
+    let processing_instructions = format!(
+        "{head}{}<crs:ForeignKeep>25</crs:ForeignKeep></rdf:Description>",
+        "<?p?>".repeat(80_000)
+    );
+
+    for (name, document) in [
+        ("comments", comments),
+        ("processing instructions", processing_instructions),
+    ] {
+        let started = std::time::Instant::now();
+        let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &EditRecipe::default())
+            .unwrap_or_else(|| panic!("{name}: valid document was refused"));
+        let elapsed = started.elapsed();
+
+        assert!(merged.doc.contains("<crs:ForeignKeep>25</crs:ForeignKeep>"));
+        assert!(
+            elapsed < BUDGET,
+            "{name}: {} bytes took {elapsed:?}, over the {BUDGET:?} budget",
+            document.len()
+        );
+    }
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
