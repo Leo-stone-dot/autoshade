@@ -2,6 +2,7 @@ use autoshade::recipe::{
     BrushStroke, ColourField, EditRecipe, LocalAdjustment, MaskCombine, MaskComponent,
     MaskGeometry, MaskRole,
 };
+use autoshade::render::{LensBlur, PixelLayer};
 
 mod support;
 
@@ -797,6 +798,46 @@ crs:Right="0.75" crs:Feather="50" crs:Roundness="0" crs:Flipped="false" crs:Angl
         recipe.masks[0].components[0].geometry,
         MaskGeometry::Radial { .. }
     ));
+}
+
+#[test]
+fn a_photo_less_xmp_read_disables_every_unanchored_raster_reference() {
+    let bitmap = |path: &str| LocalAdjustment {
+        mask: MaskGeometry::Bitmap {
+            path: path.to_string(),
+        },
+        exposure_ev: 0.5,
+        ..LocalAdjustment::default()
+    };
+    let recipe = EditRecipe {
+        exposure_ev: 0.3,
+        masks: vec![
+            bitmap("mask-bare.png"),
+            bitmap("sub/relative.png"),
+            bitmap("//host/share/mask.png"),
+        ],
+        lens_blur: Some(LensBlur {
+            depth_map: "../depth.png".to_string(),
+            protect: Some(r"\\host\share\protect.png".to_string()),
+            ..LensBlur::default()
+        }),
+        pixel_layers: vec![PixelLayer {
+            path: "layer.png".to_string(),
+            ..PixelLayer::default()
+        }],
+        ..EditRecipe::default()
+    };
+
+    let restored =
+        autoshade::xmp::xmp_to_recipe(&autoshade::xmp::recipe_to_xmp(&recipe));
+    let mut paths = restored;
+    let paths = paths.raster_paths_mut();
+
+    assert_eq!(paths.len(), 6);
+    assert!(paths.iter().all(|path| {
+        let path = std::path::Path::new(path.as_str());
+        path.is_absolute() && path.ends_with(".invalid-mask-reference")
+    }));
 }
 
 #[test]

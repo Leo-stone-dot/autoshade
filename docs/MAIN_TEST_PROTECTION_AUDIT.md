@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：609 cases，约 1,716 个断言宏，33 个显式 ignore。
+- 当前工作树：610 cases，约 1,718 个断言宏，33 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，175 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,092 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，176 条 `rewritten`、13 条
+`lint`、1 条 `drop`、2,091 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1439,6 +1439,8 @@ portrait case红。
 投影为Add时，Add-one case读回 `(blend=1,value=0)` 并红。
 Composition矩阵覆盖8组Linear/Radial/AI组合；破坏whole-inverted Intersect的
 De Morgan投影时，带intent读取仍可能正确，但CRS-only逐像素coverage断言红。
+Photo-less public read携带6个mask/depth/protect/layer引用，全部变成绝对inert sentinel；
+跳过统一disable入口时该case红。
 纯Lightroom-shaped fixture把`blend=1,inverted=true`读为Intersect；改成Subtract时
 外部导入case直接红。
 其余 composition cases 继续逐项审计，不由这一条自动勾销。
@@ -1457,7 +1459,7 @@ De Morgan投影时，带intent读取仍可能正确，但CRS-only逐像素covera
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
-| `tests/xmp_behavior.rs` | 16 | payload/namespace round-trip、native composition matrix/外部census输入、AI/Brush/complement、inversion、roles、loss、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
+| `tests/xmp_behavior.rs` | 17 | payload/namespace round-trip、photo-less raster safety、native composition/census输入、inversion、roles、loss、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

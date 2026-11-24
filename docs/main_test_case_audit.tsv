@@ -2051,7 +2051,7 @@ src/xmp/payload_tests.rs	265	a_lightroom_rewrite_keeps_what_it_did_not_touch_and
 src/xmp/payload_tests.rs	334	an_edited_recolour_carrier_is_lightrooms_and_the_gains_go	3	default	open		Awaiting assertion-by-assertion review.
 src/xmp/payload_tests.rs	350	an_explicit_companion_zero_survives_a_rewrite_and_yields_to_an_edit	5	default	open		Awaiting assertion-by-assertion review.
 src/xmp/payload_tests.rs	368	rasters_are_placed_beside_the_develop_on_a_disclosing_read_and_never_on_a_silent_one	14	default	open		Awaiting assertion-by-assertion review.
-src/xmp/payload_tests.rs	445	a_read_without_a_photo_never_keeps_an_unanchored_raster_path	4	default	open		Awaiting assertion-by-assertion review.
+src/xmp/payload_tests.rs	445	a_read_without_a_photo_never_keeps_an_unanchored_raster_path	4	default	rewritten	tests/xmp_behavior.rs::a_photo_less_xmp_read_disables_every_unanchored_raster_reference	A normal public XMP round-trip with no photo context carries six bare, relative and network raster references into the reader, which preserves all six slots but rewrites every path to one absolute inert sentinel.
 src/xmp/payload_tests.rs	487	a_photo_less_merge_still_preserves_an_untouched_import_with_a_bare_raster	2	default	open		Awaiting assertion-by-assertion review.
 src/xmp/payload_tests.rs	511	a_payload_this_build_cannot_trust_is_disclosed_and_the_crs_reading_stands	5	default	rewritten	docs/MAIN_TEST_PROTECTION_AUDIT.md	Detailed assertion mapping recorded in the main audit.
 src/xmp/payload_tests.rs	540	a_merge_replaces_the_previous_payload_and_steps_around_a_foreign_prefix	16	default	rewritten	docs/MAIN_TEST_PROTECTION_AUDIT.md	Detailed assertion mapping recorded in the main audit.
