@@ -3149,6 +3149,60 @@ fn out_of_frame_radial_corners_import_and_export_without_clamping() {
     );
 }
 
+fn framed_lightroom_radial_document(
+    top: &str,
+    left: &str,
+    bottom: &str,
+    right: &str,
+    angle: &str,
+) -> String {
+    lightroom_component_stack_document(&[lightroom_radial_component_at("0", "1", angle)
+        .replace(r#"crs:Top="0.1""#, &format!(r#"crs:Top="{top}""#))
+        .replace(r#"crs:Left="0.2""#, &format!(r#"crs:Left="{left}""#))
+        .replace(r#"crs:Bottom="0.8""#, &format!(r#"crs:Bottom="{bottom}""#))
+        .replace(r#"crs:Right="0.9""#, &format!(r#"crs:Right="{right}""#))])
+    .replace(
+        r#"xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/""#,
+        r#"xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+ tiff:ImageWidth="9504" tiff:ImageLength="6336""#,
+    )
+}
+
+#[test]
+fn radial_corner_encoding_round_trips_both_lightroom_arrangements() {
+    let frame = autoshade::xmp::FrameAspect::from_size(9504.0, 6336.0);
+    for (top, left, bottom, right, angle) in [
+        ("-0.045582", "-0.056408", "0.9708", "1.062771", "24.348422"),
+        ("-0.088191", "0.520214", "1.113528", "0.494492", "29.513785"),
+        ("-0.082402", "-0.008723", "1.109604", "1.090228", "28.229232"),
+        ("0.069396", "-0.059577", "0.855822", "1.06594", "0"),
+    ] {
+        let document =
+            framed_lightroom_radial_document(top, left, bottom, right, angle);
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        let exported =
+            autoshade::xmp::recipe_to_xmp_in_frame(&imported, frame).0;
+
+        for (key, value) in [
+            ("Top", top),
+            ("Left", left),
+            ("Bottom", bottom),
+            ("Right", right),
+        ] {
+            assert!(
+                exported.contains(&format!(r#"crs:{key}="{value}""#)),
+                "{key}={value}"
+            );
+        }
+        let start = exported.find(r#"crs:Angle=""#).unwrap() + r#"crs:Angle=""#.len();
+        let end = start + exported[start..].find('"').unwrap();
+        let got: f64 = exported[start..end].parse().unwrap();
+        let expected: f64 = angle.parse().unwrap();
+        assert!((got - expected).abs() < 1e-4, "{got} vs {expected}");
+    }
+}
+
 fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
     format!(
         r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
