@@ -977,6 +977,22 @@ const MASK_BRUSH_TRAILING_PAYLOAD: &[u8] = &[
     0xE9, 0xD1, 0x02, 0x81, 0xBC, 0x35, 0x01,
 ];
 
+const MASK_BRUSH_TABLE_WORD: &[u8] =
+    &[0x1B, 0x07, 0x00, 0xF8, 0xA7, 0x00, 0x04, 0x82, 0x92, 0x40, 0x20];
+const MASK_BRUSH_RECORD_BOUND: &[u8] =
+    &[0x8B, 0x03, 0x80, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x03];
+const MASK_BRUSH_D_COUNT_BOUND: &[u8] = &[
+    0x1B, 0x4D, 0x00, 0xF8, 0x07, 0xE1, 0x64, 0x17, 0x12, 0x21, 0x6A, 0x4A, 0x35,
+    0x1B, 0xD8, 0x80, 0x13, 0x4E, 0x03, 0x87, 0x05, 0x06, 0x5A, 0x4E, 0x07, 0x02,
+    0x68, 0xC9, 0xC0, 0x02, 0xFD, 0xBC, 0xDA, 0x4B, 0x35, 0x14, 0x78, 0xAF,
+];
+const MASK_BRUSH_TOKEN_BOUND: &[u8] = &[
+    0x5B, 0x5B, 0x00, 0x85, 0x7F, 0x28, 0xF0, 0x76, 0x5F, 0x54, 0x42, 0xD4, 0x94,
+    0x6A, 0x82, 0x76, 0x44, 0x97, 0xAE, 0x7E, 0x93, 0x08, 0x5C, 0xC0, 0x55, 0x49,
+    0x08, 0x10, 0x80, 0x8D, 0x4F, 0xF7, 0x4D, 0xEB, 0xD0, 0x7D, 0xEF, 0x09, 0x20,
+    0x84, 0xB1, 0x1F, 0x08,
+];
+
 #[test]
 fn missing_mask_brush_companion_is_disclosed_as_unavailable() {
     let (recipe, lines) = brush_table_refusal(
@@ -1094,4 +1110,60 @@ fn trailing_mask_brush_bytes_are_disclosed_as_payload_invalid() {
 
     assert!(recipe.masks.is_empty());
     assert!(lines.iter().any(|line| line.contains("PayloadInvalid")));
+}
+
+#[test]
+fn non_one_mask_brush_table_word_is_disclosed_as_payload_unsupported() {
+    let (acr, token) =
+        one_object_acr(&brush_object(MASK_BRUSH_TABLE_WORD));
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-word", Some(&acr), &token, 8);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| {
+        line.contains("PayloadUnsupported") && line.contains("table word is not 1")
+    }));
+}
+
+#[test]
+fn mask_brush_record_count_limit_is_disclosed_before_allocation() {
+    let (acr, token) =
+        one_object_acr(&brush_object(MASK_BRUSH_RECORD_BOUND));
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-record-bound", Some(&acr), &token, 8);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| {
+        line.contains("PayloadInvalid") && line.contains("record count exceeds")
+    }));
+}
+
+#[test]
+fn mask_brush_d_count_limit_is_disclosed_before_token_walk() {
+    let (acr, token) =
+        one_object_acr(&brush_object(MASK_BRUSH_D_COUNT_BOUND));
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-d-count-bound", Some(&acr), &token, 78);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| {
+        line.contains("PayloadInvalid") && line.contains("d-count exceeds")
+    }));
+}
+
+#[test]
+fn mask_brush_token_count_limit_covers_non_dab_state_tokens() {
+    let (acr, token) =
+        one_object_acr(&brush_object(MASK_BRUSH_TOKEN_BOUND));
+
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-token-bound", Some(&acr), &token, 327_772);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| {
+        line.contains("PayloadInvalid") && line.contains("token count exceeds")
+    }));
 }
