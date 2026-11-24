@@ -1465,6 +1465,121 @@ fn unmodelled_global_names_survive_all_xml_whitespace_before_equals() {
     );
 }
 
+#[test]
+fn conflicting_crs_binding_refuses_import_merge_and_secondary_loss_channels() {
+    let canonical = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+2.50" crs:CurveRefineSaturation="100">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionActive="false">
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li crs:What="Mask/Gradient" crs:ZeroX="0.5" crs:ZeroY="0.8"
+     crs:FullX="0.5" crs:FullY="0.2"/>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#;
+    assert_eq!(autoshade::xmp::unsupported_corrections(canonical), 1);
+    assert!(!autoshade::xmp::import_losses(canonical).is_empty());
+    assert!(autoshade::xmp::unmodelled_global_crs(canonical)
+        .contains(&"CurveRefineSaturation".to_string()));
+    let conflict = canonical.replace(
+        "http://ns.adobe.com/camera-raw-settings/1.0/",
+        "urn:other",
+    );
+
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&conflict),
+        EditRecipe::default()
+    );
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(&conflict, &EditRecipe::default()).is_none()
+    );
+    assert_eq!(autoshade::xmp::unsupported_corrections(&conflict), 0);
+    assert!(autoshade::xmp::import_losses(&conflict).is_empty());
+    assert!(autoshade::xmp::unmodelled_global_crs(&conflict).is_empty());
+    assert!(autoshade::xmp::unparsable_crs_numbers(&conflict)[0]
+        .contains("not imported"));
+}
+
+#[test]
+fn default_namespace_bound_to_camera_raw_is_refused_publicly() {
+    let document = r#"<rdf:Description
+ xmlns="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <Exposure2012>+1.00</Exposure2012>
+</rdf:Description>"#;
+
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(document),
+        EditRecipe::default()
+    );
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(document, &EditRecipe::default()).is_none()
+    );
+    assert!(autoshade::xmp::unparsable_crs_numbers(document)[0]
+        .contains("DEFAULT namespace"));
+}
+
+#[test]
+fn nested_crs_rebind_refuses_only_while_a_name_resolves_through_its_scope() {
+    let unused = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+  crs:Exposure2012="+0.50">
+  <dc:island xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:crs="urn:other"><dc:note>hi</dc:note></dc:island>
+ </rdf:Description>
+</rdf:RDF></x:xmpmeta>"#;
+    let used = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <dc:island xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:crs="urn:other"><dc:inner crs:Shadows2012="+10"/></dc:island>
+</rdf:RDF></x:xmpmeta>"#;
+    let closed = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <dc:island xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:crs="urn:other"><dc:note>hi</dc:note></dc:island>
+ <rdf:Description crs:Exposure2012="+0.50"/>
+</rdf:RDF></x:xmpmeta>"#;
+
+    assert_eq!(autoshade::xmp::xmp_to_recipe(unused).exposure_ev, 0.5);
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(unused, &EditRecipe::default()).is_some()
+    );
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(used),
+        EditRecipe::default()
+    );
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(used, &EditRecipe::default()).is_none()
+    );
+    assert!(autoshade::xmp::unparsable_crs_numbers(used)[0].contains("urn:other"));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(closed).exposure_ev, 0.5);
+}
+
+#[test]
+fn foreign_camera_raw_alias_refuses_only_when_used() {
+    let unused = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:zzz="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <rdf:Description/>
+</rdf:RDF></x:xmpmeta>"#;
+    let used = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:zzz="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <rdf:Description zzz:Exposure2012="+1.00"/>
+</rdf:RDF></x:xmpmeta>"#;
+
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(unused, &EditRecipe::default()).is_some()
+    );
+    assert!(
+        autoshade::xmp::merge_recipe_into_xmp(used, &EditRecipe::default()).is_none()
+    );
+    assert!(autoshade::xmp::unparsable_crs_numbers(used)[0].contains("`zzz:`"));
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
