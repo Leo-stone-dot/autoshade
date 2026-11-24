@@ -24,6 +24,7 @@ configuration and broken on the other.
 
 - [ ] `cargo clippy --all-targets` — clean
 - [ ] `cargo clippy --all-targets --features gui` — clean
+- [ ] `cargo test --locked --release --features gui` — green
 - [ ] **Docs changed?** `python scripts/check_docs.py` prints **PASS** on every
       row it can derive. That gate re-derives the hard numbers in the docs from
       the tree, and a claim site it can no longer find is a **FAIL**, not a

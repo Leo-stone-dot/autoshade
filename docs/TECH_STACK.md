@@ -2165,9 +2165,10 @@ than the pre-call state; model weights remain outside the repository.
   1996 MiB / 10.247 s at 0.71: +231 MiB and +5.116 s for luminance return.
   This excludes the Python/model process. Batch rendering does not request
   AI denoise, so its ordinary 1800 MB planning constant is unchanged.
-- No behavior test suite is currently checked in. Architecture constraints are
-  enforced by clippy and visibility; the release battery runs lint, text/font
-  checks and document claims.
+- The default and GUI behavior suites exercise headless workflows and public
+  engine/file contracts. Architecture constraints remain enforced by clippy,
+  visibility and the architecture gate; the release battery runs the suites,
+  test policy, text/font checks and document claims.
 - The build workflow checks default and GUI feature sets on Ubuntu and macOS.
   The published binary artifacts are the Windows builds, two universal macOS
   archives — the app bundle and the command line on its own (the bundle has

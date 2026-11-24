@@ -9,7 +9,10 @@ review.
 
 ```
 cargo build --release
+cargo test --release --features gui                          # behavior suite
 cargo clippy --release --all-targets --features gui -- -D warnings
+cargo install cargo-mutants --version 27.1.0 --locked        # one-time, for the agent gate
+scripts/agent_quality_gate.sh                                # tests + lint + docs + changed-code mutation
 python scripts/check_docs.py                                 # pinned release claims re-derived from the tree
 python scripts/check_text.py                                 # text resources: locales aligned, generated in step, no literal key positions
 python3 -m pip install fonttools                             # dependency of the font-subset gate
@@ -19,7 +22,8 @@ python scripts/check_doc_drift.py                            # every path, code 
 
 The Python sidecars (`python/*.py`) need the packages in `python/requirements-*.txt`;
 the model weights download on first use into `python/weights/` and are never
-committed. No behavior test suite is currently checked in.
+committed. The default behavior suite is synthetic and does not call external
+services.
 
 ## What a change has to carry
 
@@ -42,7 +46,10 @@ committed. No behavior test suite is currently checked in.
   sweeps every site of the same class in the same change.
 - **A test that would have caught it, and proof the test bites.** Every new
   invariant comes with a hand mutation that turns the test red; say which
-  mutation in the PR.
+  mutation in the PR. The automated gate is documented in
+  `docs/TESTING_PRINCIPLES.md` and runs through `cargo-mutants`; generated
+  faults that do not change an asserted public result survive and fail the
+  gate.
 - **Numbers, not adjectives.** A behaviour change in the fit, the renderer or
   the retrieval reports its before/after measurement on the documented
   fixtures. A change that regresses any of them does not ship.

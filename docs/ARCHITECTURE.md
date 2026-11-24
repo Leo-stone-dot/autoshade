@@ -211,9 +211,11 @@
 > experimental generative edits, an optional pixel-**heal** retouch mode (§4.7)
 > the deterministic look **reverse-fit** (§4.8) and the local server's refusal
 > model (§4.9).
-> No behavior test suite is currently checked in. Architecture constraints are
-> enforced by clippy, type visibility and module boundaries. The release battery
-> runs lint, text/font checks and the document gates.
+> Behavior tests cover headless GUI workflows and public engine/file contracts;
+> architecture constraints remain enforced by clippy, type visibility, module
+> boundaries and `scripts/check_architecture.py`. The release battery runs the
+> behavior suite, test policy, lint, architecture, text/font checks and the
+> document gates.
 > v0.23.3 (round 13): the XMP xmlns conflict gate resolves namespace bindings
 > through an element SCOPE STACK and refuses only where a binding would
 > actually corrupt this document's reading (a nested rebound island nobody
@@ -6893,7 +6895,8 @@ egui pulls — used to pre-validate a CJK font before handing it to egui, which
 panics on an unparseable one, so font loading degrades safely, and
 `fontdb` 0.24, the OS font database (DirectWrite on Windows, CoreText on macOS,
 fontconfig on Linux) the runtime fallbacks are asked by FAMILY NAME — no font
-directory or file is named in this tree.
+directory or file is named in this tree. The dev-only `egui_kittest` harness
+drives headless GUI behavior through the accessibility tree.
 
 **The GUI's one workspace.** The desktop app opens straight into the
 workspace: there is no mode page and no `Mode`/`Shell` table. Every shared

@@ -436,14 +436,18 @@ def check_tech_stack(_args: argparse.Namespace) -> tuple[str, list[str]]:
 
 
 def check_release_battery_lanes(args: argparse.Namespace) -> tuple[str, list[str]]:
-    """The release battery still runs lint and the document gates."""
+    """The release battery still runs behavior, policy, lint and document gates."""
     script = "scripts/release_battery.sh"
     body = text(script)
     required = [
+        "cargo test --locked --release --features gui",
         "cargo clippy --locked --release --all-targets --features gui -- -D warnings",
+        "python3 scripts/check_test_policy.py",
+        "python3 scripts/check_architecture.py",
         "python3 scripts/check_text.py",
         "python3 scripts/subset_gui_fonts.py --check",
         "python3 scripts/check_doc_drift.py",
+        "python3 scripts/check_docs.py",
     ]
     missing = [needle for needle in required if needle not in body]
     if missing:
@@ -451,7 +455,9 @@ def check_release_battery_lanes(args: argparse.Namespace) -> tuple[str, list[str
             f"        {script} is missing {len(missing)} gate(s):",
             *[f"        - {needle}" for needle in missing],
         ]
-    return "PASS", ["        clippy + text + fonts + doc drift"]
+    return "PASS", [
+        "        behavior + test policy + clippy + architecture + text + fonts + docs"
+    ]
 
 
 # ── Toolchain ───────────────────────────────────────────────────────────────
