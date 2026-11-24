@@ -2292,6 +2292,28 @@ fn nonzero_inert_local_keeps_the_mask_and_names_the_unmodelled_slider() {
     assert_eq!(autoshade::xmp::unsupported_corrections(&document), 0);
 }
 
+#[test]
+fn unknown_local_and_curve_refine_losses_stack_and_name_the_correction() {
+    let document = lightroom_radial_value_document("0", "1")
+        .replace(r#"crs:CorrectionName="Radial 1""#, r#"crs:CorrectionName="Sky""#)
+        .replace(
+            r#"crs:LocalContrast2012="0.43""#,
+            r#"crs:LocalContrast2012="0.43" crs:LocalWhatsit="0.5" crs:LocalCurveRefineSaturation="80""#,
+        );
+    let restored = autoshade::xmp::xmp_to_recipe(&document);
+    let losses = autoshade::xmp::import_losses(&document);
+
+    assert_eq!(restored.masks.len(), 1);
+    assert_eq!(losses.len(), 2);
+    assert!(losses.iter().all(|loss| loss.name == "Sky"));
+    assert!(losses
+        .iter()
+        .any(|loss| loss.reason == MaskImportReason::UnknownLocalKey));
+    assert!(losses
+        .iter()
+        .any(|loss| loss.reason == MaskImportReason::CurveRefineSaturation));
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
