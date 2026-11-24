@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：626 cases，约 1,794 个断言宏，36 个显式 ignore。
+- 当前工作树：632 cases，约 1,844 个断言宏，37 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，186 条 `rewritten`、13 条
-`lint`、1 条 `drop`、1 条 `external-gate`、2,080 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，191 条 `rewritten`、13 条
+`lint`、1 条 `drop`、1 条 `external-gate`、2,075 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -764,6 +764,81 @@ Spotlight 也找不到三组 fixture，因此本轮只验证它们可编译，�
 
 Mutation 证据：decoder 错误接受任意非空 future format 时，默认 case 的 CRS exposure
 仍正确，但 format disclosure 消失，case 在公开错误断言处红；mutation 已恢复。
+
+### External rewrite reconciliation
+
+- Main cases：
+  `a_lightroom_rewrite_keeps_what_it_did_not_touch_and_yields_what_it_did`、
+  `an_edited_recolour_carrier_is_lightrooms_and_the_gains_go` 与
+  `an_explicit_companion_zero_survives_a_rewrite_and_yields_to_an_edit`
+- 当前 cases：
+  `an_external_rewrite_keeps_untouched_payload_state_and_applies_its_edits`、
+  `an_external_recolour_edit_replaces_the_payload_gains` 与
+  `an_explicit_companion_zero_survives_until_an_external_edit_replaces_it`
+- 状态：3 条 `rewritten`
+- Gate：默认
+
+测试用公开 writer 分别生成 original payload 与 edited CRS artifact，再只替换公开
+`asr:Recipe`/CRC 属性，模拟 Lightroom 保留 payload、改写 CRS 且剥离 mask intent。
+它不调用 main 的 `lightroom_like`、`payload::find` 或 `loaded`。
+
+逐断言映射：
+
+| main 断言族 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| 外部 exposure/amount、删除 mask、新增 mask 与顺序胜出 | external-rewrite case | 用户在 Lightroom 的编辑被旧 payload 覆盖，或 mask 消失/复活 |
+| edited mask 的 untouched contrast/geometry保持 | external-rewrite case | 改一个 slider 顺带重置同 mask 其他设置 |
+| untouched zone、role、Intersect、colour field、WB anchor、rationale/confidence 保持 | external-rewrite case；完整 payload/role/composition cases共同执行 | Lightroom 重序列化造成 AutoShade-only intent 丢失 |
+| Lightroom materialise detail/smooth=50 不算编辑 | external-rewrite case | 打开一次 Lightroom 就凭空改变降噪 detail |
+| recolour carrier 编辑后 gains 删除，Temp/Exposure取外部值 | recolour case | 新颜色与旧 gains 叠加两次 |
+| explicit zero 写为 `SharpenDetail=0`，untouched保留，非零编辑清标记并胜出 | explicit-zero case | 真 0 变 Lightroom default，或 40 仍被错误解释为 explicit zero |
+
+Mutation 证据：
+
+- `choose` 对 exposure 永远采用 payload 时，外部 `-0.5` 读成 `0.35`。
+- colour field 强制采用 CRS 时，AutoShade-only field 变 `None`。
+- 丢弃未配对的 current mask 时，`LR added` 从公开 names 列表消失。
+- 删除 Lightroom materialised-default 规则时，detail 读成 50 而非 payload 的 0。
+- 绕过 `recolour_carrier` 时，外部 Temp edit 仍带旧 gains。
+- writer 的 `states` 忽略 `explicit_zero` 时，公开 XMP 不再含
+  `SharpenDetail="0"`。
+- 只破坏 explicit-zero reconciliation 或只破坏 clamp 过滤时 case仍绿，证明两层
+  可独立兜底；同时破坏两层后，非零 edit 仍带旧 marker，case 红。
+
+全部 mutation 均已恢复，`src/xmp/payload.rs`、`src/xmp/write.rs` 与
+`src/recipe.rs` 无 diff。
+
+### Raster materialization and claim cleanup
+
+- Main cases：
+  `rasters_are_placed_beside_the_develop_on_a_disclosing_read_and_never_on_a_silent_one`
+  与 `a_claimed_name_whose_write_fails_is_released_not_left_half_written`
+- 当前 cases：
+  `disclosing_xmp_reads_place_rasters_without_overwriting_existing_files` 与
+  `a_failed_raster_claim_releases_the_half_written_name`
+- 状态：2 条 `rewritten`
+- Gate：默认；claim failure 的一次性 fixture 仅在 Unix 编译运行
+
+逐断言映射：
+
+| main 断言族 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| silent read 不写 raster | public silent reader 后两个目标都不存在 | 保留 |
+| 私有 silent restore 返回尚不存在的 anchored path | public silent reader 返回 develop sentinel | 改写为当前公开安全契约，不暴露不可读路径 |
+| disclosing read 写出两份精确 bytes、recipe 指向它们、无 warning | public diagnostic reader + 实际文件/recipe/collector | 保留 |
+| 相同文件再次读取幂等且安静 | 第二次 public diagnostic read | 保留 |
+| 同名异内容时旧文件不变、新文件为 `-2`、bytes/recipe/warning一致 | public collision path | 保留 |
+| claimed handle 正常写入 | 上述首次写与 collision 写的真实文件结果 | 改写，不直接调用 private helper |
+| claimed handle 写失败后名称释放 | Unix 子进程用 `RLIMIT_FSIZE=0` 让 public collision 的 `create_new` 成功、write失败 | 保留真实错误路径；资源限制不污染父进程 |
+
+Mutation 证据：
+
+- public reader错误把 silent read也设为 materialize时，目标文件提前出现。
+- collision 分支错误复用原名时，recipe仍指向 `tile-r3c3.png` 而非 `-2`。
+- 删除写失败后的 `remove_file` 时，子进程留下零字节
+  `tile-r3c3-2.png`，fixture与父 case依次红。
+
+全部 mutation 均已恢复，`src/xmp/read.rs` 与 `src/xmp/payload.rs` 无 diff。
 
 ## GUI 已裁决
 
@@ -1644,7 +1719,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
-| `tests/xmp_behavior.rs` | 33 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、role fallback/intent、inversion reconciliation、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
+| `tests/xmp_behavior.rs` | 39 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

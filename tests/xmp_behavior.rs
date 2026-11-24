@@ -61,6 +61,21 @@ fn replace_single_native_inversion(xmp: &str, from: bool, to: bool) -> String {
     xmp.replacen(&old, &format!("crs:MaskInverted=\"{to}\""), 1)
 }
 
+fn external_rewrite(original: &EditRecipe, edited: &EditRecipe) -> String {
+    let original_xmp = autoshade::xmp::recipe_to_xmp(original);
+    let mut rewritten = without_mask_intent(autoshade::xmp::recipe_to_xmp(edited));
+    for name in ["asr:RecipeCrc32", "asr:Recipe"] {
+        let old = xmp_attribute_values(&rewritten, name)[0];
+        let new = xmp_attribute_values(&original_xmp, name)[0];
+        rewritten = rewritten.replacen(
+            &format!("{name}=\"{old}\""),
+            &format!("{name}=\"{new}\""),
+            1,
+        );
+    }
+    rewritten
+}
+
 fn unbacked_sky_geometry() -> MaskGeometry {
     MaskGeometry::AiMask {
         name: "Sky 1".to_string(),
@@ -1284,6 +1299,342 @@ fn real_lightroom_v131_rewrite_restores_the_payload_develop() {
         (before.exposure_ev, before.temperature_k, before.as_shot_k)
     );
     assert_eq!(after.color_nr, 0.0);
+}
+
+#[test]
+fn an_external_rewrite_keeps_untouched_payload_state_and_applies_its_edits() {
+    let zone = LocalAdjustment {
+        mask: unbacked_sky_geometry(),
+        role: MaskRole::ZoneSky,
+        components: vec![MaskComponent {
+            geometry: MaskGeometry::Radial {
+                top: 0.3,
+                left: 0.3,
+                bottom: 0.7,
+                right: 0.7,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 0.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            mode: MaskCombine::Intersect,
+            inverted: false,
+        }],
+        exposure_ev: -0.25,
+        ..LocalAdjustment::default()
+    };
+    let spot = LocalAdjustment {
+        name: "spot".to_string(),
+        mask: MaskGeometry::Radial {
+            top: 0.2,
+            left: 0.2,
+            bottom: 0.4,
+            right: 0.4,
+            feather: 0.5,
+            roundness: 0.0,
+            flipped: false,
+            angle: 0.0,
+            midpoint: 50.0,
+            mask_version: 2,
+        },
+        exposure_ev: 0.25,
+        ..LocalAdjustment::default()
+    };
+    let grad = LocalAdjustment {
+        name: "grad".to_string(),
+        mask: MaskGeometry::Linear {
+            zero_x: 0.1,
+            zero_y: 0.25,
+            full_x: 0.9,
+            full_y: 0.75,
+        },
+        amount: 1.0,
+        contrast: 20.0,
+        ..LocalAdjustment::default()
+    };
+    let original = EditRecipe {
+        exposure_ev: 0.35,
+        contrast: 12.0,
+        temperature_k: Some(5600.0),
+        tint: 3.0,
+        as_shot_k: Some(5200.0),
+        color_nr_detail: 0.0,
+        color_nr_smooth: 0.0,
+        colour_field: Some(ColourField {
+            x: 1,
+            y: 1,
+            b: 1,
+            grid: vec![[0.1, 0.0, 0.0, 0.0, 0.0]],
+            amount: 0.8,
+            enabled: true,
+        }),
+        masks: vec![zone.clone(), spot, grad.clone()],
+        rationale: "measured payload state".to_string(),
+        confidence: 0.8,
+        ..EditRecipe::default()
+    };
+    let mut edited = original.clone();
+    edited.exposure_ev = -0.5;
+    edited.color_nr_detail = 50.0;
+    edited.color_nr_smooth = 50.0;
+    edited.masks.retain(|mask| mask.name != "spot");
+    edited.masks[1].amount = 0.4;
+    edited.masks.push(LocalAdjustment {
+        name: "LR added".to_string(),
+        mask: MaskGeometry::Linear {
+            zero_x: 0.25,
+            zero_y: 0.25,
+            full_x: 0.75,
+            full_y: 0.75,
+        },
+        exposure_ev: -1.0,
+        ..LocalAdjustment::default()
+    });
+
+    let xmp = external_rewrite(&original, &edited);
+    let restored = autoshade::xmp::xmp_to_recipe(&xmp);
+    let names = restored
+        .masks
+        .iter()
+        .map(|mask| mask.name.as_str())
+        .collect::<Vec<_>>();
+
+    assert!(!xmp.contains("ash:"));
+    assert!(xmp.contains("crs:ColorNoiseReductionDetail=\"50\""));
+    assert_eq!(restored.exposure_ev, -0.5);
+    assert_eq!(names, ["", "grad", "LR added"]);
+    assert_eq!(restored.masks[0], zone);
+    assert_eq!(restored.masks[1].amount, 0.4);
+    assert_eq!(restored.masks[1].contrast, 20.0);
+    assert_eq!(restored.masks[1].mask, grad.mask);
+    assert_eq!(restored.masks[2].role, MaskRole::Custom);
+    assert_eq!(restored.masks[2].mask, edited.masks[2].mask);
+    assert!((restored.masks[2].exposure_ev + 1.0).abs() < 1e-3);
+    assert_eq!(restored.masks[0].role, MaskRole::ZoneSky);
+    assert_eq!(
+        restored.masks[0].components[0].mode,
+        MaskCombine::Intersect
+    );
+    assert_eq!(restored.colour_field, original.colour_field);
+    assert_eq!(restored.contrast, 12.0);
+    assert_eq!(restored.tint, 3.0);
+    assert_eq!(restored.temperature_k, Some(5600.0));
+    assert_eq!(restored.as_shot_k, Some(5200.0));
+    assert_eq!(restored.rationale, "measured payload state");
+    assert_eq!(restored.confidence, 0.8);
+    assert_eq!(restored.color_nr_detail, 0.0);
+    assert_eq!(restored.color_nr_smooth, 0.0);
+}
+
+#[test]
+fn an_external_recolour_edit_replaces_the_payload_gains() {
+    let original = EditRecipe {
+        masks: vec![LocalAdjustment {
+            name: "spot".to_string(),
+            mask: MaskGeometry::Radial {
+                top: 0.2,
+                left: 0.2,
+                bottom: 0.4,
+                right: 0.4,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 0.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            exposure_ev: 0.25,
+            color_gains: Some([1.18, 0.96, 0.85]),
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let mut edited = original.clone();
+    edited.masks[0].color_gains = None;
+    edited.masks[0].temperature = 50.0;
+
+    let restored =
+        autoshade::xmp::xmp_to_recipe(&external_rewrite(&original, &edited));
+    let spot = &restored.masks[0];
+
+    assert_eq!(spot.color_gains, None);
+    assert!((spot.temperature - 50.0).abs() < 1e-3);
+    assert!((spot.exposure_ev - 0.25).abs() < 1e-3);
+}
+
+#[test]
+fn an_explicit_companion_zero_survives_until_an_external_edit_replaces_it() {
+    let mut original = EditRecipe {
+        sharpening: 40.0,
+        ..EditRecipe::default()
+    };
+    original.set_resolved("sharpen_detail", 0.0);
+    let original_xmp = autoshade::xmp::recipe_to_xmp(&original);
+    assert!(original_xmp.contains("crs:SharpenDetail=\"0\""));
+
+    let untouched =
+        autoshade::xmp::xmp_to_recipe(&external_rewrite(&original, &original));
+    assert_eq!(
+        untouched.explicit_zero,
+        vec!["sharpen_detail".to_string()]
+    );
+    assert_eq!(untouched.resolved("sharpen_detail"), 0.0);
+
+    let mut edited = original.clone();
+    edited.set_resolved("sharpen_detail", 40.0);
+    let replaced =
+        autoshade::xmp::xmp_to_recipe(&external_rewrite(&original, &edited));
+    assert!(replaced.explicit_zero.is_empty());
+    assert_eq!(replaced.resolved("sharpen_detail"), 40.0);
+}
+
+#[test]
+fn disclosing_xmp_reads_place_rasters_without_overwriting_existing_files() {
+    let tree = support::TempTree::new("xmp-raster-placement");
+    let source = tree.path().join("source");
+    std::fs::create_dir(&source).unwrap();
+    let alpha = source.join("mask-zone-sky.png");
+    let tile = source.join("tile-r3c3.png");
+    std::fs::write(&alpha, b"zone alpha").unwrap();
+    std::fs::write(&tile, b"tile bytes").unwrap();
+    let recipe = EditRecipe {
+        masks: vec![
+            LocalAdjustment {
+                mask: MaskGeometry::Bitmap {
+                    path: alpha.to_string_lossy().into_owned(),
+                },
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                mask: MaskGeometry::Bitmap {
+                    path: tile.to_string_lossy().into_owned(),
+                },
+                ..LocalAdjustment::default()
+            },
+        ],
+        ..EditRecipe::default()
+    };
+    let xmp = autoshade::xmp::recipe_to_xmp(&recipe);
+    let mut env = support::ScopedEnv::new();
+    env.set("AUTOSHADE_DATA_DIR", tree.path().join("store"));
+    let photo = tree.path().join("target.dng");
+    std::fs::write(&photo, b"synthetic photo").unwrap();
+    let develop = autoshade::store::develop_dir(&photo);
+
+    let silent = autoshade::xmp::xmp_to_recipe_for_photo(&xmp, &photo);
+    assert!(!develop.join("mask-zone-sky.png").exists());
+    assert!(!develop.join("tile-r3c3.png").exists());
+    for mask in &silent.masks {
+        let MaskGeometry::Bitmap { path } = &mask.mask else {
+            panic!("payload bitmap remains a bitmap")
+        };
+        assert_eq!(
+            std::path::Path::new(path),
+            develop.join(".invalid-mask-reference")
+        );
+    }
+
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::about(&collector, &photo);
+    let placed = autoshade::xmp::xmp_to_recipe_with_diag(&xmp, &diag);
+    assert_eq!(std::fs::read(develop.join("mask-zone-sky.png")).unwrap(), b"zone alpha");
+    assert_eq!(std::fs::read(develop.join("tile-r3c3.png")).unwrap(), b"tile bytes");
+    let MaskGeometry::Bitmap { path } = &placed.masks[1].mask else {
+        panic!("placed tile remains a bitmap")
+    };
+    assert_eq!(std::path::Path::new(path), develop.join("tile-r3c3.png"));
+    assert!(collector.take().is_empty());
+
+    let _ = autoshade::xmp::xmp_to_recipe_with_diag(&xmp, &diag);
+    assert!(collector.take().is_empty());
+
+    std::fs::write(develop.join("tile-r3c3.png"), b"someone else's tile").unwrap();
+    let moved = autoshade::xmp::xmp_to_recipe_with_diag(&xmp, &diag);
+    let MaskGeometry::Bitmap { path } = &moved.masks[1].mask else {
+        panic!("moved tile remains a bitmap")
+    };
+    assert_eq!(std::path::Path::new(path), develop.join("tile-r3c3-2.png"));
+    assert_eq!(std::fs::read(develop.join("tile-r3c3-2.png")).unwrap(), b"tile bytes");
+    assert_eq!(
+        std::fs::read(develop.join("tile-r3c3.png")).unwrap(),
+        b"someone else's tile"
+    );
+    let lines = collector.take();
+    assert_eq!(lines.len(), 1);
+    assert!(lines[0].text.contains("tile-r3c3-2.png"));
+}
+
+#[cfg(unix)]
+#[test]
+#[allow(clippy::disallowed_methods)]
+fn a_failed_raster_claim_releases_the_half_written_name() {
+    let tree = support::TempTree::new("xmp-raster-claim-failure");
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .arg("--ignored")
+        .arg("--exact")
+        .arg("raster_claim_write_failure_fixture")
+        .env("AUTOSHADE_RASTER_CLAIM_FAILURE_ROOT", tree.path())
+        .env("AUTOSHADE_DATA_DIR", tree.path().join("store"))
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "fixture failed\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[cfg(unix)]
+#[test]
+#[ignore = "subprocess fixture invoked by a_failed_raster_claim_releases_the_half_written_name"]
+fn raster_claim_write_failure_fixture() {
+    let root = std::env::var_os("AUTOSHADE_RASTER_CLAIM_FAILURE_ROOT")
+        .map(std::path::PathBuf::from)
+        .expect("fixture must be launched by its parent case");
+    let source = root.join("source");
+    std::fs::create_dir_all(&source).unwrap();
+    let tile = source.join("tile-r3c3.png");
+    std::fs::write(&tile, b"payload tile").unwrap();
+    let xmp = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: tile.to_string_lossy().into_owned(),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    });
+    let photo = root.join("target.dng");
+    std::fs::write(&photo, b"synthetic photo").unwrap();
+    let develop = autoshade::store::develop_dir(&photo);
+    std::fs::create_dir_all(&develop).unwrap();
+    std::fs::write(develop.join("tile-r3c3.png"), b"existing tile").unwrap();
+
+    unsafe {
+        assert_ne!(libc::signal(libc::SIGXFSZ, libc::SIG_IGN), libc::SIG_ERR);
+        let limit = libc::rlimit {
+            rlim_cur: 0,
+            rlim_max: 0,
+        };
+        assert_eq!(libc::setrlimit(libc::RLIMIT_FSIZE, &limit), 0);
+    }
+
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::about(&collector, &photo);
+    let _ = autoshade::xmp::xmp_to_recipe_with_diag(&xmp, &diag);
+    let lines = collector.take();
+
+    assert!(!develop.join("tile-r3c3-2.png").exists());
+    assert_eq!(
+        std::fs::read(develop.join("tile-r3c3.png")).unwrap(),
+        b"existing tile"
+    );
+    assert_eq!(lines.len(), 1);
+    assert!(lines[0].text.contains("could not be placed"));
 }
 
 #[test]
