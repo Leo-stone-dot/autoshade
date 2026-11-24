@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：622 cases，约 1,760 个断言宏，33 个显式 ignore。
+- 当前工作树：626 cases，约 1,794 个断言宏，36 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
 当前校验结果：2,281 行与 main snapshot 精确一致，186 条 `rewritten`、13 条
-`lint`、1 条 `drop`、2,081 条 `open`。
+`lint`、1 条 `drop`、1 条 `external-gate`、2,080 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -730,6 +730,40 @@ Mutation 证据：
   `Collector::is_empty` 断言红。
 
 全部 mutation 均已恢复，`src/xmp/payload.rs` 无 diff。
+
+### Real Lightroom rewrite fixtures
+
+- Main case：`src/xmp/payload_tests.rs::the_real_lightroom_rewrites_read_as_measured`
+- 当前默认 case：
+  `tests/xmp_behavior.rs::an_unsupported_payload_format_is_disclosed_while_the_crs_projection_opens`
+- 当前外部 gates：
+  `real_lightroom_probe_preserves_payload_and_raster_bytes`、
+  `real_lightroom_v130_rewrite_recovers_zone_roles_from_band_names` 与
+  `real_lightroom_v131_rewrite_restores_the_payload_develop`
+- 状态：`external-gate`
+- 启用：
+  `AUTOSHADE_LR_PAYLOAD_FIXTURES=/path/to/lr-payload-2026-09 cargo test --release --test xmp_behavior real_lightroom_ -- --ignored`
+
+三个 gate 都用 `#[ignore]` 明确隔离外部私有 fixture。启用后环境变量缺失或任一文件
+缺失会失败，不再像 main case 一样 `return` 成静默绿灯。当前机器没有该环境变量，
+Spotlight 也找不到三组 fixture，因此本轮只验证它们可编译，没有宣称外部 gate 已跑。
+
+逐断言映射：
+
+| main 断言族 | 当前执行者 | 裁决 |
+| --- | --- | --- |
+| probe 原件确被 Lightroom 改写，namespace/payload/SHA/5 个 raster bytes 均保留 | real probe gate 比较两份公开 XMP artifact 的 Recipe、RecipeSha256 与 Name/Sha256/Data 序列 | 外部事实，保留在显式 gate |
+| probe payload 不是当前格式且必须拒绝 | 默认 unsupported-format case 的公开 diagnostic + CRS exposure | 默认保护，不再调用私有 `payload::find` |
+| v1.3.0 原件有 intent、rewrite 无 intent/payload | v130 gate 的 artifact premise | 外部事实 |
+| v1.3.0 两个 band 的 name/ZoneSky 恢复 | v130 gate；默认 name fallback case 同时保护合成路径 | 外部兼容 + 默认行为 |
+| Lightroom materialise `ColorNoiseReduction=25`，原件仍为 0 | v130 gate 的公开 recipe 字段 | 外部事实 |
+| v1.3.1 Recipe/raster bytes 经 rewrite 保留 | v131 gate 比较公开 artifact 属性 | 外部事实 |
+| v1.3.1 rewrite 无假 warning，colour field、6 masks、name/role/enabled/inverted、zone count、exposure/WB 与 color NR 恢复 | v131 gate 的公开 reader/collector | 外部兼容 |
+| 私有 payload decode、notes、rasters 结构 | 上述公开 artifact 与 reader 结果 | 改写，不断言私有 `Payload` |
+| 完整 JSON leaf diff 必须恰为 15 个内部路径 | 无 | 删除精确内部布局锁；有产品语义的 mask identity、global fields 与外部 edit precedence 已逐项执行 |
+
+Mutation 证据：decoder 错误接受任意非空 future format 时，默认 case 的 CRS exposure
+仍正确，但 format disclosure 消失，case 在公开错误断言处红；mutation 已恢复。
 
 ## GUI 已裁决
 
@@ -1610,7 +1644,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
-| `tests/xmp_behavior.rs` | 29 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、role fallback/intent、inversion reconciliation、portable raster paths、Lightroom base reconciliation、coverage | XMP、Render masks | Adobe 外部编辑兼容矩阵 |
+| `tests/xmp_behavior.rs` | 33 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition、role fallback/intent、inversion reconciliation、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

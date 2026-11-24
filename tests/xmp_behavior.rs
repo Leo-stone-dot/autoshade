@@ -1139,6 +1139,154 @@ fn a_corrupt_written_record_is_disclosed_while_the_payload_recipe_still_opens() 
 }
 
 #[test]
+fn an_unsupported_payload_format_is_disclosed_while_the_crs_projection_opens() {
+    let original = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        exposure_ev: 0.5,
+        ..EditRecipe::default()
+    });
+    let format = xmp_attribute_values(&original, "asr:Payload")[0];
+    let unsupported = original.replacen(
+        &format!("asr:Payload=\"{format}\""),
+        "asr:Payload=\"future-format\"",
+        1,
+    );
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::pixels_only(&collector);
+
+    let restored = autoshade::xmp::xmp_to_recipe_with_diag(&unsupported, &diag);
+    let lines = collector.take();
+
+    assert_eq!(restored.exposure_ev, 0.5);
+    assert!(lines.iter().any(|line| line.text.contains("payload format")));
+}
+
+fn lightroom_payload_fixture(name: &str) -> String {
+    let root = std::env::var_os("AUTOSHADE_LR_PAYLOAD_FIXTURES")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_LR_PAYLOAD_FIXTURES to the lr-payload-2026-09 fixture directory");
+    std::fs::read_to_string(root.join(name))
+        .unwrap_or_else(|error| panic!("{name}: {error}"))
+}
+
+#[test]
+#[ignore = "requires the external lr-payload-2026-09 Lightroom rewrite fixtures"]
+fn real_lightroom_probe_preserves_payload_and_raster_bytes() {
+    let original = lightroom_payload_fixture("probe-original.xmp");
+    let rewritten = lightroom_payload_fixture("probe-lightroom-9.4-rewrite.xmp");
+    let original_recipe = xmp_attribute_values(&original, "asr:Recipe");
+    let rewritten_recipe = xmp_attribute_values(&rewritten, "asr:Recipe");
+
+    assert_ne!(original, rewritten);
+    assert_eq!(original_recipe.len(), 1);
+    assert!(original_recipe[0].len() > 8_000);
+    assert_eq!(original_recipe, rewritten_recipe);
+    assert_eq!(
+        xmp_attribute_values(&original, "asr:RecipeSha256"),
+        xmp_attribute_values(&rewritten, "asr:RecipeSha256")
+    );
+    for field in ["Name", "Sha256", "Data"] {
+        assert_eq!(
+            xmp_attribute_values(&original, &format!("asr:{field}")),
+            xmp_attribute_values(&rewritten, &format!("asr:{field}"))
+        );
+    }
+    let raster_data = xmp_attribute_values(&rewritten, "asr:Data");
+    assert_eq!(raster_data.len(), 5);
+    assert!(raster_data.iter().all(|data| data.len() > 1_000));
+
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::pixels_only(&collector);
+    let _ = autoshade::xmp::xmp_to_recipe_with_diag(&rewritten, &diag);
+    assert!(collector
+        .take()
+        .iter()
+        .any(|line| line.text.contains("payload format")));
+}
+
+#[test]
+#[ignore = "requires the external lr-payload-2026-09 Lightroom rewrite fixtures"]
+fn real_lightroom_v130_rewrite_recovers_zone_roles_from_band_names() {
+    let original = lightroom_payload_fixture("band-sidecar-original.xmp");
+    let rewritten = lightroom_payload_fixture("band-sidecar-lightroom-9.4-rewrite.xmp");
+
+    assert!(original.contains("ash:Role=\"sky\""));
+    assert!(!rewritten.contains("ash:"));
+    let before = autoshade::xmp::xmp_to_recipe(&original);
+    let after = autoshade::xmp::xmp_to_recipe(&rewritten);
+
+    assert_eq!(before.masks.len(), 2);
+    assert_eq!(after.masks.len(), 2);
+    for (original_mask, rewritten_mask) in before.masks.iter().zip(&after.masks) {
+        assert_eq!(original_mask.role, MaskRole::ZoneSky);
+        assert_eq!(rewritten_mask.role, MaskRole::ZoneSky);
+        assert_eq!(rewritten_mask.name, original_mask.name);
+        assert!(rewritten_mask.name.starts_with("sky · band "));
+    }
+    assert_eq!(before.color_nr, 0.0);
+    assert_eq!(after.color_nr, 25.0);
+}
+
+#[test]
+#[ignore = "requires the external lr-payload-2026-09 Lightroom rewrite fixtures"]
+fn real_lightroom_v131_rewrite_restores_the_payload_develop() {
+    let original = lightroom_payload_fixture("payload-131-original.xmp");
+    let rewritten = lightroom_payload_fixture("payload-131-lightroom-9.4-rewrite.xmp");
+
+    assert_ne!(original, rewritten);
+    assert!(original.contains("asr:Writer=\"AutoShade 1.3.1\""));
+    assert!(!rewritten.contains(" ash:"));
+    assert_eq!(
+        xmp_attribute_values(&original, "asr:Recipe"),
+        xmp_attribute_values(&rewritten, "asr:Recipe")
+    );
+    for field in ["Name", "Data"] {
+        assert_eq!(
+            xmp_attribute_values(&original, &format!("asr:{field}")),
+            xmp_attribute_values(&rewritten, &format!("asr:{field}"))
+        );
+    }
+    assert_eq!(xmp_attribute_values(&rewritten, "asr:Data").len(), 5);
+
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::pixels_only(&collector);
+    let before = autoshade::xmp::xmp_to_recipe(&original);
+    let after = autoshade::xmp::xmp_to_recipe_with_diag(&rewritten, &diag);
+
+    assert!(collector.is_empty());
+    assert_eq!(after.colour_field, before.colour_field);
+    assert_eq!(after.masks.len(), 6);
+    for (rewritten_mask, original_mask) in after.masks.iter().zip(&before.masks) {
+        assert_eq!(
+            (
+                &rewritten_mask.name,
+                rewritten_mask.role,
+                rewritten_mask.enabled,
+                rewritten_mask.inverted,
+            ),
+            (
+                &original_mask.name,
+                original_mask.role,
+                original_mask.enabled,
+                original_mask.inverted,
+            )
+        );
+    }
+    assert_eq!(
+        after
+            .masks
+            .iter()
+            .filter(|mask| mask.role == MaskRole::ZoneSky)
+            .count(),
+        2
+    );
+    assert_eq!(
+        (after.exposure_ev, after.temperature_k, after.as_shot_k),
+        (before.exposure_ev, before.temperature_k, before.as_shot_k)
+    );
+    assert_eq!(after.color_nr, 0.0);
+}
+
+#[test]
 fn a_photo_less_xmp_read_disables_every_unanchored_raster_reference() {
     let bitmap = |path: &str| LocalAdjustment {
         mask: MaskGeometry::Bitmap {
