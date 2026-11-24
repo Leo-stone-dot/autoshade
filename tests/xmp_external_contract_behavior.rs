@@ -4,6 +4,8 @@ use autoshade::recipe::{
 };
 use autoshade::xmp::{LensProfileSetup, MaskImportReason, MaskLossReason};
 
+mod support;
+
 fn without_autoshade_mask_intent(mut xmp: String) -> String {
     while let Some(start) = xmp.find(" ash:") {
         let value = start + xmp[start..].find("=\"").unwrap() + 2;
@@ -886,4 +888,100 @@ fn rotated_mask_frame_falls_back_across_incomplete_descriptions() {
         autoshade::xmp::xmp_to_recipe(&split).masks[0].mask,
         expected
     );
+}
+
+fn brush_table_refusal(
+    tag: &str,
+    companion: Option<&[u8]>,
+    token: &str,
+) -> (EditRecipe, Vec<String>) {
+    let tree = support::TempTree::new(tag);
+    let photo = tree.path().join("photo.dng");
+    std::fs::write(&photo, b"synthetic photo").unwrap();
+    if let Some(bytes) = companion {
+        std::fs::write(photo.with_extension("acr"), bytes).unwrap();
+    }
+    let xmp = format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+<crs:MaskGroupBasedCorrections><rdf:Seq>
+ <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="table brush">
+  <crs:CorrectionMasks><rdf:Seq>
+   <rdf:li><rdf:Description crs:What="Mask/Aggregate" crs:MaskActive="true"
+    crs:MaskName="brush group" crs:MaskBlendMode="0" crs:MaskValue="1"
+    crs:MaskBrushTable="{token}" crs:MaskBrushUncompressedBytes="1"/>
+   </rdf:li>
+  </rdf:Seq></crs:CorrectionMasks>
+ </rdf:Description></rdf:li>
+</rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#
+    );
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::about(&collector, &photo);
+    let recipe = autoshade::xmp::xmp_to_recipe_with_diag(&xmp, &diag);
+    let lines = collector
+        .take()
+        .into_iter()
+        .map(|line| line.text)
+        .collect();
+    (recipe, lines)
+}
+
+fn one_object_acr(blob: &[u8]) -> (Vec<u8>, String) {
+    let key = md5::compute(blob).0;
+    let mut acr = Vec::new();
+    acr.extend_from_slice(b"ACR\0");
+    acr.extend_from_slice(&1u32.to_le_bytes());
+    acr.extend_from_slice(b"ARW\0");
+    acr.extend_from_slice(&1u32.to_le_bytes());
+    acr.extend_from_slice(&0u32.to_le_bytes());
+    acr.extend_from_slice(&key);
+    acr.extend_from_slice(&(blob.len() as u64).to_le_bytes());
+    acr.extend_from_slice(&52u64.to_le_bytes());
+    acr.extend_from_slice(blob);
+    while acr.len() % 4 != 0 {
+        acr.push(0);
+    }
+    let token = key.iter().map(|byte| format!("{byte:02x}")).collect();
+    (acr, token)
+}
+
+#[test]
+fn missing_mask_brush_companion_is_disclosed_as_unavailable() {
+    let (recipe, lines) = brush_table_refusal(
+        "brush-table-missing",
+        None,
+        "00000000000000000000000000000000",
+    );
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines
+        .iter()
+        .any(|line| line.contains("MaskBrushTableUnavailable")));
+}
+
+#[test]
+fn malformed_mask_brush_companion_is_disclosed_as_container_invalid() {
+    let (recipe, lines) = brush_table_refusal(
+        "brush-table-malformed",
+        Some(b"not an ACR container"),
+        "00000000000000000000000000000000",
+    );
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| line.contains("ContainerInvalid")));
+}
+
+#[test]
+fn absent_mask_brush_key_is_disclosed_as_reference_mismatch() {
+    let (acr, present) = one_object_acr(b"synthetic brush object");
+    let missing = if present == "00000000000000000000000000000000" {
+        "11111111111111111111111111111111"
+    } else {
+        "00000000000000000000000000000000"
+    };
+    let (recipe, lines) =
+        brush_table_refusal("brush-table-reference", Some(&acr), missing);
+
+    assert!(recipe.masks.is_empty());
+    assert!(lines.iter().any(|line| line.contains("ReferenceMismatch")));
 }

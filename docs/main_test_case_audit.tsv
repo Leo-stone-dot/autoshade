@@ -2224,10 +2224,10 @@ src/xmp/tests/inversion_and_era_gates.rs	867	the_era_gate_is_the_twenty_seven_ke
 src/xmp/tests/inversion_and_era_gates.rs	946	the_era_gate_names_the_keys_v1_5_0_added	4	default	open		Awaiting assertion-by-assertion review.
 src/xmp/tests/inversion_and_era_gates.rs	1045	the_mask_colour_tint_imports_exports_and_round_trips	6	default	open		Awaiting assertion-by-assertion review.
 src/xmp/tests/mask_brush_tables.rs	4	mask_brush_tables_import_independently_in_owner_and_table_order	9	default	open		Awaiting assertion-by-assertion review.
-src/xmp/tests/mask_brush_tables.rs	31	mask_brush_fixed_point_fields_and_r_f_d_tokens_map_exactly	7	default	open		Awaiting assertion-by-assertion review.
-src/xmp/tests/mask_brush_tables.rs	50	missing_mask_brush_companion_is_mask_brush_table_unavailable	0	default	open		Awaiting assertion-by-assertion review.
-src/xmp/tests/mask_brush_tables.rs	61	malformed_mask_brush_directory_is_container_invalid	1	default	open		Awaiting assertion-by-assertion review.
-src/xmp/tests/mask_brush_tables.rs	88	absent_mask_brush_key_is_reference_mismatch	0	default	open		Awaiting assertion-by-assertion review.
+src/xmp/tests/mask_brush_tables.rs	31	mask_brush_fixed_point_fields_and_r_f_d_tokens_map_exactly	7	default	rewritten	tests/domain_behavior.rs::an_aggregate_brush_table_imports_its_compressed_strokes	A synthetic public ACR/XMP pair imports exact dabs plus value, radius, flow and center-weight fields through the public photo-aware reader.
+src/xmp/tests/mask_brush_tables.rs	50	missing_mask_brush_companion_is_mask_brush_table_unavailable	0	default	rewritten	tests/xmp_external_contract_behavior.rs::missing_mask_brush_companion_is_disclosed_as_unavailable	Missing sibling .acr drops the brush correction and emits the public MaskBrushTableUnavailable classification.
+src/xmp/tests/mask_brush_tables.rs	61	malformed_mask_brush_directory_is_container_invalid	1	default	rewritten	tests/xmp_external_contract_behavior.rs::malformed_mask_brush_companion_is_disclosed_as_container_invalid	Malformed ACR header drops the brush correction and emits ContainerInvalid.
+src/xmp/tests/mask_brush_tables.rs	88	absent_mask_brush_key_is_reference_mismatch	0	default	rewritten	tests/xmp_external_contract_behavior.rs::absent_mask_brush_key_is_disclosed_as_reference_mismatch	A valid one-object ACR with no matching XMP token drops the correction and emits ReferenceMismatch.
 src/xmp/tests/mask_brush_tables.rs	100	changed_mask_brush_blob_is_digest_mismatch	0	default	open		Awaiting assertion-by-assertion review.
 src/xmp/tests/mask_brush_tables.rs	116	unknown_mask_brush_envelope_is_encoding_unsupported	0	default	open		Awaiting assertion-by-assertion review.
 src/xmp/tests/mask_brush_tables.rs	130	invalid_mask_brush_brotli_is_corrupt	0	default	open		Awaiting assertion-by-assertion review.
