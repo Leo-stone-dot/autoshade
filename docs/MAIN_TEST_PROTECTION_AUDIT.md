@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：723 cases，约 2,163 个断言宏，39 个显式 ignore。
+- 当前工作树：724 cases，约 2,165 个断言宏，39 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，283 条 `rewritten`、1 条
-`lint`、2 条 `drop`、3 条 `external-gate`、1,992 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，284 条 `rewritten`、1 条
+`lint`、2 条 `drop`、3 条 `external-gate`、1,991 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1471,6 +1471,18 @@ legacy recipe只编辑Purple amount时，公开XMP仍恰好包含一次六个de-
 `DefringeGreenHueHi`时case红。测试因此不锁实现路径，只验收完整block结果；mutation
 已恢复，`src/`无diff。
 
+### v1.5 era boundary through public merge behavior
+
+- Main case：`the_era_gate_names_the_keys_v1_5_0_added`
+- 当前执行者：`v1_4_recipe_only_replaces_globals_from_its_own_era`
+- 状态：`rewritten`
+
+era-1 recipe保存到包含v1.5设置的Lightroom sidecar时，仍能把自己已知的旧`Texture`
+清零，同时原样保留后来新增的44个attributes和它没有命名的lens profile identity。
+main原case固定私有key list、owned集合、helper返回数量与越界helper输入；当前case只验收
+公开文件结果。临时用旧控制`contrast`等长替换`hdr_edit`后编译仍通过，但merge无声
+删除`crs:HDREditMode="1"`，case红；mutation已恢复，`src/`无diff。
+
 ## GUI 已裁决
 
 ### 拖放照片进入编辑画布
@@ -2353,7 +2365,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 90 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 91 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

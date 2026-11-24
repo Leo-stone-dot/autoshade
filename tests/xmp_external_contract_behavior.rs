@@ -2545,6 +2545,99 @@ fn edited_legacy_defringe_rewrites_the_whole_block_once() {
     assert!(merged.doc.contains(r#"crs:DefringePurpleAmount="5""#));
 }
 
+fn lightroom_v150_globals_document() -> &'static str {
+    r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+0.35" crs:Texture="-20"
+ crs:CameraProfile="Adobe Standard"
+ crs:LensProfileSetup="LensDefaults"
+ crs:LensProfileName="Adobe Synthetic Lens"
+ crs:LensProfileFilename="Synthetic.lcp"
+ crs:LensProfileDistortionScale="65" crs:LensProfileVignettingScale="75"
+ crs:PerspectiveVertical="11" crs:PerspectiveHorizontal="-12"
+ crs:PerspectiveRotate="+0.9" crs:PerspectiveScale="90"
+ crs:PerspectiveAspect="13" crs:PerspectiveX="+1.25" crs:PerspectiveY="-2.50"
+ crs:PerspectiveUpright="3" crs:CropConstrainToWarp="1"
+ crs:ParametricShadows="-10" crs:ParametricDarks="+20"
+ crs:ParametricLights="-30" crs:ParametricHighlights="+40"
+ crs:ParametricShadowSplit="20" crs:ParametricMidtoneSplit="55"
+ crs:ParametricHighlightSplit="85"
+ crs:ShadowTint="+1" crs:RedHue="+2" crs:RedSaturation="+3"
+ crs:GreenHue="+4" crs:GreenSaturation="+5"
+ crs:BlueHue="+6" crs:BlueSaturation="+7"
+ crs:ConvertToGrayscale="True"
+ crs:GrayMixerRed="+11" crs:GrayMixerOrange="+12"
+ crs:GrayMixerYellow="+13" crs:GrayMixerGreen="+14"
+ crs:GrayMixerAqua="+15" crs:GrayMixerBlue="+16"
+ crs:GrayMixerPurple="+17" crs:GrayMixerMagenta="+18"
+ crs:HDREditMode="1" crs:HDRMaxValue="+1.00"
+ crs:SDRBlend="+10" crs:SDRBrightness="+11" crs:SDRContrast="+12"
+ crs:SDRHighlights="-13" crs:SDRShadows="+14"
+ crs:SDRWhites="+15" crs:SDRClarity="+16"
+ crs:HasSettings="True"/>"#
+}
+
+#[test]
+fn v1_4_recipe_only_replaces_globals_from_its_own_era() {
+    let legacy: EditRecipe =
+        serde_json::from_str(r#"{"schema_era":1,"exposure_ev":0.35,"texture":0.0}"#).unwrap();
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom_v150_globals_document(), &legacy)
+            .unwrap();
+
+    assert!(merged.doc.contains(r#"crs:Texture="0""#));
+    for spelling in [
+        r#"crs:CameraProfile="Adobe Standard""#,
+        r#"crs:LensProfileSetup="LensDefaults""#,
+        r#"crs:LensProfileName="Adobe Synthetic Lens""#,
+        r#"crs:LensProfileFilename="Synthetic.lcp""#,
+        r#"crs:LensProfileDistortionScale="65""#,
+        r#"crs:LensProfileVignettingScale="75""#,
+        r#"crs:PerspectiveVertical="11""#,
+        r#"crs:PerspectiveHorizontal="-12""#,
+        r#"crs:PerspectiveRotate="+0.9""#,
+        r#"crs:PerspectiveScale="90""#,
+        r#"crs:PerspectiveAspect="13""#,
+        r#"crs:PerspectiveX="+1.25""#,
+        r#"crs:PerspectiveY="-2.50""#,
+        r#"crs:PerspectiveUpright="3""#,
+        r#"crs:CropConstrainToWarp="1""#,
+        r#"crs:ParametricShadows="-10""#,
+        r#"crs:ParametricDarks="+20""#,
+        r#"crs:ParametricLights="-30""#,
+        r#"crs:ParametricHighlights="+40""#,
+        r#"crs:ParametricShadowSplit="20""#,
+        r#"crs:ParametricMidtoneSplit="55""#,
+        r#"crs:ParametricHighlightSplit="85""#,
+        r#"crs:ShadowTint="+1""#,
+        r#"crs:RedHue="+2""#,
+        r#"crs:RedSaturation="+3""#,
+        r#"crs:GreenHue="+4""#,
+        r#"crs:GreenSaturation="+5""#,
+        r#"crs:BlueHue="+6""#,
+        r#"crs:BlueSaturation="+7""#,
+        r#"crs:ConvertToGrayscale="True""#,
+        r#"crs:GrayMixerRed="+11""#,
+        r#"crs:GrayMixerOrange="+12""#,
+        r#"crs:GrayMixerYellow="+13""#,
+        r#"crs:GrayMixerGreen="+14""#,
+        r#"crs:GrayMixerAqua="+15""#,
+        r#"crs:GrayMixerBlue="+16""#,
+        r#"crs:GrayMixerPurple="+17""#,
+        r#"crs:GrayMixerMagenta="+18""#,
+        r#"crs:HDREditMode="1""#,
+        r#"crs:HDRMaxValue="+1.00""#,
+        r#"crs:SDRBlend="+10""#,
+        r#"crs:SDRBrightness="+11""#,
+        r#"crs:SDRContrast="+12""#,
+        r#"crs:SDRHighlights="-13""#,
+        r#"crs:SDRShadows="+14""#,
+        r#"crs:SDRWhites="+15""#,
+        r#"crs:SDRClarity="+16""#,
+    ] {
+        assert!(merged.doc.contains(spelling), "{spelling}");
+    }
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
