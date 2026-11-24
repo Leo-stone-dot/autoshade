@@ -2081,6 +2081,41 @@ Detail=0或Radius=0。已有公开case覆盖非零companions的Lightroom拼写/r
 absence。移除NR carry时zero contrast缺失；把SharpenDetail也加入amount carry时错误的
 Detail=0出现；两条case分别红。mutation均已恢复，`src/`无diff。
 
+### Portrait radial uses the sensor declaration and display geometry
+
+- Main case：`a_portrait_captures_mask_is_decoded_in_the_sensor_frame`
+- 当前执行者：
+  `portrait_radial_imports_in_display_frame_and_roundtrips_sensor_corners`
+- 状态：`rewritten`
+
+合成Lightroom portrait radial经公开reader进入6336×9504 display frame，中心y=4748、
+半径4182 px，另一轴保持跨frame band；framed writer恢复四个sensor corners。临时把
+reader坐标转向强制为Normal后中心断言红；mutation已恢复，`src/`无diff。
+
+### Portrait brush turns in and returns to sensor coordinates
+
+- Main case：`a_portrait_captures_brush_turns_on_the_way_in_and_comes_home_on_the_way_out`
+- 当前执行者：
+  `portrait_brush_imports_in_display_frame_and_roundtrips_sensor_dabs`
+- 状态：`rewritten`
+
+sensor dabs/radius公开导入为display-frame `r 0.300000`、`d 0.800000 0.900000`和
+0.873236，framed writer恢复原dabs与0.582157。关闭reader转向时dabs原样滞留；writer
+使用source aspect而非displayed aspect时回写不再恢复。两次mutation分别红且已恢复，
+`src/`无diff。
+
+### Fresh framed document is independently readable without payload
+
+- Main case：`a_fresh_document_declares_its_frame_and_can_be_read_back`
+- 当前执行者：
+  `portrait_framed_document_declares_and_roundtrips_visible_geometry`
+- 状态：`rewritten`
+
+Normal与Rotate270 writer均声明source 9504×6336和正确orientation；移除私有recipe
+payload后，公开reader仍保留radial的实际pixel ellipse、crop和straighten。与原case相比，
+这明确排除了“JSON payload幸存”的假阳性。强制reader不转向时portrait ellipse红；把
+声明宽度改成0时frame contract红。mutation均已恢复，`src/`无diff。
+
 ### Local Hue uses the measured 180 wire scale
 
 - Main case：`local_hue_rides_the_measured_180_scale`
@@ -3001,7 +3036,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 182 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 185 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04 external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04 gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

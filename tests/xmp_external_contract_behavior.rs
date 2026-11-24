@@ -2986,6 +2986,193 @@ fn sharpening_amount_carries_only_its_zero_default_mask_companion() {
     assert!(!document.contains("crs:SharpenRadius="));
 }
 
+fn portrait_radial_document() -> &'static str {
+    r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+ tiff:Orientation="8" tiff:ImageWidth="9504" tiff:ImageLength="6336">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Mask 8"
+   crs:CorrectionAmount="1" crs:LocalExposure2012="0.1">
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li crs:What="Mask/CircularGradient" crs:MaskActive="true"
+     crs:MaskName="Radial Gradient 1" crs:MaskBlendMode="0"
+     crs:MaskInverted="false" crs:MaskSyncID="0000000000000000000000000000000B"
+     crs:MaskValue="1"
+     crs:Top="-3.21675" crs:Left="0.060424" crs:Bottom="2.073933"
+     crs:Right="0.940417" crs:Feather="100" crs:Roundness="0"
+     crs:Flipped="true" crs:Angle="0" crs:Midpoint="50" crs:Version="2"/>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#
+}
+
+fn portrait_brush_document() -> &'static str {
+    r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ xmlns:tiff="http://ns.adobe.com/tiff/1.0/"
+ tiff:Orientation="8" tiff:ImageWidth="9504" tiff:ImageLength="6336">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Mask 7">
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li><rdf:Description crs:What="Mask/Aggregate" crs:MaskActive="true"
+     crs:MaskName="Brush 1" crs:MaskBlendMode="0" crs:MaskInverted="false"
+     crs:MaskSyncID="0000000000000000000000000000000D" crs:MaskValue="1">
+     <crs:Masks><rdf:Seq>
+      <rdf:li><rdf:Description crs:What="Mask/Paint" crs:MaskActive="true"
+       crs:MaskBlendMode="0" crs:MaskInverted="false"
+       crs:MaskSyncID="FA7459A9F5626F4881D7B730C3093F95" crs:MaskValue="1"
+       crs:Radius="0.582157" crs:Flow="1" crs:CenterWeight="0">
+       <crs:Dabs><rdf:Seq>
+        <rdf:li>r 0.200000</rdf:li>
+        <rdf:li>d 0.100000 0.800000</rdf:li>
+       </rdf:Seq></crs:Dabs>
+      </rdf:Description></rdf:li>
+     </rdf:Seq></crs:Masks>
+    </rdf:Description></rdf:li>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#
+}
+
+#[test]
+fn portrait_radial_imports_in_display_frame_and_roundtrips_sensor_corners() {
+    let imported = autoshade::xmp::xmp_to_recipe(portrait_radial_document());
+    let MaskGeometry::Radial {
+        top,
+        left,
+        bottom,
+        right,
+        ..
+    } = imported.masks[0].mask
+    else {
+        panic!("portrait radial must import")
+    };
+    let center_y = f64::from(top + bottom) * 0.5 * 9504.0;
+    let radius_y = f64::from(bottom - top) * 0.5 * 9504.0;
+    let radius_x = f64::from(right - left) * 0.5 * 6336.0;
+
+    assert!((center_y - 4748.0).abs() < 1.5);
+    assert!((radius_y - 4182.0).abs() < 1.5);
+    assert!(radius_x > 6336.0);
+
+    let exported = autoshade::xmp::recipe_to_xmp_in_frame(
+        &imported,
+        autoshade::xmp::FrameAspect::from_size_turned(
+            9504.0,
+            6336.0,
+            rawler::Orientation::Rotate270,
+        ),
+    )
+    .0;
+    for (key, want) in [
+        ("crs:Top", -3.21675),
+        ("crs:Left", 0.060424),
+        ("crs:Bottom", 2.073933),
+        ("crs:Right", 0.940417),
+    ] {
+        let got = xmp_public_value(&exported, key)
+            .unwrap_or_else(|| panic!("{key} missing"))
+            .parse::<f64>()
+            .unwrap();
+        assert!((got - want).abs() < 1e-6, "{key}: {got} vs {want}");
+    }
+}
+
+#[test]
+fn portrait_brush_imports_in_display_frame_and_roundtrips_sensor_dabs() {
+    let imported = autoshade::xmp::xmp_to_recipe(portrait_brush_document());
+    let MaskGeometry::Brush { strokes, .. } = &imported.masks[0].mask else {
+        panic!("portrait brush must import")
+    };
+
+    assert_eq!(strokes[0].dabs, "r 0.300000\nd 0.800000 0.900000");
+    assert!((strokes[0].radius - 0.873236).abs() < 1e-6);
+
+    let exported = autoshade::xmp::recipe_to_xmp_in_frame(
+        &imported,
+        autoshade::xmp::FrameAspect::from_size_turned(
+            9504.0,
+            6336.0,
+            rawler::Orientation::Rotate270,
+        ),
+    )
+    .0;
+    assert!(exported.contains("<rdf:li>r 0.200000</rdf:li>"));
+    assert!(exported.contains("<rdf:li>d 0.100000 0.800000</rdf:li>"));
+    assert!(exported.contains(r#"crs:Radius="0.582157""#));
+}
+
+#[test]
+fn portrait_framed_document_declares_and_roundtrips_visible_geometry() {
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Radial {
+                top: 0.30,
+                left: 0.20,
+                bottom: 0.62,
+                right: 0.75,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 21.5,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            exposure_ev: 0.4,
+            ..LocalAdjustment::default()
+        }],
+        crop: Some(Crop {
+            left: 0.08,
+            top: 0.05,
+            right: 0.9,
+            bottom: 0.94,
+        }),
+        straighten_deg: 1.25,
+        ..EditRecipe::default()
+    };
+
+    for (orientation, orientation_value, display_width, display_height) in [
+        (rawler::Orientation::Normal, "1", 9504.0, 6336.0),
+        (rawler::Orientation::Rotate270, "8", 6336.0, 9504.0),
+    ] {
+        let document = without_recipe_payload(
+            autoshade::xmp::recipe_to_xmp_in_frame(
+                &recipe,
+                autoshade::xmp::FrameAspect::from_size_turned(
+                    9504.0,
+                    6336.0,
+                    orientation,
+                ),
+            )
+            .0,
+        );
+        assert_eq!(xmp_attribute(&document, "tiff:ImageWidth"), "9504");
+        assert_eq!(xmp_attribute(&document, "tiff:ImageLength"), "6336");
+        assert_eq!(
+            xmp_attribute(&document, "tiff:Orientation"),
+            orientation_value
+        );
+
+        let restored = autoshade::xmp::xmp_to_recipe(&document);
+        let original_ellipse =
+            radial_pixel_ellipse(&recipe.masks[0].mask, display_width, display_height);
+        let restored_ellipse =
+            radial_pixel_ellipse(&restored.masks[0].mask, display_width, display_height);
+        assert!((original_ellipse.0 - restored_ellipse.0).abs() < 1.0);
+        assert!((original_ellipse.1 - restored_ellipse.1).abs() < 1.0);
+        let tilt_delta = ((original_ellipse.2 - restored_ellipse.2).rem_euclid(180.0))
+            .min((restored_ellipse.2 - original_ellipse.2).rem_euclid(180.0));
+        assert!(tilt_delta < 1e-2);
+        assert!((restored.straighten_deg - 1.25).abs() < 1e-4);
+        let crop = restored.crop.expect("crop survives the public projection");
+        assert!((crop.left - 0.08).abs() < 2e-3);
+        assert!((crop.bottom - 0.94).abs() < 2e-3);
+    }
+}
+
 #[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {

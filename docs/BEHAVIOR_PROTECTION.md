@@ -151,6 +151,9 @@
 - SDR writer 跳过 `SDRContrast` 时，`hdr_sdr_rendition_controls_round_trip_as_signed_integers` 在缺失公开属性处变红；恢复后测试通过。
 - amount carry 不再包含 `LuminanceNoiseReductionContrast` 时，`noise_reduction_amount_carries_its_zero_contrast_companion` 在 50 amount 下缺少 Contrast=0 处变红；恢复后测试通过。
 - amount carry 错误包含非零默认的 `SharpenDetail` 时，`sharpening_amount_carries_only_its_zero_default_mask_companion` 在出现虚构 Detail=0 处变红；恢复后测试通过。
+- XMP reader 跳过 sensor→display 坐标转向时，三条 `portrait_*` case 分别在 radial 中心、brush dabs 和 payload-free visible ellipse 处变红；恢复后测试通过。
+- portrait brush writer 用 source aspect 代替 displayed aspect 时，`portrait_brush_imports_in_display_frame_and_roundtrips_sensor_dabs` 在原始 dab/radius 无法恢复处变红；恢复后测试通过。
+- framed writer 把 `tiff:ImageWidth` 声明成 0 时，`portrait_framed_document_declares_and_roundtrips_visible_geometry` 在公开 source-frame 声明处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
