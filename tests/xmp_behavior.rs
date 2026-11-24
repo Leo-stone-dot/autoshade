@@ -1,5 +1,6 @@
 use autoshade::recipe::{
-    ColourField, EditRecipe, LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, MaskRole,
+    BrushStroke, ColourField, EditRecipe, LocalAdjustment, MaskCombine, MaskComponent,
+    MaskGeometry, MaskRole,
 };
 
 fn without_autoshade_attributes(mut xmp: String) -> String {
@@ -19,6 +20,13 @@ fn without_attribute(mut xmp: String, name: &str) -> String {
         xmp.replace_range(start..end, "");
     }
     xmp
+}
+
+fn without_payload(xmp: String) -> String {
+    without_attribute(
+        without_attribute(xmp, "asr:Recipe"),
+        "asr:RecipeCrc32",
+    )
 }
 
 fn xmp_attribute_values<'a>(xmp: &'a str, name: &str) -> Vec<&'a str> {
@@ -360,13 +368,10 @@ fn editor_intent_survives_when_the_namespace_binding_moves_to_the_root() {
         }],
         ..LocalAdjustment::default()
     };
-    let document = without_attribute(
-        autoshade::xmp::recipe_to_xmp(&EditRecipe {
+    let document = without_payload(autoshade::xmp::recipe_to_xmp(&EditRecipe {
             masks: vec![original.clone()],
             ..EditRecipe::default()
-        }),
-        "asr:Recipe",
-    );
+        }));
     let declaration = " xmlns:ash=\"https://autoshade.dev/ns/mask/1.0/\"";
     let stripped = document.replace(declaration, "");
     let root = stripped.find("<rdf:Description").unwrap();
@@ -416,8 +421,7 @@ fn portrait_roles_round_trip_and_unknown_roles_degrade_to_custom() {
         MaskRole::Skin,
         MaskRole::Background,
     ] {
-        let document = without_attribute(
-            autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        let document = without_payload(autoshade::xmp::recipe_to_xmp(&EditRecipe {
                 masks: vec![LocalAdjustment {
                     mask: MaskGeometry::Linear {
                         zero_x: 0.25,
@@ -430,9 +434,7 @@ fn portrait_roles_round_trip_and_unknown_roles_degrade_to_custom() {
                     ..LocalAdjustment::default()
                 }],
                 ..EditRecipe::default()
-            }),
-            "asr:Recipe",
-        );
+            }));
 
         assert!(document.contains(&format!("ash:Role=\"{}\"", role.tag())));
         assert_eq!(autoshade::xmp::xmp_to_recipe(&document).masks[0].role, role);
@@ -444,6 +446,150 @@ fn portrait_roles_round_trip_and_unknown_roles_degrade_to_custom() {
             autoshade::xmp::xmp_to_recipe(&newer).masks[0].role,
             MaskRole::Custom
         );
+    }
+}
+
+#[test]
+fn edited_ai_component_modes_override_carried_blend_and_keep_plain_add_zero() {
+    let mut ai = MaskGeometry::select_sky(0.5, 0.25, false, String::new());
+    if let MaskGeometry::AiMask {
+        blend_mode, value, ..
+    } = &mut ai
+    {
+        *blend_mode = 1;
+        *value = 0.0;
+    }
+    for mode in [
+        MaskCombine::Add,
+        MaskCombine::Subtract,
+        MaskCombine::Intersect,
+    ] {
+        let recipe = EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.25,
+                    zero_y: 0.25,
+                    full_x: 0.75,
+                    full_y: 0.75,
+                },
+                components: vec![MaskComponent {
+                    geometry: ai.clone(),
+                    mode,
+                    inverted: false,
+                }],
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        };
+        let native = without_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+        let restored = autoshade::xmp::xmp_to_recipe(&native);
+
+        assert_eq!(restored.masks[0].components[0].mode, mode);
+        let MaskGeometry::AiMask {
+            blend_mode, value, ..
+        } = restored.masks[0].components[0].geometry
+        else {
+            panic!("the component remains an AI mask")
+        };
+        assert_eq!(blend_mode, if mode == MaskCombine::Add { 0 } else { 1 });
+        assert_eq!(value, 0.0);
+        assert_eq!(
+            native,
+            without_payload(autoshade::xmp::recipe_to_xmp(&restored))
+        );
+    }
+}
+
+#[test]
+fn edited_brush_component_modes_keep_the_same_native_spelling() {
+    let brush = MaskGeometry::Brush {
+        name: "Brush 1".to_string(),
+        blend_mode: 1,
+        value: 0.0,
+        inverted: false,
+        strokes: vec![BrushStroke {
+            dabs: "d 0.5 0.5".to_string(),
+            radius: 0.1,
+            ..BrushStroke::default()
+        }],
+    };
+    for mode in [
+        MaskCombine::Add,
+        MaskCombine::Subtract,
+        MaskCombine::Intersect,
+    ] {
+        let recipe = EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.25,
+                    zero_y: 0.25,
+                    full_x: 0.75,
+                    full_y: 0.75,
+                },
+                components: vec![MaskComponent {
+                    geometry: brush.clone(),
+                    mode,
+                    inverted: false,
+                }],
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        };
+        let native = without_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+        let restored = autoshade::xmp::xmp_to_recipe(&native);
+
+        assert_eq!(restored.masks[0].components[0].mode, mode);
+        let MaskGeometry::Brush {
+            blend_mode, value, ..
+        } = restored.masks[0].components[0].geometry
+        else {
+            panic!("the component remains a brush")
+        };
+        assert_eq!(blend_mode, if mode == MaskCombine::Add { 0 } else { 1 });
+        assert_eq!(value, 0.0);
+    }
+}
+
+#[test]
+fn complementing_the_whole_mask_projects_subtract_and_intersect_as_add_one() {
+    let mut ai = MaskGeometry::select_sky(0.5, 0.25, false, String::new());
+    if let MaskGeometry::AiMask {
+        blend_mode, value, ..
+    } = &mut ai
+    {
+        *blend_mode = 1;
+        *value = 0.0;
+    }
+    for mode in [MaskCombine::Subtract, MaskCombine::Intersect] {
+        let recipe = EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.25,
+                    zero_y: 0.25,
+                    full_x: 0.75,
+                    full_y: 0.75,
+                },
+                inverted: true,
+                components: vec![MaskComponent {
+                    geometry: ai.clone(),
+                    mode,
+                    inverted: false,
+                }],
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        };
+        let native = without_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+        let restored = autoshade::xmp::xmp_to_recipe(&native);
+
+        assert_eq!(restored.masks[0].components[0].mode, mode);
+        let MaskGeometry::AiMask {
+            blend_mode, value, ..
+        } = restored.masks[0].components[0].geometry
+        else {
+            panic!("the component remains an AI mask")
+        };
+        assert_eq!((blend_mode, value), (0, 1.0));
     }
 }
 
