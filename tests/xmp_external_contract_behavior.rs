@@ -2118,6 +2118,27 @@ fn engine_radial_flip_and_inversion_export_as_one_lightroom_net_bit() {
     }
 }
 
+#[test]
+fn plain_lightroom_gradient_imports_without_false_loss() {
+    let document = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="Gradient 1">
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li crs:What="Mask/Gradient" crs:MaskActive="true"
+     crs:MaskBlendMode="0" crs:MaskInverted="false" crs:MaskValue="1"
+     crs:ZeroX="0.5" crs:ZeroY="0.8" crs:FullX="0.5" crs:FullY="0.2"/>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description></rdf:RDF></x:xmpmeta>"#;
+
+    assert_eq!(autoshade::xmp::xmp_to_recipe(document).masks.len(), 1);
+    assert_eq!(autoshade::xmp::unsupported_corrections(document), 0);
+    assert!(autoshade::xmp::import_losses(document).is_empty());
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
