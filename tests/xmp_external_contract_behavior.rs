@@ -1024,6 +1024,24 @@ const MASK_BRUSH_TOKEN_BOUND: &[u8] = &[
     0x08, 0x10, 0x80, 0x8D, 0x4F, 0xF7, 0x4D, 0xEB, 0xD0, 0x7D, 0xEF, 0x09, 0x20,
     0x84, 0xB1, 0x1F, 0x08,
 ];
+const MASK_BRUSH_GOOD_A: &[u8] = &[
+    0x1B, 0xB8, 0x00, 0xF8, 0x8F, 0xC2, 0xB6, 0xB5, 0x73, 0x94, 0x79, 0x28, 0xD3,
+    0x42, 0xF8, 0xC9, 0x20, 0x88, 0x9B, 0xDF, 0xC6, 0x02, 0xEA, 0x3A, 0x0F, 0x6C,
+    0x2C, 0x91, 0x28, 0x0E, 0x3C, 0xF0, 0x31, 0x51, 0xD6, 0x46, 0xAC, 0x01, 0x14,
+    0x4E, 0xC4, 0xC3, 0x06, 0x9C, 0xA8, 0x07, 0x1E, 0xA0, 0x47, 0x32, 0xDD, 0x01,
+    0x20, 0x10, 0xC7, 0x27, 0x96, 0x08, 0x80, 0x08, 0x00, 0x08, 0x00, 0x00, 0x58,
+    0x10, 0xF9, 0xEE, 0xDC, 0x49, 0x6B, 0xC2, 0x58, 0x07, 0x20, 0x02, 0x42, 0x78,
+    0x81, 0x98, 0x81, 0x5A, 0xD8, 0xAA, 0xBC, 0x89, 0xFA, 0x9B, 0xAA, 0x71, 0x28,
+    0x13, 0x13, 0xC2, 0x58, 0xB7, 0xC6, 0x30, 0x36, 0x54, 0xBF, 0x44, 0x93, 0x3B,
+    0x1A,
+];
+const MASK_BRUSH_GOOD_B: &[u8] = &[
+    0x1B, 0x56, 0x00, 0xF8, 0x9F, 0x07, 0x76, 0x0C, 0x99, 0x22, 0x68, 0xF8, 0x02,
+    0xE9, 0xA5, 0x10, 0x26, 0xF7, 0x24, 0xE1, 0x08, 0xDB, 0x12, 0x4C, 0x23, 0xA8,
+    0x84, 0xA0, 0x93, 0xE0, 0x81, 0xBA, 0x12, 0x66, 0x61, 0x03, 0x4E, 0x38, 0x0D,
+    0x14, 0x47, 0x5A, 0x66, 0xBF, 0x1C, 0x20, 0xC1, 0x40, 0x03, 0xB5, 0x8C, 0xFB,
+    0xE9, 0xD1, 0x02, 0x81, 0xBC, 0x35, 0x01,
+];
 
 #[test]
 fn missing_mask_brush_companion_is_disclosed_as_unavailable() {
@@ -1267,4 +1285,94 @@ fn one_bad_mask_brush_table_does_not_take_down_an_independent_table() {
     assert!(lines
         .iter()
         .any(|line| line.text.contains("PayloadUnsupported")));
+}
+
+fn table_correction(name: &str, token: &str, expected: usize) -> String {
+    format!(
+        r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
+<crs:CorrectionMasks><rdf:Seq>
+ <rdf:li crs:What="Mask/Aggregate" crs:MaskActive="true"
+  crs:MaskName="{name}" crs:MaskBlendMode="0" crs:MaskInverted="false"
+  crs:MaskValue="1" crs:MaskBrushTable="{token}"
+  crs:MaskBrushUncompressedBytes="{expected}"/>
+</rdf:Seq></crs:CorrectionMasks>
+</rdf:Description></rdf:li>"#
+    )
+}
+
+fn table_document(corrections: &str) -> String {
+    format!(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+<crs:MaskGroupBasedCorrections><rdf:Seq>{corrections}</rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#
+    )
+}
+
+#[test]
+fn mask_brush_tables_import_in_owner_and_table_order() {
+    let objects = vec![
+        brush_object(MASK_BRUSH_GOOD_A),
+        brush_object(MASK_BRUSH_GOOD_B),
+    ];
+    let (acr, tokens) = many_object_acr(&objects);
+    let tree = support::TempTree::new("brush-table-order");
+    let photo = tree.path().join("photo.dng");
+    std::fs::write(&photo, b"synthetic photo").unwrap();
+    std::fs::write(photo.with_extension("acr"), acr).unwrap();
+    let xmp = table_document(&format!(
+        "{}{}",
+        table_correction("First", &tokens[0], 185),
+        table_correction("Second", &tokens[1], 87),
+    ));
+    let collector = autoshade::diag::Collector::new();
+    let diag = autoshade::diag::Diag::about(&collector, &photo);
+
+    let recipe = autoshade::xmp::xmp_to_recipe_with_diag(&xmp, &diag);
+
+    assert!(collector.is_empty());
+    assert_eq!(recipe.masks.len(), 2);
+    let MaskGeometry::Brush { strokes: first, .. } = &recipe.masks[0].mask else {
+        panic!("first table imports as a brush");
+    };
+    let MaskGeometry::Brush {
+        strokes: second, ..
+    } = &recipe.masks[1].mask
+    else {
+        panic!("second table imports as a brush");
+    };
+    assert_eq!(first.len(), 2);
+    assert_eq!(second.len(), 1);
+    assert_eq!(first[0].sync_id, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    assert_eq!(first[1].sync_id, "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB");
+    assert_eq!(second[0].sync_id, "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC");
+}
+
+#[test]
+fn unchanged_table_mask_merge_keeps_table_attributes_without_duplicate_paints() {
+    let object = brush_object(MASK_BRUSH_GOOD_A);
+    let (acr, token) = one_object_acr(&object);
+    let tree = support::TempTree::new("brush-table-merge");
+    let photo = tree.path().join("photo.dng");
+    std::fs::write(&photo, b"synthetic photo").unwrap();
+    std::fs::write(photo.with_extension("acr"), acr).unwrap();
+    let xmp = table_document(&table_correction("Mask 1", &token, 185));
+    let mut recipe = autoshade::xmp::xmp_to_recipe_for_photo(&xmp, &photo);
+    recipe.exposure_ev = 0.75;
+
+    let merged = autoshade::xmp::merge_recipe_into_xmp_in_frame_for_photo(
+        &xmp,
+        &recipe,
+        None,
+        Some(&photo),
+    )
+    .unwrap();
+
+    assert_eq!(merged.doc.matches("crs:MaskBrushTable=").count(), 1);
+    assert!(merged
+        .doc
+        .contains(&format!("crs:MaskBrushTable=\"{token}\"")));
+    assert!(merged
+        .doc
+        .contains(r#"crs:MaskBrushUncompressedBytes="185""#));
+    assert_eq!(merged.doc.matches(r#"crs:What="Mask/Paint""#).count(), 0);
 }
