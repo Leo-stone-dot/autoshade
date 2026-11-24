@@ -3029,6 +3029,43 @@ fn import_rotation_loss_carries_a_signed_angle_and_distinguishes_unrotated() {
     }
 }
 
+#[test]
+fn frameless_rotated_lightroom_radial_imports_geometry_and_names_only_rotation() {
+    let document = lightroom_radial_value_document("0", "1")
+        .replace(
+            r#"crs:LocalContrast2012="0.43""#,
+            r#"crs:LocalContrast2012="0.43" crs:LocalExposure2012="0.1""#,
+        )
+        .replace(r#"crs:Angle="0""#, r#"crs:Angle="37.412506""#);
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+
+    assert_eq!(imported.masks.len(), 1);
+    let MaskGeometry::Radial {
+        angle,
+        top,
+        feather,
+        flipped,
+        ..
+    } = imported.masks[0].mask
+    else {
+        panic!("radial imports")
+    };
+    assert_eq!(angle, 0.0);
+    assert!((top as f64 - 0.114928).abs() < 1e-7);
+    assert_eq!(feather, 1.0);
+    assert!(!flipped);
+    assert!(!imported.masks[0].inverted);
+    assert_eq!(imported.masks[0].exposure_ev, 0.4);
+    assert_eq!(autoshade::xmp::unsupported_corrections(&document), 0);
+    assert_eq!(
+        autoshade::xmp::import_losses(&document),
+        vec![MaskImportLoss {
+            name: "Radial 1".to_string(),
+            reason: MaskImportReason::Rotation(37),
+        }]
+    );
+}
+
 fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
     format!(
         r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
