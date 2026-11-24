@@ -2352,6 +2352,38 @@ fn nonzero_corrected_depth_is_named_without_dropping_the_mask() {
     );
 }
 
+#[test]
+fn untouched_lossy_mask_block_survives_recipe_persistence_and_merge() {
+    let document = lightroom_radial_value_document("0", "1").replace(
+        r#"crs:Angle="0""#,
+        r#"crs:Angle="37.412506" crs:Midpoint="50" crs:Version="2""#,
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(imported.masks.len(), 1);
+    assert_eq!(autoshade::xmp::import_losses(&document).len(), 1);
+
+    let json = serde_json::to_string(&imported).unwrap();
+    let reloaded: EditRecipe = serde_json::from_str(&json).unwrap();
+    assert_eq!(reloaded.masks, imported.masks);
+
+    let start = document.find("<crs:MaskGroupBasedCorrections>").unwrap();
+    let close = "</crs:MaskGroupBasedCorrections>";
+    let end = document.find(close).unwrap() + close.len();
+    let original = &document[start..end];
+    let merged = autoshade::xmp::merge_recipe_into_xmp(&document, &reloaded).unwrap();
+
+    assert!(merged.doc.contains(original));
+    assert!(merged.doc.contains(r#"crs:Angle="37.412506" crs:Midpoint="50""#));
+    assert!(merged.notes.is_empty());
+    assert_eq!(
+        merged
+            .doc
+            .matches("<crs:MaskGroupBasedCorrections>")
+            .count(),
+        1
+    );
+}
+
 fn table_correction(name: &str, token: &str, expected: usize) -> String {
     format!(
         r#"<rdf:li><rdf:Description crs:What="Correction" crs:CorrectionName="{name}">
