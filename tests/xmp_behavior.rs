@@ -770,6 +770,36 @@ fn native_composition_matrix_preserves_editor_intent_and_crs_coverage() {
 }
 
 #[test]
+fn a_census_shaped_sky_intersect_radial_imports_as_intersect() {
+    let xmp = r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+<crs:MaskGroupBasedCorrections><rdf:Seq><rdf:li><rdf:Description crs:What="Correction"
+crs:CorrectionName="Sky band" crs:CorrectionAmount="1" crs:CorrectionActive="true">
+<crs:CorrectionMasks><rdf:Seq>
+<rdf:li><rdf:Description crs:What="Mask/Image" crs:MaskActive="true" crs:MaskName="Sky 1"
+crs:MaskBlendMode="0" crs:MaskInverted="false" crs:MaskValue="1" crs:MaskVersion="1"
+crs:MaskSubType="2" crs:ReferencePoint="0.5 0.25"/></rdf:li>
+<rdf:li crs:What="Mask/CircularGradient" crs:MaskActive="true" crs:MaskBlendMode="1"
+crs:MaskInverted="true" crs:MaskValue="0" crs:Top="0.25" crs:Left="0.25" crs:Bottom="0.75"
+crs:Right="0.75" crs:Feather="50" crs:Roundness="0" crs:Flipped="false" crs:Angle="0"/>
+</rdf:Seq></crs:CorrectionMasks></rdf:Description></rdf:li></rdf:Seq></crs:MaskGroupBasedCorrections>
+</rdf:Description>"#;
+
+    let recipe = autoshade::xmp::xmp_to_recipe(xmp);
+
+    assert_eq!(recipe.masks.len(), 1);
+    assert!(matches!(
+        recipe.masks[0].mask,
+        MaskGeometry::AiMask { .. }
+    ));
+    assert_eq!(recipe.masks[0].components.len(), 1);
+    assert_eq!(recipe.masks[0].components[0].mode, MaskCombine::Intersect);
+    assert!(matches!(
+        recipe.masks[0].components[0].geometry,
+        MaskGeometry::Radial { .. }
+    ));
+}
+
+#[test]
 fn a_corrupt_payload_is_disclosed_and_the_crs_projection_still_opens() {
     let recipe = EditRecipe {
         exposure_ev: 0.5,
