@@ -3,7 +3,9 @@ use autoshade::recipe::{
     LensProfile, LocalAdjustment, MaskCombine, MaskComponent, MaskGeometry, MaskWarpSource,
     RangeMask,
 };
-use autoshade::xmp::{LensProfileSetup, MaskImportLoss, MaskImportReason, MaskLossReason};
+use autoshade::xmp::{
+    LensProfileSetup, MaskImportLoss, MaskImportReason, MaskLoss, MaskLossReason,
+};
 
 mod support;
 
@@ -2081,6 +2083,59 @@ fn mask_export_loss_matrix_names_each_omission_and_matches_the_projection() {
     })
     .is_empty());
     assert!(autoshade::xmp::describe_mask_losses(&[]).is_none());
+}
+
+#[test]
+fn every_mask_export_reason_reaches_grouped_public_disclosure() {
+    let losses = vec![
+        MaskLoss {
+            name: "bitmap".to_string(),
+            reason: MaskLossReason::Bitmap,
+        },
+        MaskLoss {
+            name: "disabled".to_string(),
+            reason: MaskLossReason::Disabled,
+        },
+        MaskLoss {
+            name: "components".to_string(),
+            reason: MaskLossReason::ComponentsFlattened,
+        },
+        MaskLoss {
+            name: "brush".to_string(),
+            reason: MaskLossReason::BrushRendered,
+        },
+        MaskLoss {
+            name: "ai".to_string(),
+            reason: MaskLossReason::AiMaskRecomputed,
+        },
+        MaskLoss {
+            name: "rotation-a".to_string(),
+            reason: MaskLossReason::Rotation(37),
+        },
+        MaskLoss {
+            name: "rotation-b".to_string(),
+            reason: MaskLossReason::Rotation(-12),
+        },
+        MaskLoss {
+            name: "recolour".to_string(),
+            reason: MaskLossReason::Recolour,
+        },
+        MaskLoss {
+            name: "raster".to_string(),
+            reason: MaskLossReason::RasterNotEmbedded,
+        },
+    ];
+
+    let line = autoshade::xmp::describe_mask_losses(&losses).unwrap();
+
+    for loss in &losses {
+        assert!(line.contains(loss.reason.en()), "{:?}", loss.reason);
+        assert!(line.contains(&loss.name), "{}", loss.name);
+    }
+    assert_eq!(
+        line.matches(MaskLossReason::Rotation(0).en()).count(),
+        1
+    );
 }
 
 #[test]
