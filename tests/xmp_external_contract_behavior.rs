@@ -3066,6 +3066,66 @@ fn frameless_rotated_lightroom_radial_imports_geometry_and_names_only_rotation()
     );
 }
 
+#[test]
+fn radial_midpoint_and_version_round_trip_without_range_component_collision() {
+    let document = lightroom_radial_value_document("0", "1").replace(
+        r#"crs:Angle="0""#,
+        r#"crs:Angle="0" crs:Midpoint="37" crs:Version="3""#,
+    );
+    let imported = autoshade::xmp::xmp_to_recipe(&document);
+    let MaskGeometry::Radial {
+        midpoint,
+        mask_version,
+        ..
+    } = imported.masks[0].mask
+    else {
+        panic!("radial imports")
+    };
+    assert_eq!(midpoint, 37.0);
+    assert_eq!(mask_version, 3);
+    assert!(autoshade::xmp::import_losses(&document).is_empty());
+
+    let exported = autoshade::xmp::recipe_to_xmp(&imported);
+    assert!(exported.contains(r#"crs:Midpoint="37" crs:Version="3""#));
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&exported).masks[0].mask,
+        imported.masks[0].mask
+    );
+
+    let ranged = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Radial {
+                top: 0.3,
+                left: 0.35,
+                bottom: 0.7,
+                right: 0.65,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 0.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            range: Some(RangeMask::Luminance {
+                lo_outer: 0.1,
+                lo: 0.2,
+                hi: 0.8,
+                hi_outer: 0.9,
+            }),
+            exposure_ev: 0.5,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let ranged = autoshade::xmp::xmp_to_recipe(&without_recipe_payload(
+        autoshade::xmp::recipe_to_xmp(&ranged),
+    ));
+    let MaskGeometry::Radial { mask_version, .. } = ranged.masks[0].mask else {
+        panic!("ranged radial reopens")
+    };
+    assert_eq!(mask_version, 2);
+}
+
 fn lightroom_radial_inversion_document(flipped: bool, inverted: bool) -> String {
     format!(
         r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
