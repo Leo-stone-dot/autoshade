@@ -1315,6 +1315,26 @@ DNG case保护AsShotNeutral/colour-matrix有界finite结果。当前无授权cor
 `the_daylight_preset_and_only_a_listed_body_move_the_reading`保持`open`：它要求altered-preset
 与unlisted-model对照，但main只直调私有`camera_raw_as_shot`；尚无公开fixture或API执行者。
 
+### Mask raster frame persistence, refusal and sampling
+
+- Main cases：`mask_raster_frame.rs`全5条
+- 当前执行者：
+  `mask_raster_marker_names_its_frame_without_changing_pixels`、
+  `mask_raster_mismatched_frame_is_refused_but_sensor_frame_is_portable`、
+  `corrected_mask_raster_covers_the_same_pixels_as_its_sensor_twin`、
+  `corrected_mask_raster_reads_back_into_the_sensor_frame`、
+  `sensor_and_corrected_mask_rasters_export_the_same_public_mask_xml`
+- 状态：5 条均为 `rewritten`
+
+公开save/open保留PNG marker与mask pixels，unmarked raster是sensor frame，CA/vignette不
+改变frame identity。marker/recipe mismatch在直接check与strict export中拒绝并命名双方，
+sensor raster可跨recipe。corrected raster在Corrected/WarpedDownstream coverage中与
+sensor twin误差<0.6 codes，错误按sensor读取显著更差；公开sensor readback同样恢复twin。
+sensor/corrected同一Select Sky raster输出byte-identical CRS mask block。
+
+跳过marker stamp、无条件放行frame check、禁用corrected sampling、跳过sensor inverse、
+让XMP读取marker并改变mask block时，五条case分别红；mutation均已恢复，`src/`无diff。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3416,7 +3436,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 89 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked master marker/拒绝、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
+| `tests/product_behavior.rs` | 94 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked/mask-raster frame marker/拒绝/采样、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

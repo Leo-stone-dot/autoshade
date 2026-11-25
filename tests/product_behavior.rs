@@ -1847,6 +1847,284 @@ fn unmarked_master_is_corrected_once_and_marked_master_is_refused() {
     }
 }
 
+fn off_center_mask(width: u32, height: u32) -> image::GrayImage {
+    image::GrayImage::from_fn(width, height, |x, y| {
+        let dx = x as f32 + 0.5 - 0.78 * width as f32;
+        let dy = y as f32 + 0.5 - 0.30 * height as f32;
+        let radius = dx.hypot(dy) / (0.12 * width as f32);
+        image::Luma([
+            ((1.0 - (radius - 0.8) / 0.4).clamp(0.0, 1.0) * 255.0).round()
+                as u8,
+        ])
+    })
+}
+
+fn mean_gray_code_difference(left: &image::GrayImage, right: &image::GrayImage) -> f32 {
+    assert_eq!(left.dimensions(), right.dimensions());
+    left.as_raw()
+        .iter()
+        .zip(right.as_raw())
+        .map(|(left, right)| (f32::from(*left) - f32::from(*right)).abs())
+        .sum::<f32>()
+        / left.as_raw().len() as f32
+}
+
+#[test]
+fn mask_raster_marker_names_its_frame_without_changing_pixels() {
+    let tree = TempTree::new("mask-raster-frame");
+    let recipe = baked_geometry_recipe();
+    let marker = autoshade::render::RasterFrame::of(&recipe)
+        .expect("the recipe moves the mask frame")
+        .marker()
+        .clone();
+    assert!(marker.distortion && !marker.ca && !marker.vignette);
+    let mask = off_center_mask(96, 64);
+    let marked = tree.path().join("marked.png");
+    let plain = tree.path().join("plain.png");
+    autoshade::render::save_mask_raster(&mask, &marked, Some(&marker)).unwrap();
+    autoshade::render::save_mask_raster(&mask, &plain, None).unwrap();
+
+    let marked_raster = autoshade::render::open_mask_raster(&marked).unwrap();
+    let plain_raster = autoshade::render::open_mask_raster(&plain).unwrap();
+    assert_eq!(marked_raster.frame, Some(marker.clone()));
+    assert_eq!(plain_raster.frame, None);
+    assert_eq!(marked_raster.image.to_luma8(), mask);
+    assert_eq!(plain_raster.image.to_luma8(), mask);
+
+    let mut photometric_only = recipe.clone();
+    photometric_only.ca_r = 40.0;
+    photometric_only.lens_profile.vignette = vec![1.0, 1.3];
+    photometric_only.lens_profile.vignette_on = true;
+    assert_eq!(
+        autoshade::render::BakedGeometry::frame_of(&photometric_only),
+        Some(marker)
+    );
+    assert_eq!(
+        autoshade::render::BakedGeometry::frame_of(&EditRecipe::default()),
+        None
+    );
+}
+
+#[test]
+fn mask_raster_mismatched_frame_is_refused_but_sensor_frame_is_portable() {
+    let tree = TempTree::new("mask-raster-mismatch");
+    let recipe = baked_geometry_recipe();
+    let marker = autoshade::render::BakedGeometry::frame_of(&recipe).unwrap();
+    let marked = tree.path().join("zone.png");
+    let plain = tree.path().join("plain.png");
+    autoshade::render::save_mask_raster(
+        &off_center_mask(64, 48),
+        &marked,
+        Some(&marker),
+    )
+    .unwrap();
+    autoshade::render::save_mask_raster(&off_center_mask(64, 48), &plain, None)
+        .unwrap();
+    let raster = autoshade::render::open_mask_raster(&marked).unwrap();
+    raster.check(&recipe, &marked).unwrap();
+
+    let mut other = recipe.clone();
+    other.lens_profile_distortion_scale = 50.0;
+    let other_marker = autoshade::render::BakedGeometry::frame_of(&other).unwrap();
+    let error = raster.check(&other, &marked).unwrap_err().to_string();
+    assert!(error.contains(&marker.knots) && error.contains(&other_marker.knots));
+    let error = raster
+        .check(&EditRecipe::default(), &marked)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains(&marker.knots) && error.contains("no lens geometry"));
+
+    for candidate in [&recipe, &other, &EditRecipe::default()] {
+        autoshade::render::open_mask_raster(&plain)
+            .unwrap()
+            .check(candidate, &plain)
+            .unwrap();
+    }
+
+    let source = tree.path().join("source.png");
+    image::RgbImage::from_pixel(64, 48, image::Rgb([128, 128, 128]))
+        .save(&source)
+        .unwrap();
+    let mismatched = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Bitmap {
+                path: marked.to_string_lossy().into_owned(),
+            },
+            exposure_ev: 1.0,
+            ..LocalAdjustment::default()
+        }],
+        ..other
+    };
+    let error = autoshade::render::render_to_file(
+        &source,
+        &mismatched,
+        &tree.path().join("out.png"),
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap_err();
+    let error = format!("{error:#}");
+    assert!(error.contains(&other_marker.knots), "{error}");
+}
+
+#[test]
+fn corrected_mask_raster_covers_the_same_pixels_as_its_sensor_twin() {
+    let tree = TempTree::new("mask-raster-sampling");
+    let recipe = baked_geometry_recipe();
+    let profile = autoshade::render::geometry_profile(&recipe).into_owned();
+    let (width, height) = (192, 128);
+    let sensor = off_center_mask(width, height);
+    let corrected =
+        autoshade::render::sensor_raster_to_corrected(&sensor, &profile);
+    assert!(mean_gray_code_difference(&sensor, &corrected) > 1.0);
+    let sensor_path = tree.path().join("sensor.png");
+    let corrected_path = tree.path().join("corrected.png");
+    let unmarked_path = tree.path().join("unmarked-corrected.png");
+    autoshade::render::save_mask_raster(&sensor, &sensor_path, None).unwrap();
+    autoshade::render::save_mask_raster(
+        &corrected,
+        &corrected_path,
+        autoshade::render::BakedGeometry::frame_of(&recipe).as_ref(),
+    )
+    .unwrap();
+    autoshade::render::save_mask_raster(&corrected, &unmarked_path, None)
+        .unwrap();
+    let adjustment = |path: &Path| LocalAdjustment {
+        mask: MaskGeometry::Bitmap {
+            path: path.to_string_lossy().into_owned(),
+        },
+        ..LocalAdjustment::default()
+    };
+    let reference = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+        width,
+        height,
+        image::Rgb([128, 128, 128]),
+    ));
+    for frame in [
+        autoshade::render::MaskFrame::Corrected { profile: &profile },
+        autoshade::render::MaskFrame::WarpedDownstream {
+            profile: &profile,
+            amount: 0.0,
+        },
+    ] {
+        let expected = autoshade::render::mask_coverage(
+            &adjustment(&sensor_path),
+            &reference,
+            frame,
+        );
+        let actual = autoshade::render::mask_coverage(
+            &adjustment(&corrected_path),
+            &reference,
+            frame,
+        );
+        let unmarked = autoshade::render::mask_coverage(
+            &adjustment(&unmarked_path),
+            &reference,
+            frame,
+        );
+        let matched = mean_gray_code_difference(&expected, &actual);
+        let misplaced = mean_gray_code_difference(&expected, &unmarked);
+        assert!(matched < 0.6, "{frame:?}: {matched}");
+        assert!(misplaced > 3.0 * matched.max(0.1), "{frame:?}: {misplaced}");
+    }
+}
+
+#[test]
+fn corrected_mask_raster_reads_back_into_the_sensor_frame() {
+    let tree = TempTree::new("mask-raster-to-sensor");
+    let recipe = baked_geometry_recipe();
+    let sensor = off_center_mask(192, 128);
+    let corrected = autoshade::render::sensor_raster_to_corrected(
+        &sensor,
+        &autoshade::render::geometry_profile(&recipe),
+    );
+    let corrected_path = tree.path().join("corrected.png");
+    let sensor_path = tree.path().join("sensor.png");
+    autoshade::render::save_mask_raster(
+        &corrected,
+        &corrected_path,
+        autoshade::render::BakedGeometry::frame_of(&recipe).as_ref(),
+    )
+    .unwrap();
+    autoshade::render::save_mask_raster(&sensor, &sensor_path, None).unwrap();
+
+    let restored = autoshade::render::open_mask_raster(&corrected_path)
+        .unwrap()
+        .into_sensor_gray(&recipe, &corrected_path)
+        .unwrap();
+    assert!(mean_gray_code_difference(&restored, &sensor) < 0.6);
+    assert_eq!(
+        autoshade::render::open_mask_raster(&sensor_path)
+            .unwrap()
+            .into_sensor_gray(&recipe, &sensor_path)
+            .unwrap(),
+        sensor
+    );
+    assert!(autoshade::render::open_mask_raster(&corrected_path)
+        .unwrap()
+        .into_sensor_gray(&EditRecipe::default(), &corrected_path)
+        .is_err());
+}
+
+fn xmp_mask_block(document: &str) -> &str {
+    let start = document.find("<crs:MaskGroupBasedCorrections>").unwrap();
+    let close = "</crs:MaskGroupBasedCorrections>";
+    let end = start + document[start..].find(close).unwrap() + close.len();
+    &document[start..end]
+}
+
+#[test]
+fn sensor_and_corrected_mask_rasters_export_the_same_public_mask_xml() {
+    let tree = TempTree::new("mask-raster-xmp");
+    let base = baked_geometry_recipe();
+    let sensor = off_center_mask(192, 128);
+    let path = tree.path().join("mask-zone-sky.png");
+    let recipe = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::select_sky(
+                0.62,
+                0.31,
+                false,
+                path.to_string_lossy().into_owned(),
+            ),
+            exposure_ev: -0.4,
+            components: vec![autoshade::recipe::MaskComponent {
+                geometry: MaskGeometry::Bitmap {
+                    path: path.to_string_lossy().into_owned(),
+                },
+                mode: autoshade::recipe::MaskCombine::Intersect,
+                inverted: false,
+            }],
+            ..LocalAdjustment::default()
+        }],
+        ..base.clone()
+    };
+    autoshade::render::save_mask_raster(&sensor, &path, None).unwrap();
+    let sensor_xmp = autoshade::xmp::recipe_to_xmp(&recipe);
+    let corrected = autoshade::render::sensor_raster_to_corrected(
+        &sensor,
+        &autoshade::render::geometry_profile(&base),
+    );
+    autoshade::render::save_mask_raster(
+        &corrected,
+        &path,
+        autoshade::render::BakedGeometry::frame_of(&base).as_ref(),
+    )
+    .unwrap();
+    assert!(autoshade::render::open_mask_raster(&path)
+        .unwrap()
+        .frame
+        .is_some());
+    let corrected_xmp = autoshade::xmp::recipe_to_xmp(&recipe);
+
+    assert!(sensor_xmp.contains(r#"crs:MaskSubType="2""#));
+    assert!(
+        xmp_mask_block(&sensor_xmp) == xmp_mask_block(&corrected_xmp),
+        "mask XML changed with only the raster frame marker"
+    );
+}
+
 #[test]
 fn pixel_layer_alpha_opacity_and_resampling_are_visible_in_public_preview() {
     let tree = TempTree::new("pixel-layer-composite");

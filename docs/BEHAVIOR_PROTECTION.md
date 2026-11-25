@@ -197,6 +197,11 @@
 - pixel-layer opacity clamp 被替换为固定 0.5 时，`pixel_layers_round_trip_in_recipe_json_and_clamp_opacity` 在 `[1,1,0]` 边界变成 `[0.5,0.5,0.5]` 处变红；恢复后测试通过。
 - BasePart 错误保留完整 Look tone curve、取消 named-profile neutrality、或不显式关闭 base sharpening 时，`base_part_contains_only_the_named_profile_stage` 分别在公开 base recipe/neutral/capture-sharpening 断言处变红；恢复后测试通过。
 - float thumbnail 退回 `image::thumbnail_exact` 时，`a_float_thumbnail_does_not_gain_half_a_code` 在多尺寸 fixture 出现约 0.500006 bias 处变红；恢复后测试通过。
+- `stamp_mask_frame` 跳过 marker 时，`mask_raster_marker_names_its_frame_without_changing_pixels` 在 marked frame 从 Some 变 None 处变红；恢复后测试通过。
+- `check_mask_frame` 无条件放行时，`mask_raster_mismatched_frame_is_refused_but_sensor_frame_is_portable` 在首个 mismatch 不再拒绝处变红；恢复后测试通过。
+- corrected-raster sampling arm被禁用时，`corrected_mask_raster_covers_the_same_pixels_as_its_sensor_twin` 的matched误差升到1.42 codes并变红；恢复后测试通过。
+- `into_sensor_gray` 跳过corrected→sensor inverse时，`corrected_mask_raster_reads_back_into_the_sensor_frame` 在sensor twin误差处变红；恢复后测试通过。
+- XMP writer读取raster marker并注入mask block时，`sensor_and_corrected_mask_rasters_export_the_same_public_mask_xml` 在两个CRS block不相等处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
