@@ -209,6 +209,10 @@
 - `refine_mask_guided` 不再把 NaN、负数和零 `eps` 提升到安全下限时，NaN 输出整张变黑，`guided_refine_floors_hostile_eps` 变红；恢复后测试通过。
 - 空 guide 分支返回同尺寸黑图而不是输入蒙版时，`guided_refine_with_an_empty_guide_keeps_the_input_mask` 变红；恢复后测试通过。
 - tiled guided refine 把 halo 清零时，恒定 guide 上的平滑线性 mask 在分块边界出现可见跳变或回退，`guided_refine_keeps_a_smooth_mask_free_of_visible_seams` 变红；恢复后测试通过。
+- `source_pixels` 禁用 RAW dispatch branch 时，伪 `.arw` 被送进 finished-image decoder，`source_pixels_routes_raw_extensions_to_the_raw_decoder` 在公开错误来源处变红；恢复后测试通过。
+- `source_pixels` 忽略 baked long-edge cap 时，`source_pixels_downscales_a_large_baked_file_to_the_requested_edge` 从 100×50 退回 400×200；对所有 `Some(edge)` 无条件 thumbnail 时，`source_pixels_does_not_enlarge_a_baked_file_below_the_requested_edge` 从 64×48 放大到 2048×1536。两处均已恢复。
+- `render_baked_to_image` 忽略 working cap 或无条件 thumbnail 时，大图 cap 与小图 no-upscale case 分别红；恢复后通过。
+- `render_baked_to_image` 把 working cap 从 develop 前移到最终 crop 后时，普通 cap 仍为 100×50，但 `baked_render_applies_the_working_cap_before_crop` 的半宽 crop 从 50×50 变成 100×100并变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

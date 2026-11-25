@@ -303,6 +303,144 @@ fn a_synthetic_png_decodes_with_its_original_dimensions() {
 }
 
 #[test]
+fn source_pixels_routes_raw_extensions_to_the_raw_decoder() {
+    let tree = TempTree::new("source-pixels-raw-dispatch");
+    let source = tree.path().join("not-really-raw.arw");
+    std::fs::write(&source, b"not really a raw").unwrap();
+
+    let error = autoshade::render::source_pixels(&source, None).unwrap_err();
+    let text = format!("{error:#}");
+
+    assert!(text.contains("does not read as any RAW format"), "{text}");
+    assert!(
+        !text.contains("this step reads finished images"),
+        "RAW source reached the baked decoder: {text}"
+    );
+}
+
+#[test]
+fn source_pixels_downscales_a_large_baked_file_to_the_requested_edge() {
+    let tree = TempTree::new("source-pixels-baked-cap");
+    let source = tree.path().join("source.png");
+    image::RgbImage::from_fn(400, 200, |x, y| {
+        image::Rgb([(x % 251) as u8, (y % 241) as u8, 7])
+    })
+    .save(&source)
+    .unwrap();
+
+    assert_eq!(
+        autoshade::render::source_pixels(&source, None)
+            .unwrap()
+            .dimensions(),
+        (400, 200)
+    );
+    assert_eq!(
+        autoshade::render::source_pixels(&source, Some(100))
+            .unwrap()
+            .dimensions(),
+        (100, 50)
+    );
+}
+
+#[test]
+fn source_pixels_does_not_enlarge_a_baked_file_below_the_requested_edge() {
+    let tree = TempTree::new("source-pixels-baked-no-upscale");
+    let source = tree.path().join("source.png");
+    image::RgbImage::from_pixel(64, 48, image::Rgb([3, 4, 5]))
+        .save(&source)
+        .unwrap();
+
+    assert_eq!(
+        autoshade::render::source_pixels(&source, Some(2048))
+            .unwrap()
+            .dimensions(),
+        (64, 48)
+    );
+}
+
+#[test]
+fn baked_render_downscales_to_the_requested_edge() {
+    let source = image::DynamicImage::ImageRgb8(image::RgbImage::from_fn(
+        400,
+        200,
+        |x, y| image::Rgb([(x % 251) as u8, (y % 241) as u8, 7]),
+    ));
+
+    let full = autoshade::render::render_baked_to_image(
+        &source,
+        &EditRecipe::default(),
+        None,
+        None,
+        None,
+        &autoshade::diag::pixels(),
+    )
+    .unwrap();
+    let capped = autoshade::render::render_baked_to_image(
+        &source,
+        &EditRecipe::default(),
+        None,
+        Some(100),
+        None,
+        &autoshade::diag::pixels(),
+    )
+    .unwrap();
+
+    assert_eq!(full.dimensions(), (400, 200));
+    assert_eq!(capped.dimensions(), (100, 50));
+}
+
+#[test]
+fn baked_render_does_not_enlarge_pixels_below_the_requested_edge() {
+    let source = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+        64,
+        48,
+        image::Rgb([3, 4, 5]),
+    ));
+
+    let rendered = autoshade::render::render_baked_to_image(
+        &source,
+        &EditRecipe::default(),
+        None,
+        Some(2048),
+        None,
+        &autoshade::diag::pixels(),
+    )
+    .unwrap();
+
+    assert_eq!(rendered.dimensions(), (64, 48));
+}
+
+#[test]
+fn baked_render_applies_the_working_cap_before_crop() {
+    let source = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+        400,
+        200,
+        image::Rgb([80, 120, 160]),
+    ));
+    let recipe = EditRecipe {
+        crop: Some(Crop {
+            left: 0.0,
+            top: 0.0,
+            right: 0.5,
+            bottom: 1.0,
+        }),
+        ..EditRecipe::default()
+    };
+
+    let rendered = autoshade::render::render_baked_to_image(
+        &source,
+        &recipe,
+        None,
+        Some(100),
+        None,
+        &autoshade::diag::pixels(),
+    )
+    .unwrap();
+
+    assert_eq!(rendered.dimensions(), (50, 50));
+}
+
+#[test]
 fn raw_extension_matching_is_case_insensitive_and_keeps_baked_files_out() {
     assert!(autoshade::decode::is_raw(Path::new("photo.ARW")));
     assert!(autoshade::decode::is_raw(Path::new("photo.DNG")));

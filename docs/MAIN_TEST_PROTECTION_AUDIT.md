@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：878 cases，约 2,778 个断言宏，48 个显式 ignore。
+- 当前工作树：884 cases，约 2,787 个断言宏，48 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，408 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、4 条 `drop`、15 条 `external-gate`、1,852 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，410 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,849 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3532,6 +3532,51 @@ recipe 先列出有效白 mask，再列出缺失 mask。公开 best-effort previ
 至此 `src/render/tests/budgets_and_refine.rs` 的 9 个 main cases 均已逐项裁决：7 条
 `rewritten`，2 条 `drop`，0 条 `open`。
 
+## Render：source dispatch 与 baked working cap
+
+### `source_pixels` 按源类型分流并只向下缩放 baked 文件
+
+- Main case：`the_source_dispatch_sends_each_kind_down_its_own_arm`
+- 当前 cases：`source_pixels_routes_raw_extensions_to_the_raw_decoder`、
+  `source_pixels_downscales_a_large_baked_file_to_the_requested_edge`、
+  `source_pixels_does_not_enlarge_a_baked_file_below_the_requested_edge`
+- 状态：`rewritten`
+- Gate：默认
+
+| main 断言 | 当前执行者 | 产品故障 |
+| --- | --- | --- |
+| `.arw` 错误不是 finished-image decoder 的拒绝 | RAW dispatch case 的否定错误断言 | camera RAW 被当成 PNG/TIFF/JPEG 读取 |
+| `.arw` 错误来自 RAW decoder | RAW dispatch case 的 decoder 错误断言 | RAW 分支没有实际执行 |
+| baked 无 cap 保持 400×200 | large baked case 的 full-resolution 断言 | 未请求 cap 仍丢失源像素 |
+| baked cap 100 得到 100×50 | large baked case 的 capped 断言 | preview/refine 为大图支付完整工作分辨率 |
+| 64×48 在 cap 2048 下仍是 64×48 | small baked case | 系统发明不存在的源像素并放大工作量 |
+
+临时禁用 RAW branch 后，公开错误变成“camera RAW … reads finished images”，RAW case 红。
+临时禁用 baked cap 后大图保持 400×200；把 `Some(edge)` 改成无条件 thumbnail 后小图
+放大到 2048×1536。三个 mutation 均已恢复。
+
+### baked develop 的 cap 在 develop 与 crop 前执行
+
+- Main case：`the_baked_develop_caps_its_working_resolution_downward_only`
+- 当前 cases：`baked_render_downscales_to_the_requested_edge`、
+  `baked_render_does_not_enlarge_pixels_below_the_requested_edge`、
+  `baked_render_applies_the_working_cap_before_crop`
+- 状态：`rewritten`
+- Gate：默认
+
+前两个 case 分别执行 main 的无 cap/full-size、large cap 和 small/no-upscale 断言。第三个
+case 对 400×200 输入先请求 long-edge 100，再取半宽 crop；正确交付为 50×50。临时把
+cap 移到最终 crop 后，普通 100×50 cap 仍成立，但 crop 交付变成 100×100，顺序 case
+单独变红。禁用 cap 与无条件放大 mutation 也分别使前两个 case 变红；均已恢复。
+
+### 不迁移 `load_image` 源码 patrol
+
+Main case `every_baked_decode_line_says_why_it_is_allowed` 遍历 `src/**/*.rs`，匹配
+`load_image` 字符串及相邻 `baked-by-construction` 注释。注释可错、等价重构会改变文本，
+且扫描通过不能证明 RAW 没进入 baked decoder，因此按规则归为 `drop`。其产品故障由
+上述公开 RAW dispatch case 执行；本轮不新建源码扫描器，也不把该规则伪称为 Clippy
+已经执行的架构约束。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3540,7 +3585,7 @@ recipe 先列出有效白 mask，再列出缺失 mask。公开 best-effort previ
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 101 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
+| `tests/product_behavior.rs` | 107 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
