@@ -1,5 +1,5 @@
 use autoshade::recipe::{
-    ColorGrade, CurvePoint, EditRecipe, LensProfile, LocalAdjustment, MaskGeometry,
+    BrushStroke, ColorGrade, CurvePoint, EditRecipe, LensProfile, LocalAdjustment, MaskGeometry,
 };
 use image::{DynamicImage, Rgb, RgbImage};
 
@@ -569,6 +569,48 @@ fn radial_feather_produces_intermediate_coverage() {
         values.iter().any(|value| (1..=254).contains(value)),
         "a feathered radial mask contained no transition coverage"
     );
+}
+
+#[test]
+fn brush_mask_paints_its_dabs_without_covering_far_corners() {
+    let reference =
+        DynamicImage::ImageRgb8(RgbImage::from_pixel(480, 320, Rgb([128, 128, 128])));
+    let mask = LocalAdjustment {
+        mask: MaskGeometry::Brush {
+            name: "measured brush".to_string(),
+            blend_mode: 0,
+            value: 1.0,
+            inverted: false,
+            strokes: vec![BrushStroke {
+                value: 0.439815,
+                radius: 0.582157,
+                flow: 1.0,
+                center_weight: 0.0,
+                sync_id: "synthetic".to_string(),
+                dabs: "r 0.581835\nd 0.100684 0.840004\nr 0.581172\nd 0.213862 0.887261"
+                    .to_string(),
+            }],
+        },
+        ..LocalAdjustment::default()
+    };
+
+    let coverage = autoshade::render::mask_coverage(
+        &mask,
+        &reference,
+        autoshade::render::MaskFrame::AsRendered,
+    );
+    for (x, y) in [(48, 268), (102, 283)] {
+        assert!(
+            coverage.get_pixel(x, y)[0] > 76,
+            "brush did not paint its dab at ({x}, {y})"
+        );
+    }
+    for (x, y) in [(0, 0), (475, 6)] {
+        assert!(
+            coverage.get_pixel(x, y)[0] < 6,
+            "brush covered a far corner at ({x}, {y})"
+        );
+    }
 }
 
 #[test]

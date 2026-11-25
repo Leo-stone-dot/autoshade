@@ -1067,6 +1067,24 @@ whole-correction base scan选中Look shape并使公开reader发生offset underfl
 base slice让后置inversion污染linear；接受未知`q` token让非法group导入。三条case分别
 红；nested-shape refusal沿用上一批已证明的mutation。所有修改均恢复，`src/`无diff。
 
+### BrushRendered names the real coverage AutoShade draws
+
+- Main cases：
+  `a_rendered_brush_is_named_in_both_channels_and_is_not_a_drop`、
+  `a_carried_brush_group_draws_its_dabs`
+- 当前执行者：
+  `inline_brush_component_imports_beside_its_parametric_base_with_disclosure`、
+  `every_import_loss_reason_reaches_grouped_public_disclosure`、
+  `every_mask_export_reason_reaches_grouped_public_disclosure`、
+  `brush_mask_paints_its_dabs_without_covering_far_corners`
+- 状态：两条均为 `rewritten`
+
+真实inline brush的公开import loss为BrushRendered且不是drop；两条公开prose分别包含
+“drawn”、“measured model”和“not Adobe's own rasteriser”，由既有ALL/same-kind mutation
+保护。Render半边不再直调私有brush_raster/mask_weight：公开`mask_coverage`在两处实测
+dab像素coverage>0.3，在两个远角<0.02。移除runtime brush raster时dab断言红；替换为
+full-frame alpha时远角断言红。mutation均已恢复，`src/`无diff。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
