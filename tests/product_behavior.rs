@@ -2126,6 +2126,193 @@ fn sensor_and_corrected_mask_rasters_export_the_same_public_mask_xml() {
 }
 
 #[test]
+fn render_to_file_clamps_extreme_finite_mask_geometry_before_work() {
+    let tree = TempTree::new("render-mask-geometry-clamp");
+    let source = tree.path().join("source.png");
+    image::RgbImage::from_pixel(8, 4, image::Rgb([120, 120, 120]))
+        .save(&source)
+        .unwrap();
+    let wild = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Linear {
+                zero_x: 1e30,
+                zero_y: 1e30,
+                full_x: -1e30,
+                full_y: -1e30,
+            },
+            exposure_ev: 1.0,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let mut clamped = wild.clone();
+    clamped.clamp();
+    let wild_out = tree.path().join("wild.png");
+    let clamped_out = tree.path().join("clamped.png");
+    autoshade::render::render_to_file(
+        &source,
+        &wild,
+        &wild_out,
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap();
+    autoshade::render::render_to_file(
+        &source,
+        &clamped,
+        &clamped_out,
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap();
+
+    let actual = image::open(wild_out).unwrap().to_rgb16();
+    let expected = image::open(clamped_out).unwrap().to_rgb16();
+    assert!(
+        actual.as_raw() == expected.as_raw(),
+        "entry-point clamp changed the delivered pixels"
+    );
+    assert!(actual.as_raw().iter().all(|channel| *channel != 0));
+}
+
+fn write_projected_png_header(path: &Path, width: u32, height: u32) {
+    fn crc32(bytes: &[u8]) -> u32 {
+        let mut crc = 0xFFFF_FFFFu32;
+        for byte in bytes {
+            crc ^= u32::from(*byte);
+            for _ in 0..8 {
+                crc = if crc & 1 != 0 {
+                    (crc >> 1) ^ 0xEDB8_8320
+                } else {
+                    crc >> 1
+                };
+            }
+        }
+        !crc
+    }
+    fn chunk(kind: &[u8; 4], data: &[u8]) -> Vec<u8> {
+        let mut output = (data.len() as u32).to_be_bytes().to_vec();
+        output.extend_from_slice(kind);
+        output.extend_from_slice(data);
+        let mut crc_data = kind.to_vec();
+        crc_data.extend_from_slice(data);
+        output.extend_from_slice(&crc32(&crc_data).to_be_bytes());
+        output
+    }
+    let mut header = width.to_be_bytes().to_vec();
+    header.extend_from_slice(&height.to_be_bytes());
+    header.extend_from_slice(&[8, 0, 0, 0, 0]);
+    let mut png = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+    png.extend_from_slice(&chunk(b"IHDR", &header));
+    png.extend_from_slice(&chunk(b"IDAT", &[]));
+    std::fs::write(path, png).unwrap();
+}
+
+#[test]
+fn mask_raster_write_budget_counts_existing_active_rasters() {
+    let tree = TempTree::new("mask-raster-write-budget");
+    let existing = tree.path().join("existing.png");
+    let replaced = tree.path().join("replaced.png");
+    let companion = tree.path().join("companion.png");
+    for path in [&replaced, &companion] {
+        image::GrayImage::from_pixel(64, 48, image::Luma([255]))
+            .save(path)
+            .unwrap();
+    }
+    write_projected_png_header(&existing, 9504, 6336);
+    let bitmap = |name: &str, path: &Path| LocalAdjustment {
+        name: name.to_string(),
+        mask: MaskGeometry::Bitmap {
+            path: path.to_string_lossy().into_owned(),
+        },
+        exposure_ev: 1.0,
+        ..LocalAdjustment::default()
+    };
+
+    let first = EditRecipe {
+        masks: vec![
+            bitmap("companion", &companion),
+            bitmap("incoming", &replaced),
+        ],
+        ..EditRecipe::default()
+    };
+    assert!(autoshade::render::mask_raster_write_fits_budget(
+        &first,
+        Some(&replaced.to_string_lossy()),
+        9504,
+        6336,
+    ));
+
+    let mut second = EditRecipe {
+        masks: vec![bitmap("existing", &existing), bitmap("incoming", &replaced)],
+        ..EditRecipe::default()
+    };
+    assert!(!autoshade::render::mask_raster_write_fits_budget(
+        &second,
+        Some(&replaced.to_string_lossy()),
+        9504,
+        6336,
+    ));
+    assert!(autoshade::render::mask_raster_write_fits_budget(
+        &EditRecipe::default(),
+        None,
+        9504,
+        6336,
+    ));
+    second.masks[0].enabled = false;
+    assert!(autoshade::render::mask_raster_write_fits_budget(
+        &second,
+        Some(&replaced.to_string_lossy()),
+        9504,
+        6336,
+    ));
+}
+
+#[test]
+fn guided_refine_floors_hostile_eps() {
+    let (width, height) = (64, 32);
+    let guide = image::DynamicImage::ImageRgb8(image::RgbImage::from_fn(
+        width,
+        height,
+        |x, _| {
+            if x < width / 2 {
+                image::Rgb([20, 20, 20])
+            } else {
+                image::Rgb([220, 220, 220])
+            }
+        },
+    ));
+    let small = image::GrayImage::from_fn(9, 5, |x, y| {
+        image::Luma([((x * 41 + y * 59) % 256) as u8])
+    });
+    let expected = autoshade::render::refine_mask_guided(&small, &guide, 2, 1e-6);
+    assert!(expected.as_raw().iter().any(|value| *value > 0));
+    for eps in [f32::NAN, -1.0, 0.0] {
+        let actual = autoshade::render::refine_mask_guided(&small, &guide, 2, eps);
+        assert!(
+            actual.as_raw() == expected.as_raw(),
+            "eps {eps} changed the delivered mask"
+        );
+    }
+}
+
+#[test]
+fn guided_refine_with_an_empty_guide_keeps_the_input_mask() {
+    let small = image::GrayImage::from_fn(9, 5, |x, y| {
+        image::Luma([((x * 41 + y * 59) % 256) as u8])
+    });
+    let empty = image::DynamicImage::ImageRgb8(image::RgbImage::new(0, 0));
+    let actual = autoshade::render::refine_mask_guided(&small, &empty, 2, 1e-4);
+
+    assert!(
+        actual.as_raw() == small.as_raw(),
+        "an empty guide changed the delivered mask"
+    );
+}
+
+#[test]
 fn pixel_layer_alpha_opacity_and_resampling_are_visible_in_public_preview() {
     let tree = TempTree::new("pixel-layer-composite");
     let layer_path = tree.path().join("layer.png");

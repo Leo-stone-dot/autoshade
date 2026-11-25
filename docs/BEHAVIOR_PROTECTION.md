@@ -202,6 +202,10 @@
 - corrected-raster sampling arm被禁用时，`corrected_mask_raster_covers_the_same_pixels_as_its_sensor_twin` 的matched误差升到1.42 codes并变红；恢复后测试通过。
 - `into_sensor_gray` 跳过corrected→sensor inverse时，`corrected_mask_raster_reads_back_into_the_sensor_frame` 在sensor twin误差处变红；恢复后测试通过。
 - XMP writer读取raster marker并注入mask block时，`sensor_and_corrected_mask_rasters_export_the_same_public_mask_xml` 在两个CRS block不相等处变红；恢复后测试通过。
+- 同时绕过 `render_to_file_marked` 与 `render_baked_to_image` 的入口 clamp 时，极端但有限的蒙版几何把正常灰图渲染为黑色，`render_to_file_clamps_extreme_finite_mask_geometry_before_work` 变红；只绕过内层时外层仍保护交付结果，因此不冒充独立证据。
+- `mask_raster_write_fits_budget` 忽略 recipe 中已有的 active raster 时，第二张 61 MP raster 被错误接受，`mask_raster_write_budget_counts_existing_active_rasters` 在 aggregate refusal 处变红；恢复后测试通过。
+- `refine_mask_guided` 不再把 NaN、负数和零 `eps` 提升到安全下限时，NaN 输出整张变黑，`guided_refine_floors_hostile_eps` 变红；恢复后测试通过。
+- 空 guide 分支返回同尺寸黑图而不是输入蒙版时，`guided_refine_with_an_empty_guide_keeps_the_input_mask` 变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
