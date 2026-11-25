@@ -230,6 +230,8 @@
 - `camera_frame_of` 无条件返回完整 neutral frame 时，`camera_base_look_pairs_a_center_crop_with_the_frame_the_camera_shows` 在 267×200 frame 断言处红；恢复后通过。
 - corner selection 无条件选 lifted 时，unseen-lift 与 unjudgeable-fallback 两条公开 camera-base case 分别红；无条件选 plain 时 drew-lifted case 红。三处 mutation 均已恢复。
 - profile lift 错误地在 camera crop 后应用时，公开 0.85 tone curve 最大误差从 `0.00119` 升到 `0.00585`，`camera_base_look_applies_the_lift_before_the_camera_crop` 在 `<0.003` 断言处红；恢复后通过。
+- tone builder 在 recipe `names_profile()` 时跳过 base curve，`naming_a_camera_profile_does_not_replace_the_recipe_base_curve` 在公开像素 equality 处红；恢复后测试通过。
+- `real_raw_base_look_moves_the_render_toward_the_camera_preview` 是显式真实 RAW gate；当前机器缺 `AUTOSHADE_PROBE_RAW`，显式运行按设计失败而非静默空测，因此尚无本机 mutation 证据，也不宣称该 gate 已绿。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

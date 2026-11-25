@@ -215,6 +215,43 @@ fn a_base_curve_keeps_black_pinned() {
 }
 
 #[test]
+fn naming_a_camera_profile_does_not_replace_the_recipe_base_curve() {
+    let source = RgbImage::from_fn(32, 8, |x, _| {
+        let value = (32 + x * 5) as u8;
+        Rgb([value; 3])
+    });
+    let curve = vec![[0.0, 0.0], [0.25, 0.4], [0.5, 0.7], [1.0, 1.0]];
+    let unprofiled = render(
+        &source,
+        &EditRecipe {
+            base_curve: curve.clone(),
+            contrast: 20.0,
+            ..EditRecipe::default()
+        },
+    );
+    let profiled = render(
+        &source,
+        &EditRecipe {
+            base_curve: curve,
+            camera_profile: "Adobe Standard".to_string(),
+            contrast: 20.0,
+            ..EditRecipe::default()
+        },
+    );
+    let without_base = render(
+        &source,
+        &EditRecipe {
+            camera_profile: "Adobe Standard".to_string(),
+            contrast: 20.0,
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(profiled.as_raw() == unprofiled.as_raw());
+    assert!(profiled.as_raw() != without_base.as_raw());
+}
+
+#[test]
 fn a_creative_looks_baked_tone_controls_do_not_reapply_to_pixels() {
     let point = |input, output| CurvePoint { input, output };
     let baked = CreativeLook {

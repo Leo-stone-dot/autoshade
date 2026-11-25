@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：908 cases，约 2,836 个断言宏，48 个显式 ignore。
+- 当前工作树：910 cases，约 2,843 个断言宏，49 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，429 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,830 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，430 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、16 条 `external-gate`、1,828 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3827,6 +3827,37 @@ sensor frame 直接求得的 knots。临时让不可判分支默认选 lifted �
 case 红；恢复后通过。tiny-grid inability 已由独立 `camera_base_knots...smaller...` case
 验收，不在这里重复。
 
+### Profile 名称不替换 recipe 的 base curve
+
+- Main case：`the_base_curve_is_the_start_whatever_profile_the_recipe_names`
+- 当前 case：`naming_a_camera_profile_does_not_replace_the_recipe_base_curve`
+- 状态：`rewritten`
+- Gate：默认
+
+同一 gradient 通过 base-curve+Contrast recipe，在 camera profile 为空或命名
+`Adobe Standard` 时必须交付相同 pixels；命名 profile 但移除 base curve 必须交付不同
+pixels。临时让 tone builder 在 `names_profile()` 时跳过 base curve 后 profiled 输出退化，
+case 红；恢复后通过。这把 main 的私有 `build_tone_lut`/`has_tone_work` 断言改写为公开
+交付结果。
+
+### 真实 RAW base-look gate
+
+- Main case：`probe_real_raw_base_look`
+- 当前 case：`real_raw_base_look_moves_the_render_toward_the_camera_preview`
+- 状态：`external-gate`
+- 启用：`AUTOSHADE_PROBE_RAW=/path/to/photo.arw cargo test --test product_behavior real_raw_base_look_moves_the_render_toward_the_camera_preview -- --ignored --exact`
+
+gate 要求真实 RAW 文件、RAW extension、可读 embedded preview、公开
+`photo_base_knots_checked_in` 的非空结果；base-curved render 的 luma median 必须比 neutral
+更接近 camera preview，且最终差 `<0.06`。当前机器未配置 fixture，显式运行得到
+“set AUTOSHADE_PROBE_RAW…”失败，证明缺 fixture 不会静默空测；因此不宣称 gate 已绿，
+也不伪造 mutation 证据。
+
+至此 `src/render/tests/sources_and_base_look.rs` 的 24 个 main cases 全部逐项裁决：
+22 条 `rewritten`、1 条 `drop`、1 条 `external-gate`、0 条 `open`。其中
+`the_three_open_paths...` 是 mixed case：以 `rewritten` 保留产品断言，并明确删除其
+源码扫描断言。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3835,8 +3866,8 @@ case 红；恢复后通过。tiny-grid inability 已由独立 `camera_base_knots
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 107 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 36 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/product_behavior.rs` | 108 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
+| `tests/render_behavior.rs` | 37 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 107 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

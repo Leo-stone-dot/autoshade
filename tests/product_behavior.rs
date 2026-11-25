@@ -1363,6 +1363,56 @@ fn mean_rgb_code_difference(
 }
 
 #[test]
+#[ignore = "requires AUTOSHADE_PROBE_RAW pointing to a real RAW with an embedded preview"]
+fn real_raw_base_look_moves_the_render_toward_the_camera_preview() {
+    let raw = std::env::var_os("AUTOSHADE_PROBE_RAW")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_PROBE_RAW to a real RAW with an embedded preview");
+    assert!(raw.is_file(), "{} is missing", raw.display());
+    assert!(autoshade::decode::is_raw(&raw), "{} is not a RAW", raw.display());
+    let camera = autoshade::decode::embedded_preview(&raw)
+        .expect("the RAW preview probe must decode")
+        .expect("the RAW preview probe requires an embedded preview");
+    let knots =
+        autoshade::pipeline::photo_base_knots_checked_in(&raw, &autoshade::diag::photo(&raw))
+            .expect("the real RAW pair must be large enough to judge");
+    assert!(!knots.is_empty(), "the probe RAW produced no camera base look");
+    let neutral =
+        autoshade::render::render_to_image(&raw, &EditRecipe::default(), None, Some(1536))
+            .expect("the probe RAW must render");
+    let based = autoshade::render::develop_preview(
+        &neutral,
+        &EditRecipe {
+            base_curve: knots,
+            ..EditRecipe::default()
+        },
+    );
+    let median = |image: &image::DynamicImage| {
+        let mut values = image
+            .to_rgb8()
+            .pixels()
+            .map(|pixel| {
+                (0.299 * f32::from(pixel[0])
+                    + 0.587 * f32::from(pixel[1])
+                    + 0.114 * f32::from(pixel[2]))
+                    / 255.0
+            })
+            .collect::<Vec<_>>();
+        values.sort_by(f32::total_cmp);
+        values[values.len() / 2]
+    };
+    let camera_median = median(&camera);
+    let before = (median(&neutral) - camera_median).abs();
+    let after = (median(&based) - camera_median).abs();
+
+    assert!(
+        after < before,
+        "base look did not improve median error: {before} -> {after}"
+    );
+    assert!(after < 0.06, "base-curved median remains {after} from camera");
+}
+
+#[test]
 #[ignore = "requires AUTOSHADE_FIT_CALIBRATION_DIR/p39.arw"]
 fn real_p39_old_recipe_keeps_its_historical_render_digest() {
     let recipe: EditRecipe = serde_json::from_str(
