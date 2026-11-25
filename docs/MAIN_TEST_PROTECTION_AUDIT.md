@@ -1294,6 +1294,27 @@ float thumbnail在downscale/identity/fractional upscale多尺寸上与等价16-b
 两者都要求`AUTOSHADE_FIT_CALIBRATION_DIR/p39.arw`；未配置时显式运行确定失败，默认明确
 ignored。当前机器无授权RAW，因此不宣称gate已绿。
 
+### Sony as-shot public corpus gate
+
+- Main cases：
+  `the_as_shot_reading_is_camera_raws_on_every_corpus_frame`、
+  `the_sr2_reader_finds_the_daylight_preset_in_an_encrypted_block`、
+  `the_corpus_files_read_camera_raws_as_shot`、
+  `the_camera_calibration_is_the_bodys_reference_over_the_files_daylight_preset`
+- 当前执行者：
+  `real_sony_corpus_as_shot_wb_matches_camera_raws_grid`、
+  默认`as_shot_wb_reads_finite_temperature_and_tint_from_dng_metadata`
+- 状态：4 条均为 `external-gate`
+
+显式ignored gate要求`AUTOSHADE_FIT_CALIBRATION_DIR`下p36–p42七个ARW，并通过唯一公开
+`as_shot_wb(path)`固定Camera Raw的七组50 K/整数Tint结果；变量缺失或任一文件缺失均
+失败。该入口实际穿过SR2 Daylight读取、body calibration与temperature/tint求解；main
+对私有cipher self-inverse、IFD offset和diagonal helper的直接断言不复制。默认synthetic
+DNG case保护AsShotNeutral/colour-matrix有界finite结果。当前无授权corpus，不宣称gate绿。
+
+`the_daylight_preset_and_only_a_listed_body_move_the_reading`保持`open`：它要求altered-preset
+与unlisted-model对照，但main只直调私有`camera_raw_as_shot`；尚无公开fixture或API执行者。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3409,7 +3430,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
 | `tests/store_behavior.rs` | 102 source / 100 macOS | stable key identity/alias/bounds、atomic commit、locks、crash/clear/version-delete recovery、revisions、variant identity/member/edit-state joins、full legacy migration/suppression、XMP ordering/handoff、cross-platform safe raster paths、version snapshot/delete semantics、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
-| `tests/decode_behavior.rs` | 4 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝 | Decode、Render/as-shot | 真实相机格式语料与平台 codec gate |
+| `tests/decode_behavior.rs` | 5 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝、Sony corpus external gate | Decode、Render/as-shot | 真实相机语料gate未在当前机器执行、平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
 | `tests/process_behavior.rs` | 1 | 杀 sidecar 进程组同时回收孙进程 | Lib/process、Denoise | Windows Job Object 分支 |
 

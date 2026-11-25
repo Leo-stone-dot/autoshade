@@ -94,3 +94,28 @@ fn as_shot_wb_returns_none_when_the_dng_has_no_colour_matrix() {
 
     assert!(autoshade::render::as_shot_wb(&path).is_none());
 }
+
+#[test]
+#[ignore = "requires AUTOSHADE_FIT_CALIBRATION_DIR with p36-p42 Sony ARW files"]
+fn real_sony_corpus_as_shot_wb_matches_camera_raws_grid() {
+    let root = std::env::var_os("AUTOSHADE_FIT_CALIBRATION_DIR")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_FIT_CALIBRATION_DIR to run the Sony as-shot gate");
+    for (name, expected) in [
+        ("p36", (4100.0, 4.0)),
+        ("p37", (5550.0, 13.0)),
+        ("p38", (5950.0, 13.0)),
+        ("p39", (5400.0, 14.0)),
+        ("p40", (7650.0, 16.0)),
+        ("p41", (3800.0, -3.0)),
+        ("p42", (6450.0, 11.0)),
+    ] {
+        let raw = root.join(format!("{name}.arw"));
+        assert!(raw.is_file(), "{} is missing", raw.display());
+        assert_eq!(
+            autoshade::render::as_shot_wb(&raw),
+            Some(expected),
+            "{name}"
+        );
+    }
+}
