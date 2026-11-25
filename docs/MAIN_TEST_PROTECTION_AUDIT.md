@@ -1263,6 +1263,29 @@ future key拒绝，NaN/3/-1 clamp为1/1/0。
 composite忽略opacity、draws忽略enabled、clamp把所有opacity改成0.5时三条case分别红；
 mutation均已恢复，`src/`无diff。
 
+### Canvas BasePart and float thumbnail start
+
+- Main cases：
+  `the_base_part_is_the_profile_stage_and_nothing_after_it`、
+  `a_float_base_thumbnails_without_the_half_unit_bias`
+- 当前执行者：
+  `base_part_contains_only_the_named_profile_stage`、
+  `a_float_thumbnail_does_not_gain_half_a_code`
+- 状态：两条均为 `rewritten`
+
+公开BasePart保留camera profile与Look identity/amount/base/table，排除Look/camera tone work及
+无关slider/base curve；没有named profile时neutral，base recipe显式关闭RAW default
+capture sharpening，避免base和最终display/export各锐化一次。完整Look、取消profile-name
+gate、丢explicit-zero sharpening时同一case在对应公开recipe结果处红。
+
+float thumbnail在downscale/identity/fractional upscale多尺寸上与等价16-bit frame误差小于
+一code；2×2 over-range/negative fixture输出plain mean `[0.375,1.5,-0.25]`。退回
+`image::thumbnail_exact`时恢复约+0.5 bias并红。mutation均已恢复，`src/`无diff。
+
+`an_old_recipe_with_a_stamped_base_curve_renders_as_it_did`与
+`every_surface_shows_a_profile_naming_develop_as_the_export_renders_it`仍保持`open`：它们依赖
+未授权p39 RAW corpus，原main silent return不能作为通过，显式gate尚待建立。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3364,7 +3387,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 86 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked master marker/拒绝、pixel-layer preview/export/persistence、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
+| `tests/product_behavior.rs` | 87 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked master marker/拒绝、pixel-layer preview/export/persistence、BasePart/float-thumbnail、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

@@ -1063,13 +1063,120 @@ fn a_colour_range_ignores_brightness_but_rejects_a_different_hue() {
 
 #[test]
 fn a_float_thumbnail_does_not_gain_half_a_code() {
-    let source = image::DynamicImage::ImageRgb32F(
-        image::ImageBuffer::from_raw(2, 2, vec![0.5; 12]).unwrap(),
+    let (width, height) = (37u32, 23u32);
+    let value = |x: u32, y: u32, channel: u32| {
+        ((x * 7 + y * 13 + channel * 5) % 64) as f32 * 1024.0 / 65535.0
+    };
+    let float = image::DynamicImage::ImageRgb32F(image::ImageBuffer::from_fn(
+        width,
+        height,
+        |x, y| image::Rgb([value(x, y, 0), value(x, y, 1), value(x, y, 2)]),
+    ));
+    let integer = image::DynamicImage::ImageRgb16(image::ImageBuffer::from_fn(
+        width,
+        height,
+        |x, y| {
+            image::Rgb(
+                [0, 1, 2].map(|channel| {
+                    (value(x, y, channel) * 65535.0).round() as u16
+                }),
+            )
+        },
+    ));
+    for (target_width, target_height) in [(9, 9), (37, 23), (50, 50), (20, 40)] {
+        let actual =
+            autoshade::render::thumbnail(&float, target_width, target_height).to_rgb32f();
+        let expected = integer.thumbnail(target_width, target_height).to_rgb32f();
+        assert_eq!(actual.dimensions(), expected.dimensions());
+        let worst = actual
+            .as_raw()
+            .iter()
+            .zip(expected.as_raw())
+            .map(|(left, right)| (left - right).abs())
+            .fold(0.0f32, f32::max);
+        assert!(worst < 1.0 / 65535.0, "{target_width}x{target_height}: {worst}");
+    }
+
+    let tiny = image::DynamicImage::ImageRgb32F(image::ImageBuffer::from_fn(
+        2,
+        2,
+        |x, y| image::Rgb([(x + 2 * y) as f32 * 0.25, 1.5, -0.25]),
+    ));
+    let one = autoshade::render::thumbnail_exact(&tiny, 1, 1).to_rgb32f();
+    assert_eq!(one.get_pixel(0, 0).0, [0.375, 1.5, -0.25]);
+}
+
+#[test]
+fn base_part_contains_only_the_named_profile_stage() {
+    let look = autoshade::recipe::CreativeLook {
+        name: "A Look".to_string(),
+        amount: 1.0,
+        base_profile: "A Profile".to_string(),
+        table: "00000000000000000000000000000000".to_string(),
+        tone_curve: vec![
+            CurvePoint {
+                input: 0,
+                output: 0,
+            },
+            CurvePoint {
+                input: 64,
+                output: 50,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ],
+        ..autoshade::recipe::CreativeLook::default()
+    };
+    let named = EditRecipe {
+        camera_profile: "A Profile".to_string(),
+        look: Some(look.clone()),
+        ..EditRecipe::default()
+    };
+    let part = autoshade::render::BasePart::of(&named);
+    assert!(!part.is_neutral());
+    let base = part.recipe();
+    assert_eq!(base.camera_profile, "A Profile");
+    let kept = base.look.as_ref().expect("the Look identity belongs to the base");
+    assert_eq!(
+        (
+            kept.name.as_str(),
+            kept.amount,
+            kept.base_profile.as_str(),
+            kept.table.as_str(),
+        ),
+        (
+            look.name.as_str(),
+            look.amount,
+            look.base_profile.as_str(),
+            look.table.as_str(),
+        )
     );
+    assert!(kept.tone_curve.is_empty());
+    assert!(base.base_curve.is_empty());
+    assert!(base.tone_curve.is_empty());
+    assert_eq!((base.exposure_ev, base.contrast, base.saturation), (0.0, 0.0, 0.0));
 
-    let thumb = autoshade::render::thumbnail_exact(&source, 1, 1).to_rgb32f();
+    let edited = EditRecipe {
+        exposure_ev: 0.7,
+        base_curve: vec![[0.0, 0.0], [1.0, 1.0]],
+        ..named.clone()
+    };
+    assert_eq!(autoshade::render::BasePart::of(&edited), part);
+    let unnamed = EditRecipe {
+        look: Some(autoshade::recipe::CreativeLook {
+            base_profile: String::new(),
+            ..look
+        }),
+        ..EditRecipe::default()
+    };
+    assert!(autoshade::render::BasePart::of(&unnamed).is_neutral());
 
-    assert!((thumb.get_pixel(0, 0)[0] - 0.5).abs() < 1e-6);
+    let neutral = autoshade::render::BasePart::default().recipe();
+    assert_eq!(neutral.resolved("sharpening"), 0.0);
+    assert_eq!(neutral.capture_sharpening(true), 0.0);
+    assert_eq!(base.capture_sharpening(true), 0.0);
 }
 
 #[test]
