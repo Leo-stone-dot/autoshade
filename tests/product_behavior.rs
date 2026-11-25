@@ -1593,6 +1593,200 @@ fn unmarked_master_is_corrected_once_and_marked_master_is_refused() {
 }
 
 #[test]
+fn pixel_layer_alpha_opacity_and_resampling_are_visible_in_public_preview() {
+    let tree = TempTree::new("pixel-layer-composite");
+    let layer_path = tree.path().join("layer.png");
+    image::RgbaImage::from_fn(4, 2, |x, _| {
+        if x < 2 {
+            image::Rgba([255, 0, 0, 255])
+        } else {
+            image::Rgba([0, 255, 0, 0])
+        }
+    })
+    .save(&layer_path)
+    .unwrap();
+    let source = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+        4,
+        2,
+        image::Rgb([51, 51, 51]),
+    ));
+    let layer = |opacity| autoshade::render::PixelLayer {
+        path: layer_path.to_string_lossy().into_owned(),
+        enabled: true,
+        opacity,
+    };
+
+    let full = autoshade::render::develop_preview(
+        &source,
+        &EditRecipe {
+            pixel_layers: vec![layer(1.0)],
+            ..EditRecipe::default()
+        },
+    )
+    .to_rgb8();
+    assert_eq!(full.get_pixel(0, 0).0, [255, 0, 0]);
+    assert_eq!(full.get_pixel(3, 0).0, [51, 51, 51]);
+
+    let half = autoshade::render::develop_preview(
+        &source,
+        &EditRecipe {
+            pixel_layers: vec![layer(0.5)],
+            ..EditRecipe::default()
+        },
+    )
+    .to_rgb8();
+    for (actual, expected) in half.get_pixel(0, 0).0.into_iter().zip([153, 26, 26]) {
+        assert!(actual.abs_diff(expected) <= 1);
+    }
+    assert_eq!(half.get_pixel(3, 0).0, [51, 51, 51]);
+
+    let large = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+        8,
+        4,
+        image::Rgb([51, 51, 51]),
+    ));
+    let resampled = autoshade::render::develop_preview(
+        &large,
+        &EditRecipe {
+            pixel_layers: vec![layer(1.0)],
+            ..EditRecipe::default()
+        },
+    )
+    .to_rgb8();
+    assert_eq!(resampled.get_pixel(0, 2).0, [255, 0, 0]);
+    assert_eq!(resampled.get_pixel(7, 2).0, [51, 51, 51]);
+}
+
+#[test]
+fn pixel_layer_switch_and_missing_file_have_preview_and_export_contracts() {
+    let tree = TempTree::new("pixel-layer-contract");
+    let source_path = tree.path().join("source.png");
+    let layer_path = tree.path().join("fill.png");
+    image::RgbImage::from_pixel(6, 4, image::Rgb([90, 90, 90]))
+        .save(&source_path)
+        .unwrap();
+    image::RgbaImage::from_fn(6, 4, |x, y| {
+        image::Rgba(if (x, y) == (1, 1) {
+            [10, 200, 30, 255]
+        } else {
+            [0, 0, 0, 0]
+        })
+    })
+    .save(&layer_path)
+    .unwrap();
+    let source = image::open(&source_path).unwrap();
+    let layer = autoshade::render::PixelLayer {
+        path: layer_path.to_string_lossy().into_owned(),
+        ..autoshade::render::PixelLayer::default()
+    };
+    let base = EditRecipe {
+        exposure_ev: 0.3,
+        ..EditRecipe::default()
+    };
+    let plain = autoshade::render::develop_preview(&source, &base).to_rgb8();
+    let drawn = autoshade::render::develop_preview(
+        &source,
+        &EditRecipe {
+            pixel_layers: vec![layer.clone()],
+            ..base.clone()
+        },
+    )
+    .to_rgb8();
+    assert_eq!(drawn.get_pixel(1, 1).0, [10, 200, 30]);
+    assert_eq!(drawn.get_pixel(4, 2), plain.get_pixel(4, 2));
+
+    let off = autoshade::render::develop_preview(
+        &source,
+        &EditRecipe {
+            pixel_layers: vec![autoshade::render::PixelLayer {
+                enabled: false,
+                ..layer
+            }],
+            ..base.clone()
+        },
+    )
+    .to_rgb8();
+    assert!(
+        off.as_raw() == plain.as_raw(),
+        "a disabled pixel layer changed the preview"
+    );
+
+    let missing = EditRecipe {
+        pixel_layers: vec![autoshade::render::PixelLayer {
+            path: tree.path().join("missing.png").to_string_lossy().into_owned(),
+            ..autoshade::render::PixelLayer::default()
+        }],
+        ..base
+    };
+    let missing_preview = autoshade::render::develop_preview_with(
+        &source,
+        &missing,
+        &autoshade::diag::dropped(),
+    )
+    .to_rgb8();
+    assert!(
+        missing_preview.as_raw() == plain.as_raw(),
+        "missing pixel layer changed the preview"
+    );
+    let error = autoshade::render::render_to_file(
+        &source_path,
+        &missing,
+        &tree.path().join("delivery.png"),
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("pixel layer"), "{error}");
+}
+
+#[test]
+fn pixel_layers_round_trip_in_recipe_json_and_clamp_opacity() {
+    let recipe = EditRecipe {
+        pixel_layers: vec![autoshade::render::PixelLayer {
+            path: "layer.png".to_string(),
+            enabled: false,
+            opacity: 0.4,
+        }],
+        ..EditRecipe::default()
+    };
+    let json = serde_json::to_string(&recipe).unwrap();
+    assert_eq!(serde_json::from_str::<EditRecipe>(&json).unwrap(), recipe);
+    assert!(serde_json::from_str::<EditRecipe>(
+        r#"{"pixel_layers":[{"path":"layer.png","blend":"multiply"}]}"#
+    )
+    .is_err());
+
+    let mut hostile = EditRecipe {
+        pixel_layers: vec![
+            autoshade::render::PixelLayer {
+                opacity: f32::NAN,
+                ..autoshade::render::PixelLayer::default()
+            },
+            autoshade::render::PixelLayer {
+                opacity: 3.0,
+                ..autoshade::render::PixelLayer::default()
+            },
+            autoshade::render::PixelLayer {
+                opacity: -1.0,
+                ..autoshade::render::PixelLayer::default()
+            },
+        ],
+        ..EditRecipe::default()
+    };
+    hostile.clamp();
+    assert_eq!(
+        hostile
+            .pixel_layers
+            .iter()
+            .map(|layer| layer.opacity)
+            .collect::<Vec<_>>(),
+        [1.0, 1.0, 0.0]
+    );
+}
+
+#[test]
 fn exporting_a_baked_photo_writes_a_decodable_deliverable() {
     let tree = TempTree::new("render-export");
     let source = tree.path().join("source.png");

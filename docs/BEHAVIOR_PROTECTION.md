@@ -192,6 +192,9 @@
 - `save_master` 跳过 staged BakedGeometry stamp 时，`saved_masters_carry_replace_and_omit_baked_geometry_markers` 在 PNG marker 从 Some 变 None 处变红；恢复后测试通过。
 - `SourceFrame::check` 无条件放行时，`unmarked_master_is_corrected_once_and_marked_master_is_refused` 在 marked frame 不再拒绝处变红；恢复后测试通过。
 - `frame_and_finish` 禁用 lens geometry tail 时，同一 case 在 corrected rings 与 no-lens rings 变成相同处变红；恢复后测试通过。
+- pixel-layer composite 忽略 recipe opacity 时，`pixel_layer_alpha_opacity_and_resampling_are_visible_in_public_preview` 在 0.5 blend 像素处变红；恢复后测试通过。
+- `PixelLayer::draws` 忽略 enabled 时，`pixel_layer_switch_and_missing_file_have_preview_and_export_contracts` 在关闭图层仍覆盖 patch 处变红；恢复后测试通过。
+- pixel-layer opacity clamp 被替换为固定 0.5 时，`pixel_layers_round_trip_in_recipe_json_and_clamp_opacity` 在 `[1,1,0]` 边界变成 `[0.5,0.5,0.5]` 处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

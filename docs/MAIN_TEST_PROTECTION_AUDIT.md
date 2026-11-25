@@ -1243,6 +1243,26 @@ pixels；marked master在SourceFrame::check、export与master_pixels_for三扇�
 无论recipe是否仍携带lens。跳过staged stamp、无条件放行check、禁用tail lens resample
 时，对应case分别红；mutation均已恢复，`src/`无diff。
 
+### Pixel layers composite, switch and persist through public surfaces
+
+- Main cases：
+  `a_layer_replaces_where_it_is_opaque_and_leaves_the_rest`、
+  `the_develop_draws_its_layers_and_an_export_refuses_a_missing_one`、
+  `layers_round_trip_through_the_recipe_and_refuse_unknown_keys`
+- 当前执行者：
+  `pixel_layer_alpha_opacity_and_resampling_are_visible_in_public_preview`、
+  `pixel_layer_switch_and_missing_file_have_preview_and_export_contracts`、
+  `pixel_layers_round_trip_in_recipe_json_and_clamp_opacity`
+- 状态：3 条均为 `rewritten`
+
+不直调私有composite/load snapshot。公开preview验收opaque/transparent texels、opacity=0.5
+blend与跨尺寸同frame fraction；enabled=false和missing layer均不改变preview，而公开
+`render_to_file`对missing layer严格拒绝并命名。recipe JSON保留path/enabled/opacity，
+future key拒绝，NaN/3/-1 clamp为1/1/0。
+
+composite忽略opacity、draws忽略enabled、clamp把所有opacity改成0.5时三条case分别红；
+mutation均已恢复，`src/`无diff。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3344,7 +3364,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 83 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked master marker/拒绝、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
+| `tests/product_behavior.rs` | 86 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked master marker/拒绝、pixel-layer preview/export/persistence、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
