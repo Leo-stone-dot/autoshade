@@ -224,6 +224,9 @@
 - `SdrRendition::global` 删除 HDR hard gate 或清零 SDR Brightness EV 时，`sdr_controls_are_inert_outside_hdr_edit_mode` 与 `sdr_brightness_lifts_midtones_inside_hdr_edit_mode` 分别红；恢复后通过。
 - HDR shoulder 忽略 `sdr_blend` 时，`sdr_blend_scales_the_hdr_highlight_shoulder` 的 Blend −100 identity 断言红；把 stops clamp 到 1 EV 时，`hdr_headroom_keeps_growing_past_slider_limits` 的 1/2/4 EV 增长断言红；恢复后通过。
 - HDR SDR-Clarity 使用比 Basic 大 5px 的 radius 时，`sdr_clarity_matches_basic_clarity_pixels` 在公开像素 parity 处红；恢复后测试通过。
+- `camera_base_knots` 取消 identity empty verdict、把 tiny inability 折成 `Some(empty)`、或把黑端点改成 `[0.1,0.1]` 时，known/identity/tiny 三条公开 case 分别红；恢复后通过。
+- camera base estimator 强制所有 interior knots 输出白点时，`a_sparse_camera_base_curve_keeps_the_delivered_ramp_rising_below_white` 在最长平台断言处红；恢复后测试通过。
+- `block_lumas` 每个 8px block 只读第一个 camera pixel 时，`camera_base_knots_average_camera_texture_within_each_block` 在公开 knot 断言处红；恢复后通过。此前把 estimator group 代表从 midpoint 改成 lower bound 的尝试未被旧 fixture 杀死，证明 main 标题对“same-bin quantile mean”的解释不成立，因此未冒充 mutation 证据。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

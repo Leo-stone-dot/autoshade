@@ -791,12 +791,12 @@ fn a_fully_rendered_global_recipe_has_no_render_gap_disclosures() {
 
 #[test]
 fn camera_base_knots_fit_a_known_tone_curve() {
-    let neutral = DynamicImage::ImageRgb8(RgbImage::from_fn(64, 64, |x, y| {
-        let v = ((x + y) * 255 / 126) as u8;
+    let neutral = DynamicImage::ImageRgb8(RgbImage::from_fn(512, 64, |x, _| {
+        let v = (x as f32 / 511.0 * 255.0).round() as u8;
         Rgb([v, v, v])
     }));
-    let camera = DynamicImage::ImageRgb8(RgbImage::from_fn(64, 64, |x, y| {
-        let v = (x + y) as f32 / 126.0;
+    let camera = DynamicImage::ImageRgb8(RgbImage::from_fn(512, 64, |x, _| {
+        let v = x as f32 / 511.0;
         let encoded = (v.sqrt() * 255.0).round().clamp(0.0, 255.0) as u8;
         Rgb([encoded, encoded, encoded])
     }));
@@ -804,9 +804,29 @@ fn camera_base_knots_fit_a_known_tone_curve() {
     let knots = autoshade::render::camera_base_knots(&neutral, &camera)
         .expect("a 64x64 tone-curve pair is large enough to estimate");
 
-    assert!(knots.len() >= 2, "a non-identity curve must produce knots: {knots:?}");
+    assert!(!knots.is_empty(), "a non-identity curve must produce knots: {knots:?}");
+    assert_eq!(knots.first(), Some(&[0.0, 0.0]));
+    assert_eq!(knots.last(), Some(&[1.0, 1.0]));
     assert!(knots.windows(2).all(|pair| pair[0][0] <= pair[1][0]));
-    assert!(knots.iter().all(|knot| knot[1] >= knot[0] - 1e-5));
+    assert!(knots.iter().all(|knot| {
+        knot[0] <= 0.05
+            || knot[0] >= 0.95
+            || (knot[1] - knot[0].sqrt()).abs() < 0.04
+    }));
+}
+
+#[test]
+fn camera_base_knots_return_an_empty_curve_for_an_identity_pair() {
+    let image = DynamicImage::ImageRgb8(RgbImage::from_fn(512, 64, |x, _| {
+        let value = (x as f32 / 511.0 * 255.0).round() as u8;
+        Rgb([value; 3])
+    }));
+
+    assert!(
+        autoshade::render::camera_base_knots(&image, &image)
+            .expect("the frame is large enough to judge")
+            .is_empty()
+    );
 }
 
 #[test]
@@ -814,6 +834,66 @@ fn camera_base_knots_refuse_a_frame_smaller_than_the_grid() {
     let tiny = DynamicImage::ImageRgb8(RgbImage::from_pixel(8, 8, Rgb([128, 128, 128])));
 
     assert!(autoshade::render::camera_base_knots(&tiny, &tiny).is_none());
+}
+
+#[test]
+fn a_sparse_camera_base_curve_keeps_the_delivered_ramp_rising_below_white() {
+    let neutral = DynamicImage::ImageRgb8(RgbImage::from_fn(512, 64, |x, _| {
+        let t = x as f32 / 511.0;
+        let value = if x % 2 == 0 {
+            0.30 * t
+        } else {
+            0.62 + 0.33 * t
+        };
+        Rgb([(value * 255.0).round() as u8; 3])
+    }));
+    let camera = DynamicImage::ImageRgb8(RgbImage::from_fn(512, 64, |x, _| {
+        let t = x as f32 / 511.0;
+        let value = if x % 2 == 0 {
+            0.30 * t
+        } else {
+            0.62 + 0.33 * t
+        };
+        Rgb([(value.powf(0.75) * 255.0).round() as u8; 3])
+    }));
+    let knots = autoshade::render::camera_base_knots(&neutral, &camera)
+        .expect("the sparse pair is large enough to judge");
+    let ramp = RgbImage::from_fn(256, 1, |x, _| Rgb([x as u8; 3]));
+    let delivered = autoshade::render::develop_preview(
+        &DynamicImage::ImageRgb8(ramp),
+        &EditRecipe {
+            base_curve: knots,
+            ..EditRecipe::default()
+        },
+    )
+    .to_rgb8();
+    let values = (0..256)
+        .map(|x| delivered.get_pixel(x, 0)[0])
+        .collect::<Vec<_>>();
+    let longest_plateau = values
+        .chunk_by(|left, right| left == right)
+        .map(|chunk| chunk.len())
+        .max()
+        .unwrap();
+
+    assert!(longest_plateau <= 12);
+    assert!(values[229] < 250);
+    assert!(values[250] > values[235]);
+}
+
+#[test]
+fn camera_base_knots_average_camera_texture_within_each_block() {
+    let neutral = DynamicImage::ImageRgb8(RgbImage::from_pixel(512, 64, Rgb([77; 3])));
+    let camera = DynamicImage::ImageRgb8(RgbImage::from_fn(512, 64, |x, _| {
+        Rgb([if x % 2 == 0 { 128 } else { 179 }; 3])
+    }));
+
+    let knots = autoshade::render::camera_base_knots(&neutral, &camera)
+        .expect("the pair is large enough to judge");
+
+    assert_eq!(knots.len(), 3);
+    assert!((knots[1][0] - 0.302).abs() < 0.01);
+    assert!(knots[1][1] > 0.52 && knots[1][1] < 0.68);
 }
 
 #[test]

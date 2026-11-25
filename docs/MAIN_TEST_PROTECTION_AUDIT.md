@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：900 cases，约 2,817 个断言宏，48 个显式 ignore。
+- 当前工作树：903 cases，约 2,826 个断言宏，48 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，420 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,839 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，423 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,836 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3729,6 +3729,47 @@ factor 时 off 不再 identity，blend case 红。mutation 均已恢复。
 SDR Clarity +60 必须交付逐像素相同结果。临时把 SDR radius 增加 5px 后 parity case 红；
 恢复后通过。
 
+## Render：camera base knots
+
+### Known curve、identity 与 inability 是三种公开结果
+
+- Main case：`camera_base_knots_recovers_the_map_and_identity_is_empty`
+- 当前执行者：`camera_base_knots_fit_a_known_tone_curve`、
+  `camera_base_knots_return_an_empty_curve_for_an_identity_pair`、
+  `camera_base_knots_refuse_a_frame_smaller_than_the_grid`
+- 状态：`rewritten`
+- Gate：默认
+
+512×64 neutral gradient 对 `sqrt(x)` camera rendition 产生非空 knots，固定 `[0,0]`/
+`[1,1]` 端点且 interior 误差 `<0.04`；同图 pair 返回 `Some(empty)`；小于 block grid
+返回 `None`。临时取消 identity guard、把 inability 折叠成 empty verdict、或把黑端点改为
+`[0.1,0.1]` 时三条 case 分别红；恢复后通过。
+
+### 稀疏直方图不让交付 ramp 平台化或锁白
+
+- Main case：`base_curve_bridges_histogram_gaps_without_plateaus_or_white_pinning`
+- 当前 case：`a_sparse_camera_base_curve_keeps_the_delivered_ramp_rising_below_white`
+- 状态：`rewritten`
+- Gate：默认
+
+公开 estimator 从双 luma-band pair 生成 curve，再通过公开 develop 应用于完整 8-bit
+ramp；最长平台不超过 12、输入 0.9 不到 250、tail 继续上升。临时把所有 interior knot
+输出锁到 1.0 后平台断言红；恢复后通过。
+
+### Camera texture 在 CDF 前按 block mean 消化
+
+- Main case：`camera_base_knots_merges_same_bin_quantiles_with_a_mean`
+- 当前 case：`camera_base_knots_average_camera_texture_within_each_block`
+- 状态：`rewritten`
+- Gate：默认
+
+main 名称把结果解释成“same-bin quantile merge”，但它的 camera fixture 是逐像素
+128/179 交替；在 512px/64-column grid 中，每个 8px block 先平均成约 153，再进入 CDF。
+断言实际保护的是：constant neutral 0.302 对高频 camera texture 产生三个 knots，中点
+`x≈.302`、`y∈(.52,.68)`。把 fixture 改成整 block 分裂会得到 upper median 0.702，
+证明旧标题不是当前算法事实；该无效尝试未登记为证据。临时让 `block_lumas` 每块只读
+第一个 pixel 后当前 case 红；恢复后通过。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3739,7 +3780,7 @@ SDR Clarity +60 必须交付逐像素相同结果。临时把 SDR radius 增加 
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 107 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
 | `tests/render_behavior.rs` | 36 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
-| `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
+| `tests/domain_behavior.rs` | 102 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的私有 corner estimator 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
