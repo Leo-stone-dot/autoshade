@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：888 cases，约 2,793 个断言宏，48 个显式 ignore。
+- 当前工作树：890 cases，约 2,796 个断言宏，48 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，412 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,847 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，413 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,846 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3606,6 +3606,25 @@ base-only 交付再送入 exposure-only develop，与一次性 base+exposure 交
 临时让 `has_tone_work` 忽略 base curve 时 lift 消失；交换组合顺序时最大偏差 31 codes；
 把 base 黑端点抬到 0.1 时黑图变成 26。三个 mutation 均已恢复。
 
+## Render：Creative Look 不重复 baked tone
+
+- Main case：`a_creative_profiles_baked_half_does_not_reach_the_pixels`
+- 当前 cases：`a_creative_looks_baked_tone_controls_do_not_reapply_to_pixels`、
+  `a_monochrome_creative_look_delivers_greyscale_pixels`
+- 状态：`rewritten`
+- Gate：默认
+
+第一条在同一 Look 中同时放入 baked master curve、red curve、Shadows 与 Highlights，
+再比较“用户自身 Shadows/Contrast + Look”和“仅用户 edits”的公开交付 pixels；两者必须
+逐像素相同，避免 camera/profile 已烘焙 tone 被重复应用。临时让 tone LUT 读取 Look
+master curve、RGB pass 读取 Look channel curves、或把 Look Shadows 加进用户 slider，
+case 分别红；三处均已恢复。
+
+第二条明确验证 `convert_to_grayscale == false` 的前提，再从红色输入验收 monochrome
+Look 的实际交付 channel 差不超过一个 code。临时让 `renders_grayscale` 忽略 profile
+switch 后交付保持 `[200, 60, 40]`，case 红；恢复后通过。main 的 baked-half pixel 等价、
+用户开关 premise 与 profile grayscale 三条断言均有公开执行者。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3615,7 +3634,7 @@ base-only 交付再送入 exposure-only develop，与一次性 base+exposure 交
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 107 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 24 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/render_behavior.rs` | 26 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、creative Look tone 隔离/monochrome、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

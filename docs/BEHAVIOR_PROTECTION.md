@@ -215,6 +215,8 @@
 - `render_baked_to_image` 把 working cap 从 develop 前移到最终 crop 后时，普通 cap 仍为 100×50，但 `baked_render_applies_the_working_cap_before_crop` 的半宽 crop 从 50×50 变成 100×100并变红；恢复后测试通过。
 - opposing profile/manual vignette 恢复为两个各自 clamp 的 pass 时，公开亮部角落从 230 降到 188，`opposing_vignette_stages_cancel_before_highlights_are_clamped` 变红；恢复后测试通过。
 - `EditRecipe::has_tone_work` 忽略 base curve 时，`a_base_curve_changes_pixels_without_user_tone_controls` 的 lift 消失；把 base/user tone 组合顺序从 `user(base(x))` 换成 `base(user(x))` 时，`user_exposure_composes_after_the_base_curve` 最大偏差 31 codes；把 base 黑端点抬到 0.1 时，`a_base_curve_keeps_black_pinned` 输出 26。三处均已恢复。
+- global tone LUT、RGB curve pass 或 tone sliders 分别读取 creative Look 的 baked master curve、red curve 或 Shadows 时，`a_creative_looks_baked_tone_controls_do_not_reapply_to_pixels` 均在公开像素等价处变红；三处恢复后通过。
+- `EditRecipe::renders_grayscale` 忽略 creative Look 的 monochrome switch 时，`a_monochrome_creative_look_delivers_greyscale_pixels` 从灰度退化为 `[200, 60, 40]` 并变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

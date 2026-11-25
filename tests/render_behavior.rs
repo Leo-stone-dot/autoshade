@@ -1,5 +1,6 @@
 use autoshade::recipe::{
-    BrushStroke, ColorGrade, CurvePoint, EditRecipe, LensProfile, LocalAdjustment, MaskGeometry,
+    BrushStroke, ColorGrade, CreativeLook, CurvePoint, EditRecipe, LensProfile, LocalAdjustment,
+    MaskGeometry,
 };
 use image::{DynamicImage, Rgb, RgbImage};
 
@@ -209,6 +210,69 @@ fn a_base_curve_keeps_black_pinned() {
     );
 
     assert_eq!(delivered.get_pixel(0, 0), &Rgb([0, 0, 0]));
+}
+
+#[test]
+fn a_creative_looks_baked_tone_controls_do_not_reapply_to_pixels() {
+    let point = |input, output| CurvePoint { input, output };
+    let baked = CreativeLook {
+        name: "Adobe Color".to_string(),
+        amount: 1.0,
+        tone_curve: vec![
+            point(0, 0),
+            point(22, 16),
+            point(40, 35),
+            point(127, 127),
+            point(224, 230),
+            point(255, 255),
+        ],
+        red_curve: vec![point(0, 0), point(128, 64), point(255, 255)],
+        shadows: -40.0,
+        highlights: -12.0,
+        ..CreativeLook::default()
+    };
+    let source = RgbImage::from_fn(16, 8, |x, y| {
+        Rgb([(x * 16) as u8, (y * 30) as u8, (255 - x * 12) as u8])
+    });
+    let own = EditRecipe {
+        shadows: -40.0,
+        contrast: 15.0,
+        ..EditRecipe::default()
+    };
+    let with_look = EditRecipe {
+        look: Some(baked),
+        ..own.clone()
+    };
+
+    let actual = render(&source, &with_look);
+    let expected = render(&source, &own);
+    assert!(
+        actual.as_raw() == expected.as_raw(),
+        "creative Look tone controls were applied twice"
+    );
+}
+
+#[test]
+fn a_monochrome_creative_look_delivers_greyscale_pixels() {
+    let source = RgbImage::from_pixel(8, 8, Rgb([200, 60, 40]));
+    let recipe = EditRecipe {
+        look: Some(CreativeLook {
+            name: "Adobe Monochrome".to_string(),
+            amount: 1.0,
+            grayscale: true,
+            ..CreativeLook::default()
+        }),
+        ..EditRecipe::default()
+    };
+
+    assert!(!recipe.convert_to_grayscale);
+    let delivered = render(&source, &recipe);
+    let pixel = delivered.get_pixel(0, 0);
+    let (low, high) = (
+        pixel[0].min(pixel[1]).min(pixel[2]),
+        pixel[0].max(pixel[1]).max(pixel[2]),
+    );
+    assert!(high - low <= 1, "monochrome Look delivered {pixel:?}");
 }
 
 #[test]
