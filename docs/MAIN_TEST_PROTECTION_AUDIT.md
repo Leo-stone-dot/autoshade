@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：895 cases，约 2,808 个断言宏，48 个显式 ignore。
+- 当前工作树：900 cases，约 2,817 个断言宏，48 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，416 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,843 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，420 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,839 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3681,6 +3681,54 @@ radius 和 donor；不读取 `CoordFrame` 私有 aspect。
 turn 时，move case 分别红；临时让 Rotate270 不应用交换后 frame 的 reciprocal radius
 scale 时，inverse case 红。所有 mutation 已恢复。
 
+## Render：HDR mode 与 SDR rendition
+
+### SDR controls 只在 HDR mode 中生效
+
+- Main case：`hdr_edit_mode_gates_the_sdr_rendition_and_the_rendition_renders`
+- 当前 cases：`sdr_controls_are_inert_outside_hdr_edit_mode`、
+  `sdr_brightness_lifts_midtones_inside_hdr_edit_mode`
+- 状态：`rewritten`
+- Gate：默认
+
+第一条在 HDR mode 关闭时同时设置六个非中性 SDR controls，公开交付必须逐像素等于
+bare；第二条只开启 HDR mode 与 Brightness +40，mid-ramp pixel 必须上升。临时删除
+`hdr_edit` gate 或把 Brightness EV 清零时，两条 case 分别红；恢复后通过。
+
+### Headroom 是可由 SDRBlend 调节的 highlight shoulder
+
+- Main case：`the_hdr_headroom_reaches_the_picture_as_a_shoulder`
+- 当前执行者：`an_hdr_rendition_compresses_a_highlight_without_lifting_black`、
+  `sdr_blend_scales_the_hdr_highlight_shoulder`
+- 状态：`rewritten`
+- Gate：默认
+
+已有 domain case 验收黑点保持 0、plain highlight premise 和 HDR highlight 至少压低
+0.2；新 case 验收一档 headroom 压低 230-code highlight、Blend −100 回到 identity、
+Blend +100 比 0 更深。已有“headroom 清零”mutation 让基础 case 红；本轮忽略 Blend
+factor 时 off 不再 identity，blend case 红。mutation 均已恢复。
+
+### Headroom 不受 slider limiter 截断
+
+- Main case：`the_headroom_keeps_reaching_past_where_a_slider_would_saturate`
+- 当前 case：`hdr_headroom_keeps_growing_past_slider_limits`
+- 状态：`rewritten`
+- Gate：默认
+
+公开 ramp 在 1/2/4 EV 的 highlight depth 必须严格增加，并在 Lightroom fixture 声明的
++2.30 EV 处达到至少 40 codes。临时把 stops clamp 到 1 EV 后增长断言红；恢复后通过。
+
+### SDR Clarity 与 Basic Clarity 是同一像素行为
+
+- Main case：`the_sdr_renditions_clarity_is_the_basic_panels_clarity`
+- 当前 case：`sdr_clarity_matches_basic_clarity_pixels`
+- 状态：`rewritten`
+- Gate：默认
+
+512×512 checker 使 radius floor 不再掩盖差异；Basic +60 必须非 identity，HDR mode 下
+SDR Clarity +60 必须交付逐像素相同结果。临时把 SDR radius 增加 5px 后 parity case 红；
+恢复后通过。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3690,7 +3738,7 @@ scale 时，inverse case 红。所有 mutation 已恢复。
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 107 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 31 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/render_behavior.rs` | 36 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

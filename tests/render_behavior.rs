@@ -501,6 +501,140 @@ fn retouch_geometry_returns_after_the_inverse_turn() {
     }
 }
 
+fn sdr_ramp() -> RgbImage {
+    RgbImage::from_fn(64, 256, |_, y| Rgb([y as u8; 3]))
+}
+
+#[test]
+fn sdr_controls_are_inert_outside_hdr_edit_mode() {
+    let source = sdr_ramp();
+    let bare = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            sdr_brightness: 40.0,
+            sdr_contrast: 30.0,
+            sdr_highlights: -50.0,
+            sdr_shadows: 25.0,
+            sdr_whites: -20.0,
+            sdr_clarity: 20.0,
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(
+        delivered.as_raw() == bare.as_raw(),
+        "SDR controls changed a non-HDR photograph"
+    );
+}
+
+#[test]
+fn sdr_brightness_lifts_midtones_inside_hdr_edit_mode() {
+    let source = sdr_ramp();
+    let bare = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            hdr_edit: true,
+            sdr_brightness: 40.0,
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(delivered.get_pixel(32, 96)[0] > bare.get_pixel(32, 96)[0]);
+}
+
+#[test]
+fn sdr_blend_scales_the_hdr_highlight_shoulder() {
+    let source = sdr_ramp();
+    let bare = render(&source, &EditRecipe::default());
+    let one = render(
+        &source,
+        &EditRecipe {
+            hdr_edit: true,
+            hdr_max_ev: 1.0,
+            ..EditRecipe::default()
+        },
+    );
+    let off = render(
+        &source,
+        &EditRecipe {
+            hdr_edit: true,
+            hdr_max_ev: 1.0,
+            sdr_blend: -100.0,
+            ..EditRecipe::default()
+        },
+    );
+    let twice = render(
+        &source,
+        &EditRecipe {
+            hdr_edit: true,
+            hdr_max_ev: 1.0,
+            sdr_blend: 100.0,
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(one.get_pixel(32, 230)[0] < bare.get_pixel(32, 230)[0]);
+    assert!(off.as_raw() == bare.as_raw());
+    assert!(twice.get_pixel(32, 230)[0] < one.get_pixel(32, 230)[0]);
+}
+
+#[test]
+fn hdr_headroom_keeps_growing_past_slider_limits() {
+    let source = sdr_ramp();
+    let top = |headroom| {
+        render(
+            &source,
+            &EditRecipe {
+                hdr_edit: true,
+                hdr_max_ev: headroom,
+                ..EditRecipe::default()
+            },
+        )
+        .get_pixel(32, 230)[0] as i32
+    };
+    let bare = top(0.0);
+    let (d1, d2, d4) = (bare - top(1.0), bare - top(2.0), bare - top(4.0));
+
+    assert!(0 < d1 && d1 < d2 && d2 < d4);
+    assert!(bare - top(2.30) >= 40);
+}
+
+#[test]
+fn sdr_clarity_matches_basic_clarity_pixels() {
+    let source = RgbImage::from_fn(512, 512, |x, y| {
+        let value = if (x / 32 + y / 32) % 2 == 0 {
+            90
+        } else {
+            165
+        };
+        Rgb([value; 3])
+    });
+    let bare = render(&source, &EditRecipe::default());
+    let basic = render(
+        &source,
+        &EditRecipe {
+            clarity: 60.0,
+            ..EditRecipe::default()
+        },
+    );
+    let sdr = render(
+        &source,
+        &EditRecipe {
+            hdr_edit: true,
+            sdr_clarity: 60.0,
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(basic.as_raw() != bare.as_raw());
+    assert!(
+        sdr.as_raw() == basic.as_raw(),
+        "SDR and Basic clarity delivered different pixels"
+    );
+}
+
 #[test]
 fn positive_dehaze_restores_tonal_span_and_colour() {
     let source = hazy_ramp(64, 32);
