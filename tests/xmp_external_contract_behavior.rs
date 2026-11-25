@@ -3952,6 +3952,52 @@ fn inline_brush_unknown_encoding_is_refused_and_named() {
 }
 
 #[test]
+fn oversized_inline_brush_dabs_are_disclosed_and_republished_on_token_boundaries() {
+    let bounded_token = format!(
+        "d 0.{} 0.{}",
+        "1".repeat(50),
+        "2".repeat(50)
+    );
+    let tokens = vec![bounded_token.as_str(); 3_000];
+    let oversized_paint = measured_brush_paint(
+        "2222222222222222222222222222222B",
+        "1",
+        &tokens,
+    );
+    let document = lightroom_component_stack_document(&[
+        measured_inline_brush_group(&oversized_paint),
+    ]);
+    assert!(document.len() < 16 * 1024 * 1024);
+
+    let (imported, summary) = autoshade::xmp::xmp_to_recipe_clamped(&document);
+    assert_eq!(imported.masks.len(), 1);
+    assert!(summary.truncated_string_bytes > 50_000);
+
+    let projected = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&imported));
+    let complete_item = format!("<rdf:li>{bounded_token}</rdf:li>");
+    assert!(
+        projected.matches(&complete_item).count() > 2_000,
+        "the bounded stream lost most complete tokens"
+    );
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&projected).masks.len(), 1);
+
+    let huge_token = format!("d 0 0.{}", "1".repeat(300_000));
+    let single_huge = measured_brush_paint(
+        "3333333333333333333333333333333C",
+        "1",
+        &[&huge_token],
+    );
+    let huge_document =
+        lightroom_component_stack_document(&[measured_inline_brush_group(&single_huge)]);
+    assert!(autoshade::xmp::xmp_to_recipe(&huge_document)
+        .masks
+        .is_empty());
+    assert!(autoshade::xmp::import_losses(&huge_document)
+        .iter()
+        .any(|loss| loss.reason == MaskImportReason::OutOfModel));
+}
+
+#[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
         crop: Some(Crop {

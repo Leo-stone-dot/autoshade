@@ -1085,6 +1085,22 @@ base slice让后置inversion污染linear；接受未知`q` token让非法group�
 dab像素coverage>0.3，在两个远角<0.02。移除runtime brush raster时dab断言红；替换为
 full-frame alpha时远角断言红。mutation均已恢复，`src/`无diff。
 
+### Oversized brush streams remain disclosed and token-safe
+
+- Main case：`an_oversized_dab_stream_is_disclosed_and_republished_whole_token_only`
+- 当前执行者：
+  `oversized_inline_brush_dabs_are_disclosed_and_republished_on_token_boundaries`
+- 状态：`rewritten`
+
+3,000个约100-byte合法token使一个stroke越过256 KiB recipe cap；公开clamped reader仍
+导入一个mask并披露>50 KiB截断，writer保留>2,000个完整token，payload-free projection
+再次导入一个mask。单个300 KiB但可解析为finite f32的fractional token在reader边界整组
+拒绝并具名OutOfModel。该fixture把原65,536个短token缩成相同行为的长token，默认行为
+耗时由16.6秒降至约1秒。
+
+把token-aware cap退化为普通字符cap后，republished CRS重读为0 masks；移除256-byte
+single-token bound后，300 KiB token错误导入。两条mutation分别红且已恢复，`src/`无diff。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3193,7 +3209,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 202 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation-census external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04/orientation census gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 203 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals/token budgets、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation-census external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04/orientation census gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

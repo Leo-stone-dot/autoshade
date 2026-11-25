@@ -172,6 +172,8 @@
 - dab grammar 错误接受未知 `q` token 时，`inline_brush_unknown_encoding_is_refused_and_named` 在非法 Aggregate 被导入处变红；恢复后测试通过。
 - `mask_coverage` 不再构建 brush runtime raster 时，`brush_mask_paints_its_dabs_without_covering_far_corners` 在首个 dab coverage 处变红；恢复后测试通过。
 - brush runtime raster 被替换为 full-frame alpha 时，同一 case 在远角错误覆盖处变红；恢复后测试通过。
+- brush dabs 使用普通字符 cap 而非 token-aware cap 时，`oversized_inline_brush_dabs_are_disclosed_and_republished_on_token_boundaries` 在 republished CRS 重读为 0 masks 处变红；恢复后测试通过。
+- dab reader 移除 256-byte single-token bound 时，同一 case 在 300 KiB finite fractional token 被错误导入处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
