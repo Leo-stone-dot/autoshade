@@ -174,6 +174,12 @@
 - brush runtime raster 被替换为 full-frame alpha 时，同一 case 在远角错误覆盖处变红；恢复后测试通过。
 - brush dabs 使用普通字符 cap 而非 token-aware cap 时，`oversized_inline_brush_dabs_are_disclosed_and_republished_on_token_boundaries` 在 republished CRS 重读为 0 masks 处变红；恢复后测试通过。
 - dab reader 移除 256-byte single-token bound 时，同一 case 在 300 KiB finite fractional token 被错误导入处变红；恢复后测试通过。
+- range-mask writer 把 Intersect spelling 改成 Add 时，`range_masks_export_as_intersections_and_round_trip_publicly` 在两条 BlendMode/Inverted 文件断言处变红；恢复后测试通过。
+- ProcessVersion 从 15.4 改成 15.0 时，`global_crs_projection_uses_lightrooms_public_spellings` 在公开 artifact 处变红；恢复后测试通过。
+- tint-only writer 忽略已知 as-shot Kelvin 时，`tint_only_projection_uses_custom_at_the_stamped_kelvin` 在 Custom WB 变回 As Shot 处变红；恢复后测试通过。
+- era-2 reader 忽略 `Autoshop 2` 时，`pre_rename_toolkit_names_keep_their_kelvin_era` 在错误 pin 5500 K 处变红；恢复后测试通过。
+- merge 不升级 pre-rename `Autoshop` era-1 marker 时，`pre_rename_merge_upgrades_absolute_kelvin_to_the_current_era` 在旧 marker 留存处变红；恢复后测试通过。
+- rationale scanner 不识别 Autoshop comment mark 时，`pre_rename_rationale_comment_is_refreshed_by_public_merge` 在 stale reason 留存处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

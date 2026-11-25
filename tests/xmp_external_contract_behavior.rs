@@ -3998,6 +3998,244 @@ fn oversized_inline_brush_dabs_are_disclosed_and_republished_on_token_boundaries
 }
 
 #[test]
+fn range_masks_export_as_intersections_and_round_trip_publicly() {
+    let recipe = EditRecipe {
+        masks: vec![
+            LocalAdjustment {
+                mask: MaskGeometry::Linear {
+                    zero_x: 0.5,
+                    zero_y: 0.35,
+                    full_x: 0.5,
+                    full_y: 0.0,
+                },
+                range: Some(RangeMask::Luminance {
+                    lo_outer: 0.4,
+                    lo: 0.5,
+                    hi: 1.0,
+                    hi_outer: 1.0,
+                }),
+                name: "sky".to_string(),
+                highlights: -40.0,
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                mask: MaskGeometry::Radial {
+                    top: 0.3,
+                    left: 0.35,
+                    bottom: 0.7,
+                    right: 0.65,
+                    feather: 0.5,
+                    roundness: 0.0,
+                    flipped: false,
+                    angle: 0.0,
+                    midpoint: 50.0,
+                    mask_version: 2,
+                },
+                range: Some(RangeMask::Color {
+                    r: 0.9,
+                    g: 0.6,
+                    b: 0.2,
+                    amount: 0.5,
+                    px: 0.4,
+                    py: 0.7,
+                }),
+                name: "subject".to_string(),
+                saturation: 20.0,
+                ..LocalAdjustment::default()
+            },
+        ],
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+
+    assert_eq!(document.matches(r#"crs:What="Mask/RangeMask""#).count(), 2);
+    assert_eq!(
+        document
+            .matches(r#"crs:MaskBlendMode="1" crs:MaskInverted="true""#)
+            .count(),
+        2
+    );
+    assert!(document.contains(r#"crs:Type="2""#));
+    assert!(document.contains(
+        r#"crs:LumRange="0.400000 0.500000 1.000000 1.000000""#
+    ));
+    assert!(document.contains(r#"crs:Type="1""#));
+    assert!(document.contains(r#"crs:ColorAmount="0.500000""#));
+    assert!(document.contains(
+        "<rdf:li>0.900000 0.600000 0.200000 0.400000 0.700000 0</rdf:li>"
+    ));
+    let reopened = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(reopened.masks[0].range, recipe.masks[0].range);
+    assert_eq!(reopened.masks[1].range, recipe.masks[1].range);
+    assert!(!autoshade::xmp::recipe_to_xmp(&EditRecipe::default()).contains("RangeMask"));
+}
+
+#[test]
+fn global_crs_projection_uses_lightrooms_public_spellings() {
+    let recipe = EditRecipe {
+        exposure_ev: 0.32,
+        contrast: 14.0,
+        highlights: -12.0,
+        temperature_k: Some(5600.0),
+        tint: 3.0,
+        sharpening: 45.0,
+        tone_curve: vec![
+            CurvePoint {
+                input: 0,
+                output: 0,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ],
+        rationale: "warm & contrasty <test>".to_string(),
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+
+    for spelling in [
+        r#"crs:ProcessVersion="15.4""#,
+        r#"crs:Exposure2012="0.32""#,
+        r#"crs:Contrast2012="+14""#,
+        r#"crs:Highlights2012="-12""#,
+        r#"crs:WhiteBalance="Custom""#,
+        r#"crs:Temperature="5600""#,
+        r#"crs:Sharpness="45""#,
+        "<crs:ToneCurvePV2012>",
+        "<rdf:li>0, 0</rdf:li>",
+        "&lt;test&gt;",
+    ] {
+        assert!(document.contains(spelling), "{spelling}");
+    }
+    let reopened = autoshade::xmp::xmp_to_recipe(&document);
+    assert_eq!(
+        (
+            reopened.exposure_ev,
+            reopened.contrast,
+            reopened.highlights,
+            reopened.temperature_k,
+            reopened.tint,
+            reopened.sharpening,
+        ),
+        (0.32, 14.0, -12.0, Some(5600.0), 3.0, 45.0)
+    );
+}
+
+#[test]
+fn tint_only_projection_uses_custom_at_the_stamped_kelvin() {
+    let recipe = EditRecipe {
+        tint: 15.0,
+        as_shot_k: Some(4820.0),
+        ..EditRecipe::default()
+    };
+    let whole = autoshade::xmp::recipe_to_xmp(&recipe);
+    let projection = without_recipe_payload(whole.clone());
+
+    assert!(projection.contains(r#"crs:WhiteBalance="Custom""#));
+    assert!(projection.contains(r#"crs:Temperature="4820""#));
+    assert!(projection.contains(r#"crs:Tint="+15""#));
+    let projected = autoshade::xmp::xmp_to_recipe(&projection);
+    assert_eq!((projected.temperature_k, projected.tint), (Some(4820.0), 15.0));
+    let restored = autoshade::xmp::xmp_to_recipe(&whole);
+    assert_eq!(
+        (restored.temperature_k, restored.as_shot_k, restored.tint),
+        (None, Some(4820.0), 15.0)
+    );
+
+    let legacy = autoshade::xmp::recipe_to_xmp(&EditRecipe {
+        tint: 15.0,
+        ..EditRecipe::default()
+    });
+    assert!(legacy.contains(r#"crs:WhiteBalance="As Shot""#));
+    assert!(legacy.contains(r#"crs:Tint="+15""#));
+    assert!(!legacy.contains("as_shot"));
+}
+
+fn legacy_toolkit_document(toolkit: &str, temperature: &str) -> String {
+    format!(
+        r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="{toolkit}">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+  crs:WhiteBalance="Custom" crs:Temperature="{temperature}"
+  crs:HasSettings="True"/>
+</rdf:RDF></x:xmpmeta>"#
+    )
+}
+
+#[test]
+fn pre_rename_toolkit_names_keep_their_kelvin_era() {
+    for toolkit in ["AutoShade 2", "Autoshop 2"] {
+        let imported =
+            autoshade::xmp::xmp_to_recipe(&legacy_toolkit_document(toolkit, "5000"));
+        assert_eq!(imported.temperature_k, Some(5000.0), "{toolkit}");
+        assert_eq!(imported.as_shot_k, None, "{toolkit}");
+    }
+    for toolkit in ["AutoShade", "Autoshop"] {
+        let imported =
+            autoshade::xmp::xmp_to_recipe(&legacy_toolkit_document(toolkit, "5000"));
+        assert_eq!(imported.temperature_k, Some(5000.0), "{toolkit}");
+        assert_eq!(imported.as_shot_k, Some(5500.0), "{toolkit}");
+    }
+    for toolkit in ["Adobe XMP Core 7.0-c000", "AutoShadester", "Autoshopping"] {
+        let imported =
+            autoshade::xmp::xmp_to_recipe(&legacy_toolkit_document(toolkit, "5000"));
+        assert_eq!(imported.as_shot_k, None, "{toolkit}");
+    }
+}
+
+#[test]
+fn pre_rename_merge_upgrades_absolute_kelvin_to_the_current_era() {
+    for toolkit in ["AutoShade", "Autoshop"] {
+        let document = legacy_toolkit_document(toolkit, "5000");
+        let merged = autoshade::xmp::merge_recipe_into_xmp(
+            &document,
+            &EditRecipe {
+                temperature_k: Some(6200.0),
+                ..EditRecipe::default()
+            },
+        )
+        .unwrap()
+        .doc;
+
+        assert!(merged.contains(r#"x:xmptk="AutoShade 2""#), "{toolkit}");
+        assert_eq!(merged.matches("x:xmptk=").count(), 1, "{toolkit}");
+        let reopened = autoshade::xmp::xmp_to_recipe(&merged);
+        assert_eq!(reopened.temperature_k, Some(6200.0));
+        assert_eq!(reopened.as_shot_k, None);
+    }
+}
+
+#[test]
+fn pre_rename_rationale_comment_is_refreshed_by_public_merge() {
+    for mark in ["AutoShade", "Autoshop"] {
+        let document = format!(
+            r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="{mark}">
+<!-- Generated by {mark}. AI rationale: the stale reason (confidence 0.90) -->
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+  crs:Exposure2012="+0.25"/>
+</rdf:RDF></x:xmpmeta>"#
+        );
+        let merged = autoshade::xmp::merge_recipe_into_xmp(
+            &document,
+            &EditRecipe {
+                exposure_ev: 0.5,
+                confidence: 0.5,
+                rationale: "the new reason".to_string(),
+                ..EditRecipe::default()
+            },
+        )
+        .unwrap()
+        .doc;
+
+        assert!(merged.contains("the new reason"), "{mark}");
+        assert!(!merged.contains("the stale reason"), "{mark}");
+        assert!(merged.contains("<!-- Generated by AutoShade. AI rationale: "));
+    }
+}
+
+#[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
         crop: Some(Crop {
