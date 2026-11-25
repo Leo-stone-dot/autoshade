@@ -7206,3 +7206,326 @@ fn real_mask_brush_sample_matches_stage_three_ground_truth() {
         Some("d 0.404621 0.692602")
     );
 }
+
+fn real_mb_sidecars() -> Vec<(std::path::PathBuf, String)> {
+    let root = std::env::var_os("AUTOSHADE_MB_FIXTURES")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_MB_FIXTURES to the approved Lightroom sidecar directory");
+    let entries = std::fs::read_dir(&root)
+        .unwrap_or_else(|error| panic!("{}: {error}", root.display()));
+    let mut sidecars = entries
+        .map(|entry| {
+            entry
+                .unwrap_or_else(|error| panic!("{}: {error}", root.display()))
+                .path()
+        })
+        .filter(|path| path.to_string_lossy().to_ascii_lowercase().contains(".xmp"))
+        .map(|path| {
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+            (path, text)
+        })
+        .collect::<Vec<_>>();
+    sidecars.sort_by(|left, right| left.0.cmp(&right.0));
+    assert!(
+        !sidecars.is_empty(),
+        "{} contains no XMP sidecars",
+        root.display()
+    );
+    sidecars
+}
+
+fn tags_with_what<'a>(document: &'a str, what: &str) -> Vec<&'a str> {
+    let needle = format!(r#"crs:What="{what}""#);
+    let mut tags = Vec::new();
+    let mut cursor = 0usize;
+    while let Some(relative) = document[cursor..].find(&needle) {
+        let attribute = cursor + relative;
+        let start = document[..attribute].rfind('<').unwrap();
+        let end = attribute + document[attribute..].find('>').unwrap();
+        tags.push(&document[start..=end]);
+        cursor = end + 1;
+    }
+    tags
+}
+
+#[test]
+#[ignore = "requires AUTOSHADE_MB_FIXTURES with the operator-approved Lightroom sidecars"]
+fn real_lightroom_corpus_accounts_for_every_mask_correction() {
+    let mut total_imported = 0usize;
+    for (path, document) in real_mb_sidecars() {
+        let corrections = document.matches(r#"crs:What="Correction""#).count();
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        let refused = autoshade::xmp::unsupported_corrections(&document);
+        assert_eq!(
+            imported.masks.len() + refused,
+            corrections,
+            "{}",
+            path.display()
+        );
+        assert!(
+            corrections == 0 || !imported.masks.is_empty(),
+            "{} has corrections but imports none",
+            path.display()
+        );
+
+        let projected = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&imported));
+        let reopened = autoshade::xmp::xmp_to_recipe(&projected);
+        for (before, after) in imported.masks.iter().zip(&reopened.masks) {
+            if let (
+                MaskGeometry::Radial {
+                    midpoint,
+                    mask_version,
+                    ..
+                },
+                MaskGeometry::Radial {
+                    midpoint: reopened_midpoint,
+                    mask_version: reopened_version,
+                    ..
+                },
+            ) = (&before.mask, &after.mask)
+            {
+                assert_eq!(
+                    (midpoint, mask_version),
+                    (reopened_midpoint, reopened_version),
+                    "{}",
+                    path.display()
+                );
+            }
+            for (curve, reopened_curve) in [
+                (&before.main_curve, &after.main_curve),
+                (&before.red_curve, &after.red_curve),
+                (&before.green_curve, &after.green_curve),
+                (&before.blue_curve, &after.blue_curve),
+            ] {
+                assert_eq!(curve, reopened_curve, "{}", path.display());
+            }
+        }
+        total_imported += imported.masks.len();
+    }
+    assert!(total_imported > 0, "the corpus imported no masks");
+}
+
+#[test]
+#[ignore = "requires AUTOSHADE_MB_FIXTURES with the operator-approved Lightroom sidecars"]
+fn real_lightroom_corpus_radials_keep_one_inversion_bit() {
+    let mut radials = 0usize;
+    let mut not_inverted = 0usize;
+    for (path, document) in real_mb_sidecars() {
+        for tag in tags_with_what(&document, "Mask/CircularGradient") {
+            let flipped = xmp_public_value(tag, "crs:Flipped")
+                .unwrap_or_else(|| panic!("{}: radial lacks Flipped", path.display()));
+            let inverted = xmp_public_value(tag, "crs:MaskInverted")
+                .unwrap_or_else(|| panic!("{}: radial lacks MaskInverted", path.display()));
+            assert_ne!(flipped, inverted, "{}", path.display());
+            not_inverted += usize::from(flipped == "true");
+            radials += 1;
+        }
+
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        let reopened = autoshade::xmp::xmp_to_recipe(&without_recipe_payload(
+            autoshade::xmp::recipe_to_xmp(&imported),
+        ));
+        for (before, after) in imported.masks.iter().zip(&reopened.masks) {
+            if let MaskGeometry::Radial { flipped, .. } = before.mask {
+                assert!(!flipped, "{}", path.display());
+                assert_eq!(
+                    before.net_inverted(),
+                    after.net_inverted(),
+                    "{}",
+                    path.display()
+                );
+            }
+        }
+    }
+    assert!(radials > 0, "the corpus contains no radial masks");
+    assert!(
+        not_inverted > 0,
+        "the corpus cannot witness the old always-inverted defect"
+    );
+}
+
+#[test]
+#[ignore = "requires AUTOSHADE_MB_FIXTURES with the operator-approved Lightroom sidecars"]
+fn real_lightroom_corpus_global_effects_survive_merge() {
+    let mut saw_p31 = false;
+    let mut saw_p34 = false;
+    for (path, document) in real_mb_sidecars() {
+        let name = path.file_name().unwrap().to_string_lossy();
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        assert_eq!(
+            (
+                imported.defringe_purple_lo,
+                imported.defringe_purple_hi,
+                imported.defringe_green_lo,
+                imported.defringe_green_hi,
+            ),
+            (30.0, 70.0, 40.0, 60.0),
+            "{name}"
+        );
+        assert_eq!(imported.sharpen_radius, 1.0, "{name}");
+        if name.starts_with("P31") {
+            assert!(imported.auto_lateral_ca);
+            saw_p31 = true;
+        }
+        if name.starts_with("P34") {
+            assert_eq!(
+                (
+                    imported.texture,
+                    imported.post_crop_vignette,
+                    imported.post_crop_vignette_style,
+                ),
+                (26.0, -17.0, 1.0)
+            );
+            saw_p34 = true;
+        }
+
+        let merged =
+            autoshade::xmp::merge_recipe_into_xmp(&document, &imported).unwrap();
+        let reopened = autoshade::xmp::xmp_to_recipe(&merged.doc);
+        assert_eq!(
+            (
+                reopened.texture,
+                reopened.post_crop_vignette,
+                reopened.grain,
+                reopened.sharpen_radius,
+                reopened.color_nr,
+                reopened.auto_lateral_ca,
+                reopened.defringe_purple_lo,
+                reopened.defringe_green_hi,
+            ),
+            (
+                imported.texture,
+                imported.post_crop_vignette,
+                imported.grain,
+                imported.sharpen_radius,
+                imported.color_nr,
+                imported.auto_lateral_ca,
+                imported.defringe_purple_lo,
+                imported.defringe_green_hi,
+            ),
+            "{name}"
+        );
+    }
+    assert!(saw_p31, "the corpus is missing the P31 auto-CA witness");
+    assert!(saw_p34, "the corpus is missing the P34 global-effects witness");
+}
+
+#[test]
+#[ignore = "requires AUTOSHADE_MB_FIXTURES with the operator-approved Lightroom sidecars"]
+fn real_lightroom_corpus_survives_a_legacy_recipe_merge() {
+    let mut preserved_masks = 0usize;
+    let mut preserved_keys = 0usize;
+    for (path, document) in real_mb_sidecars() {
+        let live = autoshade::xmp::xmp_to_recipe(&document);
+        let legacy = EditRecipe {
+            schema_era: 0,
+            exposure_ev: live.exposure_ev,
+            masks: Vec::new(),
+            ..EditRecipe::default()
+        };
+        let merged =
+            autoshade::xmp::merge_recipe_into_xmp(&document, &legacy).unwrap();
+        assert!(merged.notes.is_empty(), "{}", path.display());
+
+        if document.contains("<crs:MaskGroupBasedCorrections>") {
+            let original =
+                xmp_element_block(&document, "crs:MaskGroupBasedCorrections");
+            assert!(merged.doc.contains(original), "{}", path.display());
+            preserved_masks += original.matches(r#"crs:What="Correction""#).count();
+        }
+        for key in [
+            "Texture",
+            "SharpenRadius",
+            "PostCropVignetteAmount",
+            "CameraProfile",
+            "UprightVersion",
+        ] {
+            let name = format!("crs:{key}");
+            if let Some(before) = xmp_public_value(&document, &name) {
+                assert_eq!(
+                    xmp_public_value(&merged.doc, &name),
+                    Some(before),
+                    "{}: {name}",
+                    path.display()
+                );
+                preserved_keys += 1;
+            }
+        }
+    }
+    assert!(preserved_masks > 0, "the corpus preserved no mask corrections");
+    assert!(preserved_keys > 0, "the corpus exercised no later-era keys");
+}
+
+#[test]
+#[ignore = "requires AUTOSHADE_MB_FIXTURES with the operator-approved Lightroom sidecars"]
+fn real_lightroom_corpus_transform_blocks_round_trip() {
+    let mut files = 0usize;
+    let mut upright_blocks = 0usize;
+    let mut non_neutral_transforms = 0usize;
+    for (path, document) in real_mb_sidecars() {
+        files += 1;
+        let imported = autoshade::xmp::xmp_to_recipe(&document);
+        assert!(!imported.camera_profile.is_empty(), "{}", path.display());
+        if imported.passthrough.contains_key("UprightVersion") {
+            for key in [
+                "UprightVersion",
+                "UprightCenterMode",
+                "UprightCenterNormX",
+                "UprightCenterNormY",
+                "UprightFocalMode",
+                "UprightFocalLength35mm",
+            ] {
+                assert!(imported.passthrough.contains_key(key), "{}: {key}", path.display());
+            }
+            upright_blocks += 1;
+        }
+        assert_eq!(imported.perspective_scale, 100.0, "{}", path.display());
+        non_neutral_transforms += usize::from(
+            [
+                imported.perspective_vertical,
+                imported.perspective_horizontal,
+                imported.perspective_rotate,
+                imported.perspective_aspect,
+                imported.perspective_x,
+                imported.perspective_y,
+            ]
+            .iter()
+            .any(|value| *value != 0.0),
+        );
+
+        let merged =
+            autoshade::xmp::merge_recipe_into_xmp(&document, &imported).unwrap();
+        let reopened = autoshade::xmp::xmp_to_recipe(&merged.doc);
+        assert_eq!(reopened.passthrough, imported.passthrough, "{}", path.display());
+        assert_eq!(reopened.camera_profile, imported.camera_profile, "{}", path.display());
+        assert_eq!(
+            (
+                reopened.perspective_vertical,
+                reopened.perspective_horizontal,
+                reopened.perspective_rotate,
+                reopened.perspective_scale,
+                reopened.perspective_aspect,
+                reopened.perspective_x,
+                reopened.perspective_y,
+            ),
+            (
+                imported.perspective_vertical,
+                imported.perspective_horizontal,
+                imported.perspective_rotate,
+                imported.perspective_scale,
+                imported.perspective_aspect,
+                imported.perspective_x,
+                imported.perspective_y,
+            ),
+            "{}",
+            path.display()
+        );
+    }
+    assert_eq!(upright_blocks, 1, "the approved corpus changed Upright witnesses");
+    assert_eq!(
+        non_neutral_transforms, 1,
+        "the approved corpus changed manual Transform witnesses"
+    );
+    assert!(files > 0);
+}

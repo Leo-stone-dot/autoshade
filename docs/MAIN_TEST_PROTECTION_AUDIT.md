@@ -1101,6 +1101,38 @@ full-frame alpha时远角断言红。mutation均已恢复，`src/`无diff。
 把token-aware cap退化为普通字符cap后，republished CRS重读为0 masks；移除256-byte
 single-token bound后，300 KiB token错误导入。两条mutation分别红且已恢复，`src/`无diff。
 
+### Real Lightroom brush corpus gates
+
+- Main cases：
+  `real_lightroom_sidecars_import_their_parametric_masks`、
+  `real_lightroom_radials_carry_one_inversion_bit_spelled_twice`、
+  `real_lightroom_sidecars_import_their_global_effects`、
+  `real_lightroom_sidecars_survive_a_v0_30_recipe`、
+  `real_lightroom_sidecars_pass_their_transform_blocks_through`
+- 当前执行者：
+  `real_lightroom_corpus_accounts_for_every_mask_correction`、
+  `real_lightroom_corpus_radials_keep_one_inversion_bit`、
+  `real_lightroom_corpus_global_effects_survive_merge`、
+  `real_lightroom_corpus_survives_a_legacy_recipe_merge`、
+  `real_lightroom_corpus_transform_blocks_round_trip`
+- 状态：5 条均为 `external-gate`
+
+五条显式ignored gate共享严格`AUTOSHADE_MB_FIXTURES` loader：变量缺失、目录不可读、
+非UTF-8 sidecar或空目录均失败。默认运行明确显示五条ignored；未设置变量时显式运行
+第一条确定失败，不再沿用main的silent return。
+
+每条真实语料主张均有默认合成执行者：inline brush/radial/local curves，inversion bit
+matrix，Texture/post-crop/detail/defringe，legacy era ownership与foreign mask保留，以及
+Upright/Perspective passthrough。external gates只证明批准语料仍包含并满足这些witness：
+
+```bash
+AUTOSHADE_MB_FIXTURES=/approved/sidecars \
+  cargo test --test xmp_external_contract_behavior \
+  real_lightroom_corpus_ -- --ignored
+```
+
+当前机器没有授权语料，因此不宣称五条gate已绿。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3209,7 +3241,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 203 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals/token budgets、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation-census external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04/orientation census gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 208 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals/token budgets、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation/brush-corpus external gates | XMP public format/compatibility | deep-nesting public merge remains open; real Lightroom/P04/orientation/brush-corpus gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
