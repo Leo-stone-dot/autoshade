@@ -4236,6 +4236,143 @@ fn pre_rename_rationale_comment_is_refreshed_by_public_merge() {
 }
 
 #[test]
+fn non_finite_global_numbers_import_neutral_and_are_disclosed() {
+    let document = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:WhiteBalance="Custom" crs:Temperature="NaN"
+ crs:Contrast2012="inf" crs:Exposure2012="+0.65"
+ crs:HasSettings="True"/>"#;
+
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+    assert_eq!(imported.temperature_k, None);
+    assert_eq!(imported.contrast, 0.0);
+    assert_eq!(imported.exposure_ev, 0.65);
+    let diagnostics = autoshade::xmp::unparsable_crs_numbers(document);
+    assert!(diagnostics.contains(&"Temperature".to_string()));
+    assert!(diagnostics.contains(&"Contrast2012".to_string()));
+    assert!(!diagnostics.contains(&"Exposure2012".to_string()));
+}
+
+#[test]
+fn out_of_domain_global_curve_is_dropped_and_disclosed() {
+    let document = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Exposure2012="+0.30" crs:HasSettings="True">
+ <crs:ToneCurvePV2012><rdf:Seq>
+  <rdf:li>999, -5</rdf:li>
+ </rdf:Seq></crs:ToneCurvePV2012>
+</rdf:Description>"#;
+
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+    assert!(imported.tone_curve.is_empty());
+    assert_eq!(imported.exposure_ev, 0.30);
+    assert!(autoshade::xmp::unparsable_crs_numbers(document)
+        .contains(&"ToneCurvePV2012".to_string()));
+
+    let valid = document.replace(
+        "<rdf:li>999, -5</rdf:li>",
+        "<rdf:li>0, 10</rdf:li><rdf:li>254.6, 255</rdf:li>",
+    );
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&valid).tone_curve,
+        vec![
+            CurvePoint {
+                input: 0,
+                output: 10,
+            },
+            CurvePoint {
+                input: 255,
+                output: 255,
+            },
+        ]
+    );
+}
+
+#[test]
+fn unreadable_color_grade_hue_clears_only_its_paired_saturation() {
+    let document = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:SplitToningShadowHue="bogus"
+ crs:SplitToningShadowSaturation="50"
+ crs:SplitToningHighlightHue="45"
+ crs:SplitToningHighlightSaturation="20"/>"#;
+
+    let imported = autoshade::xmp::xmp_to_recipe(document);
+    assert_eq!(
+        (
+            imported.color_grade.shadow_hue,
+            imported.color_grade.shadow_sat,
+        ),
+        (0.0, 0.0)
+    );
+    assert_eq!(
+        (
+            imported.color_grade.highlight_hue,
+            imported.color_grade.highlight_sat,
+        ),
+        (45.0, 20.0)
+    );
+    assert!(autoshade::xmp::unparsable_crs_numbers(document)
+        .contains(&"SplitToningShadowHue".to_string()));
+}
+
+#[test]
+fn hsl_edits_export_the_complete_lightroom_band_block_and_round_trip() {
+    let recipe = EditRecipe {
+        hsl: Hsl {
+            hue: [0.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            saturation: [0.0, 0.0, 0.0, -40.0, 0.0, 0.0, 0.0, 0.0],
+            ..Hsl::default()
+        },
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+
+    assert!(document.contains(r#"crs:HueAdjustmentOrange="+15""#));
+    assert!(document.contains(r#"crs:SaturationAdjustmentGreen="-40""#));
+    assert_eq!(document.matches("Adjustment").count(), 24);
+    assert!(document.contains(r#"crs:LuminanceAdjustmentRed="0""#));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&document).hsl, recipe.hsl);
+    assert!(!autoshade::xmp::recipe_to_xmp(&EditRecipe::default())
+        .contains("HueAdjustment"));
+}
+
+#[test]
+fn color_grade_exports_lightrooms_split_toning_mapping_and_round_trips() {
+    let recipe = EditRecipe {
+        color_grade: ColorGrade {
+            shadow_hue: 220.0,
+            shadow_sat: 30.0,
+            highlight_hue: 45.0,
+            highlight_sat: 20.0,
+            midtone_lum: -10.0,
+            balance: 15.0,
+            ..ColorGrade::default()
+        },
+        ..EditRecipe::default()
+    };
+    let document = without_recipe_payload(autoshade::xmp::recipe_to_xmp(&recipe));
+
+    for spelling in [
+        r#"crs:SplitToningShadowHue="220""#,
+        r#"crs:SplitToningShadowSaturation="30""#,
+        r#"crs:SplitToningHighlightHue="45""#,
+        r#"crs:SplitToningBalance="+15""#,
+        r#"crs:ColorGradeMidtoneLum="-10""#,
+        r#"crs:ColorGradeBlending="50""#,
+    ] {
+        assert!(document.contains(spelling), "{spelling}");
+    }
+    assert_eq!(
+        autoshade::xmp::xmp_to_recipe(&document).color_grade,
+        recipe.color_grade
+    );
+    let neutral = autoshade::xmp::recipe_to_xmp(&EditRecipe::default());
+    assert!(!neutral.contains("ColorGrade"));
+    assert!(!neutral.contains("SplitToning"));
+}
+
+#[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
         crop: Some(Crop {

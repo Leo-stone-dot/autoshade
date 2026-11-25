@@ -180,6 +180,11 @@
 - era-2 reader 忽略 `Autoshop 2` 时，`pre_rename_toolkit_names_keep_their_kelvin_era` 在错误 pin 5500 K 处变红；恢复后测试通过。
 - merge 不升级 pre-rename `Autoshop` era-1 marker 时，`pre_rename_merge_upgrades_absolute_kelvin_to_the_current_era` 在旧 marker 留存处变红；恢复后测试通过。
 - rationale scanner 不识别 Autoshop comment mark 时，`pre_rename_rationale_comment_is_refreshed_by_public_merge` 在 stale reason 留存处变红；恢复后测试通过。
+- disclosure filter 静默忽略 NaN/inf 时，`non_finite_global_numbers_import_neutral_and_are_disclosed` 在中性化仍发生但诊断消失处变红；恢复后测试通过。
+- out-of-domain curve points 被 clamp 而非整块拒绝时，`out_of_domain_global_curve_is_dropped_and_disclosed` 在错误 tone curve 被导入处变红；恢复后测试通过。
+- wheel reader 无条件保留 saturation 时，`unreadable_color_grade_hue_clears_only_its_paired_saturation` 在 bogus hue 变成红色 0/50 wheel 处变红；恢复后测试通过。
+- HSL writer 只输出非零 bands 时，`hsl_edits_export_the_complete_lightroom_band_block_and_round_trip` 在 24-key block 缩成 6 keys 处变红；恢复后测试通过。
+- ColorGrade shadow hue 写到未验证 key 时，`color_grade_exports_lightrooms_split_toning_mapping_and_round_trips` 在缺失 SplitToningShadowHue 处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

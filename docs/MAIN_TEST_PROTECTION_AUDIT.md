@@ -1165,6 +1165,37 @@ Autoshop 2、merge不升级Autoshop、rationale scanner不识别旧mark时，六
 `passthrough_and_string_profile_values_are_never_numeric_parse_errors`保护，但不能借此勾销
 其余architecture assertions。
 
+### Hostile global values and colour blocks
+
+- Main cases：
+  `legacy_autoshade_sidecar_kelvin_stays_relative_via_the_anchor_pin`、
+  `non_finite_numbers_import_neutral_and_are_disclosed`、
+  `out_of_domain_curve_points_drop_the_curve_and_are_disclosed`、
+  `an_unreadable_wheel_hue_zeroes_its_paired_saturation`、
+  `renders_hsl_bands_only_when_set`、
+  `renders_color_grade_with_verified_split_toning_mapping`、
+  `renders_per_channel_rgb_curves`
+- 当前执行者：
+  `pre_rename_toolkit_names_keep_their_kelvin_era`、
+  `pre_rename_merge_upgrades_absolute_kelvin_to_the_current_era`、
+  `non_finite_global_numbers_import_neutral_and_are_disclosed`、
+  `out_of_domain_global_curve_is_dropped_and_disclosed`、
+  `unreadable_color_grade_hue_clears_only_its_paired_saturation`、
+  `hsl_edits_export_the_complete_lightroom_band_block_and_round_trip`、
+  `color_grade_exports_lightrooms_split_toning_mapping_and_round_trips`、
+  既有global/channel curve cases
+- 状态：7 条均为 `rewritten`
+
+公开错误路径证明NaN/inf中性化且具名、999/-5 curve整块拒绝、坏wheel hue连带清空自身
+saturation而不伤健康wheel。文件结果证明HSL非中性时写完整24-key block，ColorGrade按
+SplitToning/ColorGrade实测映射，per-channel curves保持稀疏并payload-free round-trip。
+legacy综合case由pre-rename era/merge、nonfinite disclosure和当前writer clean projection
+共同覆盖。
+
+静默抑制nonfinite diagnostics、clamp越界curve、无条件读取wheel saturation、只写非零
+HSL bands、把shadow hue写到错误ColorGrade key时，五条case分别红；mutation均已恢复，
+`src/`无diff。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3273,7 +3304,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 214 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals/token budgets、range-mask intersection/global CRS/pre-rename compatibility、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation/brush-corpus external gates | XMP public format/compatibility | deep-nesting public merge and private registry architecture remain open; real Lightroom/P04/orientation/brush-corpus gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 219 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals/token budgets、range-mask intersection/global CRS/pre-rename compatibility、nonfinite/curve/wheel refusals、HSL/ColorGrade blocks、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation/brush-corpus external gates | XMP public format/compatibility | deep-nesting public merge and private registry architecture remain open; real Lightroom/P04/orientation/brush-corpus gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
