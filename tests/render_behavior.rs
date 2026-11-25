@@ -4,6 +4,7 @@ use autoshade::recipe::{
 };
 use autoshade::retouch::{RetouchArea, RetouchShape, SpotOrigin};
 use image::{DynamicImage, Rgb, RgbImage};
+use rawler::decoders::Orientation;
 
 mod support;
 
@@ -375,6 +376,129 @@ fn a_brush_retouch_plan_keeps_its_area_metadata_and_exact_shape() {
             && (spot.feather - 0.25).abs() < 1e-6
             && spot.coverage.is_some()
     }));
+}
+
+fn retouch_orientation_recipe() -> EditRecipe {
+    let area = |shape| RetouchArea {
+        origin: SpotOrigin::LightroomContentAware,
+        feather: 0.5,
+        donor: Some([0.6, 0.4]),
+        shape,
+    };
+    EditRecipe {
+        retouch: vec![
+            area(RetouchShape::Ellipse {
+                cx: 0.25,
+                cy: 0.5,
+                size_x: 0.05,
+                size_y: 0.05,
+            }),
+            area(RetouchShape::Brush(vec![BrushStroke {
+                value: 1.0,
+                radius: 0.05,
+                flow: 1.0,
+                center_weight: 1.0,
+                sync_id: String::new(),
+                dabs: "d 0.250000 0.500000".to_string(),
+            }])),
+        ],
+        ..EditRecipe::default()
+    }
+}
+
+#[test]
+fn retouch_geometry_moves_with_a_quarter_turn() {
+    let mut recipe = retouch_orientation_recipe();
+    let before = recipe.retouch.clone();
+
+    assert!(autoshade::render::orient_recipe_coords(
+        &mut recipe,
+        Orientation::Rotate90,
+        autoshade::render::CoordFrame::new(9504.0, 6336.0),
+    ));
+
+    let (
+        RetouchShape::Ellipse {
+            cx: before_cx,
+            size_x: before_size,
+            ..
+        },
+        RetouchShape::Ellipse {
+            cx: after_cx,
+            size_x: after_size,
+            ..
+        },
+    ) = (&before[0].shape, &recipe.retouch[0].shape)
+    else {
+        panic!("ellipse shape changed kind")
+    };
+    assert!(before_cx != after_cx && before_size != after_size);
+    let (RetouchShape::Brush(before_brush), RetouchShape::Brush(after_brush)) =
+        (&before[1].shape, &recipe.retouch[1].shape)
+    else {
+        panic!("brush shape changed kind")
+    };
+    assert!(
+        before_brush[0].dabs != after_brush[0].dabs
+            && before_brush[0].radius != after_brush[0].radius
+    );
+    assert_ne!(before[0].donor, recipe.retouch[0].donor);
+}
+
+#[test]
+fn retouch_geometry_returns_after_the_inverse_turn() {
+    let mut recipe = retouch_orientation_recipe();
+    let before = recipe.retouch.clone();
+    autoshade::render::orient_recipe_coords(
+        &mut recipe,
+        Orientation::Rotate90,
+        autoshade::render::CoordFrame::new(9504.0, 6336.0),
+    );
+
+    autoshade::render::orient_recipe_coords(
+        &mut recipe,
+        Orientation::Rotate270,
+        autoshade::render::CoordFrame::new(6336.0, 9504.0),
+    );
+
+    for (expected, actual) in before.iter().zip(&recipe.retouch) {
+        match (&expected.shape, &actual.shape) {
+            (
+                RetouchShape::Ellipse {
+                    cx: x0,
+                    cy: y0,
+                    size_x: sx0,
+                    size_y: sy0,
+                },
+                RetouchShape::Ellipse {
+                    cx: x1,
+                    cy: y1,
+                    size_x: sx1,
+                    size_y: sy1,
+                },
+            ) => {
+                assert!(
+                    [(x0, x1), (y0, y1), (sx0, sx1), (sy0, sy1)]
+                        .into_iter()
+                        .all(|(left, right)| (left - right).abs() < 1e-6)
+                );
+            }
+            (RetouchShape::Brush(before_brush), RetouchShape::Brush(after_brush)) => {
+                assert_eq!(before_brush[0].dabs, after_brush[0].dabs);
+                assert!((before_brush[0].radius - after_brush[0].radius).abs() < 1e-6);
+            }
+            _ => panic!("retouch shape changed kind"),
+        }
+        let (Some(expected_donor), Some(actual_donor)) = (expected.donor, actual.donor) else {
+            panic!("retouch donor disappeared")
+        };
+        assert!(
+            expected_donor
+                .into_iter()
+                .zip(actual_donor)
+                .all(|(left, right)| (left - right).abs() < 1e-6)
+        );
+    }
 }
 
 #[test]

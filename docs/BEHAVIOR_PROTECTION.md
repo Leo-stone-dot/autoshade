@@ -220,6 +220,7 @@
 - develop chain 跳过 `heal_planar` 时，ellipse 与 brush 两条公开 retouch 成片 case 都因黑物体仍可见而变红；恢复后测试通过。
 - `retouch_spots` 把 width-unit radius 当作 short-side unit 或不从 absolute donor 减去 spot centre 时，已有 scaled-ellipse 与 donor 公共 case 分别红；恢复后通过。
 - brush retouch plan 用默认值替代 area feather/origin，或清空 planner 生成的 exact coverage 时，`a_brush_retouch_plan_keeps_its_area_metadata_and_exact_shape` 分别红；恢复后测试通过。
+- recipe orientation 跳过全部 retouch、只跳过 ellipse extent scale、brush rewrite 或 donor turn 时，`retouch_geometry_moves_with_a_quarter_turn` 分别红；让 inverse Rotate270 不使用交换后 frame 的 reciprocal radius scale 时，`retouch_geometry_returns_after_the_inverse_turn` 红。所有 mutation 均已恢复。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
