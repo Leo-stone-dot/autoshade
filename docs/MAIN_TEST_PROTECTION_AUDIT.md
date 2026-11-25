@@ -1196,6 +1196,33 @@ legacy综合case由pre-rename era/merge、nonfinite disclosure和当前writer cl
 HSL bands、把shadow hue写到错误ColorGrade key时，五条case分别红；mutation均已恢复，
 `src/`无diff。
 
+### Public merge preserves foreign data and strips only owned top-level state
+
+- Main cases：
+  `merge_preserves_lightroom_only_properties`、
+  `merge_strips_owned_element_form_properties`、
+  `merge_strips_only_top_level_owned_elements`、
+  `merge_survives_a_cdata_section`、
+  `merge_replaces_masks_without_shredding_nested_descriptions`
+- 当前执行者：
+  `merge_preserves_foreign_wrappers_properties_and_children_across_remerge`、
+  `merge_replaces_owned_property_elements_once_and_preserves_unowned_elements`、
+  `merge_strips_only_top_level_owned_elements_inside_a_creative_look`、
+  `text_constructs_cannot_truncate_the_description_during_merge`、
+  `merge_replaces_nested_mask_block_without_damaging_following_look`
+- 状态：5 条均为 `rewritten`
+
+公开merge/remerge保留xpacket、foreign namespace、PointColor、camera/lens profile与Look，
+同时让owned attributes/curve唯一且可清除。property-element Exposure/Contrast被新attribute
+替换，unowned element保留；strip只作用于top level，不进入creative Look。comment/
+CDATA/PI中的close literal不截断Description。nested旧mask block整块替换，后继Look与
+PointColor存活。
+
+强制fresh regeneration首先丢xpacket；禁用owned-element strip留下冲突旧值；去掉depth
+guard使合法nested Look merge返回None；outer close改成第一个nested close使mask merge
+返回None。四条case分别红；CDATA复用既有construct mutation。所有修改均恢复，
+`src/`无diff。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3304,7 +3331,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
 | `tests/panic_guard_behavior.rs` | 3 | recoverable scope、nesting、panic unwind | Decode、GUI workers | OS/GUI panic reporter 的进程级呈现 |
 | `tests/xmp_behavior.rs` | 40 | payload/namespace round-trip、recipe/raster ceilings与共享loss、photo-less safety/merge、native composition/bitmap disclosure、role fallback/intent、external edit reconciliation、raster materialization/cleanup、portable raster paths、Lightroom base reconciliation、Lightroom fixture gates、coverage | XMP、Render masks | 未提供 fixture 时的真实 Adobe rewrite gate |
-| `tests/xmp_external_contract_behavior.rs` | 219 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals/token budgets、range-mask intersection/global CRS/pre-rename compatibility、nonfinite/curve/wheel refusals、HSL/ColorGrade blocks、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation/brush-corpus external gates | XMP public format/compatibility | deep-nesting public merge and private registry architecture remain open; real Lightroom/P04/orientation/brush-corpus gates require external fixtures |
+| `tests/xmp_external_contract_behavior.rs` | 223 | global/local round-trip、global representation/disclosure、foreign WB/XML、attribute forms/control-character round-trip、curve item spelling、crop integrity/straighten carrier、RetouchAreas ownership/fill/donor/ellipse/brush execution、HDR/SDR wire contract and measured fixture、Detail amount-gated companions、portrait radial/brush/framed-document orientation、photo-aware orientation/handedness/orientation-only geometry/loss reconciliation、reader-visible orientation merge/disclosure、inline brush base/component/CRS fixed-point/nesting/scope/refusals/token budgets、range-mask intersection/global CRS/pre-rename compatibility、nonfinite/curve/wheel refusals、HSL/ColorGrade blocks、foreign-preserving scoped merge/CDATA/nested masks、pathological XML correctness/resource bounds、creative Look isolation/scope fallback、mask merge/preservation/replacement/composition/value-boundary/local-slider/bookkeeping/era ownership、namespace scope/refusal/hardening、resource bounds、profile strength、AI component/write-back/vocabulary/scope、declared-frame geometry、rotation/inversion/roundness payloads、MaskBrushTable refusals/budgets/isolation/order/merge/survivors、Lightroom radial/P04/orientation/brush-corpus external gates | XMP public format/compatibility | deep-nesting public merge and private registry architecture remain open; real Lightroom/P04/orientation/brush-corpus gates require external fixtures |
 | `tests/xmp_pair_behavior.rs` | 7 | extension case、mirror/flat/sibling discovery、优先级、absence fallback | XMP pairing | 大小写敏感卷上的同stem双扩展名竞争 |
 | `tests/jobs_behavior.rs` | 15 | Sequencer stdout、pool positional/exactly-once、memory/survey budgets | Batch、Eval、资源边界 | Windows real-RAW peak threshold gate |
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |

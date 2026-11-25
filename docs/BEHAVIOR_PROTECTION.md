@@ -185,6 +185,10 @@
 - wheel reader 无条件保留 saturation 时，`unreadable_color_grade_hue_clears_only_its_paired_saturation` 在 bogus hue 变成红色 0/50 wheel 处变红；恢复后测试通过。
 - HSL writer 只输出非零 bands 时，`hsl_edits_export_the_complete_lightroom_band_block_and_round_trip` 在 24-key block 缩成 6 keys 处变红；恢复后测试通过。
 - ColorGrade shadow hue 写到未验证 key 时，`color_grade_exports_lightrooms_split_toning_mapping_and_round_trips` 在缺失 SplitToningShadowHue 处变红；恢复后测试通过。
+- merge 结果被错误替换为 fresh recipe document 时，`merge_preserves_foreign_wrappers_properties_and_children_across_remerge` 在 xpacket/foreign properties 丢失处变红；恢复后测试通过。
+- owned property-element strip 被禁用时，`merge_replaces_owned_property_elements_once_and_preserves_unowned_elements` 在旧 Exposure element 留存处变红；恢复后测试通过。
+- top-level strip 去掉 depth guard 时，`merge_strips_only_top_level_owned_elements_inside_a_creative_look` 在合法 nested Look merge 返回 None 处变红；恢复后测试通过。
+- outer Description close 改成第一个 nested close 时，`merge_replaces_nested_mask_block_without_damaging_following_look` 在 nested mask merge 返回 None 处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

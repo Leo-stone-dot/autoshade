@@ -4373,6 +4373,187 @@ fn color_grade_exports_lightrooms_split_toning_mapping_and_round_trips() {
 }
 
 #[test]
+fn merge_preserves_foreign_wrappers_properties_and_children_across_remerge() {
+    let lightroom = r#"<?xpacket begin="﻿" id="synthetic"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  crs:ProcessVersion='15.4' crs:PointColor="0"
+  crs:CameraProfile="Adobe Color"
+  crs:LensProfileName="Synthetic Lens > special"
+  crs:Exposure2012="+1.00" crs:HasSettings="True">
+  <crs:ToneCurvePV2012><rdf:Seq>
+   <rdf:li>0, 0</rdf:li><rdf:li>255, 255</rdf:li>
+  </rdf:Seq></crs:ToneCurvePV2012>
+  <crs:Look><rdf:Description crs:Name="Adobe Color" crs:Amount="1"/></crs:Look>
+ </rdf:Description>
+</rdf:RDF></x:xmpmeta>"#;
+    let first = autoshade::xmp::merge_recipe_into_xmp(
+        lightroom,
+        &EditRecipe {
+            exposure_ev: 0.25,
+            contrast: 12.0,
+            tone_curve: vec![
+                CurvePoint {
+                    input: 0,
+                    output: 10,
+                },
+                CurvePoint {
+                    input: 255,
+                    output: 250,
+                },
+            ],
+            ..EditRecipe::default()
+        },
+    )
+    .unwrap()
+    .doc;
+
+    for preserved in [
+        "<?xpacket",
+        "xmlns:dc=",
+        r#"crs:PointColor="0""#,
+        r#"crs:CameraProfile="Adobe Color""#,
+        r#"crs:LensProfileName="Synthetic Lens > special""#,
+        "<crs:Look>",
+    ] {
+        assert!(first.contains(preserved), "{preserved}");
+    }
+    assert_eq!(first.matches("crs:ProcessVersion=").count(), 1);
+    assert_eq!(first.matches("crs:Exposure2012=").count(), 1);
+    assert_eq!(first.matches("<crs:ToneCurvePV2012>").count(), 1);
+    assert_eq!(
+        (
+            autoshade::xmp::xmp_to_recipe(&first).exposure_ev,
+            autoshade::xmp::xmp_to_recipe(&first).contrast,
+        ),
+        (0.25, 12.0)
+    );
+
+    let second = autoshade::xmp::merge_recipe_into_xmp(
+        &first,
+        &EditRecipe {
+            exposure_ev: -0.5,
+            ..EditRecipe::default()
+        },
+    )
+    .unwrap()
+    .doc;
+    assert_eq!(second.matches("crs:Exposure2012=").count(), 1);
+    assert!(second.contains(r#"crs:Exposure2012="-0.50""#));
+    assert!(second.contains(r#"crs:PointColor="0""#));
+    assert!(!second.contains("<crs:ToneCurvePV2012>"));
+    assert!(second.contains(r#"crs:ToneCurveName2012="Linear""#));
+}
+
+#[test]
+fn merge_replaces_owned_property_elements_once_and_preserves_unowned_elements() {
+    let lightroom = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:Exposure2012>+1.00</crs:Exposure2012>
+ <crs:Contrast2012>+22</crs:Contrast2012>
+ <crs:PointColor>0</crs:PointColor>
+</rdf:Description>"#;
+    let merged = autoshade::xmp::merge_recipe_into_xmp(
+        lightroom,
+        &EditRecipe {
+            exposure_ev: 0.25,
+            ..EditRecipe::default()
+        },
+    )
+    .unwrap()
+    .doc;
+
+    assert!(!merged.contains("<crs:Exposure2012>"));
+    assert!(!merged.contains("<crs:Contrast2012>"));
+    assert_eq!(merged.matches("crs:Exposure2012").count(), 1);
+    assert!(merged.contains(r#"crs:Exposure2012="0.25""#));
+    assert!(merged.contains("<crs:PointColor>0</crs:PointColor>"));
+    let reopened = autoshade::xmp::xmp_to_recipe(&merged);
+    assert_eq!((reopened.exposure_ev, reopened.contrast), (0.25, 0.0));
+}
+
+#[test]
+fn merge_strips_only_top_level_owned_elements_inside_a_creative_look() {
+    let lightroom = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/">
+ <crs:Exposure2012 xml:lang="x-default">+1.00</crs:Exposure2012>
+ <crs:Look><rdf:Description crs:Name="Adobe Landscape" crs:Amount="1">
+  <crs:Parameters><rdf:Description crs:Version="15.4">
+   <crs:Exposure2012>+0.35</crs:Exposure2012>
+   <crs:ToneCurvePV2012><rdf:Seq><rdf:li>0, 0</rdf:li></rdf:Seq></crs:ToneCurvePV2012>
+  </rdf:Description></crs:Parameters>
+ </rdf:Description></crs:Look>
+</rdf:Description>"#;
+    let merged = autoshade::xmp::merge_recipe_into_xmp(
+        lightroom,
+        &EditRecipe {
+            exposure_ev: 0.25,
+            ..EditRecipe::default()
+        },
+    )
+    .unwrap()
+    .doc;
+
+    assert!(merged.contains("<crs:Exposure2012>+0.35</crs:Exposure2012>"));
+    assert!(merged.contains("<rdf:li>0, 0</rdf:li>"));
+    assert!(merged.contains(r#"crs:Name="Adobe Landscape""#));
+    assert!(!merged.contains("xml:lang"));
+    assert!(merged.contains(r#"crs:Exposure2012="0.25""#));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&merged).exposure_ev, 0.25);
+}
+
+#[test]
+fn merge_replaces_nested_mask_block_without_damaging_following_look() {
+    let lightroom = r#"<rdf:Description
+ xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:PointColor="0">
+ <crs:MaskGroupBasedCorrections><rdf:Seq>
+  <rdf:li><rdf:Description crs:What="Correction" crs:LocalExposure2012="0.1">
+   <crs:CorrectionMasks><rdf:Seq>
+    <rdf:li><rdf:Description crs:What="Mask/Gradient"
+     crs:ZeroX="0.5" crs:ZeroY="0.4" crs:FullX="0.5" crs:FullY="0.0"/>
+    </rdf:li>
+   </rdf:Seq></crs:CorrectionMasks>
+  </rdf:Description></rdf:li>
+ </rdf:Seq></crs:MaskGroupBasedCorrections>
+ <crs:Look><rdf:Description crs:Name="Adobe Landscape"/></crs:Look>
+</rdf:Description>"#;
+    let replacement = EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: MaskGeometry::Radial {
+                top: 0.2,
+                left: 0.2,
+                bottom: 0.8,
+                right: 0.8,
+                feather: 0.5,
+                roundness: 0.0,
+                flipped: false,
+                angle: 0.0,
+                midpoint: 50.0,
+                mask_version: 2,
+            },
+            exposure_ev: 1.0,
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    let merged =
+        autoshade::xmp::merge_recipe_into_xmp(lightroom, &replacement).unwrap();
+
+    assert_eq!(
+        merged.doc.matches("<crs:MaskGroupBasedCorrections>").count(),
+        1
+    );
+    assert!(merged.doc.contains("Mask/CircularGradient"));
+    assert!(!merged.doc.contains("Mask/Gradient"));
+    assert!(merged.doc.contains(r#"crs:Name="Adobe Landscape""#));
+    assert!(merged.doc.contains(r#"crs:PointColor="0""#));
+    assert_eq!(autoshade::xmp::xmp_to_recipe(&merged.doc).masks.len(), 1);
+}
+
+#[test]
 fn rotated_left_over_right_crop_is_imported_without_false_disclosure() {
     let recipe = EditRecipe {
         crop: Some(Crop {
