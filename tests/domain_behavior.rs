@@ -17,7 +17,7 @@ use autoshade::session::{
     tool_results, usage_of, verdict_lines,
 };
 use autoshade::stack::align::{Affine, Warp};
-use image::{DynamicImage, GrayImage, ImageBuffer, Luma, Rgb, RgbImage};
+use image::{DynamicImage, GenericImageView, GrayImage, ImageBuffer, Luma, Rgb, RgbImage};
 use rawler::decoders::Orientation;
 use serde_json::json;
 use support::{ScopedEnv, TempTree};
@@ -894,6 +894,159 @@ fn camera_base_knots_average_camera_texture_within_each_block() {
     assert_eq!(knots.len(), 3);
     assert!((knots[1][0] - 0.302).abs() < 0.01);
     assert!(knots[1][1] > 0.52 && knots[1][1] < 0.68);
+}
+
+#[test]
+fn camera_base_look_pairs_a_center_crop_with_the_frame_the_camera_shows() {
+    let neutral = DynamicImage::ImageRgb8(RgbImage::from_fn(300, 200, |x, _| {
+        if !(16..283).contains(&x) {
+            Rgb([20; 3])
+        } else {
+            Rgb([(x * 255 / 300) as u8; 3])
+        }
+    }));
+    let camera = neutral.crop_imm(16, 0, 267, 200);
+
+    assert!(
+        !autoshade::render::camera_base_knots(&neutral, &camera)
+            .expect("the pair is large enough to judge")
+            .is_empty()
+    );
+    let frame = autoshade::render::camera_frame_of(&neutral, &camera);
+    assert_eq!(frame.dimensions(), (267, 200));
+    assert!(
+        autoshade::render::camera_base_look(&neutral, &LensProfile::default(), &camera)
+            .expect("the centered pair is large enough to judge")
+            .is_empty()
+    );
+    assert_eq!(
+        autoshade::render::camera_frame_of(
+            &neutral,
+            &autoshade::render::thumbnail(&neutral, 150, 100),
+        )
+        .dimensions(),
+        (300, 200)
+    );
+}
+
+fn camera_corner_fixture() -> (LensProfile, [DynamicImage; 4]) {
+    let lens = LensProfile {
+        vignette: (0..16)
+            .map(|index| 1.0 + 0.8 * index as f32 / 15.0)
+            .collect(),
+        vignette_on: true,
+        ..LensProfile::default()
+    };
+    let scene = DynamicImage::ImageRgb8(RgbImage::from_fn(600, 400, |x, y| {
+        let value = if y >= 400 * 5 / 6 {
+            0.06
+        } else {
+            0.20 + 0.25 * x as f32 / 599.0
+        };
+        Rgb([(value * 255.0).round() as u8; 3])
+    }));
+    let neutral = autoshade::render::develop_preview(
+        &scene,
+        &EditRecipe {
+            lens_profile: LensProfile {
+                vignette: lens.vignette.iter().map(|gain| 1.0 / gain).collect(),
+                vignette_on: true,
+                ..LensProfile::default()
+            },
+            ..EditRecipe::default()
+        },
+    );
+    let lifted = autoshade::render::develop_preview(
+        &neutral,
+        &EditRecipe {
+            lens_profile: lens.clone(),
+            ..EditRecipe::default()
+        },
+    );
+    let tone = |image: &DynamicImage| {
+        let mut output = image.to_rgb8();
+        for channel in output.iter_mut() {
+            *channel = (0.85 * f32::from(*channel)).round() as u8;
+        }
+        DynamicImage::ImageRgb8(output)
+    };
+    let camera_sensor = tone(&neutral);
+    let camera_lifted = tone(&lifted);
+    (lens, [neutral, lifted, camera_sensor, camera_lifted])
+}
+
+fn base_curve_gain_error(knots: &[[f32; 2]], gain: f32) -> f32 {
+    if knots.len() < 3 {
+        return f32::INFINITY;
+    }
+    knots[1..knots.len() - 1]
+        .iter()
+        .map(|knot| (knot[1] - gain * knot[0]).abs())
+        .fold(0.0, f32::max)
+}
+
+#[test]
+fn camera_base_look_does_not_turn_an_unseen_corner_lift_into_tone() {
+    let (lens, [neutral, lifted, camera_sensor, _]) = camera_corner_fixture();
+
+    let delivered = autoshade::render::camera_base_look(&neutral, &lens, &camera_sensor)
+        .expect("the pair is large enough to judge");
+    let wrong_base = autoshade::render::camera_base_knots(&lifted, &camera_sensor)
+        .expect("the control pair is large enough to judge");
+
+    assert!(delivered.len() > 2 && base_curve_gain_error(&delivered, 0.85) < 0.01);
+    assert!(base_curve_gain_error(&wrong_base, 0.85) > 0.03);
+}
+
+#[test]
+fn camera_base_look_uses_a_corner_lift_the_camera_drew() {
+    let (lens, [neutral, _, _, camera_lifted]) = camera_corner_fixture();
+
+    let delivered = autoshade::render::camera_base_look(&neutral, &lens, &camera_lifted)
+        .expect("the pair is large enough to judge");
+    let wrong_base = autoshade::render::camera_base_knots(&neutral, &camera_lifted)
+        .expect("the control pair is large enough to judge");
+
+    assert!(delivered.len() > 2 && base_curve_gain_error(&delivered, 0.85) < 0.01);
+    assert!(base_curve_gain_error(&wrong_base, 0.85) > 0.03);
+}
+
+#[test]
+fn camera_base_look_applies_the_lift_before_the_camera_crop() {
+    let (lens, [neutral, lifted, ..]) = camera_corner_fixture();
+    let shown = lifted.crop_imm(33, 0, 533, 400);
+    let mut camera = shown.to_rgb8();
+    for channel in camera.iter_mut() {
+        *channel = (0.85 * f32::from(*channel)).round() as u8;
+    }
+
+    let delivered = autoshade::render::camera_base_look(
+        &neutral,
+        &lens,
+        &DynamicImage::ImageRgb8(camera),
+    )
+    .expect("the cropped pair is large enough to judge");
+
+    let error = base_curve_gain_error(&delivered, 0.85);
+    assert!(
+        delivered.len() > 2 && error < 0.003,
+        "cropped camera tone error={error}"
+    );
+}
+
+#[test]
+fn camera_base_look_keeps_the_sensor_base_when_corner_evidence_is_unjudgeable() {
+    let (lens, [neutral, ..]) = camera_corner_fixture();
+    let blown = DynamicImage::ImageRgb8(RgbImage::from_pixel(600, 400, Rgb([255; 3])));
+    let expected = autoshade::render::camera_base_knots(
+        &autoshade::render::camera_frame_of(&neutral, &blown),
+        &blown,
+    );
+
+    assert_eq!(
+        autoshade::render::camera_base_look(&neutral, &lens, &blown),
+        expected
+    );
 }
 
 #[test]

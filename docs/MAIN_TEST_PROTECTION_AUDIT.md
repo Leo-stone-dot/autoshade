@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：903 cases，约 2,826 个断言宏，48 个显式 ignore。
+- 当前工作树：908 cases，约 2,836 个断言宏，48 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，423 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,836 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，429 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,830 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3770,6 +3770,63 @@ main 名称把结果解释成“same-bin quantile merge”，但它的 camera fi
 证明旧标题不是当前算法事实；该无效尝试未登记为证据。临时让 `block_lumas` 每块只读
 第一个 pixel 后当前 case 红；恢复后通过。
 
+## Render：camera frame 与 corner-lift base selection
+
+### Base look 按 camera 显示的居中 frame 配对
+
+- Main cases：`the_base_look_is_estimated_on_the_frame_the_camera_shows`、
+  `the_three_open_paths_share_one_base_look_entry`
+- 当前 case：`camera_base_look_pairs_a_center_crop_with_the_frame_the_camera_shows`
+- 状态：两条 `rewritten`
+- Gate：默认
+
+300×200 neutral 带暗侧条，camera 是其 267×200 居中 crop。whole-frame 直接配对会产生
+伪 curve；公开 `camera_frame_of` 返回 267×200，公开 `camera_base_look` 对相同 crop
+返回 empty identity；same-frame thumbnail 不裁 neutral。临时让 frame pairing 总返回完整
+neutral 后尺寸断言红；恢复后通过。
+
+`the_three_open_paths...` 中扫描 pipeline/serve/GUI Rust 源码、查找 helper 名和调用点的
+两类断言按规则删除；它们不能证明三个工作流交付相同结果，也不迁移为新 scanner。该
+main case 唯一的产品断言是 centered-crop identity，已由上述公开 case 执行。
+
+### Corner lift 是否进入 estimator 由 camera pixels 决定
+
+- Main cases：`the_estimation_base_is_the_picture_the_camera_drew`、
+  `a_corner_lift_the_camera_never_made_does_not_become_tone`
+- 当前 cases：`camera_base_look_does_not_turn_an_unseen_corner_lift_into_tone`、
+  `camera_base_look_uses_a_corner_lift_the_camera_drew`
+- 状态：两条 `rewritten`
+- Gate：默认
+
+合成 600×400 sensor scene 与 1.0→1.8 corner lift，camera 分别绘制
+`0.85×sensor` 和 `0.85×lifted`。两条公开 `camera_base_look` 都必须恢复已知 0.85 tone，
+interior knot 最大误差 `<0.01`；相反 base 的 direct control 误差 `>0.03` 或无法形成
+有效 curve。临时无条件选择 lifted 时 unseen case 红；无条件选择 plain 时 drew-lifted
+case 红；恢复后通过。
+
+### Profile lift 先作用于 sensor frame，再裁 camera frame
+
+- Main case：`the_lift_is_made_on_the_sensor_frame_and_cut_to_the_cameras_afterwards`
+- 当前 case：`camera_base_look_applies_the_lift_before_the_camera_crop`
+- 状态：`rewritten`
+- Gate：默认
+
+camera 使用 lifted sensor 的居中 4:3 crop 并施加 0.85 tone。正确 public curve 的 tone
+误差为 `0.00119`；临时先 crop 再按 crop radius lift，误差变为 `0.00585`。验收阈值
+`<0.003` 位于两者之间，并对 baseline/mutant 各保留至少约 `0.0018` 余量。
+
+### Corner evidence 不可判时保留 sensor base
+
+- Main case：`a_pair_that_cannot_say_keeps_the_picture_the_sensor_saw`
+- 当前 case：`camera_base_look_keeps_the_sensor_base_when_corner_evidence_is_unjudgeable`
+- 状态：`rewritten`
+- Gate：默认
+
+全白 clipped camera 不能提供 corner 证据；公开 `camera_base_look` 必须等于从公开
+sensor frame 直接求得的 knots。临时让不可判分支默认选 lifted 后两组公开 knots 不同，
+case 红；恢复后通过。tiny-grid inability 已由独立 `camera_base_knots...smaller...` case
+验收，不在这里重复。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3780,7 +3837,7 @@ main 名称把结果解释成“same-bin quantile merge”，但它的 camera fi
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 107 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
 | `tests/render_behavior.rs` | 36 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
-| `tests/domain_behavior.rs` | 102 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的私有 corner estimator 与未映射复杂 mask composition |
+| `tests/domain_behavior.rs` | 107 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |

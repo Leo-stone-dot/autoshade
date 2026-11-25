@@ -227,6 +227,9 @@
 - `camera_base_knots` 取消 identity empty verdict、把 tiny inability 折成 `Some(empty)`、或把黑端点改成 `[0.1,0.1]` 时，known/identity/tiny 三条公开 case 分别红；恢复后通过。
 - camera base estimator 强制所有 interior knots 输出白点时，`a_sparse_camera_base_curve_keeps_the_delivered_ramp_rising_below_white` 在最长平台断言处红；恢复后测试通过。
 - `block_lumas` 每个 8px block 只读第一个 camera pixel 时，`camera_base_knots_average_camera_texture_within_each_block` 在公开 knot 断言处红；恢复后通过。此前把 estimator group 代表从 midpoint 改成 lower bound 的尝试未被旧 fixture 杀死，证明 main 标题对“same-bin quantile mean”的解释不成立，因此未冒充 mutation 证据。
+- `camera_frame_of` 无条件返回完整 neutral frame 时，`camera_base_look_pairs_a_center_crop_with_the_frame_the_camera_shows` 在 267×200 frame 断言处红；恢复后通过。
+- corner selection 无条件选 lifted 时，unseen-lift 与 unjudgeable-fallback 两条公开 camera-base case 分别红；无条件选 plain 时 drew-lifted case 红。三处 mutation 均已恢复。
+- profile lift 错误地在 camera crop 后应用时，公开 0.85 tone curve 最大误差从 `0.00119` 升到 `0.00585`，`camera_base_look_applies_the_lift_before_the_camera_crop` 在 `<0.003` 断言处红；恢复后通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
