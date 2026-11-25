@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：884 cases，约 2,787 个断言宏，48 个显式 ignore。
+- 当前工作树：888 cases，约 2,793 个断言宏，48 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，410 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,849 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，412 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,847 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3577,6 +3577,35 @@ Main case `every_baked_decode_line_says_why_it_is_allowed` 遍历 `src/**/*.rs`�
 上述公开 RAW dispatch case 执行；本轮不新建源码扫描器，也不把该规则伪称为 Clippy
 已经执行的架构约束。
 
+## Render：vignette composition 与 base curve
+
+### 逆向 vignette stages 在一次 clamp 前合成
+
+- Main case：`opposing_vignette_stages_compose_into_one_clamped_pass`
+- 当前 case：`opposing_vignette_stages_cancel_before_highlights_are_clamped`
+- 状态：`rewritten`
+- Gate：默认
+
+9×9 的 230-code 灰图先证明 profile vignette gain 2.0 会抬亮角落；再加入 corner gain
+0.5 的 manual stage 后，公开交付角落必须回到 neutral 一个 code 内。临时恢复
+profile-pass/clamp 再 manual-pass/clamp 的旧执行，角落从 230 降到 188，case 红；恢复
+后通过。main 的 LUT-product 数值、cancelled gain 和单/双 pass 像素四条断言由这一公开
+结果及其非 vacuous premise 接管，不保留私有 LUT 断言。
+
+### Base curve 是用户 tone 的起点
+
+- Main case：`base_curve_composes_under_user_tone_and_is_not_skipped`
+- 当前 cases：`a_base_curve_changes_pixels_without_user_tone_controls`、
+  `user_exposure_composes_after_the_base_curve`、`a_base_curve_keeps_black_pinned`
+- 状态：`rewritten`
+- Gate：默认
+
+第一条以公开像素证明中性用户控件不会让 base curve 被 short-circuit；第二条把公开
+base-only 交付再送入 exposure-only develop，与一次性 base+exposure 交付比较，允许最多
+2 codes 的 8-bit 中间量化，从产品结果验收 `user(base(x))`；第三条验收黑点固定。
+临时让 `has_tone_work` 忽略 base curve 时 lift 消失；交换组合顺序时最大偏差 31 codes；
+把 base 黑端点抬到 0.1 时黑图变成 26。三个 mutation 均已恢复。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3586,6 +3615,7 @@ Main case `every_baked_decode_line_says_why_it_is_allowed` 遍历 `src/**/*.rs`�
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 107 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
+| `tests/render_behavior.rs` | 24 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

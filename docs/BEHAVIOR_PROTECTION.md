@@ -213,6 +213,8 @@
 - `source_pixels` 忽略 baked long-edge cap 时，`source_pixels_downscales_a_large_baked_file_to_the_requested_edge` 从 100×50 退回 400×200；对所有 `Some(edge)` 无条件 thumbnail 时，`source_pixels_does_not_enlarge_a_baked_file_below_the_requested_edge` 从 64×48 放大到 2048×1536。两处均已恢复。
 - `render_baked_to_image` 忽略 working cap 或无条件 thumbnail 时，大图 cap 与小图 no-upscale case 分别红；恢复后通过。
 - `render_baked_to_image` 把 working cap 从 develop 前移到最终 crop 后时，普通 cap 仍为 100×50，但 `baked_render_applies_the_working_cap_before_crop` 的半宽 crop 从 50×50 变成 100×100并变红；恢复后测试通过。
+- opposing profile/manual vignette 恢复为两个各自 clamp 的 pass 时，公开亮部角落从 230 降到 188，`opposing_vignette_stages_cancel_before_highlights_are_clamped` 变红；恢复后测试通过。
+- `EditRecipe::has_tone_work` 忽略 base curve 时，`a_base_curve_changes_pixels_without_user_tone_controls` 的 lift 消失；把 base/user tone 组合顺序从 `user(base(x))` 换成 `base(user(x))` 时，`user_exposure_composes_after_the_base_curve` 最大偏差 31 codes；把 base 黑端点抬到 0.1 时，`a_base_curve_keeps_black_pinned` 输出 26。三处均已恢复。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

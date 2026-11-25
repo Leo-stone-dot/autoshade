@@ -100,6 +100,118 @@ fn a_neutral_recipe_preserves_the_delivered_pixels() {
 }
 
 #[test]
+fn opposing_vignette_stages_cancel_before_highlights_are_clamped() {
+    let source = RgbImage::from_pixel(9, 9, Rgb([230, 230, 230]));
+    let neutral = render(&source, &EditRecipe::default());
+    let profile_only = render(
+        &source,
+        &EditRecipe {
+            lens_profile: LensProfile {
+                vignette: vec![2.0; 4],
+                vignette_on: true,
+                ..LensProfile::default()
+            },
+            ..EditRecipe::default()
+        },
+    );
+    let combined = render(
+        &source,
+        &EditRecipe {
+            lens_vignette: -50.0,
+            lens_profile: LensProfile {
+                vignette: vec![2.0; 4],
+                vignette_on: true,
+                ..LensProfile::default()
+            },
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(profile_only.get_pixel(0, 0)[0] > neutral.get_pixel(0, 0)[0]);
+    assert!(
+        combined.get_pixel(0, 0)[0].abs_diff(neutral.get_pixel(0, 0)[0]) <= 1,
+        "inverse vignette gains lost a bright corner: {:?} -> {:?}",
+        neutral.get_pixel(0, 0),
+        combined.get_pixel(0, 0)
+    );
+}
+
+#[test]
+fn a_base_curve_changes_pixels_without_user_tone_controls() {
+    let source = RgbImage::from_pixel(8, 8, Rgb([100, 100, 100]));
+    let neutral = render(&source, &EditRecipe::default());
+    let lifted = render(
+        &source,
+        &EditRecipe {
+            base_curve: vec![[0.0, 0.0], [0.4, 0.62], [1.0, 1.0]],
+            ..EditRecipe::default()
+        },
+    );
+
+    assert_eq!(neutral.get_pixel(0, 0)[0], 100);
+    assert!(lifted.get_pixel(0, 0)[0] > 130);
+}
+
+#[test]
+fn user_exposure_composes_after_the_base_curve() {
+    let source = RgbImage::from_fn(32, 8, |x, _| {
+        let value = (32 + x * 5) as u8;
+        Rgb([value, value, value])
+    });
+    let curve = vec![[0.0, 0.0], [0.4, 0.62], [1.0, 1.0]];
+    let based = render(
+        &source,
+        &EditRecipe {
+            base_curve: curve.clone(),
+            ..EditRecipe::default()
+        },
+    );
+    let sequential = render(
+        &based,
+        &EditRecipe {
+            exposure_ev: 1.0,
+            ..EditRecipe::default()
+        },
+    );
+    let combined = render(
+        &source,
+        &EditRecipe {
+            base_curve: curve,
+            exposure_ev: 1.0,
+            ..EditRecipe::default()
+        },
+    );
+    let worst = sequential
+        .pixels()
+        .zip(combined.pixels())
+        .flat_map(|(expected, actual)| {
+            expected
+                .0
+                .into_iter()
+                .zip(actual.0)
+                .map(|(expected, actual)| expected.abs_diff(actual))
+        })
+        .max()
+        .unwrap();
+
+    assert!(worst <= 2, "base then exposure differed by {worst} codes");
+}
+
+#[test]
+fn a_base_curve_keeps_black_pinned() {
+    let source = RgbImage::from_pixel(4, 4, Rgb([0, 0, 0]));
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            base_curve: vec![[0.0, 0.0], [0.4, 0.62], [1.0, 1.0]],
+            ..EditRecipe::default()
+        },
+    );
+
+    assert_eq!(delivered.get_pixel(0, 0), &Rgb([0, 0, 0]));
+}
+
+#[test]
 fn positive_dehaze_restores_tonal_span_and_colour() {
     let source = hazy_ramp(64, 32);
     let delivered = render(
