@@ -252,6 +252,11 @@
 - `apply_develop_with_rasters` 让 `passthrough` 进入 develop 时，`every_control_whose_tier_renders_nothing_moves_no_pixel` 报 passthrough 移动了像素；`Tier::PassThrough.renders()` 改为 true 时 premise `probed >= 1` 红。均已恢复。
 - `lens_geom_norm` 把 CA 折进共享映射时，`the_shared_coordinate_map_round_trips_and_ignores_ca` 在 distortion 下 CA 开/关不等处红；已恢复。
 - `develop_cfa_signed` 把黑电平减法 clip 到 0 时，`sub_black_noise_reaches_the_demosaic_instead_of_being_clamped` 的两次渲染完全相等（4207.4 vs 4207.4）并红；已恢复。首个 fixture 把 clamped 写成 +80 而非 +40，mutant 存活，已修正。
+- `CoordFrame::brush_radius_scale` 固定为 1 时，`a_quarter_turn_rewrites_the_dab_stream_and_rescales_its_radii` 与 `a_turned_dab_is_still_a_circle_in_pixels` 红；`turned_dab_token` 交换坐标轴时，前者与 `a_turned_dab_lands_where_the_turned_radial_beside_it_does` 红；移除 Normal/Unknown early return 时 `an_unturned_photo_keeps_every_dab_byte` 红。均已恢复。
+- `apply_masks` 不给 brush arm 传 raster 时，`the_develop_hands_the_brush_arm_its_raster` 的中心变暗断言红；已恢复。
+- kernel cubic 系数翻转时 `brush_kernel_reproduces_the_measured_nine_rungs` 红；flow 律换成线性时 `brush_flow_law_matches_the_measured_deposit` 红；screen 换成 max 时 `brush_dabs_accumulate_by_screen_not_sum_or_max` 红。均已恢复。
+- brush support 由 kernel early return、kernel `.max(0)`、循环 continue、行 chord 四层共同执行；单层或三层放宽的 mutant 均存活，四层一致延伸才让 `a_brush_dab_has_a_hard_support_edge_and_is_round_in_pixels` 在 texel 360 处红。已全部恢复。
+- `mask_weight` 让 inverted 空组覆盖整帧时 `a_brush_group_with_no_drawable_dab_is_inert` 红；忽略组 inversion 时 `a_brush_groups_own_inversion_is_rendered` 红。均已恢复。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

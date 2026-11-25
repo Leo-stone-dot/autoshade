@@ -1,5 +1,5 @@
 use autoshade::recipe::{
-    BrushStroke, ColorGrade, CreativeLook, CurvePoint, EditRecipe, Hsl, LensProfile,
+    BrushStroke, ColorGrade, CreativeLook, Crop, CurvePoint, EditRecipe, Hsl, LensProfile,
     LocalAdjustment, MaskGeometry,
 };
 use autoshade::render::LensBlur;
@@ -1820,6 +1820,476 @@ fn brush_mask_paints_its_dabs_without_covering_far_corners() {
             coverage.get_pixel(x, y)[0] < 6,
             "brush covered a far corner at ({x}, {y})"
         );
+    }
+}
+
+fn brush_group(strokes: &[(f32, f32, f32, f32, &str)]) -> MaskGeometry {
+    MaskGeometry::Brush {
+        name: "Brush 1".to_string(),
+        blend_mode: 0,
+        value: 1.0,
+        inverted: false,
+        strokes: strokes
+            .iter()
+            .map(|&(value, radius, flow, center_weight, dabs)| BrushStroke {
+                value,
+                radius,
+                flow,
+                center_weight,
+                sync_id: "synthetic".to_string(),
+                dabs: dabs.to_string(),
+            })
+            .collect(),
+    }
+}
+
+fn brushed_recipe(radius: f32, dabs: &str) -> EditRecipe {
+    EditRecipe {
+        masks: vec![LocalAdjustment {
+            mask: brush_group(&[(1.0, radius, 1.0, 0.0, dabs)]),
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    }
+}
+
+fn only_stream(recipe: &EditRecipe) -> &str {
+    let MaskGeometry::Brush { strokes, .. } = &recipe.masks[0].mask else {
+        panic!("a brush")
+    };
+    &strokes[0].dabs
+}
+
+fn only_radius(recipe: &EditRecipe) -> f32 {
+    let MaskGeometry::Brush { strokes, .. } = &recipe.masks[0].mask else {
+        panic!("a brush")
+    };
+    strokes[0].radius
+}
+
+fn probe_frame() -> Option<autoshade::render::CoordFrame> {
+    autoshade::render::CoordFrame::new(9504.0, 6336.0)
+}
+
+fn brush_coverage(mask: &MaskGeometry, width: u32, height: u32) -> image::GrayImage {
+    let reference = DynamicImage::ImageRgb8(RgbImage::from_pixel(width, height, Rgb([128; 3])));
+    autoshade::render::mask_coverage(
+        &LocalAdjustment {
+            mask: mask.clone(),
+            ..LocalAdjustment::default()
+        },
+        &reference,
+        autoshade::render::MaskFrame::AsRendered,
+    )
+}
+
+#[test]
+fn a_quarter_turn_rewrites_the_dab_stream_and_rescales_its_radii() {
+    const SEED: &str =
+        "r 0.200000\nf 0.500000\nh 1.000000\nd 0.100000 0.800000\nd 0.300000 0.400000";
+    for (orientation, want_stream, want_radius) in [
+        (
+            Orientation::Rotate90,
+            "r 0.300000\nf 0.500000\nh 1.000000\nd 0.200000 0.100000\nd 0.600000 0.300000",
+            0.375f32,
+        ),
+        (
+            Orientation::Rotate180,
+            "r 0.200000\nf 0.500000\nh 1.000000\nd 0.900000 0.200000\nd 0.700000 0.600000",
+            0.25,
+        ),
+        (
+            Orientation::Rotate270,
+            "r 0.300000\nf 0.500000\nh 1.000000\nd 0.800000 0.900000\nd 0.400000 0.700000",
+            0.375,
+        ),
+    ] {
+        let mut recipe = brushed_recipe(0.25, SEED);
+        assert!(autoshade::render::orient_recipe_coords(
+            &mut recipe,
+            orientation,
+            probe_frame()
+        ));
+        assert_eq!(only_stream(&recipe), want_stream, "{orientation:?}");
+        assert!((only_radius(&recipe) - want_radius).abs() < 1e-6, "{orientation:?}");
+    }
+
+    let mut recipe = brushed_recipe(0.25, SEED);
+    let portrait = autoshade::render::CoordFrame::new(6336.0, 9504.0);
+    for k in 0..4 {
+        let frame = if k % 2 == 0 { probe_frame() } else { portrait };
+        assert!(autoshade::render::orient_recipe_coords(
+            &mut recipe,
+            Orientation::Rotate90,
+            frame
+        ));
+    }
+    assert!((only_radius(&recipe) - 0.25).abs() < 1e-6);
+    for (got, want) in only_stream(&recipe).split('\n').zip(SEED.split('\n')) {
+        let numbers = |token: &str| {
+            token
+                .split_whitespace()
+                .skip(1)
+                .map(|value| value.parse::<f32>().unwrap())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(got.split_whitespace().next(), want.split_whitespace().next());
+        for (a, b) in numbers(got).into_iter().zip(numbers(want)) {
+            assert!((a - b).abs() < 1e-5, "a full circle moved a token: {got} vs {want}");
+        }
+    }
+}
+
+#[test]
+fn an_unturned_photo_keeps_every_dab_byte() {
+    const RAW_FORM: &str = "r .5\nd 0 0\nd 1 1";
+    for orientation in [Orientation::Normal, Orientation::Unknown] {
+        let mut recipe = brushed_recipe(0.25, RAW_FORM);
+        let before = recipe.clone();
+        assert!(!autoshade::render::orient_recipe_coords(
+            &mut recipe,
+            orientation,
+            probe_frame()
+        ));
+        assert_eq!(recipe, before, "{orientation:?} must not touch a dab byte");
+    }
+
+    let mut recipe = brushed_recipe(0.25, RAW_FORM);
+    recipe.crop = Some(Crop {
+        left: 0.1,
+        top: 0.2,
+        right: 0.8,
+        bottom: 0.9,
+    });
+    assert!(autoshade::render::orient_recipe_coords(
+        &mut recipe,
+        Orientation::Rotate90,
+        None
+    ));
+    assert_eq!(only_stream(&recipe), RAW_FORM, "no frame, no rewrite");
+    assert!((only_radius(&recipe) - 0.25).abs() < 1e-9);
+    assert!(recipe.crop.unwrap().left != 0.1);
+}
+
+#[test]
+fn a_turned_dab_lands_where_the_turned_radial_beside_it_does() {
+    let (px, py) = (0.30f32, 0.65f32);
+    let radial = MaskGeometry::Radial {
+        top: py - 0.05,
+        left: px - 0.12,
+        bottom: py + 0.05,
+        right: px + 0.12,
+        feather: 0.5,
+        roundness: 0.0,
+        flipped: false,
+        angle: 0.0,
+        midpoint: 50.0,
+        mask_version: 2,
+    };
+    for orientation in [
+        Orientation::Rotate90,
+        Orientation::Rotate180,
+        Orientation::Rotate270,
+        Orientation::Transpose,
+        Orientation::HorizontalFlip,
+    ] {
+        let mut recipe = EditRecipe {
+            masks: vec![
+                LocalAdjustment {
+                    mask: brush_group(&[(1.0, 0.1, 1.0, 0.0, &format!("d {px} {py}"))]),
+                    ..LocalAdjustment::default()
+                },
+                LocalAdjustment {
+                    mask: radial.clone(),
+                    ..LocalAdjustment::default()
+                },
+            ],
+            ..EditRecipe::default()
+        };
+        assert!(autoshade::render::orient_recipe_coords(
+            &mut recipe,
+            orientation,
+            probe_frame()
+        ));
+        let dab: Vec<f32> = only_stream(&recipe)
+            .split_whitespace()
+            .skip(1)
+            .map(|value| value.parse::<f32>().unwrap())
+            .collect();
+        let MaskGeometry::Radial { top, left, bottom, right, .. } = recipe.masks[1].mask else {
+            panic!("a radial")
+        };
+        let (cx, cy) = ((left + right) / 2.0, (top + bottom) / 2.0);
+        assert!(
+            (dab[0] - cx).abs() < 1e-6 && (dab[1] - cy).abs() < 1e-6,
+            "{orientation:?}: the dab landed at ({}, {}) and the radial at ({cx}, {cy})",
+            dab[0],
+            dab[1]
+        );
+    }
+}
+
+#[test]
+fn a_turned_dab_is_still_a_circle_in_pixels() {
+    let (fw, fh) = (480u32, 320u32);
+    let mut recipe = brushed_recipe(0.1, "h 1.000000\nd 0.500000 0.500000");
+    let flat = |coverage: &image::GrayImage, w: u32, h: u32| {
+        (
+            f32::from(coverage.get_pixel(w / 2 + 40, h / 2)[0]) / 255.0,
+            f32::from(coverage.get_pixel(w / 2, h / 2 + 40)[0]) / 255.0,
+        )
+    };
+    let before = brush_coverage(&recipe.masks[0].mask, fw, fh);
+    let (bx, by) = flat(&before, fw, fh);
+    assert!(bx > 0.5 && (bx - by).abs() < 0.05, "premise: the dab starts round ({bx}, {by})");
+
+    assert!(autoshade::render::orient_recipe_coords(
+        &mut recipe,
+        Orientation::Rotate90,
+        autoshade::render::CoordFrame::new(480.0, 320.0)
+    ));
+    let after = brush_coverage(&recipe.masks[0].mask, fh, fw);
+    let (ax, ay) = flat(&after, fh, fw);
+    assert!(ax > 0.5 && (ax - ay).abs() < 0.05, "the turned dab must still be round ({ax}, {ay})");
+    assert!(
+        (ax - bx).abs() < 0.05 && (ay - by).abs() < 0.05,
+        "and the same size: was ({bx}, {by}), now ({ax}, {ay})"
+    );
+}
+
+#[test]
+fn the_develop_hands_the_brush_arm_its_raster() {
+    let (w, h) = (240u32, 160u32);
+    let mask = LocalAdjustment {
+        mask: brush_group(&[(1.0, 0.2, 1.0, 1.0, "d 0.5 0.5")]),
+        exposure_ev: -3.0,
+        ..LocalAdjustment::default()
+    };
+    let source = RgbImage::from_pixel(w, h, Rgb([128, 128, 128]));
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            masks: vec![mask.clone()],
+            ..EditRecipe::default()
+        },
+    );
+
+    assert!(delivered.get_pixel(w / 2, h / 2)[1] < 51, "the dab centre must darken");
+    assert_eq!(delivered.get_pixel(2, 2)[1], 128, "the far corner must not move");
+
+    let coverage = brush_coverage(&mask.mask, w, h);
+    assert!(coverage.get_pixel(w / 2, h / 2)[0] > 200, "the overlay must show the coverage");
+    assert_eq!(coverage.get_pixel(2, 2)[0], 0, "and none where the render applied none");
+}
+
+/// The kernel against the measured nine-rung table (R29 Batch-6 §4.1), read
+/// texel by texel through the public coverage overlay on a 1:1 raster. The
+/// tolerances are the report's own: pooled rms 0.012, worst cell 0.035.
+#[test]
+fn brush_kernel_reproduces_the_measured_nine_rungs() {
+    const HS: [f32; 9] = [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0];
+    const TABLE: [(f32, [f32; 9]); 11] = [
+        (0.092, [0.9350, 0.9643, 0.9814, 0.9908, 0.9959, 0.9975, 0.9972, 0.9977, 0.9973]),
+        (0.193, [0.7326, 0.8494, 0.9235, 0.9657, 0.9869, 0.9948, 0.9975, 0.9981, 0.9979]),
+        (0.292, [0.4790, 0.6831, 0.8321, 0.9232, 0.9710, 0.9904, 0.9980, 0.9991, 0.9989]),
+        (0.393, [0.2646, 0.5000, 0.7138, 0.8630, 0.9467, 0.9840, 0.9964, 0.9992, 0.9995]),
+        (0.492, [0.1302, 0.3359, 0.5775, 0.7794, 0.9073, 0.9697, 0.9935, 0.9989, 0.9999]),
+        (0.593, [0.0645, 0.2084, 0.4298, 0.6609, 0.8353, 0.9360, 0.9806, 0.9948, 0.9975]),
+        (0.693, [0.0339, 0.1244, 0.2875, 0.5030, 0.7102, 0.8603, 0.9461, 0.9842, 0.9966]),
+        (0.792, [0.0151, 0.0685, 0.1671, 0.3153, 0.4978, 0.6772, 0.8207, 0.9159, 0.9679]),
+        (0.893, [0.0023, 0.0232, 0.0672, 0.1366, 0.2316, 0.3494, 0.4832, 0.6214, 0.7505]),
+        (0.943, [0.0002, 0.0063, 0.0230, 0.0522, 0.0956, 0.1530, 0.2249, 0.3109, 0.4094]),
+        (0.972, [-0.0007, 0.0007, 0.0046, 0.0126, 0.0246, 0.0424, 0.0656, 0.0954, 0.1318]),
+    ];
+    let (fw, fh) = (240u32, 160u32);
+    let (mut sq, mut cells) = (0.0f64, 0usize);
+    let mut measured_kernel = [[0.0f32; 9]; 11];
+    // Each table row gets its own dab radius so the probed texel sits
+    // exactly on that row's ρ: on the h = 1 edge the kernel falls ~0.28 per
+    // 0.03 of ρ, so a half-texel miss would read as a 0.03 error on its own.
+    let kernel_at = |rho: f32, hardness: f32| {
+        let d = (rho * 60.0 - 0.5).round();
+        let radius_texels = (d + 0.5) / rho;
+        let coverage = brush_coverage(
+            &brush_group(&[(1.0, radius_texels / 240.0, 1.0, hardness, "d 0.5 0.5")]),
+            fw,
+            fh,
+        );
+        f32::from(coverage.get_pixel(120 + d as u32, 80)[0]) / 255.0
+    };
+    for (row_index, (rho, row)) in TABLE.into_iter().enumerate() {
+        for (h_index, hardness) in HS.into_iter().enumerate() {
+            let got = kernel_at(rho, hardness);
+            measured_kernel[row_index][h_index] = got;
+            let delta = got - row[h_index];
+            sq += f64::from(delta) * f64::from(delta);
+            cells += 1;
+            assert!(
+                delta.abs() <= 0.035,
+                "k({rho}, {hardness}) = {got}, measured {} (B6 §4.1)",
+                row[h_index]
+            );
+        }
+    }
+    for hardness in HS {
+        let core = brush_coverage(
+            &brush_group(&[(1.0, 0.25, 1.0, hardness, "d 0.5 0.5")]),
+            fw,
+            fh,
+        );
+        assert_eq!(core.get_pixel(120, 80)[0], 255, "k(0) = 1 at h = {hardness}");
+        for rho in [1.0f32, 1.002, 1.042] {
+            assert_eq!(kernel_at(rho, hardness), 0.0, "k({rho}) = 0 at h = {hardness}");
+        }
+    }
+    assert_eq!(cells, 99);
+    let rms = (sq / cells as f64).sqrt();
+    assert!(rms <= 0.012, "pooled rms {rms} against B6 §4.4's own 0.01020");
+
+    for (row_index, (rho, _)) in TABLE.into_iter().enumerate() {
+        for h_index in 1..9 {
+            assert!(
+                measured_kernel[row_index][h_index] >= measured_kernel[row_index][h_index - 1] - 1e-6,
+                "k is not monotone in h at ρ = {rho}"
+            );
+        }
+    }
+}
+
+/// The flow law against the measured deposit (R29 Batch-6 §5.3), read at the
+/// dab core where the kernel is 1 and the alpha is the deposit itself.
+#[test]
+fn brush_flow_law_matches_the_measured_deposit() {
+    const LADDER: [(f32, f32); 4] =
+        [(0.10, 0.01307), (0.25, 0.03935), (0.50, 0.11182), (0.75, 0.27937)];
+    let (mut odds_sq, mut lin_sq) = (0.0f64, 0.0f64);
+    for (flow, measured) in LADDER {
+        let coverage = brush_coverage(&brush_group(&[(1.0, 0.25, flow, 0.5, "d 0.5 0.5")]), 480, 320);
+        let deposit = f32::from(coverage.get_pixel(240, 160)[0]) / 255.0;
+        assert!(
+            (deposit - measured).abs() <= 0.0025 + 0.5 / 255.0,
+            "D({flow}) = {deposit}, measured {measured} (B6 §5.3)"
+        );
+        odds_sq += f64::from(deposit - measured).powi(2);
+        lin_sq += f64::from(0.31252 * flow - measured).powi(2);
+    }
+    let at_core = |flow| {
+        let coverage = brush_coverage(&brush_group(&[(1.0, 0.25, flow, 0.5, "d 0.5 0.5")]), 480, 320);
+        f32::from(coverage.get_pixel(240, 160)[0]) / 255.0
+    };
+    assert!(at_core(1.0) >= 1.0 - 1.0 / 255.0, "D(1) must be 1");
+    assert_eq!(at_core(0.0), 0.0, "a flow-0 dab deposits nothing");
+    assert_eq!(at_core(-1.0), 0.0);
+    assert!(at_core(7.0) >= 1.0 - 1.0 / 255.0);
+    let (odds, linear) = ((odds_sq / 4.0).sqrt(), (lin_sq / 4.0).sqrt());
+    assert!(linear > odds * 10.0, "odds {odds}, linear {linear}");
+}
+
+#[test]
+fn brush_dabs_accumulate_by_screen_not_sum_or_max() {
+    let (fw, fh) = (480u32, 320u32);
+    let two = brush_coverage(
+        &brush_group(&[(1.0, 0.25, 0.75, 0.5, "d 0.4 0.5\nd 0.6 0.5")]),
+        fw,
+        fh,
+    );
+    let one = brush_coverage(
+        &brush_group(&[(1.0, 0.25, 0.75, 0.5, "d 0.5 0.5")]),
+        fw,
+        fh,
+    );
+    let got = f32::from(two.get_pixel(240, 160)[0]) / 255.0;
+    let a = f32::from(one.get_pixel(192, 160)[0]) / 255.0;
+    let screen = 1.0 - (1.0 - a) * (1.0 - a);
+    let sum = (a + a).min(1.0);
+
+    assert!((got - screen).abs() <= 0.006, "α = {got}, screen says {screen}");
+    assert!((got - sum).abs() >= 0.05, "sum-clamp would say {sum}");
+    assert!((got - a).abs() >= 0.15, "max would say {a}");
+}
+
+#[test]
+fn a_brush_dab_has_a_hard_support_edge_and_is_round_in_pixels() {
+    let (fw, fh) = (480u32, 320u32);
+    let coverage = brush_coverage(&brush_group(&[(0.7, 0.25, 1.0, 0.5, "d 0.5 0.5")]), fw, fh);
+    assert_eq!(coverage.dimensions(), (fw, fh));
+    let texel = |x: u32, y: u32| f32::from(coverage.get_pixel(x, y)[0]) / 255.0;
+
+    assert!(texel(359, 160) > 0.0, "texel 359 is inside the support");
+    assert_eq!(texel(360, 160), 0.0, "support ends EXACTLY at ρ = 1 (B6 §4.1)");
+    let horizontal = texel(347, 159);
+    let vertical = texel(239, 267);
+    assert_eq!(horizontal, vertical, "the dab is not round in pixels");
+    assert!(horizontal > 0.0, "premise: both probes are inside the dab");
+
+    let full = brush_coverage(&brush_group(&[(1.0, 0.25, 1.0, 0.5, "d 0.5 0.5")]), fw, fh);
+    let ratio = texel(300, 160) / (f32::from(full.get_pixel(300, 160)[0]) / 255.0);
+    assert!((ratio - 0.7).abs() < 0.01, "density must scale the alpha: {ratio}");
+}
+
+#[test]
+fn a_brush_group_with_no_drawable_dab_is_inert() {
+    let (fw, fh) = (240u32, 160u32);
+    for (what, stream, radius, flow) in [
+        ("state tokens only", "r 0.2\nf 1\nh 0.5", 0.2f32, 1.0f32),
+        ("zero radius", "d 0.5 0.5", 0.0, 1.0),
+        ("zero flow", "d 0.5 0.5", 0.2, 0.0),
+        ("garbage", "wobble\nd\nd 0.5", 0.2, 1.0),
+    ] {
+        let group = brush_group(&[(1.0, radius, flow, 0.5, stream)]);
+        let coverage = brush_coverage(&group, fw, fh);
+        assert!(coverage.pixels().all(|pixel| pixel[0] == 0), "{what} must draw nothing");
+
+        let MaskGeometry::Brush { name, blend_mode, value, strokes, .. } = group else {
+            unreachable!()
+        };
+        let flipped = MaskGeometry::Brush {
+            name,
+            blend_mode,
+            value,
+            inverted: true,
+            strokes,
+        };
+        let source = RgbImage::from_pixel(fw, fh, Rgb([128; 3]));
+        let delivered = render(
+            &source,
+            &EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: flipped,
+                    exposure_ev: -3.0,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            },
+        );
+        assert_eq!(delivered.get_pixel(2, 2)[1], 128, "{what}: an inverted empty group covered the frame");
+    }
+    assert!(brush_coverage(&brush_group(&[]), fw, fh)
+        .pixels()
+        .all(|pixel| pixel[0] == 0));
+}
+
+#[test]
+fn a_brush_groups_own_inversion_is_rendered() {
+    let (fw, fh) = (480u32, 320u32);
+    let plain = brush_group(&[(1.0, 0.25, 1.0, 1.0, "d 0.5 0.5")]);
+    let MaskGeometry::Brush { name, blend_mode, value, strokes, .. } = plain.clone() else {
+        unreachable!()
+    };
+    let inverted = MaskGeometry::Brush {
+        name,
+        blend_mode,
+        value,
+        inverted: true,
+        strokes,
+    };
+    let plain_coverage = brush_coverage(&plain, fw, fh);
+    let inverted_coverage = brush_coverage(&inverted, fw, fh);
+    assert_eq!(inverted_coverage.dimensions(), (fw, fh));
+    for (x, y) in [(240u32, 160u32), (264, 160), (10, 6)] {
+        let w = f32::from(plain_coverage.get_pixel(x, y)[0]) / 255.0;
+        let f = f32::from(inverted_coverage.get_pixel(x, y)[0]) / 255.0;
+        assert!((w + f - 1.0).abs() <= 1.0 / 255.0, "({x}, {y}): {w} + {f} != 1");
     }
 }
 

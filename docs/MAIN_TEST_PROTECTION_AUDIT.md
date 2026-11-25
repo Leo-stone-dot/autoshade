@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：945 cases，约 2,942 个断言宏，50 个显式 ignore。
+- 当前工作树：956 cases，约 2,991 个断言宏，50 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，458 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、6 条 `drop`、18 条 `external-gate`、1,797 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，469 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、7 条 `drop`、18 条 `external-gate`、1,785 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -4163,6 +4163,105 @@ baseline 下 straddling 均值（4816）反而高于 clamped（4207），方向�
 至此 `src/render/tests/raw_matrix_and_ca.rs` 的 12 个 main cases 全部裁决：10 条
 `rewritten`、1 条 `drop`、1 条此前已 `rewritten`，0 条 `open`。
 
+## Render：brush group 的 turn、kernel、flow 与累积
+
+### Turn 重写 dab stream 并按轴交换缩放半径
+
+- Main cases：`a_quarter_turn_rewrites_the_dab_stream_and_rescales_its_radii`、
+  `an_unturned_photo_keeps_every_dab_byte`、
+  `a_turned_dab_lands_where_the_turned_radial_beside_it_does`、
+  `a_turned_dab_is_still_a_circle_in_pixels`
+- 当前 cases（`tests/render_behavior.rs`，同名）
+- 状态：四条 `rewritten`
+- Gate：默认
+
+前三条只读公开 recipe 状态：Rotate90/180/270 重写 dab stream 并只在轴交换的 turn 上
+缩放 `crs:Radius`，四次 turn 回到原值；Normal/Unknown 报告无移动且不动一个字节，无
+frame 时 stream 不动而 crop 仍转；turned dab 在五种 orientation 下落在旁边 turned radial
+的中心。第四条通过公开 `mask_coverage` 在 480×320 与转后的 320×480 上读 ±40px，dab
+保持圆形且尺寸不变。把半径 scale 固定为 1 时第一、四条红；交换 dab 坐标轴时第一、三条
+红；移除 identity early return 时第二条红。均已恢复。
+
+### Develop 与 overlay 拿到同一张 raster
+
+- Main case：`the_develop_hands_the_brush_arm_its_raster`
+- 当前 case：同名
+- 状态：`rewritten`
+- Gate：默认
+
+公开 `develop_preview` 让 dab 中心变暗、远角不动；`mask_coverage` 在中心显示覆盖、在
+远角为 0。让 `apply_masks` 不给 brush arm 传 raster 时中心不再变暗，case 红；已恢复。
+
+### Kernel 复现九档实测表
+
+- Main case：`brush_kernel_reproduces_the_measured_nine_rungs`
+- 当前 case：同名
+- 状态：`rewritten`
+- Gate：默认
+
+公开 `mask_coverage` 在 240×160 的 1:1 raster 上逐 texel 读 99 格（9 hardness × 11 ρ），
+每行用自己的 dab 半径让 texel 精确落在该 ρ 上（h=1 边缘斜率约 -10/unit ρ，半 texel 偏差
+就会读成 0.03）。容差是报告自己的：单格 0.035、pooled rms 0.012；另验 core=1、ρ≥1 为 0、
+在 h 上单调。翻转一个 cubic 系数时 case 红；已恢复。main 对私有 exponent 表的断言不复制。
+首个 fixture 用固定半径，texel ρ 与表行差 0.003 导致 h=1 边缘格误判，已修正。
+
+### Flow 律复现实测 deposit
+
+- Main case：`brush_flow_law_matches_the_measured_deposit`
+- 当前 case：同名
+- 状态：`rewritten`
+- Gate：默认
+
+公开 `mask_coverage` 在 dab core（kernel=1）读出四点 deposit ladder，容差 0.0025 加
+8-bit 半个量化步；D(1)=1、D(0)=0、越界 clamp；线性 rival 的 rms 至少是 odds 律的 10 倍。
+把 odds 律换成线性时 case 红；已恢复。首个容差未包量化步，D(0.1) 差 0.0026 误判，已修正。
+
+### Dabs 按 screen 累积
+
+- Main case：`brush_dabs_accumulate_by_screen_not_sum_or_max`
+- 当前 case：同名
+- 状态：`rewritten`
+- Gate：默认
+
+两个重叠 dab 的中心 alpha 等于单 dab alpha 的 screen，与 sum-clamp 差 ≥0.05、与 max 差
+≥0.15。把 screen 换成 max 时 case 红；已恢复。
+
+### Support 边缘、像素圆形与 density
+
+- Main case：`brush_raster_stamps_the_closed_form`
+- 当前 case：`a_brush_dab_has_a_hard_support_edge_and_is_round_in_pixels`
+- 状态：`rewritten`
+- Gate：默认
+
+公开 `mask_coverage`：texel 359 亮、360 为 0（support 恰在 ρ=1 结束）；交换偏移的两个
+texel 相等（像素圆形）；density 0.7 把 alpha 缩到 0.7。texel 等于 closed form 的检查由
+九档表 case 执行。
+
+support 由四层共同执行：kernel 的 early return、kernel 的 `.max(0)`、raster 循环的
+`rho2 >= 1` continue、行级 chord `half`。单层或三层放宽都不改输出（mutant 存活，已
+记录）；只有四层一致延伸才让 texel 360 变为 33 并红。已全部恢复。
+
+### 空组 inert，组自身 inversion 渲染
+
+- Main cases：`a_brush_group_with_no_drawable_dab_is_inert`、
+  `a_brush_groups_own_inversion_is_rendered`
+- 当前 cases：同名
+- 状态：两条 `rewritten`
+- Gate：默认
+
+state-only、零半径、零 flow、garbage、空 strokes 五种组的 `mask_coverage` 全 0，且 inverted
+空组不让 `develop_preview` 改变远角；plain 与组 inverted 的覆盖在三点地和为 1。让 inverted
+空组覆盖整帧时第一条红；忽略组 inversion 时第二条红。均已恢复。
+
+### Raster 尺寸策略不在公开输出上
+
+Main case `the_brush_raster_size_policy_is_bounded_three_ways` 断言私有纯函数的三个数值
+上界（2048 edge、24M work、32 floor）。`mask_coverage` 返回参考图尺寸，raster cap 在公开
+输出上不可观测；timing 或 memory gate 依赖机器且不确定。归为 `drop`。
+
+至此 `src/render/tests/brush.rs` 的 12 个 main cases 全部裁决：11 条 `rewritten`、1 条
+`drop`，0 条 `open`。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -4172,7 +4271,7 @@ baseline 下 straddling 均值（4816）反而高于 clamped（4207），方向�
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 114 | recipe/LensBlur clamp+JSON、local activity gates、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 56 | 中性像素、dehaze/HSL target+grey gate、局部 Hue/Sharpness/Temp/point colour、mask tint activity/Oklab/window/wheel/external gate、锐化/曲线/色彩分级、mask shapes、profile CA 逐通道/rest pair、straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/render_behavior.rs` | 67 | 中性像素、dehaze/HSL target+grey gate、局部 Hue/Sharpness/Temp/point colour、mask tint activity/Oklab/window/wheel/external gate、brush turn/kernel/flow/screen/support/inert/inversion、锐化/曲线/色彩分级、mask shapes、profile CA 逐通道/rest pair、straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 108 | session/describe/embed、face、retouch、stack、色彩、几何、共享坐标映射往返/CA 无关、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
