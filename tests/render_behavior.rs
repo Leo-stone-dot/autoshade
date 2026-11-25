@@ -2,6 +2,7 @@ use autoshade::recipe::{
     BrushStroke, ColorGrade, CreativeLook, CurvePoint, EditRecipe, LensProfile, LocalAdjustment,
     MaskGeometry,
 };
+use autoshade::retouch::{RetouchArea, RetouchShape, SpotOrigin};
 use image::{DynamicImage, Rgb, RgbImage};
 
 mod support;
@@ -273,6 +274,107 @@ fn a_monochrome_creative_look_delivers_greyscale_pixels() {
         pixel[0].max(pixel[1]).max(pixel[2]),
     );
     assert!(high - low <= 1, "monochrome Look delivered {pixel:?}");
+}
+
+fn retouch_object_fixture() -> RgbImage {
+    let mut source = RgbImage::from_pixel(160, 120, Rgb([140; 3]));
+    for y in 0..120 {
+        for x in 0..160 {
+            let (dx, dy) = (x as f32 - 40.0, y as f32 - 60.0);
+            if dx * dx + dy * dy <= 64.0 {
+                source.put_pixel(x, y, Rgb([0, 0, 0]));
+            }
+        }
+    }
+    source
+}
+
+fn darkest_retouch_object(image: &RgbImage) -> u8 {
+    let mut darkest = 255;
+    for y in 51..70 {
+        for x in 31..50 {
+            let (dx, dy) = (x as f32 - 40.0, y as f32 - 60.0);
+            if dx * dx + dy * dy <= 64.0 {
+                darkest = darkest.min(image.get_pixel(x, y)[0]);
+            }
+        }
+    }
+    darkest
+}
+
+fn assert_retouch_removes_dark_object(shape: RetouchShape) {
+    let source = retouch_object_fixture();
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            retouch: vec![RetouchArea {
+                origin: SpotOrigin::LightroomContentAware,
+                feather: 0.0,
+                donor: None,
+                shape,
+            }],
+            ..EditRecipe::default()
+        },
+    );
+    let far = delivered.get_pixel(130, 25)[0];
+
+    assert!(darkest_retouch_object(&neutral) + 80 < neutral.get_pixel(130, 25)[0]);
+    assert!(
+        darkest_retouch_object(&delivered) + 20 > far,
+        "retouch left the dark object visible"
+    );
+}
+
+#[test]
+fn an_elliptical_retouch_area_removes_a_dark_object() {
+    assert_retouch_removes_dark_object(RetouchShape::Ellipse {
+        cx: 40.0 / 160.0,
+        cy: 60.0 / 120.0,
+        size_x: 10.0 / 160.0,
+        size_y: 10.0 / 160.0,
+    });
+}
+
+#[test]
+fn a_brush_retouch_area_removes_a_dark_object() {
+    assert_retouch_removes_dark_object(RetouchShape::Brush(vec![BrushStroke {
+        value: 1.0,
+        radius: 10.0 / 160.0,
+        flow: 1.0,
+        center_weight: 1.0,
+        sync_id: String::new(),
+        dabs: "d 0.250000 0.500000".to_string(),
+    }]));
+}
+
+#[test]
+fn a_brush_retouch_plan_keeps_its_area_metadata_and_exact_shape() {
+    let recipe = EditRecipe {
+        retouch: vec![RetouchArea {
+            origin: SpotOrigin::LightroomGenerative,
+            feather: 0.25,
+            donor: None,
+            shape: RetouchShape::Brush(vec![BrushStroke {
+                value: 1.0,
+                radius: 0.05,
+                flow: 1.0,
+                center_weight: 1.0,
+                sync_id: String::new(),
+                dabs: "d 0.750000 0.500000".to_string(),
+            }]),
+        }],
+        ..EditRecipe::default()
+    };
+
+    let spots = autoshade::render::retouch_spots(&recipe, 160, 120);
+
+    assert!(!spots.is_empty());
+    assert!(spots.iter().all(|spot| {
+        spot.origin == SpotOrigin::LightroomGenerative
+            && (spot.feather - 0.25).abs() < 1e-6
+            && spot.coverage.is_some()
+    }));
 }
 
 #[test]

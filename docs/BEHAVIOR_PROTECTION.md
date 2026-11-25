@@ -217,6 +217,9 @@
 - `EditRecipe::has_tone_work` 忽略 base curve 时，`a_base_curve_changes_pixels_without_user_tone_controls` 的 lift 消失；把 base/user tone 组合顺序从 `user(base(x))` 换成 `base(user(x))` 时，`user_exposure_composes_after_the_base_curve` 最大偏差 31 codes；把 base 黑端点抬到 0.1 时，`a_base_curve_keeps_black_pinned` 输出 26。三处均已恢复。
 - global tone LUT、RGB curve pass 或 tone sliders 分别读取 creative Look 的 baked master curve、red curve 或 Shadows 时，`a_creative_looks_baked_tone_controls_do_not_reapply_to_pixels` 均在公开像素等价处变红；三处恢复后通过。
 - `EditRecipe::renders_grayscale` 忽略 creative Look 的 monochrome switch 时，`a_monochrome_creative_look_delivers_greyscale_pixels` 从灰度退化为 `[200, 60, 40]` 并变红；恢复后测试通过。
+- develop chain 跳过 `heal_planar` 时，ellipse 与 brush 两条公开 retouch 成片 case 都因黑物体仍可见而变红；恢复后测试通过。
+- `retouch_spots` 把 width-unit radius 当作 short-side unit 或不从 absolute donor 减去 spot centre 时，已有 scaled-ellipse 与 donor 公共 case 分别红；恢复后通过。
+- brush retouch plan 用默认值替代 area feather/origin，或清空 planner 生成的 exact coverage 时，`a_brush_retouch_plan_keeps_its_area_metadata_and_exact_shape` 分别红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

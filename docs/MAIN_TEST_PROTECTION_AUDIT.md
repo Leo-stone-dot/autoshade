@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：890 cases，约 2,796 个断言宏，48 个显式 ignore。
+- 当前工作树：893 cases，约 2,800 个断言宏，48 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，413 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,846 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，415 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、15 条 `external-gate`、1,844 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3625,6 +3625,45 @@ Look 的实际交付 channel 差不超过一个 code。临时让 `renders_graysc
 switch 后交付保持 `[200, 60, 40]`，case 红；恢复后通过。main 的 baked-half pixel 等价、
 用户开关 premise 与 profile grayscale 三条断言均有公开执行者。
 
+## Render：Lightroom retouch 的成片与单位
+
+### Ellipse 与 brush 都从公开成片中移除对象
+
+- Main case：`a_lightroom_retouch_area_takes_the_object_off_the_photograph`
+- 当前 cases：`an_elliptical_retouch_area_removes_a_dark_object`、
+  `a_brush_retouch_area_removes_a_dark_object`
+- 状态：`rewritten`
+- Gate：默认
+
+合成 160×120 灰图在 `(40,60)` 放置半径 8 的黑物体；每条 case 都先证明空 recipe
+保留物体，再通过自己的公开 retouch geometry 验收最暗像素恢复到背景 20 codes 内。
+临时跳过真实 `heal_planar` stage 后 ellipse 与 brush 两条 case 同时红；恢复后通过。
+
+### Lightroom retouch 元数据成为可执行 plan
+
+- Main case：`a_retouch_areas_units_become_this_engines_at_exactly_one_place`
+- 当前执行者：
+  `lightroom_retouch_ellipse_becomes_a_scaled_heal_spot`、
+  `lightroom_retouch_donors_require_both_coordinates`、
+  `lightroom_retouch_fill_modes_keep_their_known_origins`、
+  `a_brush_retouch_plan_keeps_its_area_metadata_and_exact_shape`
+- 状态：`rewritten`
+- Gate：默认
+
+逐断言映射：
+
+| main 主张 | 当前公开执行者 |
+| --- | --- |
+| ellipse 与 brush 两条道路都产生 executable spot | scaled ellipse case + brush metadata case |
+| brush 保留 Generative origin、0.25 feather 与 exact coverage | brush metadata case |
+| width-unit radius 按短边换算 | scaled ellipse case 的 300×200→0.075 |
+| absolute donor `[0.6,0.4]` 变成相对 `[0.35,-0.10]` | donor case |
+| ellipse feather 与 LightroomHeal origin 保留 | scaled ellipse + fill-mode cases |
+
+临时把 `to_short` 固定为 1.0 时 radius case 红；不减 spot centre 时 donor case 红；用
+`HealSpot::default()` 丢失 area metadata 或清空 planner coverage 时 brush metadata case
+分别红。所有 mutation 已恢复。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3634,7 +3673,7 @@ switch 后交付保持 `[200, 60, 40]`，case 红；恢复后通过。main 的 b
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 107 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 26 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、creative Look tone 隔离/monochrome、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/render_behavior.rs` | 29 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序与端点、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片与 plan metadata、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
