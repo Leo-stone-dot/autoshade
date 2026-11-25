@@ -57,6 +57,29 @@ fn linear_to_srgb(channel: f32) -> f32 {
     }
 }
 
+fn linear_to_oklab_standard(rgb: [f32; 3]) -> [f32; 3] {
+    let l = (0.412_221_47 * rgb[0] + 0.536_332_55 * rgb[1] + 0.051_445_995 * rgb[2])
+        .max(0.0)
+        .cbrt();
+    let m = (0.211_903_5 * rgb[0] + 0.680_699_5 * rgb[1] + 0.107_396_96 * rgb[2])
+        .max(0.0)
+        .cbrt();
+    let s = (0.088_302_46 * rgb[0] + 0.281_718_85 * rgb[1] + 0.629_978_7 * rgb[2])
+        .max(0.0)
+        .cbrt();
+    [
+        0.210_454_26 * l + 0.793_617_8 * m - 0.004_072_047 * s,
+        1.977_998_5 * l - 2.428_592_2 * m + 0.450_593_7 * s,
+        0.025_904_037 * l + 0.782_771_77 * m - 0.808_675_77 * s,
+    ]
+}
+
+fn pixel_oklab(pixel: &Rgb<u8>) -> [f32; 3] {
+    linear_to_oklab_standard(pixel.0.map(|channel| {
+        srgb_to_linear(f32::from(channel) / 255.0)
+    }))
+}
+
 fn hazy_ramp(width: u32, height: u32) -> RgbImage {
     RgbImage::from_fn(width, height, |x, y| {
         let light = x as f32 / (width - 1) as f32;
@@ -1108,6 +1131,294 @@ fn local_temperature_warms_only_the_covered_region() {
         "the covered region did not warm: {:?} -> {warm:?}",
         neutral.get_pixel(0, 3)
     );
+}
+
+fn left_half_mask() -> MaskGeometry {
+    MaskGeometry::Linear {
+        zero_x: 0.5,
+        zero_y: 0.0,
+        full_x: 0.0,
+        full_y: 0.0,
+    }
+}
+
+fn whole_frame_mask() -> MaskGeometry {
+    MaskGeometry::Linear {
+        zero_x: 2.0,
+        zero_y: 0.0,
+        full_x: 1.5,
+        full_y: 0.0,
+    }
+}
+
+#[test]
+fn local_hue_rotates_both_directions_without_leaking_outside_the_mask() {
+    let source = RgbImage::from_pixel(16, 4, Rgb([204, 64, 51]));
+    let neutral = render(&source, &EditRecipe::default());
+    let shifted = |hue| {
+        render(
+            &source,
+            &EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: left_half_mask(),
+                    amount: 1.0,
+                    hue,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            },
+        )
+    };
+    let positive = shifted(100.0);
+    let negative = shifted(-100.0);
+
+    assert!(positive.get_pixel(0, 0)[1] > neutral.get_pixel(0, 0)[1] + 10);
+    assert!(negative.get_pixel(0, 0)[2] > neutral.get_pixel(0, 0)[2] + 5);
+    assert_eq!(positive.get_pixel(15, 0), neutral.get_pixel(15, 0));
+    assert_eq!(negative.get_pixel(15, 0), neutral.get_pixel(15, 0));
+}
+
+fn detail_edge_energy(image: &RgbImage, columns: std::ops::Range<u32>) -> f64 {
+    let mut total = 0.0;
+    for y in 0..image.height() {
+        for x in columns.clone() {
+            total += (luma(image.get_pixel(x + 1, y)) - luma(image.get_pixel(x, y))).abs();
+        }
+    }
+    total
+}
+
+#[test]
+fn local_sharpness_strengthens_and_softens_only_inside_the_mask() {
+    let source = RgbImage::from_fn(64, 48, |x, y| {
+        let coarse = if (x / 8 + y / 8) % 2 == 0 { 20 } else { -20 };
+        let fine = if (x + y) % 2 == 0 { 8 } else { -8 };
+        let value = (115 + coarse + fine) as u8;
+        Rgb([value, value, value])
+    });
+    let neutral = render(&source, &EditRecipe::default());
+    let shifted = |sharpness| {
+        render(
+            &source,
+            &EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: left_half_mask(),
+                    amount: 1.0,
+                    sharpness,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            },
+        )
+    };
+    let sharpened = shifted(100.0);
+    let softened = shifted(-100.0);
+    let base_left = detail_edge_energy(&neutral, 0..16);
+    let base_right = detail_edge_energy(&neutral, 48..63);
+
+    assert!(detail_edge_energy(&sharpened, 0..16) > base_left * 1.01);
+    assert!(detail_edge_energy(&softened, 0..16) < base_left * 0.99);
+    assert!((detail_edge_energy(&sharpened, 48..63) - base_right).abs() < 1.0);
+    assert!((detail_edge_energy(&softened, 48..63) - base_right).abs() < 1.0);
+}
+
+#[test]
+fn mask_tint_is_inert_at_zero_and_moves_only_covered_pixels() {
+    let source = RgbImage::from_pixel(16, 3, Rgb([153, 153, 153]));
+    let neutral = render(&source, &EditRecipe::default());
+    let parked_adjustment = LocalAdjustment {
+        mask: left_half_mask(),
+        amount: 1.0,
+        toning_hue: 231.0,
+        toning_amount: 0.0,
+        ..LocalAdjustment::default()
+    };
+    let active_adjustment = LocalAdjustment {
+        toning_amount: 50.0,
+        ..parked_adjustment.clone()
+    };
+    assert!(!autoshade::render::engine_active(&parked_adjustment));
+    assert!(autoshade::render::engine_active(&active_adjustment));
+    let tinted = |amount| {
+        render(
+            &source,
+            &EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: left_half_mask(),
+                    amount: 1.0,
+                    toning_hue: 231.0,
+                    toning_amount: amount,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            },
+        )
+    };
+    let parked = tinted(0.0);
+    let active = tinted(50.0);
+
+    assert!(parked.as_raw() == neutral.as_raw());
+    assert!(active.get_pixel(0, 0)[2] > active.get_pixel(0, 0)[0] + 7);
+    assert_eq!(active.get_pixel(15, 0), neutral.get_pixel(15, 0));
+}
+
+#[test]
+fn mask_tint_preserves_oklab_lightness_and_uses_a_midlight_window() {
+    let source = RgbImage::from_raw(
+        3,
+        1,
+        vec![5, 5, 5, 120, 120, 120, 250, 250, 250],
+    )
+    .unwrap();
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: whole_frame_mask(),
+                amount: 1.0,
+                toning_hue: 231.0,
+                toning_amount: 50.0,
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        },
+    );
+    let shifts = (0..3)
+        .map(|x| {
+            let before = pixel_oklab(source.get_pixel(x, 0));
+            let after = pixel_oklab(delivered.get_pixel(x, 0));
+            assert!((after[0] - before[0]).abs() < 0.01);
+            (after[1] - before[1]).hypot(after[2] - before[2])
+        })
+        .collect::<Vec<_>>();
+
+    assert!(shifts[1] > shifts[0] * 2.0);
+    assert!(shifts[1] > shifts[2] * 2.0);
+}
+
+#[test]
+fn mask_tint_follows_the_public_oklab_wheel() {
+    for (hue, expected_angle) in [
+        (0.0, 12.0),
+        (60.0, 100.0),
+        (120.0, 155.3),
+        (180.0, 190.5),
+        (240.0, 276.6),
+        (300.0, 336.1),
+    ] {
+        let source = RgbImage::from_pixel(1, 1, Rgb([120; 3]));
+        let delivered = render(
+            &source,
+            &EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: whole_frame_mask(),
+                    amount: 1.0,
+                    toning_hue: hue,
+                    toning_amount: 50.0,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            },
+        );
+        let before = pixel_oklab(source.get_pixel(0, 0));
+        let after = pixel_oklab(delivered.get_pixel(0, 0));
+        let angle = (after[2] - before[2])
+            .atan2(after[1] - before[1])
+            .to_degrees()
+            .rem_euclid(360.0);
+        let error = (angle - expected_angle + 180.0).rem_euclid(360.0) - 180.0;
+
+        assert!(error.abs() < 6.0, "hue {hue}: {angle} vs {expected_angle}");
+    }
+}
+
+fn cielab(pixel: &Rgb<u8>) -> [f32; 3] {
+    let [r, g, b] = pixel.0.map(|value| srgb_to_linear(f32::from(value) / 255.0));
+    let f = |value: f32| {
+        if value > 0.008_856 {
+            value.cbrt()
+        } else {
+            7.787 * value + 16.0 / 116.0
+        }
+    };
+    let x = f((0.412_456_4 * r + 0.357_576_1 * g + 0.180_437_5 * b) / 0.950_47);
+    let y = f(0.212_672_9 * r + 0.715_152_2 * g + 0.072_175 * b);
+    let z = f((0.019_333_9 * r + 0.119_192 * g + 0.950_304_1 * b) / 1.088_83);
+    [116.0 * y - 16.0, 500.0 * (x - y), 200.0 * (y - z)]
+}
+
+fn mean_delta_e(left: &RgbImage, right: &RgbImage) -> f32 {
+    left.pixels()
+        .zip(right.pixels())
+        .map(|(left, right)| {
+            let (left, right) = (cielab(left), cielab(right));
+            ((left[0] - right[0]).powi(2)
+                + (left[1] - right[1]).powi(2)
+                + (left[2] - right[2]).powi(2))
+            .sqrt()
+        })
+        .sum::<f32>()
+        / (left.width() * left.height()) as f32
+}
+
+#[test]
+#[ignore = "requires AUTOSHADE_FIT_CALIBRATION_DIR/tint Lightroom and Camera Raw exports"]
+fn real_mask_tint_matches_lightroom_and_camera_raw_exports() {
+    let root = std::env::var_os("AUTOSHADE_FIT_CALIBRATION_DIR")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_FIT_CALIBRATION_DIR to the approved calibration corpus");
+    let directory = root.join("tint");
+    let load = |name: &str| {
+        let path = directory.join(name);
+        assert!(path.is_file(), "{} is missing", path.display());
+        let image = image::open(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+        let height = (image.height() as f32 * 1200.0 / image.width() as f32).round() as u32;
+        image
+            .resize_exact(1200, height, image::imageops::FilterType::Lanczos3)
+            .to_rgb8()
+    };
+    let flat = load("p39-flat.jpg");
+    let tinted = |base: &RgbImage, hue, amount| {
+        render(
+            base,
+            &EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: whole_frame_mask(),
+                    amount: 1.0,
+                    toning_hue: hue,
+                    toning_amount: amount,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            },
+        )
+    };
+    for (name, amount, untinted_floor, ceiling) in [
+        ("p39-tint-073.jpg", 78.2609, 10.0, 2.2),
+        ("p39-tint-035.jpg", 39.1304, 5.0, 1.5),
+    ] {
+        let expected = load(name);
+        assert_eq!(expected.dimensions(), flat.dimensions());
+        assert!(mean_delta_e(&flat, &expected) >= untinted_floor);
+        assert!(mean_delta_e(&tinted(&flat, 210.0, amount), &expected) <= ceiling);
+    }
+
+    let none = load("acr-none.jpg");
+    for (name, hue, amount, ceiling) in [
+        ("acr-hue000.jpg", 0.0, 50.0, 2.0),
+        ("acr-hue060.jpg", 60.0, 50.0, 2.0),
+        ("acr-hue120.jpg", 120.0, 50.0, 2.0),
+        ("acr-hue180.jpg", 180.0, 50.0, 2.0),
+        ("acr-hue240.jpg", 240.0, 50.0, 2.0),
+        ("acr-hue300.jpg", 300.0, 50.0, 2.0),
+        ("acr-sat025.jpg", 210.0, 25.0, 1.2),
+        ("acr-sat100.jpg", 210.0, 100.0, 2.6),
+    ] {
+        let expected = load(name);
+        assert_eq!(expected.dimensions(), none.dimensions());
+        assert!(mean_delta_e(&none, &expected) >= 3.0);
+        assert!(mean_delta_e(&tinted(&none, hue, amount), &expected) <= ceiling);
+    }
 }
 
 #[test]

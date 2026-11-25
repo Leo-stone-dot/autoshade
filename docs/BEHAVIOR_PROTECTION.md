@@ -243,6 +243,10 @@
 - `engine_active` 删除 clarity/dehaze/texture/hue/sharpness family、把 local NR gate 改为“非零”、或删除四条 point-curve terms 时，三条 public activity case 分别红；恢复后通过。
 - HSL chroma fade固定为1时，strong all-band controls让灰色移动64 codes，near-grey sky luma spread从受限状态升到84.1 codes；两条公开 case 均红并已恢复。
 - public curve LUT 禁用缺省 `(0,0)/(1,1)` endpoint insertion 时，扩展后的 midpoint/inner/explicit-endpoint case 在black pin处红；恢复后通过。
+- local mask pass 禁用 hue rotation 或把 signed sharpness 取绝对值时，公开 Hue 正/负方向与 Sharpness 强化/柔化 case 分别红；恢复后通过。
+- mask tint 把 amount-zero adjustment 误判active时 activity断言红；只删除 `a*wgt` 因 zero-coverage early-return仍存而绿，不算证据；同时绕过两道 coverage gate 后 uncovered pixel变为 `[140,154,177]` 并红。所有修改已恢复。
+- mask tint 把 lightness window固定为1、额外移动Oklab L、或把wheel旋转90°时，public pixels经标准Oklab读取的window/L/wheel断言分别红；恢复后通过。
+- `real_mask_tint_matches_lightroom_and_camera_raw_exports` 是显式外部图片gate；当前机器无 tint corpus，不宣称其或对应mutation已绿。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

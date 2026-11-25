@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：927 cases，约 2,890 个断言宏，49 个显式 ignore。
+- 当前工作树：933 cases，约 2,914 个断言宏，50 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，445 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、17 条 `external-gate`、1,812 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，448 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、18 条 `external-gate`、1,808 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -4017,6 +4017,53 @@ public LUT 对 single midpoint 固定0/1 endpoints并命中 click，64/224仍是
 points 的32/224向端点继续上升；显式 `(0,40)` 保持 lifted black。临时禁用 endpoint
 insertion 后首个 black pin 断言红；恢复后通过。
 
+### Local hue 与 signed sharpness 的公开成片
+
+- Main case：`local_hue_rotates_and_local_sharpness_signs_both_ways_inside_the_mask`
+- 当前 cases：`local_hue_rotates_both_directions_without_leaking_outside_the_mask`、
+  `local_sharpness_strengthens_and_softens_only_inside_the_mask`
+- 状态：`rewritten`
+- Gate：默认
+
+公开 red frame 的 covered half 在 Hue +100 时 green 至少增加10 codes，−100时 blue至少
+增加5，uncovered half逐像素不变。结构 fixture 的 covered edge energy 在 Sharpness
++100时增加>1%、−100时减少>1%，uncovered energy差<1。临时禁用 hue rotation 或把
+sharpness取绝对值时两条 case 分别红；恢复后通过。
+
+### Mask tint 的 activity、coverage 与公开 Oklab 模型
+
+- Main cases：`a_mask_tint_is_inert_at_amount_zero_and_moves_only_what_the_mask_covers`、
+  `the_mask_tint_is_an_oklab_chroma_shift_under_a_lightness_window`
+- 当前 cases：`mask_tint_is_inert_at_zero_and_moves_only_covered_pixels`、
+  `mask_tint_preserves_oklab_lightness_and_uses_a_midlight_window`、
+  `mask_tint_follows_the_public_oklab_wheel`
+- 状态：两条 `rewritten`
+- Gate：默认
+
+amount 0 的 adjustment public activity为false且 pixels逐位不变；amount 50为active，
+covered grey向blue移动至少7 codes，zero-coverage side不变。只删除 `a*wgt` 后 case
+仍绿，因为更早的 zero-coverage gate仍诚实执行；该存活尝试不算证据。再同时绕过
+zero-coverage early-return后右侧变为 `[140,154,177]`，case 红；两处恢复。
+
+测试侧使用公开标准 Oklab 公式读取公开交付 pixels，不调用 crate-private tint helpers：
+三档 grey 的 L 变化 `<0.01`，midlight chroma shift 是 dark/highlight 的两倍以上；六个
+measured hue nodes 的 shift angle 在目标6°内。临时把 lightness window 固定为1、额外
+移动 Oklab L、或把 wheel旋转90°时三个断言族分别红；恢复后通过。
+
+### Lightroom / Camera Raw tint external gate
+
+- Main case：`the_mask_tint_reproduces_lightroom_s_own_tint_exports`
+- 当前 case：`real_mask_tint_matches_lightroom_and_camera_raw_exports`
+- 状态：`external-gate`
+- 启用：`AUTOSHADE_FIT_CALIBRATION_DIR=/path/to/corpus cargo test --test render_behavior real_mask_tint_matches_lightroom_and_camera_raw_exports -- --ignored --exact`
+
+gate 要求 `tint/` 下 flat、两档 Lightroom amount、Camera Raw none、六个 hue 与两档 amount
+全部存在；每张图通过公开 develop 重渲染，保留 main 的 CIELAB ΔE floors/ceilings。缺
+配置或任一文件直接失败。当前机器未配置 corpus，因此不宣称 gate 或 mutation 已绿。
+
+至此 `src/render/tests/local_effects_and_hsl.rs` 的 15 个 main cases 已全部裁决：
+14 条 `rewritten`、1 条 `external-gate`、0 条 `open`。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -4026,7 +4073,7 @@ insertion 后首个 black pin 断言红；恢复后通过。
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 114 | recipe/LensBlur clamp+JSON、local activity gates、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 47 | 中性像素、dehaze/HSL target+grey gate、局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/render_behavior.rs` | 53 | 中性像素、dehaze/HSL target+grey gate、局部 Hue/Sharpness/Temp/point colour、mask tint activity/Oklab/window/wheel/external gate、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 107 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
