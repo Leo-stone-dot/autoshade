@@ -247,6 +247,11 @@
 - mask tint 把 amount-zero adjustment 误判active时 activity断言红；只删除 `a*wgt` 因 zero-coverage early-return仍存而绿，不算证据；同时绕过两道 coverage gate 后 uncovered pixel变为 `[140,154,177]` 并红。所有修改已恢复。
 - mask tint 把 lightness window固定为1、额外移动Oklab L、或把wheel旋转90°时，public pixels经标准Oklab读取的window/L/wheel断言分别红；恢复后通过。
 - `real_mask_tint_matches_lightroom_and_camera_raw_exports` 是显式外部图片gate；当前机器无 tint corpus，不宣称其或对应mutation已绿。
+- `camera_matrix` 对空矩阵回退 identity、或 `validate_calibration` 移除 determinant / degenerate-row / AsShotNeutral / 第四系数检查时，五条公开 RAW 校准拒绝 case 各自渲染成功 `(16,8)` 并红；均已恢复。
+- `apply_lens_geometry` 让三个通道都用 red 的 LUT 时，`profile_ca_moves_each_channel_by_its_own_knots_only` 与 `ca_never_moves_green_even_when_a_channel_overshoots` 的 green byte-identical 断言红；`geometry_profile` 强制组合并给 fold 加 `1e-4` 偏移时，`a_rest_manual_ca_pair_renders_the_profile_byte_for_byte` 红。均已恢复。
+- `apply_develop_with_rasters` 让 `passthrough` 进入 develop 时，`every_control_whose_tier_renders_nothing_moves_no_pixel` 报 passthrough 移动了像素；`Tier::PassThrough.renders()` 改为 true 时 premise `probed >= 1` 红。均已恢复。
+- `lens_geom_norm` 把 CA 折进共享映射时，`the_shared_coordinate_map_round_trips_and_ignores_ca` 在 distortion 下 CA 开/关不等处红；已恢复。
+- `develop_cfa_signed` 把黑电平减法 clip 到 0 时，`sub_black_noise_reaches_the_demosaic_instead_of_being_clamped` 的两次渲染完全相等（4207.4 vs 4207.4）并红；已恢复。首个 fixture 把 clamped 写成 +80 而非 +40，mutant 存活，已修正。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

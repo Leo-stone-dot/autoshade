@@ -1926,6 +1926,153 @@ fn manual_chromatic_aberration_moves_only_the_red_channel() {
     );
 }
 
+fn ca_profile_recipe(ca_r: f32, ca_b: f32) -> EditRecipe {
+    EditRecipe {
+        lens_profile: LensProfile {
+            ca_r: vec![ca_r; 16],
+            ca_b: vec![ca_b; 16],
+            ca_on: true,
+            ..LensProfile::default()
+        },
+        ..EditRecipe::default()
+    }
+}
+
+fn geometry_ramp(width: u32, height: u32) -> DynamicImage {
+    DynamicImage::ImageRgb16(image::ImageBuffer::<image::Rgb<u16>, Vec<u16>>::from_fn(width, height, |x, y| {
+        image::Rgb([
+            (x * 300) as u16,
+            (x * 200 + y * 7) as u16,
+            (y * 500) as u16,
+        ])
+    }))
+}
+
+#[test]
+fn profile_ca_moves_each_channel_by_its_own_knots_only() {
+    let recipe = ca_profile_recipe(1.02, 0.98);
+    let ramp = geometry_ramp(200, 100);
+    let source = ramp.to_rgb16();
+    let delivered = autoshade::render::apply_lens_geometry(
+        &ramp,
+        &autoshade::render::geometry_profile(&recipe),
+        0.0,
+    )
+    .to_rgb16();
+
+    assert!(
+        delivered
+            .pixels()
+            .zip(source.pixels())
+            .all(|(after, before)| after[1] == before[1]),
+        "green moved under a CA-only profile"
+    );
+    let (centre, x) = (99.5f32, 180u32);
+    let sample_x = centre + (x as f32 - centre) * 1.02;
+    let index = sample_x.floor() as u32;
+    let fraction = sample_x - sample_x.floor();
+    let expected = f32::from(source.get_pixel(index, 50)[0]) * (1.0 - fraction)
+        + f32::from(source.get_pixel(index + 1, 50)[0]) * fraction;
+    let actual = f32::from(delivered.get_pixel(x, 50)[0]);
+    assert!(
+        (actual - expected).abs() <= 1.0,
+        "red at x={x}: {actual}, expected the source at {sample_x} ({expected})"
+    );
+
+    let white = DynamicImage::ImageRgb8(RgbImage::from_pixel(201, 101, Rgb([255; 3])));
+    let delivered_white = autoshade::render::apply_lens_geometry(
+        &white,
+        &autoshade::render::geometry_profile(&recipe),
+        0.0,
+    )
+    .to_rgb16();
+    let darkest = delivered_white
+        .pixels()
+        .flat_map(|pixel| pixel.0)
+        .min()
+        .unwrap();
+    assert!(darkest >= 65_000, "unfilled edge pixels: min {darkest}");
+}
+
+#[test]
+fn ca_never_moves_green_even_when_a_channel_overshoots() {
+    let distortion: Vec<f32> = (0..16)
+        .map(|i| 1.0008 - 0.02 * (i as f32 / 15.0).powi(2))
+        .collect();
+    let with_ca = EditRecipe {
+        lens_profile: LensProfile {
+            distortion: distortion.clone(),
+            distortion_on: true,
+            ca_r: vec![1.004; 16],
+            ca_b: vec![0.999; 16],
+            ca_on: true,
+            ..LensProfile::default()
+        },
+        ..EditRecipe::default()
+    };
+    let without_ca = EditRecipe {
+        lens_profile: LensProfile {
+            distortion,
+            distortion_on: true,
+            ..LensProfile::default()
+        },
+        ..EditRecipe::default()
+    };
+    let ramp = geometry_ramp(160, 90);
+    let a = autoshade::render::apply_lens_geometry(
+        &ramp,
+        &autoshade::render::geometry_profile(&with_ca),
+        0.0,
+    )
+    .to_rgb16();
+    let b = autoshade::render::apply_lens_geometry(
+        &ramp,
+        &autoshade::render::geometry_profile(&without_ca),
+        0.0,
+    )
+    .to_rgb16();
+
+    assert!(
+        a.pixels().zip(b.pixels()).all(|(p, q)| p[1] == q[1]),
+        "green must be byte-identical with and without an overshooting CA"
+    );
+    assert!(
+        a.pixels().zip(b.pixels()).any(|(p, q)| p[0] != q[0]),
+        "premise: the red knot really moved red"
+    );
+}
+
+#[test]
+fn a_rest_manual_ca_pair_renders_the_profile_byte_for_byte() {
+    let profile = LensProfile {
+        distortion: (0..16)
+            .map(|i| 1.0008 - 0.02 * (i as f32 / 15.0).powi(2))
+            .collect(),
+        distortion_on: true,
+        ca_r: vec![0.999; 16],
+        ca_b: vec![1.001; 16],
+        ca_on: true,
+        ..LensProfile::default()
+    };
+    let recipe = EditRecipe {
+        lens_profile: profile.clone(),
+        ..EditRecipe::default()
+    };
+    let ramp = geometry_ramp(160, 90);
+    let composed = autoshade::render::apply_lens_geometry(
+        &ramp,
+        &autoshade::render::geometry_profile(&recipe),
+        0.0,
+    )
+    .to_rgb16();
+    let direct = autoshade::render::apply_lens_geometry(&ramp, &profile, 0.0).to_rgb16();
+
+    assert!(
+        composed.pixels().zip(direct.pixels()).all(|(p, q)| p == q),
+        "a rest manual CA pair changed the render"
+    );
+}
+
 #[test]
 fn positive_straighten_rotates_the_frame_clockwise() {
     let split = RgbImage::from_fn(100, 100, |x, _| {

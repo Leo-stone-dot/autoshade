@@ -1,5 +1,76 @@
+use autoshade::advisor::catalogue::{global_value, Shape, RECIPE_CONTROLS};
 use autoshade::jobs::plan_with_peak;
 use autoshade::recipe::{EditRecipe, LensProfile};
+use autoshade::render::{develop_preview, geometry_profile, CropPolicy, FilmScale};
+use image::{DynamicImage, Rgb};
+
+/// Every registry row whose tier renders nothing must move no pixel through
+/// the develop, the composed lens geometry or the finishing pass. Derived from
+/// the public registry so a row that changes tier without gaining an engine
+/// stage fails here; `probed >= 1` keeps the sieve from passing over nothing.
+#[test]
+fn every_control_whose_tier_renders_nothing_moves_no_pixel() {
+    let source = DynamicImage::ImageRgb16(image::ImageBuffer::<Rgb<u16>, Vec<u16>>::from_fn(64, 48, |x, y| {
+        Rgb([(x * 900) as u16, (y * 1200) as u16, ((x + y) * 500) as u16])
+    }));
+    let neutral_recipe = EditRecipe::default();
+    let neutral = develop_preview(&source, &neutral_recipe).to_rgb16();
+    let tail = |recipe: &EditRecipe| {
+        autoshade::render::frame_and_finish(
+            source.clone(),
+            recipe,
+            &geometry_profile(recipe),
+            FilmScale::NATIVE,
+            CropPolicy::Cut,
+        )
+        .to_rgb16()
+    };
+    let neutral_tail = tail(&neutral_recipe);
+    let mut probed = 0usize;
+
+    for control in RECIPE_CONTROLS
+        .iter()
+        .filter(|control| control.tier.is_some_and(|tier| !tier.renders()))
+    {
+        let mut json = serde_json::to_value(&neutral_recipe).unwrap();
+        json[control.name] = match control.shape {
+            Shape::Bool => serde_json::json!(true),
+            Shape::EngineCarrier => serde_json::json!({ "PerspectiveVertical": "-35" }),
+            _ => serde_json::json!(control.range.map(|(_, hi)| hi).unwrap_or(1.0)),
+        };
+        let mut recipe: EditRecipe = serde_json::from_value(json)
+            .unwrap_or_else(|error| panic!("{}: probe rejected: {error}", control.name));
+        recipe.clamp();
+        assert_ne!(
+            global_value(&recipe, control.name),
+            global_value(&neutral_recipe, control.name),
+            "{}: the probe must move the control",
+            control.name
+        );
+
+        let developed = develop_preview(&source, &recipe).to_rgb16();
+        assert!(
+            developed.pixels().zip(neutral.pixels()).all(|(p, q)| p == q),
+            "{}: a non-rendering tier moved a develop pixel",
+            control.name
+        );
+        assert_eq!(
+            *geometry_profile(&recipe),
+            *geometry_profile(&neutral_recipe),
+            "{}: a non-rendering tier changed the composed lens geometry",
+            control.name
+        );
+        let finished = tail(&recipe);
+        assert!(
+            finished.pixels().zip(neutral_tail.pixels()).all(|(p, q)| p == q),
+            "{}: a non-rendering tier moved a finishing pixel",
+            control.name
+        );
+        probed += 1;
+    }
+
+    assert!(probed >= 1, "the registry has no non-rendering row to sieve");
+}
 
 #[test]
 fn worker_plan_stays_within_the_requested_and_work_limits() {

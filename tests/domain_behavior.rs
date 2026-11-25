@@ -1100,6 +1100,61 @@ fn lens_distortion_moves_the_shared_mask_frame() {
 }
 
 #[test]
+fn the_shared_coordinate_map_round_trips_and_ignores_ca() {
+    let profile = LensProfile {
+        distortion: (0..16)
+            .map(|i| 1.0008 - 0.053 * (i as f32 / 15.0).powi(2))
+            .collect(),
+        ca_r: vec![1.004; 16],
+        ca_b: vec![0.997; 16],
+        distortion_on: true,
+        ca_on: true,
+        ..LensProfile::default()
+    };
+    let dims = (1200.0, 800.0);
+
+    for (px, py) in [(0.1, 0.2), (0.9, 0.85), (0.5, 0.05)] {
+        let (ax, ay) = autoshade::render::lens_geom_norm(px, py, dims, &profile, 12.0);
+        let (bx, by) = autoshade::render::lens_ungeom_norm(ax, ay, dims, &profile, 12.0);
+        assert!(
+            (bx - px).abs() < 2e-3 && (by - py).abs() < 2e-3,
+            "round trip ({px},{py}) -> ({bx},{by})"
+        );
+    }
+
+    let ca_only = LensProfile {
+        ca_r: vec![1.02; 16],
+        ca_b: vec![0.98; 16],
+        ca_on: true,
+        ..LensProfile::default()
+    };
+    for (px, py) in [(0.9, 0.5), (0.8, 0.3), (0.02, 0.97)] {
+        let (mx, my) = autoshade::render::lens_geom_norm(px, py, dims, &ca_only, 0.0);
+        let (ux, uy) = autoshade::render::lens_ungeom_norm(px, py, dims, &ca_only, 0.0);
+        assert!(
+            (mx - px).abs() < 1e-6
+                && (my - py).abs() < 1e-6
+                && (ux - px).abs() < 1e-6
+                && (uy - py).abs() < 1e-6,
+            "CA alone moved the shared map: ({px},{py}) -> ({mx},{my}) / ({ux},{uy})"
+        );
+    }
+
+    let without_ca = LensProfile {
+        ca_on: false,
+        ..profile.clone()
+    };
+    for (px, py) in [(0.9, 0.5), (0.1, 0.8), (0.5, 0.02)] {
+        let with = autoshade::render::lens_geom_norm(px, py, dims, &profile, 0.0);
+        let without = autoshade::render::lens_geom_norm(px, py, dims, &without_ca, 0.0);
+        assert!(
+            (with.0 - without.0).abs() < 1e-6 && (with.1 - without.1).abs() < 1e-6,
+            "CA changed the shared map under distortion: ({px},{py}) {with:?} vs {without:?}"
+        );
+    }
+}
+
+#[test]
 fn exposure_ratio_ignores_an_outlier_when_most_pixels_are_usable() {
     let dark = vec![[0.2, 0.2, 0.2]; 5];
     let mut bright = vec![[0.2, 0.2, 0.2]; 5];

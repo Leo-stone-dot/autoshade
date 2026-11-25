@@ -7,7 +7,7 @@ use std::sync::{Mutex, MutexGuard};
 use rawler::dng::{
     CropMode, DNG_VERSION_V1_4, DngCompression, DngPhotometricConversion, writer::DngWriter,
 };
-use rawler::formats::tiff::Rational;
+use rawler::formats::tiff::SRational;
 use rawler::imgop::xyz::Illuminant;
 use rawler::pixarray::PixU16;
 use rawler::rawimage::{BlackLevel, RawPhotometricInterpretation, WhiteLevel};
@@ -102,22 +102,54 @@ pub fn synthetic_dng(
     width: usize,
     height: usize,
     orientation: rawler::decoders::Orientation,
-    as_shot_neutral: Option<&[Rational]>,
+    as_shot_neutral: Option<&[SRational]>,
     with_color_matrix: bool,
+) -> Vec<u8> {
+    synthetic_dng_with(
+        width,
+        height,
+        orientation,
+        as_shot_neutral,
+        with_color_matrix.then_some([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]),
+        0,
+        None,
+    )
+}
+
+/// [`synthetic_dng`] with the calibration a case needs to vary: the D65
+/// colour matrix (row-major xyz→cam), the black level every CFA site shares,
+/// and the mosaic itself. A supplied mosaic must fill the frame; a short one
+/// panics rather than turning the case into a false pass.
+#[allow(dead_code)]
+pub fn synthetic_dng_with(
+    width: usize,
+    height: usize,
+    orientation: rawler::decoders::Orientation,
+    as_shot_neutral: Option<&[SRational]>,
+    color_matrix: Option<[f32; 9]>,
+    black_level: u16,
+    pixels: Option<Vec<u16>>,
 ) -> Vec<u8> {
     let mut camera = Camera::new();
     camera.cfa = CFA::new("RGGB");
     camera.clean_make = "Synthetic".to_string();
     camera.clean_model = "NoPreview".to_string();
-    if with_color_matrix {
+    if let Some(matrix) = color_matrix {
         camera.color_matrix.insert(
             Illuminant::D65,
-            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            matrix.to_vec(),
         );
     }
-    let pixels = (0..width * height)
-        .map(|i| ((i * 37) % 4096) as u16)
-        .collect::<Vec<_>>();
+    let pixels = pixels.unwrap_or_else(|| {
+        (0..width * height)
+            .map(|i| ((i * 37) % 4096) as u16)
+            .collect()
+    });
+    assert_eq!(
+        pixels.len(),
+        width * height,
+        "the synthetic mosaic must fill the declared frame"
+    );
     let photometric = RawPhotometricInterpretation::Cfa(CFAConfig::new_from_camera(&camera));
     let raw = RawImage::new(
         camera,
@@ -125,7 +157,7 @@ pub fn synthetic_dng(
         1,
         [1.0, 1.0, 1.0, f32::NAN],
         photometric,
-        Some(BlackLevel::new(&[0_u32, 0, 0, 0], 2, 2, 1)),
+        Some(BlackLevel::new(&[u32::from(black_level); 4], 2, 2, 1)),
         Some(WhiteLevel::new_bits(12, 1)),
         false,
     );

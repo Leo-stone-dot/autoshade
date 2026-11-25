@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：933 cases，约 2,914 个断言宏，50 个显式 ignore。
+- 当前工作树：945 cases，约 2,942 个断言宏，50 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，448 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、18 条 `external-gate`、1,808 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，458 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、6 条 `drop`、18 条 `external-gate`、1,797 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -4064,6 +4064,105 @@ gate 要求 `tint/` 下 flat、两档 Lightroom amount、Camera Raw none、六�
 至此 `src/render/tests/local_effects_and_hsl.rs` 的 15 个 main cases 已全部裁决：
 14 条 `rewritten`、1 条 `external-gate`、0 条 `open`。
 
+## Render：RAW 校准拒绝、CA 逐通道与共享映射
+
+### 校准元数据在像素工作前被拒绝
+
+- Main cases：`a_raw_without_a_colour_matrix_names_the_missing_matrix`、
+  `singular_camera_matrix_is_refused_not_rendered_black`、
+  `degenerate_matrix_row_is_disclosed_not_silently_unnormalised`、
+  `zero_as_shot_neutral_becomes_an_infinite_coefficient_and_is_refused`
+- 当前 cases（`tests/decode_behavior.rs`）：
+  `a_wide_gamut_render_of_a_matrix_less_raw_refuses_and_names_the_matrix`、
+  `a_singular_camera_matrix_is_refused_before_any_output_is_written`、
+  `a_degenerate_camera_matrix_row_is_refused_by_name`、
+  `a_zero_or_negative_as_shot_neutral_is_refused_by_name`、
+  `a_corrupt_fourth_wb_coefficient_is_refused_and_a_valid_one_renders`、
+  `a_raw_without_as_shot_neutral_renders_with_the_unknown_convention`
+- 状态：四条 `rewritten`
+- Gate：默认
+
+`tests/support::synthetic_dng_with` 让 case 指定 D65 colour matrix、黑电平和 mosaic，
+全部走真实 DNG 文件与公开 `render_to_file`/`render_to_image_in`。无矩阵 RAW 在 wide-gamut
+下被拒并命名 matrix；两行相同的矩阵被拒并命名 determinant 与文件名，且不写输出；行和
+为零的矩阵被拒并命名 degenerate row；零或负 AsShotNeutral 分量被拒并命名 AsShotNeutral；
+零第四系数被拒并命名 fourth WB coefficient，合法第四系数与无 tag 的 unknown 约定都
+正常渲染。分别让空矩阵回退 identity、移除 determinant / degenerate-row / AsShotNeutral /
+第四系数检查时，五条 case 各自红（错误路径都渲染成功 `(16,8)`）；均已恢复。
+
+main 直接向私有 helper 传 NaN 矩阵项或 `wb[1]` NaN 的断言无法通过 SRational 编码进
+文件，不迁移；white-orthogonal 行的子断言依赖运行时 primaries 的精确 f32 值，经有理数
+编码后不可复现，也不迁移。
+
+### `to_u16` 饱和不是产品契约
+
+Main case `nan_calibration_never_reaches_the_packer` 只断言私有 `to_u16` 把 NaN 量化为
+黑、inf 饱和为白，作为“拒绝必须存在”的理由。该饱和行为本身不是任何用户可见契约；
+真正的契约（校准损坏时在 packer 前拒绝）已由上列公开拒绝 case 执行。归为 `drop`。
+
+### CA 逐通道移动，green 不动
+
+- Main cases：`ca_moves_each_channel_by_its_own_knots_only`、
+  `ca_never_moves_green_even_when_a_channel_overshoots`、`ca_zero_is_bit_identical_to_no_ca`
+- 当前 cases：`profile_ca_moves_each_channel_by_its_own_knots_only`、
+  `ca_never_moves_green_even_when_a_channel_overshoots`、
+  `a_rest_manual_ca_pair_renders_the_profile_byte_for_byte`，加上已有
+  `chromatic_aberration_alone_does_not_move_the_shared_mask_frame` 与
+  `manual_ca_alone_marks_the_profile_ca_active`
+- 状态：三条 `rewritten`
+- Gate：默认
+
+公开 `apply_lens_geometry` + `geometry_profile`：CA-only profile 下 green 逐字节不变，
+red 在自身放大半径上采样（误差 ≤1 code），白帧边缘不出现未填充像素；distortion 开启时
+带/不带 overshooting CA 的 green 逐字节相同而 red 移动；manual pair 为 0 时渲染与直接
+使用 profile 逐字节相同。让三个通道都用 red 的 LUT 时前两条 case 的 green 断言红；强制
+组合并给 fold 加 `1e-4` 偏移时第三条红。均已恢复。main 的 `Cow::Borrowed` 断言锁定
+分配实现，归为不迁移；可观测契约是渲染逐字节相同。
+
+### 非渲染 tier 不动任何像素
+
+- Main case：`a_tier_that_renders_nothing_renders_nothing`
+- 当前 case：`every_control_whose_tier_renders_nothing_moves_no_pixel`（`tests/properties.rs`）
+- 状态：`rewritten`
+- Gate：默认
+
+从公开 `RECIPE_CONTROLS` 派生：每个 `!tier.renders()` 的控制经 serde 注入 probe 值后，
+`develop_preview`、`geometry_profile` 与 `frame_and_finish` 三处都逐像素等于 neutral。
+让 `passthrough` 进入 develop 时 sieve 报“moved a develop pixel”；把 `PassThrough.renders()`
+改为 true 时 premise `probed >= 1` 红。均已恢复。main 的 `probed == 1` 放宽为 `>= 1`：
+精确计数锁定注册表组成，非空才是 sieve 的前提。
+
+### 共享坐标映射往返且不受 CA 影响
+
+- Main case：`the_gui_map_is_the_renders_green_map`
+- 当前 case：`the_shared_coordinate_map_round_trips_and_ignores_ca`（`tests/domain_behavior.rs`）
+- 状态：`rewritten`
+- Gate：默认
+
+公开 `lens_geom_norm`/`lens_ungeom_norm` 在 distortion+CA 下往返误差 `<2e-3`；CA-only
+profile 的正反映射都是 identity；distortion 下 CA 开/关的共享映射相同。把 CA 折进共享
+映射后第三条断言红；已恢复。main 用私有 `profile_fill_scale`/`lens_geom_factor` 比较
+GUI 因子与渲染 green 因子的断言，由上述公开的 CA 开/关等价替代。
+
+### Sub-black 噪声进入 demosaic
+
+- Main case：`the_black_is_subtracted_signed_through_the_demosaic`
+- 当前 case：`sub_black_noise_reaches_the_demosaic_instead_of_being_clamped`
+- 状态：`rewritten`
+- Gate：默认
+
+真实 DNG（黑电平 512）的 mosaic 在黑电平上下 ±40 交替，与“低于黑电平的 site 被 clamp
+到黑电平”的同一 mosaic 通过公开 `render_to_image` 渲染，两者均值相差 >5%。把减法 clip
+到 0 后两次渲染完全相等（4207.4 vs 4207.4），case 红；已恢复。
+
+main 在私有线性 buffer 上断言“均值为零”。该量在 sRGB 编码后的公开输出上不可观测：
+baseline 下 straddling 均值（4816）反而高于 clamped（4207），方向由 demosaic 与编码
+决定。因此本 case 只断言“sub-black 数据进入 demosaic 而非被 clamp”这一敏感性，不断言
+方向。首个 fixture 把 clamped 写成 +80 而非 +40，mutant 存活，已修正并记录。
+
+至此 `src/render/tests/raw_matrix_and_ca.rs` 的 12 个 main cases 全部裁决：10 条
+`rewritten`、1 条 `drop`、1 条此前已 `rewritten`，0 条 `open`。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -4073,8 +4172,8 @@ gate 要求 `tint/` 下 flat、两档 Lightroom amount、Camera Raw none、六�
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 114 | recipe/LensBlur clamp+JSON、local activity gates、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 53 | 中性像素、dehaze/HSL target+grey gate、局部 Hue/Sharpness/Temp/point colour、mask tint activity/Oklab/window/wheel/external gate、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
-| `tests/domain_behavior.rs` | 107 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
+| `tests/render_behavior.rs` | 56 | 中性像素、dehaze/HSL target+grey gate、局部 Hue/Sharpness/Temp/point colour、mask tint activity/Oklab/window/wheel/external gate、锐化/曲线/色彩分级、mask shapes、profile CA 逐通道/rest pair、straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/domain_behavior.rs` | 108 | session/describe/embed、face、retouch、stack、色彩、几何、共享坐标映射往返/CA 无关、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
 | `tests/adobe_behavior.rs` | 7 | Adobe roots、递归资源 walk、budget | LCP、DCP | 真实安装目录权限与损坏资源内容 |
@@ -4086,8 +4185,8 @@ gate 要求 `tint/` 下 flat、两档 Lightroom amount、Camera Raw none、六�
 | `tests/stack_align_behavior.rs` | 12 | affine、warp/coverage、registered merge parity、local parallax、small-grid survival | Stack alignment、Noise merge | 真实相机 burst/focus sweep 外部语料 |
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
 | `tests/store_behavior.rs` | 102 source / 100 macOS | stable key identity/alias/bounds、atomic commit、locks、crash/clear/version-delete recovery、revisions、variant identity/member/edit-state joins、full legacy migration/suppression、XMP ordering/handoff、cross-platform safe raster paths、version snapshot/delete semantics、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
-| `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
-| `tests/decode_behavior.rs` | 6 | 合成 RAW 转向、as-shot WB finite/zero/no-matrix、RAW plane 资源拒绝、Sony corpus external gate | Decode、Render/as-shot | 真实相机语料gate未在当前机器执行、平台 codec gate |
+| `tests/properties.rs` | 10 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、非渲染 tier 不动像素、worker budget | Recipe、Render、Advisor、Jobs | 等价变换以外的实际成片结果 |
+| `tests/decode_behavior.rs` | 13 | 合成 RAW 转向、as-shot WB finite/zero/no-matrix、校准 matrix/AsShotNeutral/第四系数拒绝、sub-black demosaic、RAW plane 资源拒绝、Sony corpus external gate | Decode、Render/as-shot | 真实相机语料gate未在当前机器执行、平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
 | `tests/process_behavior.rs` | 1 | 杀 sidecar 进程组同时回收孙进程 | Lib/process、Denoise | Windows Job Object 分支 |
 
