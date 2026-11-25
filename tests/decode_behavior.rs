@@ -96,6 +96,20 @@ fn as_shot_wb_returns_none_when_the_dng_has_no_colour_matrix() {
 }
 
 #[test]
+fn as_shot_wb_returns_none_for_a_zero_camera_neutral() {
+    let tree = support::TempTree::new("raw-as-shot-wb-zero-neutral");
+    let path = tree.path().join("zero-neutral.dng");
+    let neutral = [Rational::new(0, 1), Rational::new(1, 1), Rational::new(1, 1)];
+    std::fs::write(
+        &path,
+        support::synthetic_dng(16, 8, Orientation::Normal, Some(&neutral), true),
+    )
+    .unwrap();
+
+    assert!(autoshade::render::as_shot_wb(&path).is_none());
+}
+
+#[test]
 #[ignore = "requires AUTOSHADE_FIT_CALIBRATION_DIR with p36-p42 Sony ARW files"]
 fn real_sony_corpus_as_shot_wb_matches_camera_raws_grid() {
     let root = std::env::var_os("AUTOSHADE_FIT_CALIBRATION_DIR")

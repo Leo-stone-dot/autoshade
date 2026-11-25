@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：910 cases，约 2,843 个断言宏，49 个显式 ignore。
+- 当前工作树：911 cases，约 2,844 个断言宏，49 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
 当前校验结果：2,281 行与 main snapshot 精确一致，430 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、16 条 `external-gate`、1,828 条 `open`。
+`equivalent`、1 条 `lint`、5 条 `drop`、17 条 `external-gate`、1,827 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3858,6 +3858,28 @@ gate 要求真实 RAW 文件、RAW extension、可读 embedded preview、公开
 `the_three_open_paths...` 是 mixed case：以 `rewritten` 保留产品断言，并明确删除其
 源码扫描断言。
 
+## Render：as-shot WB 剩余边界
+
+- Main case：`the_daylight_preset_and_only_a_listed_body_move_the_reading`
+- 当前执行者：`real_sony_corpus_as_shot_wb_matches_camera_raws_grid`、
+  `as_shot_wb_reads_finite_temperature_and_tint_from_dng_metadata`、
+  `as_shot_wb_returns_none_for_a_zero_camera_neutral`、
+  `as_shot_wb_returns_none_when_the_dng_has_no_colour_matrix`
+- 状态：`external-gate`
+
+p36–p42 真实 Sony gate 通过 public `as_shot_wb` 验收 listed ILCE-7RM4A body 在三种
+lens Daylight presets 下仍逐帧匹配 Camera Raw；Synthetic/NoPreview DNG 走 unlisted、
+无 Sony preset 的直接 reading，并独立验收 finite/nondefault、zero neutral 返回 None、
+缺 colour matrix 返回 None。main 直接向私有 helper 传 NaN 的实现级断言不复制；真实
+corpus 未在当前机器执行，因此整行保持 `external-gate`，不伪称默认全绿。
+
+临时删除早期 zero guard 后公开结果仍为 None，说明下游 chromaticity 求解也能等价拒绝，
+该尝试不算 mutation 证据；随后让 public `as_shot_wb` 把 invalid result 伪造成
+5500K/0，zero-neutral case 红。生产修改已恢复。
+
+至此 `src/render/tests/as_shot.rs` 的 5 个 main cases 全部为 `external-gate`，0 条
+`open`；默认 synthetic error/metadata arms 仍由上列 case 执行。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3881,7 +3903,7 @@ gate 要求真实 RAW 文件、RAW extension、可读 embedded preview、公开
 | `tests/stack_merge_behavior.rs` | 13 | focus、fusion weights/pyramid、noise/ghost、HDR structure/colour/noise/shoulder/headroom、front door | Stack merge、Pyramid | coverage injection |
 | `tests/store_behavior.rs` | 102 source / 100 macOS | stable key identity/alias/bounds、atomic commit、locks、crash/clear/version-delete recovery、revisions、variant identity/member/edit-state joins、full legacy migration/suppression、XMP ordering/handoff、cross-platform safe raster paths、version snapshot/delete semantics、ownership | Store | Windows key aliases、remaining adoption crash races、lossless version XMP public read |
 | `tests/properties.rs` | 9 | clamp 幂等、XMP scalar round-trip、lens/CA/warp 往返、worker budget | Recipe、Render、Jobs | 等价变换以外的实际成片结果 |
-| `tests/decode_behavior.rs` | 5 | 合成 RAW 转向、as-shot WB、RAW plane 资源拒绝、Sony corpus external gate | Decode、Render/as-shot | 真实相机语料gate未在当前机器执行、平台 codec gate |
+| `tests/decode_behavior.rs` | 6 | 合成 RAW 转向、as-shot WB finite/zero/no-matrix、RAW plane 资源拒绝、Sony corpus external gate | Decode、Render/as-shot | 真实相机语料gate未在当前机器执行、平台 codec gate |
 | `tests/denoise_behavior.rs` | 6 | identity、适用性、sidecar 成功/缺失/超时、进程组清理 | Denoise、Process | 真实模型质量与 GPU/平台行为 |
 | `tests/process_behavior.rs` | 1 | 杀 sidecar 进程组同时回收孙进程 | Lib/process、Denoise | Windows Job Object 分支 |
 

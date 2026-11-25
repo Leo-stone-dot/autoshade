@@ -232,6 +232,7 @@
 - profile lift 错误地在 camera crop 后应用时，公开 0.85 tone curve 最大误差从 `0.00119` 升到 `0.00585`，`camera_base_look_applies_the_lift_before_the_camera_crop` 在 `<0.003` 断言处红；恢复后通过。
 - tone builder 在 recipe `names_profile()` 时跳过 base curve，`naming_a_camera_profile_does_not_replace_the_recipe_base_curve` 在公开像素 equality 处红；恢复后测试通过。
 - `real_raw_base_look_moves_the_render_toward_the_camera_preview` 是显式真实 RAW gate；当前机器缺 `AUTOSHADE_PROBE_RAW`，显式运行按设计失败而非静默空测，因此尚无本机 mutation 证据，也不宣称该 gate 已绿。
+- `as_shot_wb` 把 invalid zero-neutral result 伪造成 5500K/0 时，`as_shot_wb_returns_none_for_a_zero_camera_neutral` 红；恢复后测试通过。只删除早期 `<=0` guard 时 case 仍绿，因为下游 chromaticity 求解等价拒绝；该存活尝试不算 mutation 证据。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
