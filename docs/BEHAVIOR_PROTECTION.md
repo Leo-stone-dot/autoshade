@@ -237,6 +237,9 @@
 - lens blur 让每个 source pixel 以 full weight 进入 blur level 时，`focused_subject_does_not_bleed_into_the_blurred_background` 在相邻背景 halo 断言处红；恢复后通过。
 - lens blur radius 固定为 512px frame 时，2x→1x mean error 从 `0.463` 升到 `4.537` codes，`lens_blur_scales_with_the_rendered_frame` 在 `<2.0` 处红；恢复后通过。
 - depth loader 把 strict export 强制按 non-strict preview 处理时，missing depth 的 export 错误成功并返回 `(64,32)`，`develop_loads_depth_and_missing_depth_refuses_export_without_blurring_preview` 红；恢复后测试通过。
+- LensBlur 移除 deny-unknown、把 amount ceiling 放宽到400、保留 empty protect 或 empty depth 时，JSON/clamp/path-cleanup 三条公开 case 分别红；恢复后通过。
+- 48px black-protect fixture 下 radius×0.9/0.5 mutation 因 `<1px` level 量化存活，未算证据；放大到512px 后把 black 错读成50% protection，`a_black_lens_blur_protect_mask_matches_unprotected_delivery` 红。完全忽略 protect alpha 时 white/half sharpness case 红；均已恢复。
+- protect loader 把 strict export 强制按 non-strict preview 处理时，missing protect 的 export 错误成功并返回 `(64,32)`，`develop_loads_lens_blur_protect_and_missing_protect_refuses_export` 红；恢复后通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

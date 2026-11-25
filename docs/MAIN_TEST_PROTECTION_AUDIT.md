@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：916 cases，约 2,857 个断言宏，49 个显式 ignore。
+- 当前工作树：922 cases，约 2,876 个断言宏，49 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，434 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、17 条 `external-gate`、1,823 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，439 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、17 条 `external-gate`、1,818 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3927,6 +3927,52 @@ baseline mean channel error `0.463` codes。临时把 radius 固定到 512px fra
 使 preview 等于 plain；公开 `render_to_file` 返回具名 depth-map 错误且不创建输出。
 临时把 strict loader 强制为 non-strict 后 export 错误成功 `(64,32)`，case 红；恢复后通过。
 
+### LensBlur recipe 与 protect wire contract
+
+- Main cases：`the_lens_blur_round_trips_and_its_absence_costs_no_bytes`、
+  `the_protect_field_is_absent_unless_used_and_round_trips`
+- 当前 cases：`lens_blur_json_is_sparse_round_trippable_and_refuses_future_fields`、
+  `lens_blur_values_clamp_to_their_public_ranges`、
+  `lens_blur_protect_is_absent_until_used_and_empty_paths_are_dropped`
+- 状态：两条 `rewritten`
+- Gate：默认
+
+默认 JSON 不写 `lens_blur`；present blur 精确 round-trip；future `bokeh` key 被拒；wild
+focus/amount/range clamp 到 `[0.5,1.0]/100/0`；protect 在 absent/legacy JSON 中为 None，
+present path round-trip，empty protect 清为 None，empty depth 删除整个 blur。移除
+`deny_unknown_fields`、把 amount ceiling 放宽到 400、保留 empty protect 或 empty depth
+时对应 case 分别红；恢复后通过。
+
+### Black/white/soft protect 的公开像素行为
+
+- Main cases：`a_blur_without_protection_draws_the_pixels_it_drew_before_protection_existed`、
+  `a_protect_mask_keeps_its_white_sharp_and_leaves_the_rest_as_it_was`
+- 当前 cases：`a_black_lens_blur_protect_mask_matches_unprotected_delivery`、
+  `white_and_half_lens_blur_protection_control_sharpness`
+- 状态：两条 `rewritten`
+- Gate：默认
+
+512px fixture 确认 blur 非 identity，black protect 与 unprotected 逐像素相同；far-side
+white protect texture 与 sharp 相差 `<1` code，half-grey texture 严格落在 full blur 与
+sharp 之间。最初 48px fixture 下把 radius 乘 0.9/0.5 都因 `<1px` level 量化而存活，
+未登记为证据；放大 fixture 后把 black 错读成 50% protect 使 equality 红。完全忽略
+protect alpha 也使 white/half case 红；恢复后通过。main 的私有 Windows-only f32 hash
+不复制，跨平台产品主张由公开像素 identity/non-identity 承担。
+
+### Protect 文件的 preview/export 错误契约
+
+- Main case：`the_develop_reads_the_protect_mask_and_never_blurs_past_a_missing_one`
+- 当前 case：`develop_loads_lens_blur_protect_and_missing_protect_refuses_export`
+- 状态：`rewritten`
+- Gate：默认
+
+有效 protect PNG 使远端 subject pixel 等于 plain，mask 外像素等于 unprotected blur；
+missing protect 使 preview 完全 plain，export 返回具名 protect-mask 错误且不创建输出。
+临时把 strict protect loader 强制为 non-strict 后 export 错误成功 `(64,32)`，case 红；
+恢复后通过。
+
+至此 `src/render/tests/lens_blur.rs` 的 9 个 main cases 全部为 `rewritten`，0 条 `open`。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3935,8 +3981,8 @@ baseline mean channel error `0.463` codes。临时把 radius 固定到 512px fra
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 108 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 42 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/product_behavior.rs` | 111 | recipe/LensBlur clamp+JSON、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
+| `tests/render_behavior.rs` | 45 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 107 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

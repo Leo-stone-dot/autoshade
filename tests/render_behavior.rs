@@ -848,6 +848,104 @@ fn develop_loads_depth_and_missing_depth_refuses_export_without_blurring_preview
     assert!(!output.exists());
 }
 
+fn lens_blur_protect(
+    tree: &support::TempTree,
+    name: &str,
+    width: u32,
+    height: u32,
+    columns: std::ops::Range<u32>,
+    level: u8,
+) -> std::path::PathBuf {
+    let path = tree.path().join(name);
+    image::GrayImage::from_fn(width, height, |x, _| {
+        image::Luma([if columns.contains(&x) { level } else { 0 }])
+    })
+    .save(&path)
+    .unwrap();
+    path
+}
+
+#[test]
+fn a_black_lens_blur_protect_mask_matches_unprotected_delivery() {
+    let tree = support::TempTree::new("lens-blur-black-protect");
+    let depth = lens_blur_depth(&tree, "depth.png", 512, 128, 200);
+    let black = lens_blur_protect(&tree, "black.png", 512, 128, 0..0, 255);
+    let source = checker_frame(512, 128);
+    let neutral = render(&source, &EditRecipe::default());
+    let unprotected = render(&source, &lens_blur_recipe(&depth, [0.1, 0.5]));
+    let mut protected_recipe = lens_blur_recipe(&depth, [0.1, 0.5]);
+    protected_recipe.lens_blur.as_mut().unwrap().protect =
+        Some(black.to_string_lossy().into_owned());
+    let black_protected = render(&source, &protected_recipe);
+
+    assert!(unprotected.as_raw() != neutral.as_raw());
+    assert!(black_protected.as_raw() == unprotected.as_raw());
+}
+
+#[test]
+fn white_and_half_lens_blur_protection_control_sharpness() {
+    let tree = support::TempTree::new("lens-blur-protect-levels");
+    let depth = lens_blur_depth(&tree, "depth.png", 512, 16, 256);
+    let white = lens_blur_protect(&tree, "white.png", 512, 16, 256..512, 255);
+    let half = lens_blur_protect(&tree, "half.png", 512, 16, 256..512, 128);
+    let source = RgbImage::from_fn(512, 16, |x, _| {
+        Rgb([if (x / 8) % 2 == 0 { 204 } else { 51 }; 3])
+    });
+    let unprotected = render(&source, &lens_blur_recipe(&depth, [0.25, 0.5]));
+    let with = |protect: &std::path::Path| {
+        let mut recipe = lens_blur_recipe(&depth, [0.25, 0.5]);
+        recipe.lens_blur.as_mut().unwrap().protect =
+            Some(protect.to_string_lossy().into_owned());
+        render(&source, &recipe)
+    };
+    let half_protected = with(&half);
+    let white_protected = with(&white);
+    let sharp = horizontal_texture(&source, 330..440);
+    let full = horizontal_texture(&unprotected, 330..440);
+    let midway = horizontal_texture(&half_protected, 330..440);
+    let kept = horizontal_texture(&white_protected, 330..440);
+
+    assert!(full + 1.0 < midway && midway + 1.0 < sharp);
+    assert!((kept - sharp).abs() < 1.0);
+}
+
+#[test]
+fn develop_loads_lens_blur_protect_and_missing_protect_refuses_export() {
+    let tree = support::TempTree::new("lens-blur-protect-loading");
+    let depth = lens_blur_depth(&tree, "depth.png", 64, 32, 32);
+    let protect = lens_blur_protect(&tree, "protect.png", 64, 32, 40..64, 255);
+    let source = checker_frame(64, 32);
+    let source_path = tree.path().join("source.png");
+    source.save(&source_path).unwrap();
+    let plain = render(&source, &EditRecipe::default());
+    let unprotected = render(&source, &lens_blur_recipe(&depth, [0.25, 0.5]));
+    let mut kept_recipe = lens_blur_recipe(&depth, [0.25, 0.5]);
+    kept_recipe.lens_blur.as_mut().unwrap().protect =
+        Some(protect.to_string_lossy().into_owned());
+    let kept = render(&source, &kept_recipe);
+
+    assert_ne!(unprotected.get_pixel(52, 8), plain.get_pixel(52, 8));
+    assert_eq!(kept.get_pixel(52, 8), plain.get_pixel(52, 8));
+    assert_eq!(kept.get_pixel(34, 8), unprotected.get_pixel(34, 8));
+
+    let mut missing = lens_blur_recipe(&depth, [0.25, 0.5]);
+    missing.lens_blur.as_mut().unwrap().protect =
+        Some(tree.path().join("missing.png").to_string_lossy().into_owned());
+    assert!(render(&source, &missing).as_raw() == plain.as_raw());
+    let output = tree.path().join("output.png");
+    let error = autoshade::render::render_to_file(
+        &source_path,
+        &missing,
+        &output,
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("protect mask"), "{error:#}");
+    assert!(!output.exists());
+}
+
 #[test]
 fn positive_dehaze_restores_tonal_span_and_colour() {
     let source = hazy_ramp(64, 32);

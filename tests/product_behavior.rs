@@ -77,6 +77,104 @@ fn an_unknown_recipe_field_is_refused_instead_of_silently_ignored() {
 }
 
 #[test]
+fn lens_blur_json_is_sparse_round_trippable_and_refuses_future_fields() {
+    assert!(!serde_json::to_string(&EditRecipe::default())
+        .unwrap()
+        .contains("lens_blur"));
+    let recipe = EditRecipe {
+        lens_blur: Some(autoshade::render::LensBlur {
+            depth_map: "depth.png".to_string(),
+            focus: [0.2, 0.7],
+            amount: 35.0,
+            range: 60.0,
+            enabled: false,
+            protect: None,
+        }),
+        ..EditRecipe::default()
+    };
+    assert_eq!(
+        serde_json::from_str::<EditRecipe>(&serde_json::to_string(&recipe).unwrap()).unwrap(),
+        recipe
+    );
+    assert!(
+        serde_json::from_str::<EditRecipe>(
+            r#"{"lens_blur":{"depth_map":"depth.png","bokeh":"cats-eye"}}"#,
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn lens_blur_values_clamp_to_their_public_ranges() {
+    let mut recipe = EditRecipe {
+        lens_blur: Some(autoshade::render::LensBlur {
+            depth_map: "depth.png".to_string(),
+            focus: [f32::NAN, 2.0],
+            amount: 400.0,
+            range: -5.0,
+            ..autoshade::render::LensBlur::default()
+        }),
+        ..EditRecipe::default()
+    };
+
+    recipe.clamp();
+
+    let blur = recipe.lens_blur.unwrap();
+    assert_eq!((blur.focus, blur.amount, blur.range), ([0.5, 1.0], 100.0, 0.0));
+}
+
+#[test]
+fn lens_blur_protect_is_absent_until_used_and_empty_paths_are_dropped() {
+    let blur = autoshade::render::LensBlur {
+        depth_map: "depth.png".to_string(),
+        ..autoshade::render::LensBlur::default()
+    };
+    let json = serde_json::to_string(&EditRecipe {
+        lens_blur: Some(blur.clone()),
+        ..EditRecipe::default()
+    })
+    .unwrap();
+    assert!(!json.contains("protect"));
+    assert_eq!(
+        serde_json::from_str::<EditRecipe>(
+            r#"{"lens_blur":{"depth_map":"depth.png","focus":[0.5,0.5],"amount":50.0,"range":10.0,"enabled":true}}"#,
+        )
+        .unwrap()
+        .lens_blur
+        .unwrap()
+        .protect,
+        None
+    );
+    let with_protect = EditRecipe {
+        lens_blur: Some(autoshade::render::LensBlur {
+            protect: Some("subject.png".to_string()),
+            ..blur.clone()
+        }),
+        ..EditRecipe::default()
+    };
+    assert_eq!(
+        serde_json::from_str::<EditRecipe>(&serde_json::to_string(&with_protect).unwrap()).unwrap(),
+        with_protect
+    );
+    let mut empty = EditRecipe {
+        lens_blur: Some(autoshade::render::LensBlur {
+            protect: Some(String::new()),
+            ..blur
+        }),
+        ..EditRecipe::default()
+    };
+    empty.clamp();
+    assert_eq!(empty.lens_blur.unwrap().protect, None);
+
+    let mut unresolved = EditRecipe {
+        lens_blur: Some(autoshade::render::LensBlur::default()),
+        ..EditRecipe::default()
+    };
+    unresolved.clamp();
+    assert!(unresolved.lens_blur.is_none());
+}
+
+#[test]
 fn a_round_trip_through_our_xmp_preserves_visible_develop_controls() {
     let recipe = EditRecipe {
         exposure_ev: 0.75,
