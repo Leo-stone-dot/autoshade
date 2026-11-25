@@ -204,8 +204,11 @@
 - XMP writer读取raster marker并注入mask block时，`sensor_and_corrected_mask_rasters_export_the_same_public_mask_xml` 在两个CRS block不相等处变红；恢复后测试通过。
 - 同时绕过 `render_to_file_marked` 与 `render_baked_to_image` 的入口 clamp 时，极端但有限的蒙版几何把正常灰图渲染为黑色，`render_to_file_clamps_extreme_finite_mask_geometry_before_work` 变红；只绕过内层时外层仍保护交付结果，因此不冒充独立证据。
 - `mask_raster_write_fits_budget` 忽略 recipe 中已有的 active raster 时，第二张 61 MP raster 被错误接受，`mask_raster_write_budget_counts_existing_active_rasters` 在 aggregate refusal 处变红；恢复后测试通过。
+- mask snapshot loader 绕过 header-only aggregate peak guard 时，两个可单独解码的 61 MP rasters 被公开 render 一起接受并产生交付，`render_refuses_active_mask_rasters_over_the_aggregate_budget` 在错误返回处变红；恢复后测试通过。
+- snapshot lookup 在像素应用前重新检查已加载 mask 的源文件是否存在时，diagnostics sink 同步删除文件后白 mask 变 inert，`preview_uses_a_loaded_mask_after_its_file_is_deleted` 在 preview 亮度断言处变红；恢复后测试通过。
 - `refine_mask_guided` 不再把 NaN、负数和零 `eps` 提升到安全下限时，NaN 输出整张变黑，`guided_refine_floors_hostile_eps` 变红；恢复后测试通过。
 - 空 guide 分支返回同尺寸黑图而不是输入蒙版时，`guided_refine_with_an_empty_guide_keeps_the_input_mask` 变红；恢复后测试通过。
+- tiled guided refine 把 halo 清零时，恒定 guide 上的平滑线性 mask 在分块边界出现可见跳变或回退，`guided_refine_keeps_a_smooth_mask_free_of_visible_seams` 变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

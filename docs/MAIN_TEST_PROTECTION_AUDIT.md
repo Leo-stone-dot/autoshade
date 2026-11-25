@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：875 cases，约 2,772 个断言宏，48 个显式 ignore。
+- 当前工作树：878 cases，约 2,778 个断言宏，48 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，405 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、2 条 `drop`、15 条 `external-gate`、1,857 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，408 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、4 条 `drop`、15 条 `external-gate`、1,852 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3463,6 +3463,18 @@ clamp 后 hostile 输出变黑，case 红；两处临时修改均已恢复。
 临时让公开 admission 忽略 recipe 中的 active raster 后，第二张 61 MP raster 被错误接受，
 对应 false 断言红；恢复后通过。
 
+### 公开 render 在像素工作前拒绝 loader 总峰值超限
+
+- Main case：`an_active_raster_set_over_its_budget_is_refused_before_pixel_work`
+- 当前 case：`render_refuses_active_mask_rasters_over_the_aggregate_budget`
+- 状态：`rewritten`
+- Gate：默认
+
+当前 case 使用两个真实可解码 9504×6336 灰度 PNG：单个 incoming 的 RGBA 解码峰值低于
+256 MiB；第一张已持有的 1 byte/px 灰度与第二张 4 bytes/px 解码峰值合计约 287 MiB。
+公开 `render_to_file` 必须返回具名 aggregate-budget 错误，且不能创建交付文件。临时
+绕过 header-only aggregate guard 后 render 成功返回 `(8, 4)`，case 红；恢复后通过。
+
 ### 失败发布保持旧交付并清理 staging
 
 - Main case：`a_failed_staged_encode_leaves_the_existing_target_intact`
@@ -3485,21 +3497,40 @@ main 的非黑 premise 与 NaN/负数/零 `eps` 等价断言由第一个单主�
 原样返回输入像素由第二个 case 单独执行。临时取消 `eps` 下限时 NaN 输出全黑，第一个
 case 红；临时把空 guide 结果改成同尺寸黑图时第二个 case 红。两处均已恢复。
 
-### 本文件仍未裁决的具体 case
+### Guided refine 不在公开结果中留下 tile seam
 
-- `preview_mask_perf_probe`：只有计时输出，没有验收阈值或可归因的产品性能预算；在确定
-  支持硬件、fixture 和预算前保持 `open`，不能把打印成功当成保护。
-- `an_active_raster_set_over_its_budget_is_refused_before_pixel_work`：main 直接调用私有
-  snapshot loader 并注入 1-byte budget。仍需由公开 render 错误/文件结果重写，不能
-  因 writer admission 已覆盖就勾销 loader 拒绝。
-- `deleting_a_raster_after_snapshot_construction_does_not_change_the_render`：main 依赖私有
-  snapshot 构造时点。仍需确定性公开并发工作流证明一次 render 不受中途文件删除影响，
-  不能引入 TestSeam 控制时序。
-- `tiled_guided_refine_matches_the_whole_frame_result_across_every_seam`：直接驱动私有 tiled
-  oracle 与自定义 tile edge，锁定实现路径；它不能直接迁移，也不能替代下一条公开
-  production seam 行为。
-- `the_public_guided_refine_crosses_its_production_tile_seams_cleanly`：有公开像素故障语义，
-  但当前尚无独立 public reference oracle 与 mutation 证据，保持 `open`。
+- Main case：`the_public_guided_refine_crosses_its_production_tile_seams_cleanly`
+- 当前 case：`guided_refine_keeps_a_smooth_mask_free_of_visible_seams`
+- 状态：`rewritten`
+- Gate：默认
+
+恒定 guide 和 `[0, 255]` 线性 mask 经过公开 refine 后，整行必须单调且任意相邻像素
+变化不超过一个 code。该断言不读取私有 tile edge，也不调用私有 tiled helper。临时把
+halo 设为 0 后，平滑 mask 出现可见跳变或回退，case 红；恢复后通过。
+
+`tiled_guided_refine_matches_the_whole_frame_result_across_every_seam` 只把同一个私有 helper
+在两个私有 tile size 下互相比较，锁定当前实现路径；其唯一产品主张已经由上述公开 case
+执行，因此归为 `drop`，不迁移私有 oracle。
+
+`preview_mask_perf_probe` 只有 machine-relative 时间与 checksum 输出，没有阈值、断言或
+支持硬件预算，任何性能退化都不会让它红；它不是测试保护，归为 `drop`。未来若登记明确
+性能预算，应新建有阈值和显式硬件 gate 的行为 case，而不是复活 print-only probe。
+
+### 已加载 mask 不受随后文件删除影响
+
+- Main case：`deleting_a_raster_after_snapshot_construction_does_not_change_the_render`
+- 当前 case：`preview_uses_a_loaded_mask_after_its_file_is_deleted`
+- 状态：`rewritten`
+- Gate：默认
+
+recipe 先列出有效白 mask，再列出缺失 mask。公开 best-effort preview loader 持有第一张
+像素后，为第二张发出公开 diagnostics 事件；测试 sink 在该事件回调内同步删除第一张
+文件，因此删除确定发生在 snapshot load 之后、像素应用之前，无 sleep、无线程竞速、
+无 TestSeam。case 断言事件已发生、文件已删除且白 mask 的曝光仍让 preview 变亮。
+临时让 snapshot lookup 重新检查源文件存在性后 mask 变 inert，亮度断言红；恢复后通过。
+
+至此 `src/render/tests/budgets_and_refine.rs` 的 9 个 main cases 均已逐项裁决：7 条
+`rewritten`，2 条 `drop`，0 条 `open`。
 
 ## 当前公开引擎基线
 
@@ -3509,7 +3540,7 @@ case 红；临时把空 guide 结果改成同尺寸黑图时第二个 case 红�
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 98 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked/mask-raster frame marker/拒绝/采样、mask 几何 clamp/总预算/guided-refine guards、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
+| `tests/product_behavior.rs` | 101 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

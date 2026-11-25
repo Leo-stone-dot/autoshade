@@ -2271,6 +2271,104 @@ fn mask_raster_write_budget_counts_existing_active_rasters() {
 }
 
 #[test]
+fn render_refuses_active_mask_rasters_over_the_aggregate_budget() {
+    let tree = TempTree::new("mask-raster-load-budget");
+    let source = tree.path().join("source.png");
+    let first = tree.path().join("first.png");
+    let second = tree.path().join("second.png");
+    let output = tree.path().join("output.png");
+    image::RgbImage::from_pixel(8, 4, image::Rgb([120, 120, 120]))
+        .save(&source)
+        .unwrap();
+    image::GrayImage::from_pixel(9504, 6336, image::Luma([255]))
+        .save(&first)
+        .unwrap();
+    std::fs::copy(&first, &second).unwrap();
+    let bitmap = |name: &str, path: &Path| LocalAdjustment {
+        name: name.to_string(),
+        mask: MaskGeometry::Bitmap {
+            path: path.to_string_lossy().into_owned(),
+        },
+        exposure_ev: 1.0,
+        ..LocalAdjustment::default()
+    };
+    let recipe = EditRecipe {
+        masks: vec![bitmap("first", &first), bitmap("second", &second)],
+        ..EditRecipe::default()
+    };
+
+    let error = autoshade::render::render_to_file(
+        &source,
+        &recipe,
+        &output,
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap_err();
+
+    assert!(
+        error.to_string().contains("aggregate budget"),
+        "unexpected refusal: {error:#}"
+    );
+    assert!(!output.exists());
+}
+
+#[test]
+fn preview_uses_a_loaded_mask_after_its_file_is_deleted() {
+    struct DeleteOnDiagnostic {
+        path: std::path::PathBuf,
+        fired: std::sync::atomic::AtomicBool,
+    }
+
+    impl autoshade::diag::Sink for DeleteOnDiagnostic {
+        fn emit(&self, _line: autoshade::diag::Line) {
+            if !self.fired.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                std::fs::remove_file(&self.path).unwrap();
+            }
+        }
+    }
+
+    let tree = TempTree::new("mask-raster-delete-after-load");
+    let loaded = tree.path().join("loaded.png");
+    let missing = tree.path().join("missing.png");
+    image::GrayImage::from_pixel(2, 2, image::Luma([255]))
+        .save(&loaded)
+        .unwrap();
+    let bitmap = |path: &Path| MaskGeometry::Bitmap {
+        path: path.to_string_lossy().into_owned(),
+    };
+    let recipe = EditRecipe {
+        masks: vec![
+            LocalAdjustment {
+                mask: bitmap(&loaded),
+                exposure_ev: 1.0,
+                ..LocalAdjustment::default()
+            },
+            LocalAdjustment {
+                mask: bitmap(&missing),
+                exposure_ev: 1.0,
+                ..LocalAdjustment::default()
+            },
+        ],
+        ..EditRecipe::default()
+    };
+    let source =
+        image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(2, 2, image::Rgb([64; 3])));
+    let sink = DeleteOnDiagnostic {
+        path: loaded.clone(),
+        fired: std::sync::atomic::AtomicBool::new(false),
+    };
+    let diag = autoshade::diag::Diag::new(&sink, autoshade::diag::Subject::PixelOnly);
+
+    let preview = autoshade::render::develop_preview_with(&source, &recipe, &diag).to_rgb8();
+
+    assert!(sink.fired.load(std::sync::atomic::Ordering::SeqCst));
+    assert!(!loaded.exists());
+    assert!(preview.get_pixel(0, 0)[0] > source.to_rgb8().get_pixel(0, 0)[0]);
+}
+
+#[test]
 fn guided_refine_floors_hostile_eps() {
     let (width, height) = (64, 32);
     let guide = image::DynamicImage::ImageRgb8(image::RgbImage::from_fn(
@@ -2309,6 +2407,28 @@ fn guided_refine_with_an_empty_guide_keeps_the_input_mask() {
     assert!(
         actual.as_raw() == small.as_raw(),
         "an empty guide changed the delivered mask"
+    );
+}
+
+#[test]
+fn guided_refine_keeps_a_smooth_mask_free_of_visible_seams() {
+    let (width, height) = (2100, 16);
+    let guide = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+        width,
+        height,
+        image::Rgb([128, 128, 128]),
+    ));
+    let mask = image::GrayImage::from_raw(2, 1, vec![0, 255]).unwrap();
+
+    let refined = autoshade::render::refine_mask_guided(&mask, &guide, 8, 1e-4);
+    let row = (0..width)
+        .map(|x| refined.get_pixel(x, height / 2)[0])
+        .collect::<Vec<_>>();
+
+    assert!(
+        row.windows(2)
+            .all(|pair| pair[0] <= pair[1] && pair[1] - pair[0] <= 1),
+        "a smooth mask gained a visible jump or reversal"
     );
 }
 
