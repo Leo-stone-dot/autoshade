@@ -2,6 +2,7 @@ use autoshade::recipe::{
     BrushStroke, ColorGrade, CreativeLook, CurvePoint, EditRecipe, LensProfile, LocalAdjustment,
     MaskGeometry,
 };
+use autoshade::render::LensBlur;
 use autoshade::retouch::{RetouchArea, RetouchShape, SpotOrigin};
 use image::{DynamicImage, Rgb, RgbImage};
 use rawler::decoders::Orientation;
@@ -670,6 +671,181 @@ fn sdr_clarity_matches_basic_clarity_pixels() {
         sdr.as_raw() == basic.as_raw(),
         "SDR and Basic clarity delivered different pixels"
     );
+}
+
+fn lens_blur_depth(
+    tree: &support::TempTree,
+    name: &str,
+    width: u32,
+    height: u32,
+    edge: u32,
+) -> std::path::PathBuf {
+    let path = tree.path().join(name);
+    image::ImageBuffer::from_fn(width, height, |x, _| {
+        image::Luma([if x < edge { u16::MAX } else { 0 }])
+    })
+    .save(&path)
+    .unwrap();
+    path
+}
+
+fn lens_blur_recipe(depth: &std::path::Path, focus: [f32; 2]) -> EditRecipe {
+    EditRecipe {
+        lens_blur: Some(LensBlur {
+            depth_map: depth.to_string_lossy().into_owned(),
+            focus,
+            amount: 100.0,
+            range: 0.0,
+            ..LensBlur::default()
+        }),
+        ..EditRecipe::default()
+    }
+}
+
+fn checker_frame(width: u32, height: u32) -> RgbImage {
+    RgbImage::from_fn(width, height, |x, y| {
+        Rgb([if (x + y) % 2 == 0 { 204 } else { 51 }; 3])
+    })
+}
+
+fn horizontal_texture(image: &RgbImage, columns: std::ops::Range<u32>) -> f64 {
+    let mut total = 0.0;
+    for y in 0..image.height() {
+        for x in columns.clone() {
+            total += f64::from(image.get_pixel(x + 1, y)[1].abs_diff(image.get_pixel(x, y)[1]));
+        }
+    }
+    total / f64::from(image.height() * columns.len() as u32)
+}
+
+#[test]
+fn lens_blur_follows_depth_distance_on_both_sides_of_focus() {
+    let tree = support::TempTree::new("lens-blur-focus");
+    let depth = lens_blur_depth(&tree, "depth.png", 128, 32, 64);
+    let source = checker_frame(128, 32);
+    let sharp = horizontal_texture(&source, 2..56);
+    let focused_near = render(&source, &lens_blur_recipe(&depth, [0.25, 0.5]));
+    let focused_far = render(&source, &lens_blur_recipe(&depth, [0.75, 0.5]));
+
+    assert!((horizontal_texture(&focused_near, 2..56) - sharp).abs() < 1.0);
+    assert!(horizontal_texture(&focused_near, 72..125) < sharp * 0.2);
+    assert!(horizontal_texture(&focused_far, 2..56) < sharp * 0.2);
+    assert!((horizontal_texture(&focused_far, 72..125) - sharp).abs() < 1.0);
+}
+
+#[test]
+fn disabled_zero_or_unresolved_lens_blur_is_inert() {
+    let tree = support::TempTree::new("lens-blur-inert");
+    let depth = lens_blur_depth(&tree, "depth.png", 64, 32, 32);
+    let source = checker_frame(64, 32);
+    let neutral = render(&source, &EditRecipe::default());
+    let active = LensBlur {
+        depth_map: depth.to_string_lossy().into_owned(),
+        amount: 100.0,
+        ..LensBlur::default()
+    };
+    for lens_blur in [
+        LensBlur {
+            enabled: false,
+            ..active.clone()
+        },
+        LensBlur {
+            amount: 0.0,
+            ..active.clone()
+        },
+        LensBlur {
+            depth_map: String::new(),
+            ..active
+        },
+    ] {
+        let delivered = render(
+            &source,
+            &EditRecipe {
+                lens_blur: Some(lens_blur),
+                ..EditRecipe::default()
+            },
+        );
+        assert!(delivered.as_raw() == neutral.as_raw());
+    }
+}
+
+#[test]
+fn focused_subject_does_not_bleed_into_the_blurred_background() {
+    let tree = support::TempTree::new("lens-blur-halo");
+    let depth = lens_blur_depth(&tree, "depth.png", 128, 16, 64);
+    let source = RgbImage::from_fn(128, 16, |x, _| {
+        Rgb([if x < 64 { 255 } else { 0 }; 3])
+    });
+
+    let delivered = render(&source, &lens_blur_recipe(&depth, [0.25, 0.5]));
+
+    assert!(delivered.get_pixel(65, 8)[0] < 13);
+    assert!(delivered.get_pixel(63, 8)[0] >= 250);
+}
+
+#[test]
+fn lens_blur_scales_with_the_rendered_frame() {
+    let tree = support::TempTree::new("lens-blur-scale");
+    let depth = lens_blur_depth(&tree, "depth.png", 64, 32, 24);
+    let frame = |width: u32, height: u32| {
+        RgbImage::from_fn(width, height, |x, _| {
+            Rgb([if (x * 16 / width).is_multiple_of(2) {
+                179
+            } else {
+                77
+            }; 3])
+        })
+    };
+    let small = render(&frame(512, 256), &lens_blur_recipe(&depth, [0.1, 0.5]));
+    let large = render(
+        &frame(1024, 512),
+        &lens_blur_recipe(&depth, [0.1, 0.5]),
+    );
+    let reduced = autoshade::render::thumbnail_exact(
+        &DynamicImage::ImageRgb8(large),
+        512,
+        256,
+    )
+    .to_rgb8();
+    let mean = small
+        .as_raw()
+        .iter()
+        .zip(reduced.as_raw())
+        .map(|(left, right)| f64::from(left.abs_diff(*right)))
+        .sum::<f64>()
+        / small.as_raw().len() as f64;
+
+    assert!(mean < 2.0, "scaled lens blur differs by {mean} codes");
+}
+
+#[test]
+fn develop_loads_depth_and_missing_depth_refuses_export_without_blurring_preview() {
+    let tree = support::TempTree::new("lens-blur-depth-loading");
+    let depth = lens_blur_depth(&tree, "depth.png", 64, 32, 32);
+    let source = checker_frame(64, 32);
+    let source_path = tree.path().join("source.png");
+    source.save(&source_path).unwrap();
+    let plain = render(&source, &EditRecipe::default());
+    let active = lens_blur_recipe(&depth, [0.25, 0.5]);
+    let blurred = render(&source, &active);
+
+    assert_eq!(blurred.get_pixel(8, 8), plain.get_pixel(8, 8));
+    assert_ne!(blurred.get_pixel(56, 8), plain.get_pixel(56, 8));
+
+    let missing = lens_blur_recipe(&tree.path().join("missing.png"), [0.25, 0.5]);
+    assert!(render(&source, &missing).as_raw() == plain.as_raw());
+    let output = tree.path().join("output.png");
+    let error = autoshade::render::render_to_file(
+        &source_path,
+        &missing,
+        &output,
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("depth map"), "{error:#}");
+    assert!(!output.exists());
 }
 
 #[test]

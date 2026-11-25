@@ -233,6 +233,10 @@
 - tone builder 在 recipe `names_profile()` 时跳过 base curve，`naming_a_camera_profile_does_not_replace_the_recipe_base_curve` 在公开像素 equality 处红；恢复后测试通过。
 - `real_raw_base_look_moves_the_render_toward_the_camera_preview` 是显式真实 RAW gate；当前机器缺 `AUTOSHADE_PROBE_RAW`，显式运行按设计失败而非静默空测，因此尚无本机 mutation 证据，也不宣称该 gate 已绿。
 - `as_shot_wb` 把 invalid zero-neutral result 伪造成 5500K/0 时，`as_shot_wb_returns_none_for_a_zero_camera_neutral` 红；恢复后测试通过。只删除早期 `<=0` guard 时 case 仍绿，因为下游 chromaticity 求解等价拒绝；该存活尝试不算 mutation 证据。
+- lens blur 把 focus nearness 固定为 0.5 或忽略 enabled 开关时，focus 双向与 inert 配置 case 分别红；恢复后测试通过。
+- lens blur 让每个 source pixel 以 full weight 进入 blur level 时，`focused_subject_does_not_bleed_into_the_blurred_background` 在相邻背景 halo 断言处红；恢复后通过。
+- lens blur radius 固定为 512px frame 时，2x→1x mean error 从 `0.463` 升到 `4.537` codes，`lens_blur_scales_with_the_rendered_frame` 在 `<2.0` 处红；恢复后通过。
+- depth loader 把 strict export 强制按 non-strict preview 处理时，missing depth 的 export 错误成功并返回 `(64,32)`，`develop_loads_depth_and_missing_depth_refuses_export_without_blurring_preview` 红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

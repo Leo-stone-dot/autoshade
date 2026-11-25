@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：911 cases，约 2,844 个断言宏，49 个显式 ignore。
+- 当前工作树：916 cases，约 2,857 个断言宏，49 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，430 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、17 条 `external-gate`、1,827 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，434 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、17 条 `external-gate`、1,823 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3880,6 +3880,53 @@ corpus 未在当前机器执行，因此整行保持 `external-gate`，不伪称
 至此 `src/render/tests/as_shot.rs` 的 5 个 main cases 全部为 `external-gate`，0 条
 `open`；默认 synthetic error/metadata arms 仍由上列 case 执行。
 
+## Render：lens blur 核心像素与 depth 文件
+
+### Blur 随 focus 两向作用，inactive 配置保持 inert
+
+- Main case：`the_blur_follows_distance_from_the_focus`
+- 当前 cases：`lens_blur_follows_depth_distance_on_both_sides_of_focus`、
+  `disabled_zero_or_unresolved_lens_blur_is_inert`
+- 状态：`rewritten`
+- Gate：默认
+
+公开 develop 读取 split 16-bit depth PNG：focus near 时 near checker texture 保持、far
+低于 sharp 的 20%；focus far 时反向成立。disabled、amount 0、empty depth 三种 recipe
+逐像素等于 neutral。临时把 focus nearness 固定为 0.5 或忽略 enabled 开关时，两条
+case 分别红；恢复后通过。
+
+### Focused subject 不向 blurred background 渗出 halo
+
+- Main case：`an_in_focus_subject_leaves_no_halo_in_the_blurred_background`
+- 当前 case：`focused_subject_does_not_bleed_into_the_blurred_background`
+- 状态：`rewritten`
+- Gate：默认
+
+公开交付中，白色 in-focus subject 的边缘保持 `>=250`，相邻 blurred 黑背景保持 `<13`。
+临时让所有 source pixels 以 full weight 进入 blur level 后背景被抬亮，case 红；恢复后通过。
+
+### Blur radius 随输出 frame 缩放
+
+- Main case：`a_larger_render_blurs_the_same_picture`
+- 当前 case：`lens_blur_scales_with_the_rendered_frame`
+- 状态：`rewritten`
+- Gate：默认
+
+同一 normalized stripe scene 分别以 512×256 和 1024×512 公开 develop，再把大图缩回；
+baseline mean channel error `0.463` codes。临时把 radius 固定到 512px frame 后误差
+`4.537`；验收阈值 `<2.0` 位于两者之间并保留至少 1.5 codes 余量。
+
+### Depth map 的 preview/export 错误契约
+
+- Main case：`the_develop_blurs_by_its_depth_map_and_an_export_refuses_a_missing_one`
+- 当前 case：`develop_loads_depth_and_missing_depth_refuses_export_without_blurring_preview`
+- 状态：`rewritten`
+- Gate：默认
+
+有效 16-bit depth PNG 通过公开 preview 保持 focus side、改变 far side。missing depth
+使 preview 等于 plain；公开 `render_to_file` 返回具名 depth-map 错误且不创建输出。
+临时把 strict loader 强制为 non-strict 后 export 错误成功 `(64,32)`，case 红；恢复后通过。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3889,7 +3936,7 @@ corpus 未在当前机器执行，因此整行保持 `external-gate`，不伪称
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
 | `tests/product_behavior.rs` | 108 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 37 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/render_behavior.rs` | 42 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 107 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
