@@ -1223,6 +1223,26 @@ guard使合法nested Look merge返回None；outer close改成第一个nested clo
 返回None。四条case分别红；CDATA复用既有construct mutation。所有修改均恢复，
 `src/`无diff。
 
+### Baked master geometry markers and double-correction refusal
+
+- Main cases：
+  `a_master_carries_its_lens_geometry_in_png_tiff_and_jpeg`、
+  `an_unmarked_master_is_corrected_in_the_tail_and_a_marked_one_is_refused`
+- 当前执行者：
+  `saved_masters_carry_replace_and_omit_baked_geometry_markers`、
+  `unmarked_master_is_corrected_once_and_marked_master_is_refused`、
+  既有`a_delivered_tiff_carries_the_selected_icc_profile`
+- 状态：两条均为 `rewritten`
+
+公开`pipeline::save_master`在PNG/TIFF/JPEG staged publish前写入相同BakedGeometry；
+`read_baked_geometry`与SourceFrame读回corrected frame，restamp替换marker且不改pixels，
+bare save无marker。TIFF ICC由既有delivery case保护。
+
+unmarked ring master经`render_to_file`得到与公开in-memory lens-corrected result相同的
+pixels；marked master在SourceFrame::check、export与master_pixels_for三扇门均拒绝，
+无论recipe是否仍携带lens。跳过staged stamp、无条件放行check、禁用tail lens resample
+时，对应case分别红；mutation均已恢复，`src/`无diff。
+
 下一小批继续使用真实public reader + synthetic ACR objects：
 
 | 故障 premise | 公开分类 |
@@ -3324,7 +3344,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 81 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
+| `tests/product_behavior.rs` | 83 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked master marker/拒绝、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

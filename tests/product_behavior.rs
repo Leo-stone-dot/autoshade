@@ -8,7 +8,8 @@ use std::os::unix::fs::PermissionsExt;
 use autoshade::config::Config;
 use autoshade::pipeline::{BatchNames, GradeRequest};
 use autoshade::recipe::{
-    Crop, CurvePoint, EditRecipe, LocalAdjustment, MaskGeometry, PointColor, RangeMask,
+    Crop, CurvePoint, EditRecipe, LensProfile, LocalAdjustment, MaskGeometry, PointColor,
+    RangeMask,
 };
 use image::{GenericImageView, RgbImage};
 use rawler::decoders::Orientation;
@@ -1449,6 +1450,146 @@ fn a_cropped_render_returns_only_the_crop_rectangle() {
     .unwrap();
 
     assert_eq!(rendered.dimensions(), (6, 4));
+}
+
+fn baked_geometry_recipe() -> EditRecipe {
+    EditRecipe {
+        lens_profile: LensProfile {
+            distortion: (0..16)
+                .map(|index| 1.0 + 0.004 * index as f32)
+                .collect(),
+            distortion_on: true,
+            ..LensProfile::default()
+        },
+        ..EditRecipe::default()
+    }
+}
+
+fn baked_geometry_rings(width: u32, height: u32) -> image::DynamicImage {
+    image::DynamicImage::ImageRgb8(image::RgbImage::from_fn(width, height, |x, y| {
+        let dx = x as f32 - width as f32 * 0.5;
+        let dy = y as f32 - height as f32 * 0.5;
+        let radius = dx.hypot(dy);
+        let value = ((radius * 0.45).sin() * 90.0 + 128.0).clamp(0.0, 255.0) as u8;
+        image::Rgb([value, value / 2 + 32, 255 - value])
+    }))
+}
+
+#[test]
+fn saved_masters_carry_replace_and_omit_baked_geometry_markers() {
+    let tree = TempTree::new("baked-geometry-formats");
+    let image = baked_geometry_rings(64, 48);
+    let marker =
+        autoshade::render::BakedGeometry::frame_of(&baked_geometry_recipe()).unwrap();
+    assert!(marker.corrects_frame());
+    let replacement = autoshade::render::BakedGeometry {
+        knots: "fnv1a64:0000000000000001".to_string(),
+        ..marker.clone()
+    };
+
+    for name in ["master.png", "master.tif", "master.jpg"] {
+        let path = tree.path().join(name);
+        autoshade::pipeline::save_master(&path, image.clone(), Some(&marker)).unwrap();
+        assert_eq!(
+            autoshade::render::read_baked_geometry(&path).unwrap(),
+            Some(marker.clone()),
+            "{name}"
+        );
+        assert!(autoshade::render::SourceFrame::of(&path)
+            .unwrap()
+            .corrected());
+        let before = image::open(&path).unwrap().to_rgb8();
+        assert_eq!(before.dimensions(), (64, 48));
+        if !name.ends_with(".jpg") {
+            assert_eq!(before, image.to_rgb8(), "{name}");
+        }
+
+        autoshade::render::stamp_baked_geometry(&path, &replacement).unwrap();
+        assert_eq!(
+            autoshade::render::read_baked_geometry(&path).unwrap(),
+            Some(replacement.clone()),
+            "{name}"
+        );
+        assert_eq!(image::open(&path).unwrap().to_rgb8(), before, "{name}");
+
+        let bare = tree.path().join(format!("bare-{name}"));
+        autoshade::pipeline::save_master(&bare, image.clone(), None).unwrap();
+        assert_eq!(autoshade::render::read_baked_geometry(&bare).unwrap(), None);
+    }
+}
+
+#[test]
+fn unmarked_master_is_corrected_once_and_marked_master_is_refused() {
+    let tree = TempTree::new("baked-geometry-apply");
+    let image = baked_geometry_rings(160, 120);
+    let recipe = baked_geometry_recipe();
+    let marker = autoshade::render::BakedGeometry::frame_of(&recipe).unwrap();
+    let unmarked = tree.path().join("unmarked.png");
+    let marked = tree.path().join("marked.png");
+    autoshade::pipeline::save_master(&unmarked, image.clone(), None).unwrap();
+    autoshade::pipeline::save_master(&marked, image.clone(), Some(&marker)).unwrap();
+
+    let no_lens = EditRecipe {
+        lens_profile: LensProfile::default(),
+        ..recipe.clone()
+    };
+    let expected = autoshade::render::render_baked_to_image(
+        &image,
+        &recipe,
+        None,
+        None,
+        None,
+        &autoshade::diag::pixels(),
+    )
+    .unwrap()
+    .to_rgb16();
+    let unchanged = autoshade::render::render_baked_to_image(
+        &image,
+        &no_lens,
+        None,
+        None,
+        None,
+        &autoshade::diag::pixels(),
+    )
+    .unwrap()
+    .to_rgb16();
+    assert!(
+        expected.as_raw() != unchanged.as_raw(),
+        "the lens profile did not move the ring frame"
+    );
+
+    let delivered = tree.path().join("delivered.tif");
+    autoshade::render::render_to_file(
+        &unmarked,
+        &recipe,
+        &delivered,
+        None,
+        None,
+        autoshade::diag::silent(),
+    )
+    .unwrap();
+    assert_eq!(image::open(&delivered).unwrap().to_rgb16(), expected);
+
+    let frame = autoshade::render::SourceFrame::of(&marked).unwrap();
+    for candidate in [&recipe, &no_lens] {
+        let error = frame.check(candidate).unwrap_err().to_string();
+        assert!(error.contains("bake the master again"), "{error}");
+        assert!(autoshade::render::render_to_file(
+            &marked,
+            candidate,
+            &delivered,
+            None,
+            None,
+            autoshade::diag::silent(),
+        )
+        .is_err());
+        assert!(autoshade::render::master_pixels_for(
+            &marked,
+            &autoshade::render::BasePart::of(candidate),
+            None,
+        )
+        .is_err());
+    }
 }
 
 #[test]

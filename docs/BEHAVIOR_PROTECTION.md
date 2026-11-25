@@ -189,6 +189,9 @@
 - owned property-element strip 被禁用时，`merge_replaces_owned_property_elements_once_and_preserves_unowned_elements` 在旧 Exposure element 留存处变红；恢复后测试通过。
 - top-level strip 去掉 depth guard 时，`merge_strips_only_top_level_owned_elements_inside_a_creative_look` 在合法 nested Look merge 返回 None 处变红；恢复后测试通过。
 - outer Description close 改成第一个 nested close 时，`merge_replaces_nested_mask_block_without_damaging_following_look` 在 nested mask merge 返回 None 处变红；恢复后测试通过。
+- `save_master` 跳过 staged BakedGeometry stamp 时，`saved_masters_carry_replace_and_omit_baked_geometry_markers` 在 PNG marker 从 Some 变 None 处变红；恢复后测试通过。
+- `SourceFrame::check` 无条件放行时，`unmarked_master_is_corrected_once_and_marked_master_is_refused` 在 marked frame 不再拒绝处变红；恢复后测试通过。
+- `frame_and_finish` 禁用 lens geometry tail 时，同一 case 在 corrected rings 与 no-lens rings 变成相同处变红；恢复后测试通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
