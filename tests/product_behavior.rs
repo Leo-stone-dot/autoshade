@@ -1179,6 +1179,154 @@ fn base_part_contains_only_the_named_profile_stage() {
     assert_eq!(base.capture_sharpening(true), 0.0);
 }
 
+fn p39_raw() -> std::path::PathBuf {
+    let root = std::env::var_os("AUTOSHADE_FIT_CALIBRATION_DIR")
+        .map(std::path::PathBuf::from)
+        .expect("set AUTOSHADE_FIT_CALIBRATION_DIR to run the p39 render gates");
+    let raw = root.join("p39.arw");
+    assert!(raw.is_file(), "{} is missing", raw.display());
+    raw
+}
+
+fn fnv1a64_u16(values: &[u16]) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for value in values {
+        for byte in value.to_le_bytes() {
+            hash ^= u64::from(byte);
+            hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    hash
+}
+
+fn mean_rgb_code_difference(
+    actual: &image::DynamicImage,
+    expected: &image::DynamicImage,
+) -> f64 {
+    let expected = expected.to_rgb8();
+    let actual = if actual.dimensions() == expected.dimensions() {
+        actual.to_rgb8()
+    } else {
+        actual
+            .resize_exact(
+                expected.width(),
+                expected.height(),
+                image::imageops::FilterType::Triangle,
+            )
+            .to_rgb8()
+    };
+    actual
+        .as_raw()
+        .iter()
+        .zip(expected.as_raw())
+        .map(|(left, right)| f64::from(left.abs_diff(*right)))
+        .sum::<f64>()
+        / actual.as_raw().len() as f64
+}
+
+#[test]
+#[ignore = "requires AUTOSHADE_FIT_CALIBRATION_DIR/p39.arw"]
+fn real_p39_old_recipe_keeps_its_historical_render_digest() {
+    let recipe: EditRecipe = serde_json::from_str(
+        r#"{"version":3,"base_curve":[[0.0,0.0],[0.1,0.13],[0.25,0.33],[0.5,0.6],[0.75,0.83],[1.0,1.0]],"exposure_ev":0.3,"contrast":12.0,"saturation":8.0}"#,
+    )
+    .unwrap();
+    let rendered = autoshade::render::render_to_image(
+        &p39_raw(),
+        &recipe,
+        None,
+        Some(1000),
+    )
+    .unwrap()
+    .to_rgb16();
+
+    assert_eq!(fnv1a64_u16(rendered.as_raw()), 0xc5db_fee1_fdbe_f2dd);
+}
+
+#[test]
+#[ignore = "requires AUTOSHADE_FIT_CALIBRATION_DIR/p39.arw"]
+fn real_p39_profile_named_develop_matches_export_on_every_surface() {
+    let raw = p39_raw();
+    let mut recipe = autoshade::xmp::xmp_to_recipe(
+        r#"<rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+ crs:Version="18.4" crs:ProcessVersion="15.4"
+ crs:CameraProfile="Adobe Standard" crs:HasSettings="True"/>"#,
+    );
+    let calibration =
+        autoshade::pipeline::calibration_recipe(autoshade::pipeline::photo_calibration(&raw));
+    (
+        recipe.lens_profile,
+        recipe.as_shot_k,
+        recipe.as_shot_tint,
+        recipe.version,
+    ) = (
+        calibration.lens_profile,
+        calibration.as_shot_k,
+        calibration.as_shot_tint,
+        calibration.version,
+    );
+    autoshade::pipeline::stamp_import_start(
+        &raw,
+        &mut recipe,
+        &autoshade::diag::photo(&raw),
+    );
+    assert!(!recipe.camera_profile.is_empty());
+    assert!(!recipe.base_curve.is_empty());
+
+    const EDGE: u32 = 1000;
+    let reference =
+        autoshade::render::render_to_image(&raw, &recipe, None, Some(EDGE)).unwrap();
+    let part = autoshade::render::BasePart::of(&recipe);
+    let film = autoshade::decode::film_short_edge(&raw);
+    let finish = |base: &image::DynamicImage, source: &autoshade::render::SourceFrame| {
+        let developed = autoshade::render::develop_preview_film(
+            base,
+            &recipe,
+            &autoshade::diag::pixels(),
+            film,
+            source,
+        );
+        let geometry = autoshade::render::geometry_profile(&recipe);
+        let scale = autoshade::render::FilmScale::of(
+            film,
+            developed.width() as usize,
+            developed.height() as usize,
+        );
+        autoshade::render::frame_and_finish(
+            developed,
+            &recipe,
+            autoshade::render::tail_lens(&geometry, source.corrected()),
+            scale,
+            autoshade::render::CropPolicy::Cut,
+        )
+    };
+
+    let base = autoshade::render::base_develop(&raw, &part, Some(EDGE)).unwrap();
+    let canvas = finish(&base, &autoshade::render::SourceFrame::Raw);
+    let master = autoshade::render::master_develop(&raw, &part, Some(EDGE)).unwrap();
+    let from_master = autoshade::render::render_baked_to_image(
+        &master,
+        &recipe,
+        None,
+        None,
+        None,
+        &autoshade::diag::pixels(),
+    )
+    .unwrap();
+    let source = autoshade::render::source_plate(&raw, &part, 2048).unwrap();
+    assert!(!source.corrected());
+    let fitted = finish(
+        &image::DynamicImage::ImageRgb8(source.to_rgb8()),
+        &autoshade::render::SourceFrame::Raw,
+    );
+    let fit_reference =
+        autoshade::render::render_to_image(&raw, &recipe, None, Some(2048)).unwrap();
+
+    assert!(mean_rgb_code_difference(&canvas, &reference) <= 1.0);
+    assert!(mean_rgb_code_difference(&from_master, &reference) <= 1.0);
+    assert!(mean_rgb_code_difference(&fitted, &fit_reference) <= 1.0);
+}
+
 #[test]
 fn manual_distortion_and_its_inverse_return_the_same_point() {
     let point = (0.3, 0.7);

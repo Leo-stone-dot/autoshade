@@ -1283,8 +1283,16 @@ float thumbnail在downscale/identity/fractional upscale多尺寸上与等价16-b
 `image::thumbnail_exact`时恢复约+0.5 bias并红。mutation均已恢复，`src/`无diff。
 
 `an_old_recipe_with_a_stamped_base_curve_renders_as_it_did`与
-`every_surface_shows_a_profile_naming_develop_as_the_export_renders_it`仍保持`open`：它们依赖
-未授权p39 RAW corpus，原main silent return不能作为通过，显式gate尚待建立。
+`every_surface_shows_a_profile_naming_develop_as_the_export_renders_it`已改为两个显式
+`external-gate`：
+
+- `real_p39_old_recipe_keeps_its_historical_render_digest`通过公开16-bit render固定历史
+  recipe的1000 px FNV-1a digest；
+- `real_p39_profile_named_develop_matches_export_on_every_surface`通过公开calibration/start、
+  base/master/fit-source与export入口，要求三种surface平均RGB code差≤1。
+
+两者都要求`AUTOSHADE_FIT_CALIBRATION_DIR/p39.arw`；未配置时显式运行确定失败，默认明确
+ignored。当前机器无授权RAW，因此不宣称gate已绿。
 
 下一小批继续使用真实public reader + synthetic ACR objects：
 
@@ -3387,7 +3395,7 @@ ceiling、不读取额外一字节时错误变checksum mismatch，case红。
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 87 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked master marker/拒绝、pixel-layer preview/export/persistence、BasePart/float-thumbnail、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
+| `tests/product_behavior.rs` | 89 | recipe clamp、XMP 基础 round-trip、输出拒绝/发布、baked master marker/拒绝、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39 external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、完整 raster payload、平台路径矩阵 |
 | `tests/domain_behavior.rs` | 99 | session/describe/embed、face、retouch、stack、色彩、几何、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | main 的内部 LUT/gate 数值与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |
