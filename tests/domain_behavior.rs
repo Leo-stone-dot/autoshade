@@ -588,6 +588,33 @@ fn a_single_midpoint_curve_keeps_the_neutral_endpoints_and_hits_its_point() {
     assert!(lut[0].abs() < 1e-6);
     assert!((lut[128] - 192.0 / 255.0).abs() < 0.01);
     assert!((lut[255] - 1.0).abs() < 1e-6);
+    assert!(lut[64] > 0.1 && lut[64] < 0.4);
+    assert!(lut[224] > 0.8 && lut[224] < 1.0);
+
+    let inner = autoshade::render::curve_lut(&[
+        CurvePoint {
+            input: 64,
+            output: 64,
+        },
+        CurvePoint {
+            input: 192,
+            output: 192,
+        },
+    ]);
+    assert!(inner[32] > 0.05 && inner[32] < 0.2);
+    assert!(inner[224] > 0.8 && inner[224] < 0.95);
+
+    let lifted = autoshade::render::curve_lut(&[
+        CurvePoint {
+            input: 0,
+            output: 40,
+        },
+        CurvePoint {
+            input: 255,
+            output: 255,
+        },
+    ]);
+    assert!((lifted[0] - 40.0 / 255.0).abs() < 1e-3);
 }
 
 #[test]

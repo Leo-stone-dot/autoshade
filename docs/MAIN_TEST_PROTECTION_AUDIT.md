@@ -27,14 +27,14 @@ case 最终必须归入以下一种状态：
 解析全部 Rust `#[test]` 后：
 
 - `main`：2,281 cases，约 11,399 个断言宏，445 个显式或 feature-gated case。
-- 当前工作树：922 cases，约 2,876 个断言宏，49 个显式 ignore。
+- 当前工作树：927 cases，约 2,890 个断言宏，49 个显式 ignore。
 - 名称完全相同的 case 只有 1 个；不能按名称自动宣称其余 case 已覆盖。
 
 完整逐 case 数据位于 `docs/main_test_case_audit.tsv`。默认运行
 `python3 scripts/check_main_test_audit.py` 会拒绝漏项、重复项、无证据裁决和任何
 `open`；目标推进期间可用 `--allow-open` 查看真实剩余量，但该模式不能作为完成门。
-当前校验结果：2,281 行与 main snapshot 精确一致，439 条 `rewritten`、1 条
-`equivalent`、1 条 `lint`、5 条 `drop`、17 条 `external-gate`、1,818 条 `open`。
+当前校验结果：2,281 行与 main snapshot 精确一致，445 条 `rewritten`、1 条
+`equivalent`、1 条 `lint`、5 条 `drop`、17 条 `external-gate`、1,812 条 `open`。
 
 | 家族 | main cases | main 断言宏 | gated | 状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -3973,6 +3973,50 @@ missing protect 使 preview 完全 plain，export 返回具名 protect-mask 错�
 
 至此 `src/render/tests/lens_blur.rs` 的 9 个 main cases 全部为 `rewritten`，0 条 `open`。
 
+## Render：local activity、HSL grey gate 与 curve endpoints
+
+### Activity rule 与实际 render controls 一致
+
+- Main cases：`engine_active_counts_local_clarity_dehaze_texture`、
+  `engine_active_reads_the_renders_own_noise_gate`、
+  `engine_active_counts_local_point_curves`
+- 当前 cases：`local_effect_activity_tracks_controls_that_render_pixels`、
+  `local_noise_reduction_is_active_only_above_its_render_gate`、
+  `local_point_curves_make_a_mask_active_without_gating_other_edits`
+- 状态：三条 `rewritten`
+- Gate：默认
+
+Public `engine_active` 对 bare adjustment 为 false，对 clarity/dehaze/texture/hue/sharpness
+one-hot 为 true；local NR 在 .05 与 .10 gate 为 false、.15 为 true；main/red/green/blue
+point curve one-hot 均为 true，清 curve 后 exposure 仍保持 active。临时删除两个 control
+families或把 NR gate 改成“非零”时三条 case 分别红；恢复后通过。
+
+### HSL 对 grey/near-grey 的 chroma gate
+
+- Main cases：`hsl_neutral_is_identity_and_grey_is_untouched`、
+  `hsl_does_not_blotch_a_near_grey_sky`
+- 当前执行者：`a_neutral_recipe_preserves_the_delivered_pixels`、
+  `strong_hsl_band_controls_leave_grey_pixels_unchanged`、
+  `hsl_band_controls_do_not_blotch_a_near_grey_sky`
+- 状态：两条 `rewritten`
+- Gate：默认
+
+neutral develop 的全图 channel delta `<=1`；全8-band Saturation/Luminance +100 对 exact grey
+仍 `<=1` code；相反 Blue/Aqua luminance 对交替 faint-blue/faint-aqua sky 的 luma spread
+`<10.2` codes。临时把 HSL chroma fade 固定为1后 grey 移动64 codes、sky spread升到
+84.1，两个 case 均红；恢复后通过。
+
+### Curve LUT 补缺省端点但保留显式端点
+
+- Main case：`curve_lut_pins_missing_endpoints_but_keeps_explicit_ones`
+- 当前 case：`a_single_midpoint_curve_keeps_the_neutral_endpoints_and_hits_its_point`
+- 状态：`rewritten`
+- Gate：默认
+
+public LUT 对 single midpoint 固定0/1 endpoints并命中 click，64/224仍是 ramp；two inner
+points 的32/224向端点继续上升；显式 `(0,40)` 保持 lifted black。临时禁用 endpoint
+insertion 后首个 black pin 断言红；恢复后通过。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
@@ -3981,8 +4025,8 @@ missing protect 使 preview 完全 plain，export 返回具名 protect-mask 错�
 
 | 当前文件 | cases | 主要公开行为 | 对应 main 家族 | 尚未因此勾销 |
 | --- | ---: | --- | --- | --- |
-| `tests/product_behavior.rs` | 111 | recipe/LensBlur clamp+JSON、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
-| `tests/render_behavior.rs` | 45 | 中性像素、dehaze/HSL/局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
+| `tests/product_behavior.rs` | 114 | recipe/LensBlur clamp+JSON、local activity gates、XMP 基础 round-trip、输出拒绝/发布、RAW/baked source dispatch 与 working cap、baked/mask-raster frame marker/拒绝/采样/删除时序、mask 几何 clamp/loader+writer 总预算/guided-refine guards+seam、pixel-layer preview/export/persistence、BasePart/float-thumbnail、p39/real-base-look external gates、公开 render/decode/segment/pipeline 文件结果 | Recipe、Pipeline、Render、XMP、Decode、Segment、Jobs | main 的私有 solver/parser helper、平台路径矩阵 |
+| `tests/render_behavior.rs` | 47 | 中性像素、dehaze/HSL target+grey gate、局部色温/point colour、锐化/曲线/色彩分级、mask shapes、CA/straighten、vignette 单 pass 合成、base curve 顺序/端点/profile-name independence、creative Look tone 隔离/monochrome、retouch ellipse/brush 成片/plan metadata/orientation round-trip、HDR gate/shoulder/depth/Clarity、lens-blur focus/halo/scale/depth+protect errors、mask 错误交付 | Render 公开像素 | RAW camera profile 与真实 Lightroom 图像语料 |
 | `tests/domain_behavior.rs` | 107 | session/describe/embed、face、retouch、stack、色彩、几何、camera-base known/identity/inability/sparse/texture/frame/corner selection、外部 XMP 形状 | Render、XMP、Face、Stack、Advisor、Embed | 真实 RAW camera preview gate 与未映射复杂 mask composition |
 | `tests/openai_models_behavior.rs` | 15 | model picker 分类、响应资源边界、Venice/OpenRouter capability | OpenAI models、Settings | 真实远端可用性与 provider 账单/权限 |
 | `tests/recipe_library_behavior.rs` | 16 | recipe CRUD、命名边界、portable losses、XMP import | Recipe library、XMP | GUI 菜单可见性与跨进程权限错误 |

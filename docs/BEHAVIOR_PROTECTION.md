@@ -240,6 +240,9 @@
 - LensBlur 移除 deny-unknown、把 amount ceiling 放宽到400、保留 empty protect 或 empty depth 时，JSON/clamp/path-cleanup 三条公开 case 分别红；恢复后通过。
 - 48px black-protect fixture 下 radius×0.9/0.5 mutation 因 `<1px` level 量化存活，未算证据；放大到512px 后把 black 错读成50% protection，`a_black_lens_blur_protect_mask_matches_unprotected_delivery` 红。完全忽略 protect alpha 时 white/half sharpness case 红；均已恢复。
 - protect loader 把 strict export 强制按 non-strict preview 处理时，missing protect 的 export 错误成功并返回 `(64,32)`，`develop_loads_lens_blur_protect_and_missing_protect_refuses_export` 红；恢复后通过。
+- `engine_active` 删除 clarity/dehaze/texture/hue/sharpness family、把 local NR gate 改为“非零”、或删除四条 point-curve terms 时，三条 public activity case 分别红；恢复后通过。
+- HSL chroma fade固定为1时，strong all-band controls让灰色移动64 codes，near-grey sky luma spread从受限状态升到84.1 codes；两条公开 case 均红并已恢复。
+- public curve LUT 禁用缺省 `(0,0)/(1,1)` endpoint insertion 时，扩展后的 midpoint/inner/explicit-endpoint case 在black pin处红；恢复后通过。
 
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 

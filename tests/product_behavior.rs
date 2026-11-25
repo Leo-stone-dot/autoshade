@@ -1298,6 +1298,84 @@ fn a_colour_range_ignores_brightness_but_rejects_a_different_hue() {
 }
 
 #[test]
+fn local_effect_activity_tracks_controls_that_render_pixels() {
+    assert!(!autoshade::render::engine_active(&LocalAdjustment::default()));
+    for adjustment in [
+        LocalAdjustment {
+            clarity: 50.0,
+            ..LocalAdjustment::default()
+        },
+        LocalAdjustment {
+            dehaze: -30.0,
+            ..LocalAdjustment::default()
+        },
+        LocalAdjustment {
+            texture: 15.0,
+            ..LocalAdjustment::default()
+        },
+        LocalAdjustment {
+            hue: 40.0,
+            ..LocalAdjustment::default()
+        },
+        LocalAdjustment {
+            sharpness: -60.0,
+            ..LocalAdjustment::default()
+        },
+    ] {
+        assert!(autoshade::render::engine_active(&adjustment));
+    }
+}
+
+#[test]
+fn local_noise_reduction_is_active_only_above_its_render_gate() {
+    let adjustment = |noise_reduction| LocalAdjustment {
+        noise_reduction,
+        ..LocalAdjustment::default()
+    };
+
+    assert!(!autoshade::render::engine_active(&adjustment(0.05)));
+    assert!(!autoshade::render::engine_active(&adjustment(0.10)));
+    assert!(autoshade::render::engine_active(&adjustment(0.15)));
+}
+
+#[test]
+fn local_point_curves_make_a_mask_active_without_gating_other_edits() {
+    let point = || {
+        vec![CurvePoint {
+            input: 64,
+            output: 96,
+        }]
+    };
+    for adjustment in [
+        LocalAdjustment {
+            main_curve: point(),
+            ..LocalAdjustment::default()
+        },
+        LocalAdjustment {
+            red_curve: point(),
+            ..LocalAdjustment::default()
+        },
+        LocalAdjustment {
+            green_curve: point(),
+            ..LocalAdjustment::default()
+        },
+        LocalAdjustment {
+            blue_curve: point(),
+            ..LocalAdjustment::default()
+        },
+    ] {
+        assert!(autoshade::render::engine_active(&adjustment));
+        let mut without_curve = adjustment;
+        without_curve.main_curve.clear();
+        without_curve.red_curve.clear();
+        without_curve.green_curve.clear();
+        without_curve.blue_curve.clear();
+        without_curve.exposure_ev = 1.0;
+        assert!(autoshade::render::engine_active(&without_curve));
+    }
+}
+
+#[test]
 fn a_float_thumbnail_does_not_gain_half_a_code() {
     let (width, height) = (37u32, 23u32);
     let value = |x: u32, y: u32, channel: u32| {

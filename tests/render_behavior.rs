@@ -1,6 +1,6 @@
 use autoshade::recipe::{
-    BrushStroke, ColorGrade, CreativeLook, CurvePoint, EditRecipe, LensProfile, LocalAdjustment,
-    MaskGeometry,
+    BrushStroke, ColorGrade, CreativeLook, CurvePoint, EditRecipe, Hsl, LensProfile,
+    LocalAdjustment, MaskGeometry,
 };
 use autoshade::render::LensBlur;
 use autoshade::retouch::{RetouchArea, RetouchShape, SpotOrigin};
@@ -1024,6 +1024,58 @@ fn hsl_saturation_changes_only_the_target_colour_family() {
             delivered.get_pixel(1, 0)
         );
     }
+}
+
+#[test]
+fn strong_hsl_band_controls_leave_grey_pixels_unchanged() {
+    let source = RgbImage::from_pixel(8, 8, Rgb([128, 128, 128]));
+    let neutral = render(&source, &EditRecipe::default());
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            hsl: Hsl {
+                saturation: [100.0; 8],
+                luminance: [100.0; 8],
+                ..Hsl::default()
+            },
+            ..EditRecipe::default()
+        },
+    );
+    let worst = neutral
+        .as_raw()
+        .iter()
+        .zip(delivered.as_raw())
+        .map(|(left, right)| left.abs_diff(*right))
+        .max()
+        .unwrap();
+
+    assert!(worst <= 1, "grey moved by {worst} codes");
+}
+
+#[test]
+fn hsl_band_controls_do_not_blotch_a_near_grey_sky() {
+    let source = RgbImage::from_fn(64, 1, |x, _| {
+        if x % 2 == 0 {
+            Rgb([181, 182, 185])
+        } else {
+            Rgb([181, 185, 184])
+        }
+    });
+    let delivered = render(
+        &source,
+        &EditRecipe {
+            hsl: Hsl {
+                luminance: [0.0, 0.0, 0.0, 0.0, 60.0, -80.0, 0.0, 0.0],
+                ..Hsl::default()
+            },
+            ..EditRecipe::default()
+        },
+    );
+    let lumas = delivered.pixels().map(luma).collect::<Vec<_>>();
+    let spread = lumas.iter().copied().fold(f64::MIN, f64::max)
+        - lumas.iter().copied().fold(f64::MAX, f64::min);
+
+    assert!(spread < 10.2, "near-grey sky luma spread is {spread} codes");
 }
 
 #[test]
