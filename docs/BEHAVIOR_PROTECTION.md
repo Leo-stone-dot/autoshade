@@ -258,6 +258,14 @@
 - brush support 由 kernel early return、kernel `.max(0)`、循环 continue、行 chord 四层共同执行；单层或三层放宽的 mutant 均存活，四层一致延伸才让 `a_brush_dab_has_a_hard_support_edge_and_is_round_in_pixels` 在 texel 360 处红。已全部恢复。
 - `mask_weight` 让 inverted 空组覆盖整帧时 `a_brush_group_with_no_drawable_dab_is_inert` 红；忽略组 inversion 时 `a_brush_groups_own_inversion_is_rendered` 红。均已恢复。
 
+- `export.rs` 的 png 与 tif 编码器忽略 `eight_bit` 时 `export_depth_follows_the_option_not_the_extension` 红；已恢复。
+- `apply_masks` 与 `mask_coverage` 的 dead-raster 守卫关闭时 `an_unresolved_ai_mask_skips_its_adjustment_instead_of_covering_the_frame` 在 `inverted=true` 处红。只把 `mask_weight` 的 `None => 0.0` 改成 `1.0` 时 case 仍绿，守卫先一步拦截；已恢复。
+- `geometry_raster_path` 对 AiMask 返回 `None` 时 `a_zone_ai_mask_renders_exactly_like_the_bitmap_it_replaced` 红；已恢复。
+- `LocalAdjustment::net_inverted` 忽略几何自带的位时 `ai_mask_import_preserves_authored_inversion_and_native_edits_win` 在 net 断言处红；渲染器 AI arm 不应用自身 inversion 时同一 case 在 coverage 断言处红。均已恢复。
+- `orient_recipe_coords` 旋转时保留 AI 蒙版的旧 alpha 时 `turning_the_frame_moves_the_ai_click_and_invalidates_its_cached_alpha` 红；一律丢弃 alpha 时 `turning_the_frame_keeps_a_zone_masks_own_alpha_and_turns_it` 红。均已恢复。
+- `cfa_taps` 的平面拟合退化为均值时 `a_linear_gradient_on_x_trans_renders_without_tile_period_chroma` 在 121 码处红（阈值 60，基线 12）；`wrap_table` 边界折叠改为镜像时 `an_x_trans_edge_does_not_ring` 与 flat 红；按帧宽折叠时 `a_flat_x_trans_mosaic_renders_flat_at_every_cfa_phase` 在 10073 码处红；R/B tap 集对调与关闭 `cfa_needs_geometry_demosaic` 分发时三条全红；四色分支不可达时 `a_four_colour_sensor_is_refused_by_name_and_renders_nothing` 红。均已恢复。
+- 已知存活 mutant：去掉 `demosaic_over_cfa_geometry` 里的 `cfa.shift(roi.x(), roi.y())`。合成 DNG 无法表达带偏移 ActiveArea 的真实 X-S10 状态，ROI 原点相位这条行为目前没有公开执行者，需要真实 X-S10 RAF 的显式 gate。
+
 这些结果比“覆盖率上涨”更能说明保护强度：测试不仅执行了代码，还证明了改坏产品行为会变红。
 
 ### 2026-11-23 当前复核新增证据

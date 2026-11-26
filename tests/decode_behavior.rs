@@ -9,6 +9,11 @@ use rawler::decoders::Orientation;
 mod support;
 
 const IDENTITY_MATRIX: [f32; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+/// The inverse of the sRGB→XYZ(D65) matrix, so a synthetic camera's RGB IS
+/// sRGB and the calibration stage is the identity on colour.
+const SRGB_CAMERA_MATRIX: [f32; 9] = [
+    3.2406, -1.5372, -0.4986, -0.9689, 1.8758, 0.0415, 0.0557, -0.2040, 1.0570,
+];
 
 fn write_raw(tree: &support::TempTree, name: &str, bytes: Vec<u8>) -> std::path::PathBuf {
     let path = tree.path().join(name);
@@ -174,6 +179,8 @@ fn a_singular_camera_matrix_is_refused_before_any_output_is_written() {
             Some([1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]),
             0,
             None,
+            None,
+            None,
         ),
     );
 
@@ -198,6 +205,8 @@ fn a_degenerate_camera_matrix_row_is_refused_by_name() {
             None,
             Some([0.5, -1.0, 0.5, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]),
             0,
+            None,
+            None,
             None,
         ),
     );
@@ -240,6 +249,8 @@ fn a_zero_or_negative_as_shot_neutral_is_refused_by_name() {
                 Some(IDENTITY_MATRIX),
                 0,
                 None,
+                None,
+                None,
             ),
         );
 
@@ -272,6 +283,8 @@ fn a_corrupt_fourth_wb_coefficient_is_refused_and_a_valid_one_renders() {
             Some(IDENTITY_MATRIX),
             0,
             None,
+            None,
+            None,
         ),
     );
     let (error, output) = render_error(&corrupt);
@@ -297,6 +310,8 @@ fn a_corrupt_fourth_wb_coefficient_is_refused_and_a_valid_one_renders() {
             Some(IDENTITY_MATRIX),
             0,
             None,
+            None,
+            None,
         ),
     );
     let rendered = autoshade::render::render_to_image(&valid, &EditRecipe::default(), None, None)
@@ -317,6 +332,8 @@ fn a_raw_without_as_shot_neutral_renders_with_the_unknown_convention() {
             None,
             Some(IDENTITY_MATRIX),
             0,
+            None,
+            None,
             None,
         ),
     );
@@ -355,6 +372,8 @@ fn sub_black_noise_reaches_the_demosaic_instead_of_being_clamped() {
                 Some(IDENTITY_MATRIX),
                 512,
                 Some(mosaic),
+                None,
+                None,
             ),
         );
         let rendered =
@@ -375,6 +394,156 @@ fn sub_black_noise_reaches_the_demosaic_instead_of_being_clamped() {
         (straddling_mean / clamped_mean - 1.0).abs() > 0.05,
         "sub-black noise was clamped before the demosaic: {straddling_mean} vs {clamped_mean}"
     );
+}
+
+const XTRANS_XS10: &str = "GGRGGBGGBGGRBRGRBGGGBGGRGGRGGBRBGBRG";
+
+fn unsharpened_recipe() -> EditRecipe {
+    EditRecipe {
+        sharpening: 0.0,
+        explicit_zero: vec!["sharpening".to_string()],
+        ..EditRecipe::default()
+    }
+}
+
+fn xtrans_dng(
+    tree: &support::TempTree,
+    name: &str,
+    width: usize,
+    height: usize,
+    truth: impl Fn(usize, usize) -> [f32; 3],
+) -> std::path::PathBuf {
+    let cfa = rawler::cfa::CFA::new(XTRANS_XS10);
+    let mosaic = (0..width * height)
+        .map(|i| {
+            let (row, col) = (i / width, i % width);
+            (truth(row, col)[cfa.color_at(row, col)] * 4095.0).round() as u16
+        })
+        .collect();
+    write_raw(
+        tree,
+        name,
+        support::synthetic_dng_with(
+            width,
+            height,
+            Orientation::Normal,
+            None,
+            Some(SRGB_CAMERA_MATRIX),
+            0,
+            Some(mosaic),
+            Some(XTRANS_XS10),
+            None,
+        ),
+    )
+}
+
+#[test]
+fn a_flat_x_trans_mosaic_renders_flat_at_every_cfa_phase() {
+    let tree = support::TempTree::new("xtrans-flat");
+    // 70 is not a whole number of 6-photo-site repeats, so the border ring
+    // folds by the largest whole span inside the frame.
+    let path = xtrans_dng(&tree, "flat.dng", 70, 70, |_, _| [0.2, 0.5, 0.3]);
+
+    let rendered =
+        autoshade::render::render_to_image(&path, &unsharpened_recipe(), None, None).unwrap();
+    assert_eq!(rendered.dimensions(), (70, 70));
+    let first = rendered.to_rgb16().get_pixel(0, 0).0;
+    let worst = rendered
+        .to_rgb16()
+        .pixels()
+        .flat_map(|pixel| pixel.0)
+        .zip(first.iter().cycle())
+        .map(|(value, reference)| value.abs_diff(*reference))
+        .max()
+        .unwrap();
+    assert!(worst <= 2, "a flat X-Trans mosaic is not flat at every phase: {worst} codes");
+}
+
+fn srgb_encode(linear: f32) -> f32 {
+    if linear <= 0.003_130_8 {
+        linear * 12.92
+    } else {
+        1.055 * linear.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+#[test]
+fn a_four_colour_sensor_is_refused_by_name_and_renders_nothing() {
+    let tree = support::TempTree::new("four-colour");
+    let path = write_raw(
+        &tree,
+        "rgbe.dng",
+        support::synthetic_dng_with(
+            8,
+            8,
+            Orientation::Normal,
+            None,
+            Some(SRGB_CAMERA_MATRIX),
+            0,
+            None,
+            Some("RGBE"),
+            None,
+        ),
+    );
+
+    let (error, output) = render_error(&path);
+    let text = format!("{error:#}");
+    assert!(text.contains("a 4-colour RGBC sensor"), "{text}");
+    assert!(!output.exists(), "a refused render wrote {}", output.display());
+}
+
+#[test]
+fn a_linear_gradient_on_x_trans_renders_without_tile_period_chroma() {
+    let tree = support::TempTree::new("xtrans-gradient");
+    let truth = |row: usize, col: usize| {
+        let t = 0.1 + 0.6 * col as f32 / 71.0 + 0.2 * row as f32 / 71.0;
+        [0.4 * t, t, 0.6 * t]
+    };
+    let path = xtrans_dng(&tree, "gradient.dng", 72, 72, truth);
+
+    let rendered =
+        autoshade::render::render_to_image(&path, &unsharpened_recipe(), None, None).unwrap();
+    assert_eq!(rendered.dimensions(), (72, 72));
+    let rgb = rendered.to_rgb16();
+    let mut worst = 0u32;
+    for (index, pixel) in rgb.pixels().enumerate() {
+        let (row, col) = (index / 72, index % 72);
+        if row < 8 || col < 8 || row + 8 >= 72 || col + 8 >= 72 {
+            continue;
+        }
+        for channel in 0..3 {
+            let expected = (srgb_encode(truth(row, col)[channel]) * 65535.0).round() as i32;
+            worst = worst.max(i32::from(pixel.0[channel]).abs_diff(expected));
+        }
+    }
+    assert!(worst <= 60, "the X-Trans gradient drifted {worst} codes from the truth at some interior pixel");
+}
+
+#[test]
+fn an_x_trans_edge_does_not_ring() {
+    let tree = support::TempTree::new("xtrans-edge");
+    let path = xtrans_dng(&tree, "edge.dng", 72, 72, |_, col| {
+            let t = if col < 36 { 0.3 } else { 0.7 };
+            [0.4 * t, t, 0.6 * t]
+        });
+
+    let rendered =
+        autoshade::render::render_to_image(&path, &unsharpened_recipe(), None, None).unwrap();
+    let rgb = rendered.to_rgb16();
+    let flat = |x: u32| rgb.get_pixel(x, 30).0;
+    let (low, high) = (flat(5), flat(54));
+    for pixel in rgb.pixels() {
+        for channel in 0..3 {
+            let value = i32::from(pixel.0[channel]);
+            assert!(
+                value <= i32::from(high[channel]) + 2 && value + 2 >= i32::from(low[channel]),
+                "edge rang outside [{:?}, {:?}]: {:?}",
+                low,
+                high,
+                pixel.0
+            );
+        }
+    }
 }
 
 #[test]

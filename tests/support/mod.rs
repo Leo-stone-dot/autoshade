@@ -113,14 +113,18 @@ pub fn synthetic_dng(
         with_color_matrix.then_some([1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]),
         0,
         None,
+        None,
+        None,
     )
 }
 
 /// [`synthetic_dng`] with the calibration a case needs to vary: the D65
 /// colour matrix (row-major xyz→cam), the black level every CFA site shares,
-/// and the mosaic itself. A supplied mosaic must fill the frame; a short one
-/// panics rather than turning the case into a false pass.
+/// the mosaic itself, the CFA repeat pattern (`None` = RGGB) and an active
+/// area offset from the frame origin. A supplied mosaic must fill the frame; a
+/// short one panics rather than turning the case into a false pass.
 #[allow(dead_code)]
+#[allow(clippy::too_many_arguments)] // one field per DNG tag the fixture can vary
 pub fn synthetic_dng_with(
     width: usize,
     height: usize,
@@ -129,9 +133,11 @@ pub fn synthetic_dng_with(
     color_matrix: Option<[f32; 9]>,
     black_level: u16,
     pixels: Option<Vec<u16>>,
+    cfa: Option<&str>,
+    active_area: Option<rawler::imgop::Rect>,
 ) -> Vec<u8> {
     let mut camera = Camera::new();
-    camera.cfa = CFA::new("RGGB");
+    camera.cfa = CFA::new(cfa.unwrap_or("RGGB"));
     camera.clean_make = "Synthetic".to_string();
     camera.clean_model = "NoPreview".to_string();
     if let Some(matrix) = color_matrix {
@@ -151,7 +157,7 @@ pub fn synthetic_dng_with(
         "the synthetic mosaic must fill the declared frame"
     );
     let photometric = RawPhotometricInterpretation::Cfa(CFAConfig::new_from_camera(&camera));
-    let raw = RawImage::new(
+    let mut raw = RawImage::new(
         camera,
         PixU16::new_with(pixels, width, height),
         1,
@@ -161,6 +167,7 @@ pub fn synthetic_dng_with(
         Some(WhiteLevel::new_bits(12, 1)),
         false,
     );
+    raw.active_area = active_area;
     let mut buffer = Cursor::new(Vec::new());
     let mut dng = DngWriter::new(&mut buffer, DNG_VERSION_V1_4).unwrap();
     dng.load_base_tags(&raw).unwrap();
@@ -168,7 +175,11 @@ pub fn synthetic_dng_with(
     frame
         .raw_image(
             &raw,
-            CropMode::None,
+            if active_area.is_some() {
+                CropMode::ActiveArea
+            } else {
+                CropMode::None
+            },
             DngCompression::Uncompressed,
             DngPhotometricConversion::Original,
             1,

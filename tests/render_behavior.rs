@@ -2293,6 +2293,338 @@ fn a_brush_groups_own_inversion_is_rendered() {
     }
 }
 
+fn unresolved_ai_mask(inverted: bool) -> LocalAdjustment {
+    LocalAdjustment {
+        name: "Sky".to_string(),
+        inverted,
+        exposure_ev: 3.0,
+        mask: MaskGeometry::AiMask {
+            name: "Sky 1".to_string(),
+            subtype: 2,
+            ref_x: 0.5,
+            ref_y: 0.3,
+            blend_mode: 0,
+            value: 1.0,
+            inverted: false,
+            mask_version: 1,
+            provenance: Vec::new(),
+            gesture: Vec::new(),
+            raster: None,
+        },
+        ..LocalAdjustment::default()
+    }
+}
+
+fn without_recipe_payload(mut xmp: String) -> String {
+    for name in ["asr:Recipe", "asr:RecipeCrc32"] {
+        let marker = format!(" {name}=\"");
+        while let Some(start) = xmp.find(&marker) {
+            let value = start + marker.len();
+            let end = value + xmp[value..].find('"').unwrap() + 1;
+            xmp.replace_range(start..end, "");
+        }
+    }
+    xmp
+}
+
+#[test]
+fn export_depth_follows_the_option_not_the_extension() {
+    let tree = support::TempTree::new("export-depth");
+    let source = tree.path().join("in.png");
+    RgbImage::from_fn(12, 8, |x, y| Rgb([(x * 20) as u8, (y * 30) as u8, 90]))
+        .save(&source)
+        .unwrap();
+    for (name, eight_bit, want8) in [
+        ("d16.png", false, false),
+        ("d8.png", true, true),
+        ("d16.tif", false, false),
+        ("d8.tif", true, true),
+    ] {
+        let output = tree.path().join(name);
+        autoshade::render::render_to_file(
+            &source,
+            &EditRecipe::default(),
+            &output,
+            None,
+            Some(&autoshade::render::ExportOpts {
+                eight_bit,
+                ..autoshade::render::ExportOpts::default()
+            }),
+            autoshade::diag::silent(),
+        )
+        .unwrap();
+        let delivered = image::open(&output).unwrap();
+        let got8 = matches!(
+            delivered.color(),
+            image::ColorType::Rgb8 | image::ColorType::Rgba8
+        );
+        assert_eq!(got8, want8, "{name}: {:?}", delivered.color());
+    }
+}
+
+#[test]
+fn an_unresolved_ai_mask_skips_its_adjustment_instead_of_covering_the_frame() {
+    let unresolved = unresolved_ai_mask(false);
+    assert!(autoshade::render::is_raster_backed(&unresolved.mask));
+    assert!(autoshade::render::geometry_raster_path(&unresolved.mask).is_none());
+
+    let reference = DynamicImage::ImageRgb8(RgbImage::from_pixel(8, 8, Rgb([100; 3])));
+    let neutral = render(
+        &RgbImage::from_pixel(8, 8, Rgb([100; 3])),
+        &EditRecipe::default(),
+    );
+    for inverted in [false, true] {
+        let coverage = autoshade::render::mask_coverage(
+            &unresolved_ai_mask(inverted),
+            &reference,
+            autoshade::render::MaskFrame::AsRendered,
+        );
+        assert!(coverage.pixels().all(|pixel| pixel[0] == 0), "inverted={inverted}");
+        let delivered = render(
+            &RgbImage::from_pixel(8, 8, Rgb([100; 3])),
+            &EditRecipe {
+                masks: vec![unresolved_ai_mask(inverted)],
+                ..EditRecipe::default()
+            },
+        );
+        assert!(
+            delivered.as_raw() == neutral.as_raw(),
+            "inverted={inverted}: an unresolved AI mask moved the frame"
+        );
+    }
+
+    let tree = support::TempTree::new("ai-mask-resolved");
+    let alpha = tree.path().join("alpha.png");
+    image::GrayImage::from_pixel(4, 4, image::Luma([255]))
+        .save(&alpha)
+        .unwrap();
+    let mut resolved = unresolved_ai_mask(false);
+    let MaskGeometry::AiMask { raster, .. } = &mut resolved.mask else {
+        unreachable!()
+    };
+    *raster = Some(alpha.to_string_lossy().into_owned());
+    assert_eq!(
+        autoshade::render::geometry_raster_path(&resolved.mask),
+        Some(alpha.to_string_lossy().as_ref())
+    );
+    let coverage = autoshade::render::mask_coverage(
+        &resolved,
+        &reference,
+        autoshade::render::MaskFrame::AsRendered,
+    );
+    assert!(
+        coverage.pixels().all(|pixel| pixel[0] == 255),
+        "a resolved alpha must cover the frame"
+    );
+}
+
+#[test]
+fn a_zone_ai_mask_renders_exactly_like_the_bitmap_it_replaced() {
+    let tree = support::TempTree::new("zone-ai-render");
+    let alpha = tree.path().join("mask-zone-sky.png");
+    image::GrayImage::from_fn(16, 16, |_, y| {
+        image::Luma([match y {
+            0..=5 => 255,
+            6 => 160,
+            7 => 64,
+            _ => 0,
+        }])
+    })
+    .save(&alpha)
+    .unwrap();
+    let path = alpha.to_string_lossy().into_owned();
+    let source = RgbImage::from_fn(24, 16, |x, y| {
+        Rgb([40 + (x * 7 % 180) as u8, 60 + (y * 5 % 160) as u8, 120])
+    });
+    let plain = render(&source, &EditRecipe::default());
+    for (inverted, role) in [
+        (false, autoshade::recipe::MaskRole::ZoneSky),
+        (true, autoshade::recipe::MaskRole::ZoneLand),
+    ] {
+        let zone = |mask: MaskGeometry| {
+            EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask,
+                    role,
+                    inverted,
+                    exposure_ev: -0.7,
+                    saturation: 18.0,
+                    color_gains: Some([1.12, 0.98, 0.87]),
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            }
+        };
+        let was = render(&source, &zone(MaskGeometry::Bitmap { path: path.clone() }));
+        let now = render(
+            &source,
+            &zone(MaskGeometry::select_sky(0.5, 0.2, false, path.clone())),
+        );
+        assert!(
+            was.as_raw() == now.as_raw(),
+            "inverted={inverted}: the Select Sky carrier must render the bitmap's pixels"
+        );
+        assert!(plain.as_raw() != now.as_raw(), "inverted={inverted}: the zone must change the render");
+    }
+    let arm = |inverted: bool| {
+        render(
+            &source,
+            &EditRecipe {
+                masks: vec![LocalAdjustment {
+                    mask: MaskGeometry::select_sky(0.5, 0.2, false, path.clone()),
+                    role: autoshade::recipe::MaskRole::ZoneSky,
+                    inverted,
+                    exposure_ev: -0.7,
+                    ..LocalAdjustment::default()
+                }],
+                ..EditRecipe::default()
+            },
+        )
+    };
+    assert!(arm(false).as_raw() != arm(true).as_raw(), "the inversion must reach the pixels");
+}
+
+#[test]
+fn ai_mask_import_preserves_authored_inversion_and_native_edits_win() {
+    let tree = support::TempTree::new("ai-import-inversion");
+    let alpha = tree.path().join("alpha.png");
+    image::GrayImage::from_fn(8, 8, |x, _| image::Luma([(x * 32) as u8]))
+        .save(&alpha)
+        .unwrap();
+    let path = alpha.to_string_lossy().into_owned();
+    let recipe = |inverted: bool| {
+        EditRecipe {
+            masks: vec![LocalAdjustment {
+                mask: MaskGeometry::select_sky(0.5, 0.25, false, path.clone()),
+                role: autoshade::recipe::MaskRole::ZoneLand,
+                inverted,
+                exposure_ev: -0.5,
+                ..LocalAdjustment::default()
+            }],
+            ..EditRecipe::default()
+        }
+    };
+    let strip_intent = |mut text: String| {
+        while let Some(start) = text.find(" ash:") {
+            let value = start + text[start..].find("=\"").unwrap() + 2;
+            let end = value + text[value..].find('"').unwrap() + 1;
+            text.replace_range(start..end, "");
+        }
+        text
+    };
+    let exported = |inverted: bool| {
+        strip_intent(without_recipe_payload(autoshade::xmp::recipe_to_xmp(
+            &recipe(inverted),
+        )))
+    };
+    let authored_inv = exported(true);
+    let authored_up = exported(false);
+    assert!(authored_inv.contains(r#"crs:MaskInverted="true""#), "{authored_inv}");
+    let edited_up = authored_inv.replace(r#"crs:MaskInverted="true""#, r#"crs:MaskInverted="false""#);
+    let edited_inv = authored_up.replace(r#"crs:MaskInverted="false""#, r#"crs:MaskInverted="true""#);
+    let reference = DynamicImage::ImageRgb8(RgbImage::from_pixel(8, 8, Rgb([100; 3])));
+    for (label, text, want_inverted) in [
+        ("native inverted", &authored_inv, true),
+        ("native upright", &authored_up, false),
+        ("native edit upright", &edited_up, false),
+        ("native edit inverted", &edited_inv, true),
+    ] {
+        let imported = autoshade::xmp::xmp_to_recipe(text);
+        assert_eq!(imported.masks.len(), 1, "{label}");
+        let mask = &imported.masks[0];
+        assert_eq!(mask.net_inverted(), want_inverted, "{label}: the native net wins");
+        let mut resolved = mask.clone();
+        let MaskGeometry::AiMask { raster, .. } = &mut resolved.mask else {
+            panic!("{label}: expected the Select Sky component back")
+        };
+        *raster = Some(path.clone());
+        let coverage = autoshade::render::mask_coverage(
+            &resolved,
+            &reference,
+            autoshade::render::MaskFrame::AsRendered,
+        );
+        let left = f32::from(coverage.get_pixel(1, 4)[0]) / 255.0;
+        let right = f32::from(coverage.get_pixel(7, 4)[0]) / 255.0;
+        assert!(
+            if want_inverted { left > right } else { left < right },
+            "{label}: coverage must be the {} alpha (left {left}, right {right})",
+            if want_inverted { "complement of the" } else { "upright" }
+        );
+    }
+}
+
+#[test]
+fn turning_the_frame_moves_the_ai_click_and_invalidates_its_cached_alpha() {
+    let mut recipe = EditRecipe {
+        coord_era: 0,
+        masks: vec![LocalAdjustment {
+            exposure_ev: 1.0,
+            mask: MaskGeometry::AiMask {
+                name: "Sky 1".to_string(),
+                subtype: 2,
+                ref_x: 0.25,
+                ref_y: 0.10,
+                blend_mode: 0,
+                value: 1.0,
+                inverted: false,
+                mask_version: 1,
+                provenance: Vec::new(),
+                gesture: Vec::new(),
+                raster: Some("stale.png".to_string()),
+            },
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    assert!(autoshade::render::recipe_has_frame_coords(&recipe));
+    assert!(autoshade::render::orient_recipe_coords(
+        &mut recipe,
+        Orientation::Rotate90,
+        probe_frame()
+    ));
+    let MaskGeometry::AiMask { ref_x, ref_y, raster, .. } = &recipe.masks[0].mask else {
+        panic!("the geometry must survive the migration")
+    };
+    assert_ne!((*ref_x, *ref_y), (0.25, 0.10), "the click moved with the frame");
+    assert!(raster.is_none(), "the alpha from the OLD frame must not be reused");
+}
+
+#[test]
+fn turning_the_frame_keeps_a_zone_masks_own_alpha_and_turns_it() {
+    let mut recipe = EditRecipe {
+        coord_era: 0,
+        masks: vec![LocalAdjustment {
+            exposure_ev: 1.0,
+            role: autoshade::recipe::MaskRole::ZoneSky,
+            mask: MaskGeometry::select_sky(0.25, 0.10, false, "mask-zone-sky.png".to_string()),
+            ..LocalAdjustment::default()
+        }],
+        ..EditRecipe::default()
+    };
+    assert_eq!(
+        recipe.masks[0]
+            .turnable_raster_paths_mut()
+            .into_iter()
+            .map(|path| path.to_string())
+            .collect::<Vec<_>>(),
+        vec!["mask-zone-sky.png".to_string()]
+    );
+    assert!(autoshade::render::orient_recipe_coords(
+        &mut recipe,
+        Orientation::Rotate90,
+        probe_frame()
+    ));
+    let MaskGeometry::AiMask { ref_x, ref_y, raster, .. } = &recipe.masks[0].mask else {
+        panic!("the geometry must survive the migration")
+    };
+    assert_ne!((*ref_x, *ref_y), (0.25, 0.10), "the click still moves with the frame");
+    assert_eq!(
+        raster.as_deref(),
+        Some("mask-zone-sky.png"),
+        "the fit's own alpha is kept for phase 1 to turn, never dropped"
+    );
+}
+
 #[test]
 fn export_with_an_unreadable_active_mask_writes_nothing_and_names_the_mask() {
     let tree = support::TempTree::new("render-unreadable-mask-export");

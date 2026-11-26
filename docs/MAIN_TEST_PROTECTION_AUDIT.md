@@ -4262,6 +4262,120 @@ Main case `the_brush_raster_size_policy_is_bounded_three_ways` 断言私有纯�
 至此 `src/render/tests/brush.rs` 的 12 个 main cases 全部裁决：11 条 `rewritten`、1 条
 `drop`，0 条 `open`。
 
+## Render：AI 蒙版、导出位深与 X-Trans 去马赛克
+
+### 导出位深由选项决定
+
+- Main case：`export_depth_follows_the_option_not_the_extension`
+- 当前 case：`tests/render_behavior.rs`，同名
+- 状态：`rewritten`
+- Gate：默认
+
+公开 `render_to_file` 对同一张 PNG 源，`.png` 与 `.tif` 各自的 8/16 位只跟随
+`ExportOpts::eight_bit`。让两个编码器忽略该选项时 `d8.png` 读回 Rgb16，case 红；已恢复。
+
+### 未解析的 AI 蒙版不覆盖整帧
+
+- Main case：`an_unresolved_ai_mask_skips_its_adjustment_instead_of_covering_the_frame`
+- 当前 case：`tests/render_behavior.rs`，同名
+- 状态：`rewritten`
+- Gate：默认
+
+没有 alpha 的 AI 蒙版在两种 inversion 下 `mask_coverage` 全 0，渲染与中性帧逐字节相同；
+补上 alpha 后覆盖整帧。把 `mask_weight` 的 `None => 0.0` 改成 `1.0` 时 case 仍绿，因为
+`apply_masks` 与 `mask_coverage` 的 dead-raster 守卫先一步拦下；关掉这两道守卫时 case 在
+`inverted=true` 处红。守卫才是这条行为的执行者，已恢复。
+
+### Zone 的 Select Sky 载体与它替换的 Bitmap 渲染一致
+
+- Main case：`a_zone_ai_mask_renders_exactly_like_the_bitmap_it_replaced`
+- 当前 case：`tests/render_behavior.rs`，同名
+- 状态：`rewritten`
+- Gate：默认
+
+sky 与 land 两个 zone、inverted 与否四种组合下，Select Sky 载体的渲染与同一张 alpha 的
+`Bitmap` 逐字节相同，且与无蒙版渲染不同；arm 自身的 inversion 到达像素。让
+`geometry_raster_path` 对 AiMask 返回 `None` 时 case 红；已恢复。
+
+### 导入保留 authored inversion，原生编辑优先
+
+- Main case：`ai_mask_import_preserves_authored_inversion_and_native_edits_win`
+- 当前 case：`tests/render_behavior.rs`，同名
+- 状态：`rewritten`
+- Gate：默认
+
+去掉 recipe payload 的 XMP 往返写出 `crs:MaskInverted`；原生改写该位后 `net_inverted`
+跟随原生值，`mask_coverage` 恰在 net 为 inverted 时给出 alpha 的补集。让
+`LocalAdjustment::net_inverted` 忽略几何自带的位时在 net 断言处红；让渲染器的 AI arm
+不应用自身 inversion 时在 coverage 断言处红。均已恢复。
+
+### 旋转移动 AI 点击并丢弃旧 alpha
+
+- Main case：`turning_the_frame_moves_the_ai_click_and_invalidates_its_cached_alpha`
+- 当前 case：`tests/render_behavior.rs`，同名
+- 状态：`rewritten`
+- Gate：默认
+
+`orient_recipe_coords` Rotate90 后点击坐标移动，旧帧分割的 alpha 被清空。旋转时保留旧
+alpha 时 case 红；已恢复。
+
+### 旋转保留 zone 自有 alpha 并转动它
+
+- Main case：`turning_the_frame_keeps_a_zone_masks_own_alpha_and_turns_it`
+- 当前 case：`tests/render_behavior.rs`，同名
+- 状态：`rewritten`
+- Gate：默认
+
+zone 蒙版在 `turnable_raster_paths_mut` 中列出自己的 alpha，转过四分之一圈后 alpha 仍在、
+点击已移动。旋转时一律丢弃 alpha 时 case 红；已恢复。
+
+### X-Trans tile 与 Bayer chroma 公理是依赖事实
+
+`the_x_trans_tile_is_four_green_blocks_and_four_isolated_greens` 的每条断言都是 rawler
+`CFA::new` 对 X-S10 pattern 字符串的解析结果（6×6 周期、8/20/8 颜色计数、四个 2×2 绿块）；
+`the_bayer_chroma_axiom_fails_sixteen_times_per_x_trans_tile` 数的是 pattern 上的绿绿相邻对，
+用来解释 rawler PPG 在 X-Trans 上丢色度。两条都不断言 AutoShade 的输出，归为 `drop`。
+它们解释的产品后果由下面的公开渲染执行：把 X-Trans 路由回 rawler 去马赛克时，flat、
+gradient、edge 三条渲染全红，并复现 R、B 通道整片为 0 的原始缺陷。
+
+### 平坦、渐变与边缘的公开渲染
+
+- Main cases：`the_cfa_geometry_demosaic_is_exact_on_flat_colour_at_every_phase`、
+  `the_cfa_geometry_demosaic_is_exact_on_a_linear_gradient`、
+  `out_of_frame_taps_fold_by_whole_cfa_repeats`、
+  `only_a_non_two_by_two_rgb_cfa_takes_the_geometry_path`
+- 当前 cases：`tests/decode_behavior.rs` 的
+  `a_flat_x_trans_mosaic_renders_flat_at_every_cfa_phase`、
+  `a_linear_gradient_on_x_trans_renders_without_tile_period_chroma`、
+  `an_x_trans_edge_does_not_ring`、
+  `a_four_colour_sensor_is_refused_by_name_and_renders_nothing`
+- 状态：gradient、fold、dispatch 三条 `rewritten`；flat 一条 `open`
+- Gate：默认
+
+合成 X-Trans DNG 走公开 `render_to_image`。70×70（不是 6 的整数倍）的平坦图每个像素与
+首像素相差不超过 2 码；线性渐变的每个内部像素与 sRGB 编码的真值相差不超过 60 码（实测
+12）；硬边缘没有振铃。四色 DNG 被具名拒绝且不写输出。
+
+逐条 mutation：平面拟合退化为均值时 gradient 在 121 码处红；边界折叠改为镜像时 edge 与
+flat 红；按帧宽而非最大整周期折叠时 flat 在 10073 码处红；R/B tap 集对调时三条全红；
+关闭分发时三条全红；四色分支不可达时拒绝文案变成通用句、case 红。均已恢复。
+
+`every_cfa_tap_set_is_a_normalised_convex_combination` 归为 `drop`：tap 数量与 fallback
+半径是私有布局；权重和不为 1 会缩放平坦色并由 flat 渲染执行，负 tap 会振铃并由 edge
+渲染执行。
+
+**未关闭的断言。** main 的 flat case 用私有调用传入自定义 ROI，保护“ROI 原点不在 tile
+边界时保持真实相位”（X-S10 的 active area 从 y=5 开始）。公开路径无法构造这个状态：
+rawler 的 DNG writer 与 reader 不能往返一个带偏移 ActiveArea 的文件，三种构造（裁剪到
+active area、不裁剪、预平移 pattern）渲染都不平坦。因此去掉 `cfa.shift(roi)` 的 mutant
+存活，flat 这一行保持 `open`，需要一个真实 X-S10 RAF 放在显式 gate 下才能关闭。
+
+`only_a_non_two_by_two_rgb_cfa_takes_the_geometry_path` 中“2×2 Bayer 留在 rawler 自己的
+develop 上”不可公开观测（几何路径对 Bayer 的渲染结果相同），不迁移。
+
+至此 `src/render/tests/ai_masks_and_cfa.rs` 的 13 个 main cases 裁决为：9 条 `rewritten`、
+3 条 `drop`、1 条 `open`。
+
 ## 当前公开引擎基线
 
 以下当前测试文件已按新原则重写 main 中的一批底层事实。它们进入本审计的基线，但
